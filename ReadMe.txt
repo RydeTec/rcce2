@@ -11,13 +11,50 @@ If you have write privleges you are limited to the following:
 
 
 How to use source:
-1. Download the program SourceTree
+1. Create a bitbucket account
+2. Request source access on the RCCE forums
+3. Download the program SourceTree and launch it
+4. Click Settings
+5. Click Advanced Tab
+6. In User information put your name and EMail you used on bitbucket
 2. Goto https://bitbucket.org/rcce/rcce2 and click "Clone in Source Tree"
 3. You will now be able to download the latest stable source.
 
 To Refresh:
 Click Fetch and it will fetch the latest version.
 
+
+For Developers
+
 To Create a New Branch to work on a feature or bug:
-Click Git Flow
+1. Click Git Flow
+2. Click "Start New Feature" or Hotfix for bug
+3. Name your feature (keep latest development branch)
+4. Click OK
+5. It will create a new branch for you to work with for that feature.
+6. Once you have the feature 100% working and ready to merge with the latest development branch:
+	1. Make sure you have the correct branch selected
+	2. Click Git Flow
+	3. Click Finish Feature
+	4. Keep the defaults
+	5. Click OK
+
+To start work on a new version:
+1. Double click the development branch to switch to it
+2. Click Branch
+3. Name the version "version/*.*.*" without quotes and with numbers replacing the *
+4. Click Specified Commit
+5. Determine the commit you would like to turn into a new version
+6. Click Create Branch
+7. You can now submit that branch for possible release
+
+To submit a version for release:
+1. PM Ryandeanrocks on the forums which version is ready for release
+2. Currently only he has access to push to the release branch
+
+Notes for Developers:
+-Always branch your features and bugs into the development branch but not until they are ready
+-Always branch from the development branch to work on new features and bugs, otherwise you may be working with outdated code
+-Always branch from the development branch to create new versions or update other versions no other branch should become a version
+	
 
