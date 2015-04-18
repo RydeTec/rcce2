@@ -1,0 +1,241 @@
+<html>
+
+	<head>
+		<style type="text/css">
+		<!--
+			body
+			{
+				color:black
+				background-color:white
+			}
+			a:link{ color:#0070FF }
+			a:visited{ color:#0070FF }
+		-->
+		</style>
+
+		<title>Realm Crafter Pro Documentation</title>
+	</head>
+
+	<body>
+		<p><b>Environment.bb</b></p>
+
+		<p>
+			This module contains the following constants: <br>
+			<ul>
+				<li><a href="#CW">W_...</a></li>
+			</ul>
+		</p>
+
+		<p>
+			This module contains the following globals: <br>
+			<ul>
+				<li><a href="#GSeasonName">SeasonName$(11)</a></li>
+				<li><a href="#GSeasonStartDay">SeasonStartDay(11)</a></li>
+				<li><a href="#GSeasonDuskH">SeasonDuskH(11)</a></li>
+				<li><a href="#GSeasonDawnH">SeasonDawnH(11)</a></li>
+				<li><a href="#GMonthName">MonthName$(19)</a></li>
+				<li><a href="#GMonthStartDay">MonthStartDay(19)</a></li>
+				<li><a href="#GCurrentSeason">CurrentSeason</a></li>
+				<li><a href="#GYear">Year</a></li>
+				<li><a href="#GDay">Day</a></li>
+				<li><a href="#GTimeH">TimeH</a></li>
+				<li><a href="#GTimeM">TimeM</a></li>
+				<li><a href="#GTimeFactor">TimeFactor</a></li>
+				<li><a href="#GTimeUpdate">TimeUpdate</a></li>
+				<li><a href="#GHourChanged">HourChanged</a></li>
+				<li><a href="#GMinuteChanged">MinuteChanged</a></li>
+			</ul>
+		</p>
+
+		<p>
+			This module contains the following types: <br>
+			<ul>
+				<li><a href="#TSun">Sun</a></li>
+			</ul>
+		</p>
+
+		<p>
+			This module contains the following functions: <br>
+			<ul>
+				<li><a href="#FLoadEnvironment">LoadEnvironment</a></li>
+				<li><a href="#FSaveEnvironment">SaveEnvironment</a></li>
+				<li><a href="#FGetSeason">GetSeason</a></li>
+				<li><a href="#FGetMonth">GetMonth</a></li>
+				<li><a href="#FUpdateEnvironment">UpdateEnvironment</a></li>
+				<li><a href="#FLoadSuns">LoadSuns</a></li>
+				<li><a href="#FSaveSuns">SaveSuns</a></li>
+				<li><a href="#FTimeDelta">TimeDelta</a></li>
+			</ul>
+		</p>
+
+		<br><hr>
+
+		<br>
+		<p><b><a name="CW">W_... (constant)</a></b><br><br>
+		This list of constants specifies the different weather types built into the engine.</p>
+
+		<br><hr>
+
+		<br>
+		<p><b><a name="GSeasonName">SeasonName$(11) (global)</a></b><br><br>
+		This global array stores the names of up to 12 seasons.</p>
+
+		<br>
+		<p><b><a name="GSeasonStartDay">SeasonStartDay(11) (global)</a></b><br><br>
+		This global array stores the day of the year for the start of up to 12 seasons.</p>
+
+		<br>
+		<p><b><a name="GSeasonDuskH">SeasonDuskH(11) (global)</a></b><br><br>
+		This global array stores the hour of dusk for up to 12 seasons.</p>
+
+		<br>
+		<p><b><a name="GSeasonDawnH">SeasonDawnH(11) (global)</a></b><br><br>
+		This global array stores the hour of dawn for up to 12 seasons.</p>
+
+		<p><b><a name="GSeasonName">MonthName$(19) (global)</a></b><br><br>
+		This global array stores the names of up to 20 months.</p>
+
+		<br>
+		<p><b><a name="GMonthStartDay">MonthStartDay(19) (global)</a></b><br><br>
+		This global array stores the day of the year for the start of up to 20 months.</p>
+
+		<br>
+		<p><b><a name="GCurrentSeason">CurrentSeason (global)</a></b><br><br>
+		This global variable stores the number of the current game season, numbered 0 to 11.</p>
+
+		<br>
+		<p><b><a name="GYear">Year (global)</a></b><br><br>
+		This global variable stores the current game year.</p>
+
+		<br>
+		<p><b><a name="GDay">Day (global)</a></b><br><br>
+		This global variable stores the current game day of the year (starting from 0).</p>
+
+		<br>
+		<p><b><a name="GTimeH">TimeH (global)</a></b><br><br>
+		This global variable stores the hour of the current game time of day. The clock is a 24 hour one so values range from 0 to
+		23.</p>
+
+		<br>
+		<p><b><a name="GTimeM">TimeM (global)</a></b><br><br>
+		This global variable stores the minute of the current game time of day. Values range from 0 to 59.</p>
+
+		<br>
+		<p><b><a name="GTimeFactor">TimeFactor (global)</a></b><br><br>
+		This global variable stores the speed at which time passes in the game. A factor of 10 would mean that time progresses in the
+		game 10x faster than real time, i.e. 1 minute of real time equals 6 seconds of game time.</p>
+
+		<br>
+		<p><b><a name="GTimeUpdate">TimeUpdate (global)</a></b><br><br>
+		This global variable stores the system time in milliseconds (from the Blitz Millisecs command) at which the game time was
+		last updated. This is used by the <a href="#FUpdateEnvironment">UpdateEnvironment</a> function for knowing when to increment
+		the game time by a minute.</p>
+
+		<br>
+		<p><b><a name="GHourChanged">HourChanged (global)</a></b><br><br>
+		This global variable contains either True or False depending on whether the hour component of the game time changed during
+		the last call to <a href="#FUpdateEnvironment">UpdateEnvironment</a>.</p>
+
+		<br>
+		<p><b><a name="GMinuteChanged">MinuteChanged (global)</a></b><br><br>
+		This global variable contains either True or False depending on whether the minute component of the game time changed during
+		the last call to <a href="#FUpdateEnvironment">UpdateEnvironment</a>.</p>
+
+		<br><hr>
+
+		<br>
+		<p><b><a name="TSun">Sun (type)</a></b><br><br>
+		This type represents a sun (or a moon -- all such objects are referred to as suns in the code). It stores an entity handle for
+		the sun itself, another for a light, another 10 for lens flare meshes, the media ID of the sun texture, a size,
+		the colour of the light, and the path the sun takes through the sky. This is described by a start (rise) time, an end
+		(set) time, and a yaw angle.</p>
+
+		<br><hr>
+
+		<br><br><br>
+		<p>
+			<b><a name="FLoadEnvironment">LoadEnvironment()</a></b><br><br>
+			Return value: Success flag <br><br>
+			Parameters: None <br><br>
+			This function loads all environment settings from the Environment.dat file, then calculates the current season and sets
+			an initial value for <a href="#GTimeUpdate">TimeUpdate</a>. If loading fails, False is returned.
+		</p>
+
+		<br><br><br>
+		<p>
+			<b><a name="FSaveEnvironment">SaveEnvironment(FullSave)</a></b><br><br>
+			Return value: Success flag <br><br>
+			Parameters: <br>
+			<ul>
+				<li><i>FullSave</i> - Flag for whether to include all settings in the save (defaults to False)</li>
+			</ul>
+			<br>
+			This function saves environment settings to the Environment.dat file. This is split into two parts. The first is the
+			current game year, day, and time. The second part, which is only saved if the FullSave parameter is True, includes all
+			environment settings which do not change while the server runs, and are usually altered only by an editor such as GE.
+			Thus the FullSave parameter is really only intended for use with editors. If saving fails, False is returned.
+		</p>
+
+		<br><br><br>
+		<p>
+			<b><a name="FGetSeason">GetSeason()</a></b><br><br>
+			Return value: The number of the current game season <br><br>
+			Parameters: None <br><br>
+			This function calculates and returns the current game season (numbered 0 to 11). Unless the game day is being changed
+			outside of <a href="#FUpdateEnvironment">UpdateEnvironment</a>, it is faster to use the
+			<a href="#GCurrentSeason">CurrentSeason</a> global variable instead, which is updated whenever the season changes in
+			the UpdateEnvironment function.
+		</p>
+
+		<br><br><br>
+		<p>
+			<b><a name="FGetMonth">GetMonth()</a></b><br><br>
+			Return value: The number of the current game month <br><br>
+			Parameters: None <br><br>
+			This function calculates and returns the current game month (numbered 0 to 19).
+		</p>
+
+		<br><br><br>
+		<p>
+			<b><a name="FUpdateEnvironment">UpdateEnvironment()</a></b><br><br>
+			Return value: None <br><br>
+			Parameters: None <br><br>
+			This function updates the game time, day and year based on elapsed time since it was last called. It is called each
+			frame from the server's main loop.
+		</p>
+
+		<br><br><br>
+		<p>
+			<b><a name="FLoadSuns">LoadSuns()</a></b><br><br>
+			Return value: Success flag <br><br>
+			Parameters: None <br><br>
+			This function loads all suns and their settings from the Suns.dat file. If loading fails, False is returned.
+		</p>
+
+		<br><br><br>
+		<p>
+			<b><a name="FSaveSuns">SaveSuns()</a></b><br><br>
+			Return value: Success flag <br><br>
+			Parameters: None <br><br>
+			This function saves all suns and their settings to the Suns.dat file. If loading fails, False is returned.
+		</p>
+
+		<br><br><br>
+		<p>
+			<b><a name="FTimeDelta">TimeDelta(StartH, StartM, EndH, EndM)</a></b><br><br>
+			Return value: Difference in minutes between the two specified times <br><br>
+			Parameters: <br>
+			<ul>
+				<li><i>StartH</i> - Hour component of start time</li>
+				<li><i>StartM</i> - Minute component of start time</li>
+				<li><i>EndH</i> - Hour component of end time</li>
+				<li><i>EndM</i> - Minute component of end time</li>
+			</ul>
+			<br>
+			This function returns the difference in minutes between two 24 hour times. It includes wrapping around midnight, so
+			if the start time is 23:30 and the end time 00:45, this function will return 75. Its main use is calculating the
+			positions of suns in the <a href="environment3d.html">Environment3D</a> module.
+		</p>
+	</body>
+
+</html>

@@ -1,0 +1,318 @@
+<html>
+
+	<head>
+		<style type="text/css">
+		<!--
+			body
+			{
+				color:black
+				background-color:white
+			}
+			a:link{ color:#0070FF }
+			a:visited{ color:#0070FF }
+		-->
+		</style>
+
+		<title>Realm Crafter Pro Documentation</title>
+	</head>
+
+	<body>
+		<p><b>ClientAreas.bb</b></p>
+
+		<p>
+			This module contains the following constants: <br>
+			<ul>
+				<li><a href="#CMaxFogFar">MaxFogFar</a></li>
+			</ul>
+		</p>
+
+		<p>
+			This module contains the following globals: <br>
+			<ul>
+				<li><a href="#GSkyEN">SkyEN, CloudEN, StarsEN</a></li>
+				<li><a href="#GSkyTexID">SkyTexID, CloudTexID, StormCloudTexID, StarsTexID</a></li>
+				<li><a href="#GFogR">FogR, FogG, FogB</a></li>
+				<li><a href="#GFogNear">FogNear, FogFar</a></li>
+				<li><a href="#GOutdoors">Outdoors</a></li>
+				<li><a href="#GAmbientR">AmbientR, AmbientG, AmbientB</a></li>
+				<li><a href="#GDefaultLightPitch">DefaultLightPitch, DefaultLightYaw</a></li>
+				<li><a href="#GLoadingTexID">LoadingTexID</a></li>
+				<li><a href="#GLoadingMusicID">LoadingMusicID</a></li>
+				<li><a href="#GMapTexID">MapTexID</a></li>
+				<li><a href="#GSlopeRestrict">SlopeRestrict</a></li>
+			</ul>
+		</p>
+
+		<p>
+			This module contains the following types: <br>
+			<ul>
+				<li><a href="#TRemoveSurf">Remove_Surf</a></li>
+				<li><a href="#TCluster">Cluster</a></li>
+				<li><a href="#TScenery">Scenery</a></li>
+				<li><a href="#TWater">Water</a></li>
+				<li><a href="#TColBox">ColBox</a></li>
+				<li><a href="#TEmitter">Emitter</a></li>
+				<li><a href="#TTerrain">Terrain</a></li>
+				<li><a href="#TSoundZone">SoundZone</a></li>
+				<li><a href="#TCatchPlane">CatchPlane</a></li>
+			</ul>
+		</p>
+
+		<p>
+			This module contains the following functions: <br>
+			<ul>
+				<li><a href="#FCreateSubdividedPlane">CreateSubdividedPlane</a></li>
+				<li><a href="#FLoadArea">LoadArea</a></li>
+				<li><a href="#FSaveArea">SaveArea</a></li>
+				<li><a href="#FUnloadArea">UnloadArea</a></li>
+				<li><a href="#FSetViewDistance">SetViewDistance</a></li>
+				<li><a href="#FChunkTerrain">ChunkTerrain</a></li>
+				<li><a href="#FNearestPower">NearestPower</a></li>
+				<li><a href="#FRemoveSurface">RemoveSurface</a></li>
+			</ul>
+		</p>
+
+		<br><hr>
+
+		<br>
+		<p><b><a name="CMaxFogFar">MaxFogFar# (constant)</a></b><br><br>
+		This constant defines the maximum possible far view/fog distance. Its main use is GE's zone editor.</p>
+
+		<br><hr>
+
+		<br>
+		<p><b><a name="GSkyEN">SkyEN, CloudEN, StarsEN (globals)</a></b><br><br>
+		These three globals store the entity handles for the sky, cloud and star spheres, which in the client are loaded by
+		<a href="clientloaders.html#LoadGame">ClientLoaders->LoadGame</a>.</p>
+
+		<br>
+		<p><b><a name="GSkyTexID">SkyTexID, CloudTexID, StormCloudTexID, StarsTexID (globals)</a></b><br><br>
+		These four globals store the media IDs for the sky, cloud, storm cloud and star textures of the current zone. They are set
+		whenever <a href="#FLoadArea">LoadArea</a> is called.</p>
+
+		<br>
+		<p><b><a name="GFogR">FogR, FogG, FogB (globals)</a></b><br><br>
+		These three globals store the fog colour for the current zone. They are set whenever <a href="#FLoadArea">LoadArea</a>
+		is called.</p>
+
+		<br>
+		<p><b><a name="GFogNear">FogNear, FogFar (globals)</a></b><br><br>
+		These two globals store the fog ranges for the current zone. They are set whenever <a href="#FLoadArea">LoadArea</a>
+		is called, and used in calls to <a href="#FSetViewDistance">SetViewDistance</a>, particularly in the
+		<a href="environment3d.html">Environment3D</a> module.</p>
+
+		<br>
+		<p><b><a name="GOutdoors">Outdoors (global)</a></b><br><br>
+		This global stores a True/False flag for whether or not the current zone is considered outdoors. This is used in lighting
+		and the radar.</p>
+
+		<br>
+		<p><b><a name="GAmbientR">AmbientR, AmbientG, AmbientB (globals)</a></b><br><br>
+		These three globals store the ambient light colour for the current zone. They are set whenever
+		<a href="#FLoadArea">LoadArea</a> is called.</p>
+
+		<br>
+		<p><b><a name="GDefaultLightPitch">DefaultLightPitch, DefaultLightYaw (globals)</a></b><br><br>
+		These two globals store the orientation of the "default light", which is shown whenever the scene is not being lit by
+		a sun. They are set whenever <a href="#FLoadArea">LoadArea</a> is called. Their values are assigned to the default light
+		in the client after a new zone is loaded in <a href="clientnet.html#UpdateNetwork">ClientNet->UpdateNetwork</a>.</p>
+
+		<br>
+		<p><b><a name="GLoadingTexID">LoadingTexID (global)</a></b><br><br>
+		This global stores the media ID of the texture used for the zone's loading screen. By default, this is 65535, meaning that
+		a blank screen will be shown.</p>
+
+		<br>
+		<p><b><a name="GLoadingMusicID">LoadingMusicID (global)</a></b><br><br>
+		This global stores the media ID of the music played while the zone is loading. By default, this is 65535, meaning that
+		no music will play.</p>
+
+		<br>
+		<p><b><a name="GMapTexID">MapTexID (global)</a></b><br><br>
+		This global stores the media ID of the texture used for the map in the current zone. This is displayed when the player
+		presses M or clicks the map button on the action bar. The texture is loaded and assigned to the map window after loading the
+		zone in <a href="clientnet.html#UpdateNetwork">ClientNet->UpdateNetwork</a>.</p>
+
+		<br>
+		<p><b><a name="GSlopeRestrict">SlopeRestrict (global)</a></b><br><br>
+		This global stores the minimum slope steepness at which actor instances are prevented from climbing. It has a range of 0.0
+		- 1.0 where 0.0 is a vertical cliff and 1.0 is horizontal ground. The default is 0.6 although this will be overwritten as
+		soon as a zone is loaded.</p>
+
+		<br><hr>
+
+		<br>
+		<p><b><a name="TRemove_Surf">Remove_Surf (type)</a></b><br><br>
+		This type represents a mesh surface which is due for removal, and is intended only to be used internally by the
+		<a href="#FChunkTerrain">ChunkTerrain</a> function.</p>
+
+		<br>
+		<p><b><a name="TCluster">Cluster (type)</a></b><br><br>
+		This type represents a section of a chunked terrain, and is intended only to be used internally by the
+		<a href="#FChunkTerrain">ChunkTerrain</a> function.</p>
+
+		<br>
+		<p><b><a name="TScenery">Scenery (type)</a></b><br><br>
+		This type represents a normal scenery mesh within a zone. It stores all required information about the scenery object as it
+		is used by both the client and the GE. All scenery objects are created by <a href="#FLoadArea">LoadArea</a>, and freed by
+		<a href="#FUnloadArea">UnloadArea</a>.</p>
+
+		<br>
+		<p><b><a name="TWater">Water (type)</a></b><br><br>
+		This type represents a water plane within a zone. All Water objects have a counterpart
+		<a href="serverareas.html#TServerWater">ServerAreas->ServerWater</a> object, which stores information on damage applied
+		to characters swimming in the water. The reason for the seperation is that water damage is applied by the server rather
+		than the client, so the server must know the location, size, and damage level of every water plane.</p>
+
+		<br>
+		<p><b><a name="TColBox">ColBox (type)</a></b><br><br>
+		This type represents an invisible collision box within a zone. It stores only the entity handle and the size. All collision box
+		objects are created by <a href="#FLoadArea">LoadArea</a>, and freed by <a href="#FUnloadArea">UnloadArea</a>.</p>
+
+		<br>
+		<p><b><a name="TEmitter">Emitter (type)</a></b><br><br>
+		This type represents a particle emitter within a zone. It is distinct from the 
+		<a href="rottparticles.html#TRN_Emitter">RottParticles->RN_Emitter</a> type, which represents any type of emitter (scripted,
+		actor/item, or a zone emitter). An actual RN_Emitter is present as the EN (entity) field of this type.</p>
+
+		<br>
+		<p><b><a name="TTerrain">Terrain (type)</a></b><br><br>
+		This type represents a Blitz LOD terrain within a zone. All terrain objects are created by
+		<a href="#FLoadArea">LoadArea</a>, and freed by <a href="#FUnloadArea">UnloadArea</a>.</p>
+
+		<br>
+		<p><b><a name="TSoundZone">SoundZone (type)</a></b><br><br>
+		This type represents an invisible sound region within a zone. All sound zone objects are created by
+		<a href="#FLoadArea">LoadArea</a>, and freed by <a href="#FUnloadArea">UnloadArea</a>.</p>
+
+		<br>
+		<p><b><a name="TCatchPlane">CatchPlane (type)</a></b><br><br>
+		This type represents an invisible horizontal finite plane which will cause all rain and snow particles falling beneath it to be
+		destroyed. All catch plane objects are created by <a href="#FLoadArea">LoadArea</a>, and freed by
+		<a href="#FUnloadArea">UnloadArea</a>.</p>
+
+		<br><hr>
+
+		<br><br><br>
+		<p>
+			<b><a name="FCreateSubdividedPlane">CreateSubdividedPlane(XDivs, ZDivs, UScale#, VScale#, Parent)</a></b><br><br>
+			Return value: The handle of the new entity <br><br>
+			Parameters: <br>
+			<ul>
+				<li><i>XDivs</i> - The number of subdivisions along the X axis of the plane</li>
+				<li><i>ZDivs</i> - The number of subdivisions along the Z axis of the plane</li>
+				<li><i>UScale#</i> - Scaling factor for U texture coordinates (defaults to 1.0)</li>
+				<li><i>VScale#</i> - Scaling factor for V texture coordinates (defaults to 1.0)</li>
+				<li><i>Parent</i> - Optional parent entity for the new mesh (defaults to 0)</li>
+			</ul>
+			<br>
+			This function creates a new finite plane mesh with a specified number of subdivisions. It is used to create the meshes
+			for water areas within a zone.
+		</p>
+
+		<br><br><br>
+		<p>
+			<b><a name="FLoadArea">LoadArea(Name$, CameraEN, DisplayItems, UpdateRottNet)</a></b><br><br>
+			Return value: Success flag <br><br>
+			Parameters: <br>
+			<ul>
+				<li><i>Name$</i> - The name of the zone to load</li>
+				<li><i>CameraEN</i> - The handle of the camera entity being used</li>
+				<li><i>DisplayItems</i> - True/False flag for whether to create visual representations of invisible items
+				such as sound zones and collision boxes (defaults to False)</li>
+				<li><i>UpdateRottNet</i> - True/False flag for whether to call
+				<a href="rottnet.html#RN_Update">RottNet->RN_Update</a> during the loading process</li>
+			</ul>
+			<br>
+			This function loads all client information about a zone from disk and creates it ready for rendering. The first stage
+			is to lock the mesh and texture databases for fast access. The zone file is then opened and the loading screen details
+			read in. The loading screen is created and rendered. Next the general zone settings are read and stored. Zone objects
+			are then loaded one by one, starting with scenery, then water, collision boxes, emitters, terrains and finally sound
+			zones. During this time, RottNet is periodically updated (if the flag is set to True) to ensure that network connections
+			do not time out while the zone is loading. The loading screen is also refreshed. Finally the databases are unlocked and
+			the loading screen is freed.
+		</p>
+
+		<br><br><br>
+		<p>
+			<b><a name="FSaveArea">SaveArea(Name$)</a></b><br><br>
+			Return value: Success flag <br><br>
+			Parameters: <br>
+			<ul>
+				<li><i>Name$</i> - The name of the zone to save</li>
+			</ul>
+			<br>
+			This function saves all client information about a zone to disk. If saving fails, False is returned.
+		</p>
+
+		<br><br><br>
+		<p>
+			<b><a name="FUnloadArea">UnloadArea()</a></b><br><br>
+			Return value: None <br><br>
+			Parameters: None <br><br>
+			This function frees all media connected with the current zone, and deletes all zone objects from memory.
+		</p>
+
+		<br><br><br>
+		<p>
+			<b><a name="FSetViewDistance">SetViewDistance(CameraEN, Near#, Far#)</a></b><br><br>
+			Return value: None <br><br>
+			Parameters: <br>
+			<ul>
+				<li><i>CameraEN</i> - The handle of the camera entity to set the distance for</li>
+				<li><i>Near#</i> - The minimum fog range</li>
+				<li><i>Far#</i> - The maximum fog range</li>
+			</ul>
+			<br>
+			This function sets the camera view distance, the fog distance, and scales the sky spheres to fit. The camera minimum
+			distance is fixed, and the maximum distance is set to be just outside the maximum fog range.
+		</p>
+
+		<br><br><br>
+		<p>
+			<b><a name="FChunkTerrain">ChunkTerrain(Mesh, chx#, chy#, chz#, XPos#, YPos#, ZPos#)</a></b><br><br>
+			Return value: None <br><br>
+			Parameters: <br>
+			<ul>
+				<li><i>Mesh</i> - The handle of the mesh to split into chunks</li>
+				<li><i>chx#</i> - The size of each chunk on the X axis (defaults to 10)</li>
+				<li><i>chy#</i> - The size of each chunk on the Y axis (defaults to 10)</li>
+				<li><i>chz#</i> - The size of each chunk on the Z axis (defaults to 10)</li>
+				<li><i>XPos#</i> - The X position for the chunked mesh (defaults to 0)</li>
+				<li><i>YPos#</i> - The Y position for the chunked mesh (defaults to 0)</li>
+				<li><i>ZPos#</i> - The Z position for the chunked mesh (defaults to 0)</li>
+			</ul>
+			<br>
+			This function splits a mesh into multiple smaller chunks for improved rendering performance. It is used mostly for
+			terrains exported from RCTE.
+		</p>
+
+		<br><br><br>
+		<p>
+			<b><a name="FNearestPower">NearestPower(N#, Snapper#)</a></b><br><br>
+			Return value: Number "snapped" to the nearest multiple <br><br>
+			Parameters: <br>
+			<ul>
+				<li><i>N#</i> - The number to snap</li>
+				<li><i>Snapper#</i> - The number to snap to a multiple of</li>
+			</ul>
+			<br>
+			This function returns a number rounded to the nearest multiple of another number. It is used only as a helper function
+			for <a href="#FChunkTerrain">ChunkTerrain</a>.
+		</p>
+
+		<br><br><br>
+		<p>
+			<b><a name="FRemoveSurface">RemoveSurface(Ent)</a></b><br><br>
+			Return value: Handle of the new version of the mesh <br><br>
+			Parameters: <br>
+			<ul>
+				<li><i>Ent</i> - The entity to remove surfaces from</li>
+			</ul>
+			<br>
+			This function removes surfaces from a mesh entity. It is used only as a helper function
+			for <a href="#FChunkTerrain">ChunkTerrain</a>.
+		</p>
+	</body>
+
+</html>

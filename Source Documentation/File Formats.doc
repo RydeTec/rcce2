@@ -1,0 +1,960 @@
+{\rtf1\ansi\ansicpg1252\deff0\deflang1033{\fonttbl{\f0\froman\fcharset0 Times New Roman;}{\f1\fmodern\fcharset0 Fixedsys;}}
+{\*\generator Msftedit 5.41.15.1507;}\viewkind4\uc1\pard\qc\lang2057\ul\b\f0\fs48 Realm Crafter File Formats\par
+\pard\ulnone\b0\fs28\par
+\par
+This document provides specifications for the formats of the following files:\par
+\par
+\pard{\pntext\f0 1\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart1\pndec }
+\fi-360\li720\tx720\b Data\\Options.dat\par
+\pard{\pntext\f0 2\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart2\pndec }
+\fi-360\li720\tx720 Data\\Emiter Configs\\*.rpc\par
+\pard{\pntext\f0 3\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart3\pndec }
+\fi-360\li720\tx720 Data\\Game Data\\Animations.dat\par
+\pard{\pntext\f0 4\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart4\pndec }
+\fi-360\li720\tx720 Data\\Game Data\\Combat.dat\par
+\pard{\pntext\f0 5\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart5\pndec }
+\fi-360\li720\tx720 Data\\Controls.dat\par
+\pard{\pntext\f0 6\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart6\pndec }
+\fi-360\li720\tx720 Data\\Game Data\\Fixed Attributes.dat\par
+\pard{\pntext\f0 7\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart7\pndec }
+\fi-360\li720\tx720 Data\\Game Data\\Interface.dat\par
+\pard{\pntext\f0 8\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart8\pndec }
+\fi-360\li720\tx720 Data\\Game Data\\Meshes.dat\par
+\pard{\pntext\f0 9\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart9\pndec }
+\fi-360\li720\tx720 Data\\Game Data\\Misc.dat\par
+\pard{\pntext\f0 10\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart10\pndec }
+\fi-360\li720\tx720 Data\\Game Data\\Money.dat\par
+\pard{\pntext\f0 11\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart11\pndec }
+\fi-360\li720\tx720 Data\\Game Data\\Music.dat\par
+\pard{\pntext\f0 12\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart12\pndec }
+\fi-360\li720\tx720 Data\\Game Data\\Other.dat\par
+\pard{\pntext\f0 13\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart13\pndec }
+\fi-360\li720\tx720 Data\\Game Data\\Sounds.dat\par
+\pard{\pntext\f0 14\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart14\pndec }
+\fi-360\li720\tx720 Data\\Game Data\\Suns.dat\par
+\pard{\pntext\f0 15\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart15\pndec }
+\fi-360\li720\tx720 Data\\Game Data\\Textures.dat\par
+\pard{\pntext\f0 16\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart16\pndec }
+\fi-360\li720\tx720 Data\\Server Data\\Accounts.dat\par
+\pard{\pntext\f0 17\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart17\pndec }
+\fi-360\li720\tx720 Data\\Server Data\\Actors.dat\par
+\pard{\pntext\f0 18\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart18\pndec }
+\fi-360\li720\tx720 Data\\Server Data\\Attributes.dat\par
+\pard{\pntext\f0 19\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart19\pndec }
+\fi-360\li720\tx720 Data\\Server Data\\Damage.dat\par
+\pard{\pntext\f0 20\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart20\pndec }
+\fi-360\li720\tx720 Data\\Server Data\\Dropped Items.dat\par
+\pard{\pntext\f0 21\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart21\pndec }
+\fi-360\li720\tx720 Data\\Server Data\\Environment.dat\par
+\pard{\pntext\f0 22\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart22\pndec }
+\fi-360\li720\tx720 Data\\Server Data\\Factions.dat\par
+\pard{\pntext\f0 23\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart23\pndec }
+\fi-360\li720\tx720 Data\\Server Data\\Files.dat\par
+\pard{\pntext\f0 24\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart24\pndec }
+\fi-360\li720\tx720 Data\\Server Data\\Fixed Attributes.dat\par
+\pard{\pntext\f0 25\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart25\pndec }
+\fi-360\li720\tx720 Data\\Server Data\\Items.dat\par
+\pard{\pntext\f0 26\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart26\pndec }
+\fi-360\li720\tx720 Data\\Server Data\\Misc.dat\par
+\pard{\pntext\f0 27\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart27\pndec }
+\fi-360\li720\tx720 Data\\Server Data\\Projectiles.dat\par
+\pard{\pntext\f0 28\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart28\pndec }
+\fi-360\li720\tx720 Data\\Server Data\\Spells.dat\par
+\pard{\pntext\f0 29\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart29\pndec }
+\fi-360\li720\tx720 Data\\Server Data\\Superglobals.dat\b0\par
+\pard{\pntext\f0 30\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart30\pndec }
+\fi-360\li720\tx720\b Data\\Server Data\\Areas\\*.dat\par
+\pard{\pntext\f0 31\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart31\pndec }
+\fi-360\li720\tx720 Data\\Server Data\\Areas\\Ownerships\\*.dat\b0\par
+\pard{\pntext\f0 32\tab}{\*\pn\pnlvlbody\pnf0\pnindent360\pnstart32\pndec }
+\fi-360\li720\tx720\b Data\\Areas\\*.dat\b0\par
+\pard\page The definition of data types for this document is as follows:\par
+\par
+[BYTE] \endash  a one byte unsigned integer value\par
+[SHORT] \endash  a two byte unsigned integer value\par
+[INT] \endash  a four byte signed integer value\par
+[FLOAT] \endash  a four byte floating point value\par
+[STRING] \endash  a length identifier of type [INT], followed by string data, one byte per character\par
+[LINE] \endash  a series of characters followed by a CRLF\page\b\fs36\par
+\par
+\par
+\par
+\\Data\\Options.dat\par
+\b0\fs28\par
+This file contains game options set by the player.  This file is in the root Data folder as opposed to Data\\Game Data, to make sure it is not overwritten by the auto-update system. The file is loaded in the MainMenu module. The format is a simple list:\par
+\par
+\f1\fs24 [SHORT] Width of in-game resolution\par
+[SHORT] Height of in-game resolution\par
+[BYTE]  Color depth of in-game resolution (0, 16 or 32)\par
+[BYTE]  Anti-aliasing flag (true or false)\par
+[FLOAT] Default volume (0.0 - 1.0)\b\f0\fs36\page\par
+\par
+\par
+\\Data\\Emitter Configs\\*.rpc\par
+\b0\fs28\par
+This folder contains files defining emitter configurations for the particle system.  The files are loaded in the RottParticles module. The format is a simple list:\par
+\par
+\f1\fs24 [INT]   Maximum number of particles\par
+[INT]   Particles spawned per \lquote frame\rquote\par
+[INT]   Number of texture tiles horizontally\par
+[INT]   Number of texture tiles vertically\par
+[INT]   Random start frame flag (true or false)\par
+[INT]   Texture animation speed\par
+[INT]   Velocity shaping setting\par
+[FLOAT] Initial velocity on the X axis\par
+[FLOAT] Initial velocity on the Y axis\par
+[FLOAT] Initial velocity on the Z axis\par
+[FLOAT] Velocity random element on the X axis\par
+[FLOAT] Velocity random element on the Y axis\par
+[FLOAT] Velocity random element on the Z axis\par
+[FLOAT] Force on the X axis\par
+[FLOAT] Force on the Y axis\par
+[FLOAT] Force on the Z axis\par
+[FLOAT] Initial particle scale\par
+[FLOAT] Change in particle scale per \lquote frame\rquote\par
+[INT]   Particle lifespan in \lquote frames\rquote\par
+[FLOAT] Initial particle alpha value\par
+[FLOAT] Change in particle alpha value per \lquote frame\rquote\par
+[INT]   Blend mode (1 = normal, 2 = multiple, 3 = add)\par
+[INT]   Emitter shape (1 = sphere, 2 = cylinder, 3 = box)\par
+[FLOAT] Minimum radius of emitter\par
+[FLOAT] Maximum radius of emitter\par
+[FLOAT] Emitter size on X axis\par
+[FLOAT] Emitter size on Y axis\par
+[FLOAT] Emitter size on Z axis\par
+[INT]   Emitter axis\par
+[SHORT] ID of default texture\par
+[FLOAT] Force modifier on X axis\par
+[FLOAT] Force modifier on Y axis\par
+[FLOAT] Force modifier on Z axis\par
+[INT]   Force shaping (?)\par
+[BYTE]  Inital red colour (0 - 255)\par
+[BYTE]  Inital green colour (0 - 255)\par
+[BYTE]  Inital blue colour (0 - 255)\par
+[FLOAT] Change in particle red colour per 'frame'\par
+[FLOAT] Change in particle green colour per 'frame'\par
+[FLOAT] Change in particle blue colour per 'frame'\page\b\f0\fs36\par
+\par
+\par
+\\Data\\Game Data\\Animations.dat\par
+\b0\fs28\par
+This file contains the animation sets used by actors.  The file is loaded in the Animations module. The file is of variable length depending on the total number of animation sets. It consists of multiple blocks of the following format:\par
+\par
+\f1\fs24 [SHORT]  ID of the animation set\par
+[STRING] Name of the animation set\par
+\par
+\tab followed by 150 repetitions of:\par
+\par
+\pard\fi720\li720 [STRING] Animation name\par
+[SHORT]  Start frame of animation\par
+[SHORT]  End frame of animation\par
+[FLOAT]  Default speed of animation\par
+\pard\f0\fs28\par
+There is no limit to the number of such blocks in the file. Reading should continue until the end of the file is reached.\par
+\page\b\fs36\par
+\par
+\\Data\\Game Data\\Combat.dat\par
+\b0\fs28\par
+This file contains two simple combat settings. It is used in GUE and the ClientCombat module. The format is a simple list as follows:\par
+\par
+\f1\fs24 [SHORT] Combat delay in milliseconds\par
+[BYTE]  Damage information style (1 = none, 2 = message, 3 = floating number)\page\b\f0\fs36\par
+\par
+\par
+\\Data\\Controls.dat\par
+\b0\fs28\par
+This file contains key bindings for the client. It is used in the Interface module. The format is a simple list as follows:\par
+\par
+\f1\fs24 [INT]  Scancode for forward key\par
+[INT]  Scancode for back key\par
+[INT]  Scancode for turn right key\par
+[INT]  Scancode for turn left key\par
+[INT]  Scancode for fly/swim up key\par
+[INT]  Scancode for fly/swim down key\par
+[INT]  Scancode for run key\par
+[INT]  Scancode for change view mode key\par
+[INT]  Scancode for camera right key\par
+[INT]  Scancode for camera left key\par
+[INT]  Scancode for camera zoom in key\par
+[INT]  Scancode for camera zoom out key\par
+[INT]  Scancode for jump key\par
+[BYTE] Flag for invert axis in 1\super st\nosupersub  person (0 or 2)\par
+[BYTE] Flag for invert axis in 3\super rd\nosupersub  person (0 or 2)\par
+[INT]  Scancode for attack key\par
+[INT]  Scancode for always run key\par
+[INT]  Scancode for cycle target key\par
+[INT]  Scancode for move to key\par
+[INT]  Scancode for talk to key\par
+[INT]  Scancode for select key\page\b\f0\fs36\par
+\par
+\par
+\\Data\\Game Data\\Fixed Attributes.dat\par
+\b0\fs28\par
+This file contains attribute mapping for the attributes built into the client such as Health, Speed etc. It is used by GUE and Default Project. The format is a simple list as follows:\par
+\par
+\f1\fs24 [SHORT] Health attribute (0 - 39)\par
+[SHORT] Energy attribute (0 - 39)\par
+[SHORT] Breath attribute (0 - 39)\par
+[SHORT] Strength attribute (0 - 39)\par
+[SHORT] Speed attribute (0 - 39)\page\b\f0\fs36\par
+\par
+\par
+\\Data\\Game Data\\Interface.dat\par
+\b0\fs28\par
+This file contains the settings for the position and layout of the various in-game interface components. It is used in the Interface module. The format is a list of [COMPONENT] blocks. The definition of a [COMPONENT] block is:\par
+\par
+\f1\fs24 [FLOAT] X position (0.0 - 1.0)\par
+[FLOAT] Y position (0.0 - 1.0)\par
+[FLOAT] Width (0.0 - 1.0)\par
+[FLOAT] Height (0.0 - 1.0)\par
+[FLOAT] Alpha (0.0 - 1.0)\par
+[BYTE]  Red (0 - 255)\par
+[BYTE]  Green (0 - 255)\par
+[BYTE]  Blue (0 - 255)\par
+\f0\fs28\par
+\par
+The format of the entire file is as follows:\par
+\par
+\f1\fs24 [COMPONENT] Chat text area\par
+[SHORT]     Background texture for the chat text area\par
+[COMPONENT] Chat entry input box\par
+[COMPONENT] Chat text background texture area\par
+\par
+\tab followed by 40 repetitions of:\par
+\par
+\tab\tab [COMPONENT] Attribute status bar\par
+\par
+[COMPONENT] Buffs (actor effects) area\par
+[COMPONENT] Radar area\par
+[COMPONENT] Compass area\par
+[COMPONENT] Inventory window\par
+[COMPONENT] Inventory drop button\par
+[COMPONENT] Inventory use button\par
+[COMPONENT] Inventory money display\par
+\par
+\tab followed by 46 repetitions of:\par
+\par
+\tab\tab [COMPONENT] Inventory slot button\page\b\f0\fs36\par
+\par
+\par
+\\Data\\Game Data\\Meshes.dat\par
+\b0\fs28\par
+This file contains the meshes database.  The file is used in the Media module. The file is of variable length depending on the total number of meshes in the database. The file consists of two blocks: an index, and the actual data. The index provides offsets within the file for the data.  These file offsets are [INT]s.  Media IDs range from 0 to 65534. Since an [INT] is 4 bytes, the total length of the index is 65535 * 4 bytes. The mesh data block is itself split into multiple blocks, one for each mesh in the database. These blocks have the following format:\par
+\par
+\f1\fs24 [BYTE]   Animated mesh flag (true or false)\par
+[FLOAT]  Default mesh scale\par
+[FLOAT]  Mesh offset on the X axis\par
+[FLOAT]  Mesh offset on the Y axis\par
+[FLOAT]  Mesh offset on the Z axis\par
+[SHORT]  Shader ID (reserved but unused in RC1)\par
+[STRING] Mesh filename\par
+\par
+\f0\fs28 To access the data for a specific mesh, the procedure is to jump to offset (Mesh ID * 4) in the file, and read in an [INT].  This value is the file offset of the relevant mesh data block.\page\b\fs36\par
+\par
+\par
+\\Data\\Game Data\\Misc.dat\par
+\b0\fs28\par
+This file contains details used by the client such as the game name, and whether automatic updates are enabled. It is used by GUE and the MainMenu and ClientLoaders modules. The format is a simple text file:\par
+\par
+\f1\fs24 [LINE] Game name\par
+[LINE] Updater flag (\ldblquote Development Version\rdblquote  or \ldblquote Normal\rdblquote )\par
+[LINE] Update music flag (0 or 1)\fs28\page\b\f0\fs36\par
+\par
+\par
+\\Data\\Game Data\\Money.dat\par
+\b0\fs28\par
+This file contains details of the tiers for the game currency. It is used by GUE and the ClientLoaders module. The format is a simple list:\par
+\par
+\f1\fs24 [STRING] Name of tier 1 (base) currency unit\par
+[STRING] Name of tier 2 currency unit\par
+[SHORT]  Multiplier of tier 2 currency unit\par
+[STRING] Name of tier 3 currency unit\par
+[SHORT]  Multiplier of tier 3 currency unit\par
+[STRING] Name of tier 4 currency unit\par
+[SHORT]  Multiplier of tier 4 currency unit\page\b\f0\fs36\par
+\par
+\par
+\\Data\\Game Data\\Music.dat\par
+\b0\fs28\par
+This file contains the music database.  The file is used in the Media module. The file is of variable length depending on the total number of music files in the database. The file consists of two blocks: an index, and the actual data. The index provides offsets within the file for the data.  These file offsets are [INT]s.  Media IDs range from 0 to 65534. Since an [INT] is 4 bytes, the total length of the index is 65535 * 4 bytes. The music data block is itself split into multiple blocks, one for each music file in the database. These blocks have the following format:\par
+\par
+\f1\fs24 [STRING] Music filename\par
+\par
+\f0\fs28 To access the data for a specific music file, the procedure is to jump to offset (Music ID * 4) in the file, and read in an [INT].  This value is the file offset of the relevant music data block.\page\b\fs36\par
+\par
+\\Data\\Game Data\\Other.dat\par
+\b0\fs28\par
+This file contains various settings for client features. The format is a simple list as follows:\par
+\par
+\f1\fs24 [BYTE] Hide actor nametags flag (0 or 1)\par
+[BYTE] Disable actor -> actor collisions (0 or 1)\par
+[BYTE] Allowed view modes (1 - 3)\par
+[INT]  Server UDP port (1 - 65535)\par
+[BYTE] Require ability memorisation flag (0 or 1)\par
+[BYTE] Use speech bubbles flag (0 or 1)\par
+[BYTE] Speech bubble red colour (0 - 255)\par
+[BYTE] Speech bubble green colour (0 - 255)\par
+[BYTE] Speech bubble blue colour (0 - 255)\page\b\f0\fs36\par
+\par
+\par
+\\Data\\Game Data\\Sounds.dat\par
+\b0\fs28\par
+This file contains the sounds database.  The file is used in the Media module. The file is of variable length depending on the total number of sounds in the database. The file consists of two blocks: an index, and the actual data. The index provides offsets within the file for the data.  These file offsets are [INT]s.  Media IDs range from 0 to 65534. Since an [INT] is 4 bytes, the total length of the index is 65535 * 4 bytes. The sound data block is itself split into multiple blocks, one for each sound in the database. These blocks have the following format:\par
+\par
+\f1\fs24 [BYTE]   3D sound flag (0 or 1)\par
+[STRING] Sound filename\par
+\par
+\f0\fs28 To access the data for a specific sound, the procedure is to jump to offset (Sound ID * 4) in the file, and read in an [INT].  This value is the file offset of the relevant sound data block.\page\b\fs36\par
+\par
+\par
+\\Data\\Game Data\\Suns.dat\par
+\b0\fs28\par
+This file contains the settings for the suns in the game. It is used by the Environment module. The file is of variable length depending on the total number of suns. It consists of multiple blocks of the following format:\par
+\par
+\f1\fs24 [SHORT] Texture ID for this sun\par
+[FLOAT] Sun size\par
+[BYTE]  Sun red colour (0 - 255)\par
+[BYTE]  Sun green colour (0 - 255)\par
+[BYTE]  Sun blue colour (0 - 255)\par
+[FLOAT] Path angle (0 - 360)\par
+\par
+\tab followed by 12 repetitions of:\par
+\par
+\pard\fi720\li720 [BYTE] Sun rise hour for this season\par
+[BYTE] Sun rise minute for this season\par
+[BYTE] Sun set hour for this season\par
+[BYTE] Sun set minute for this season\par
+\pard\fi-10\li10\tx142\par
+[BYTE] Display lens flare flag (0 or 1)\par
+\pard\f0\fs28\par
+There is no limit to the number of such blocks in the file. Reading should continue until the end of the file is reached.\page\b\fs36\par
+\par
+\par
+\\Data\\Game Data\\Textures.dat\par
+\b0\fs28\par
+This file contains the textures database.  The file is used in the Media module. The file is of variable length depending on the total number of textures in the database. The file consists of two blocks: an index, and the actual data. The index provides offsets within the file for the data.  These file offsets are [INT]s.  Media IDs range from 0 to 65534. Since an [INT] is 4 bytes, the total length of the index is 65535 * 4 bytes. The texture data block is itself split into multiple blocks, one for each texture in the database. These blocks have the following format:\par
+\par
+\f1\fs24 [SHORT]  Texture flags\par
+[STRING] Texture filename\par
+\par
+\f0\fs28 To access the data for a specific texture, the procedure is to jump to offset (Texture ID * 4) in the file, and read in an [INT].  This value is the file offset of the relevant texture data block.\page\b\fs36\par
+\par
+\par
+\\Data\\Server Data\\Accounts.dat\par
+\b0\fs28\par
+This file contains details of all player accounts on the server. It is used by the AccountsServer module. The format consists of multiple blocks of the following format:\par
+\par
+\f1\fs24 [STRING] Account username\par
+[STRING] Account password (MD5 hash)\par
+[STRING] Account email address\par
+[BYTE]   GM status flag (0 or 1)\par
+[BYTE]   Ban status flag (0 or 1)\par
+[BYTE]   Number of characters in this account\par
+[STRING] Comma delimited list of accounts (not character names) ignored by this account\par
+\par
+\tab followed by <number of characters> repetitions of:\par
+\par
+\tab\tab [ACTORINSTANCE] All details of the character\par
+\par
+\tab\tab\tab followed by 500 repetitions of:\par
+\par
+\tab\tab\tab\tab [STRING] Quest log entry name\par
+\tab\tab\tab\tab [STRING] Quest log entry status\par
+\par
+\tab\tab\tab followed by 36 repetitions of:\par
+\par
+\tab\tab\tab\tab [STRING] Action bar slot contents\par
+\par
+\f0\fs28 There is no limit to the number of such blocks in the file. Reading should continue until the end of the file is reached. The definition of an [ACTORINSTANCE] block is as follows:\par
+\par
+\f1\fs24 [SHORT]  ID for the actor of which this is an instance\par
+[STRING] Name of zone this actor is in\par
+[STRING] Actor name\par
+[INT]    Team ID (set with SetActorGroup script command)\par
+[FLOAT]  Actor X position\par
+[FLOAT]  Actor Y position\par
+[FLOAT]  Actor Z position\par
+[BYTE]   Actor gender (0 = male or none, 1 = female)\par
+[INT]    XP points\par
+[BYTE]   XP bar level\par
+[SHORT]  Actor level\par
+[SHORT]  Face texture (0 - 4)\par
+[SHORT]  Hair (0 - 4)\par
+[SHORT]  Beard (0 - 4)\par
+[SHORT]  Body texture (0 - 4)\par
+\par
+\tab followed by 40 repetitions of:\par
+\par
+\tab\tab [SHORT] Attribute value\par
+\tab\tab [SHORT] Attribute maximum\par
+\par
+\tab followed by 20 repetitions of:\par
+\par
+\tab\tab [SHORT] Damage type resistance value\par
+\par
+\tab followed by 50 repetitions of:\par
+\par
+\tab\tab [ITEMINSTANCE]  Item in this inventory slot\par
+\tab\tab [SHORT] Quantity of this item\par
+\par
+[STRING] Name of right click script \par
+[STRING] Name of death script\par
+[SHORT]  Reputation\par
+[INT]    Money (in base units)\par
+[BYTE]   Number of slaves (pets) this actor instance has\par
+[BYTE]   ID of home faction\par
+\par
+\tab followed by 100 repetitions of:\par
+\par
+\tab\tab [BYTE] Rating with this faction\par
+\par
+\tab followed by 10 repetitions of:\par
+\par
+\tab\tab [STRING] Actor global\par
+\par
+\tab followed by 1000 repetitions of:\par
+\par
+\tab\tab [SHORT] ID of known spell\par
+\tab\tab [SHORT] Level of known spell\par
+\par
+\tab followed by 10 repetitions of:\par
+\par
+\tab\tab [SHORT] Memorised spell number (0 - 999)\par
+\par
+\tab followed by <number of slaves> repetitions of:\par
+\par
+\tab\tab [ACTORINSTANCE] Slave actor instance data\par
+\par
+\f0\fs28 The definition of an [ITEMINSTANCE] block is as follows:\par
+\f1\fs24\par
+[SHORT] ID for the item of which this is an instance\par
+\par
+\tab if the ID is > 0 and < 65535, followed by 40 repetitions of:\par
+\par
+\tab\tab [SHORT] Attribute value\par
+\par
+[BYTE] Item health level (0 - 100)\f0\fs28\page\b\fs36\par
+\par
+\par
+\\Data\\Server Data\\Actors.dat\par
+\b0\fs28\par
+This file contains the data for all actor templates created. The file is loaded in the Actors module. The format consists of multiple blocks of the following format:\par
+\par
+\f1\fs24 [SHORT]  ID of this actor\par
+[STRING] Name of race\par
+[STRING] Name of class\par
+[STRING] Actor description\par
+[STRING] Name of starting zone\par
+[STRING] Name of starting portal\par
+[SHORT]  ID of animation set for male instances\par
+[SHORT]  ID of animation set for female instances\par
+[FLOAT]  Actor scale\par
+[FLOAT]  Actor radius (approximate, for server use) \par
+[SHORT]  Male mesh ID\par
+[SHORT]  Female mesh ID\par
+\par
+\tab followed by 6 repetitions of:\par
+\par
+\pard\fi720\li720 [SHORT] Mesh ID for gubbin\par
+\pard\par
+\tab followed by 5 repetitions of:\par
+\par
+\pard\fi720\li720 [SHORT] Mesh ID for beard\par
+\pard\par
+\tab followed by 5 repetitions of:\par
+\par
+\pard\fi720\li720 [SHORT] Mesh ID for male hair\par
+\pard\par
+\tab followed by 5 repetitions of:\par
+\par
+\pard\fi720\li720 [SHORT] Mesh ID for female hair\par
+\pard\par
+\tab followed by 5 repetitions of:\par
+\par
+\pard\fi720\li720 [SHORT] Texture ID for male hair\par
+\pard\par
+\tab followed by 5 repetitions of:\par
+\par
+\pard\fi720\li720 [SHORT] Texture ID for female hair\par
+\pard\par
+\tab followed by 5 repetitions of:\par
+\par
+\pard\fi720\li720 [SHORT] Texture ID for male body\par
+\pard\par
+\tab followed by 5 repetitions of:\par
+\par
+\pard\fi720\li720 [SHORT] Texture ID for female body\par
+\pard\par
+\tab followed by 16 repetitions of:\par
+\par
+\pard\fi720\li720 [SHORT] Sound ID for male speech\par
+\pard\par
+\tab followed by 16 repetitions of:\par
+\par
+\pard\fi720\li720 [SHORT] Sound ID for female speech\par
+\pard\par
+[SHORT] Blood particle texture ID\par
+\par
+\tab followed by 40 repetitions of:\par
+\par
+\tab\tab [SHORT] Initial attribute value\par
+\tab\tab [SHORT] Initial attribute maximum\par
+\par
+[BYTE] Valid genders for actor (0 - 3)\par
+[BYTE] Playable flag (0 or 1)\par
+[BYTE] Rideable flag (0 or 1)\par
+[BYTE] Aggressiveness level (0 - 3)\par
+[INT]  Aggressiveness range\par
+[BYTE] Trading mode (0 - 2)\par
+[BYTE] Environment mode (0 - 3)\par
+[INT]  Flags for inventory slots (each bit is a slot)\par
+[BYTE] Damage type for unarmed combat\par
+[BYTE] Default home faction\par
+[INT]  XP multiplier\par
+[BYTE] Triangle collision flag (0 or 1)\par
+\par
+\f0\fs28 There is no limit to the number of such blocks in the file. Reading should continue until the end of the file is reached.\page\b\fs36\par
+\par
+\par
+\\Data\\Server Data\\Attributes.dat\par
+\b0\fs28\par
+This file contains the names of the attributes. The file is used by the Actors module. The format is a simple list:\par
+\par
+\f1\fs24 [BYTE] Number of attribute points available to spend in character creation\par
+\par
+\tab followed by 40 repetitions of:\par
+\par
+\tab\tab [STRING] Attribute name\par
+\tab\tab [BYTE] Attribute is skill flag (0 or 1)\f0\page\b\fs36\par
+\par
+\par
+\\Data\\Server Data\\Damage.dat\par
+\b0\fs28\par
+This file contains the names of the damage types. The file is used by GUE and the Items module. The format is a simple list:\par
+\par
+\f1\fs24 20 repetitions of:\par
+\par
+\tab [STRING] Damage type name\page\b\f0\fs36\par
+\par
+\par
+\\Data\\Server Data\\Dropped Items.dat\b0\fs24\par
+\fs28\par
+This file saves the details of all items dropped on the floor of zones. It is used by the Items module. The format consists of multiple blocks of the following format:\par
+\par
+\f1\fs24 [STRING] Item instance data (see ItemInstanceToString function)\par
+[SHORT]  Item quantity\par
+[FLOAT]  X position in zone\par
+[FLOAT]  Y position in zone\par
+[FLOAT]  Z position in zone\par
+\f0\par
+\fs28 There is no limit to the number of such blocks in the file. Reading should continue until the end of the file is reached.\page\b\fs36\par
+\par
+\par
+\\Data\\Server Data\\Environment.dat\b0\fs28\par
+\par
+This file contains the settings for the game environment, such as season names, times and dates, etc. The format is a simple list:\par
+\par
+\f1\fs24 [INT] Current year\par
+[INT] Current day\par
+[INT] Current hour\par
+[INT] Current minute\par
+[INT] Time compression factor\par
+\par
+\tab followed by 12 repetitions of:\par
+\par
+\tab\tab [STRING] Season name\par
+\tab\tab [INT]    Season start day\par
+\tab\tab [INT]    Season dusk hour\par
+\tab\tab [INT]    Season dawn hour\par
+\par
+\tab followed by 20 repetitions of:\par
+\par
+\tab\tab [STRING] Month name\par
+\tab\tab [INT]    Month start day\page\b\f0\fs36\par
+\par
+\par
+\\Data\\Server Data\\Factions.dat\b0\fs24\par
+\fs28\par
+This file contains the names and ratings of all factions. It is used by the Actors module. The format is a simple list:\par
+\par
+\f1\fs24 100 repetitions of:\par
+\par
+\tab [STRING] Faction name\par
+\par
+100 repetitions of:\par
+\par
+\tab 100 repetitions of:\par
+\par
+\tab\tab [BYTE] Default rating of faction with faction\f0\page\b\fs36\par
+\par
+\par
+\\Data\\Server Data\\Files.dat\b0\fs24\par
+\fs28\par
+This file contains a list of all files which should be present in a full client build of the game. The server sends the details to clients for the use of the auto-update system. The file is used by GUE and the UpdatesServer module. The format consists of multiple blocks of the following format:\par
+\par
+\f1\fs24 [STRING] Filename\par
+[INT]    File checksum\par
+\par
+\f0\fs28 There is no limit to the number of such blocks in the file. Reading should continue until the end of the file is reached.\page\b\fs36\par
+\par
+\par
+\\Data\\Server Data\\Fixed Attributes.dat\par
+\b0\fs28\par
+This file contains attribute mapping for the attributes built into the server such as Health, Speed etc. It is used by GUE and Server. The format is a simple list as follows:\par
+\par
+\f1\fs24 [SHORT] Health attribute (0 - 39)\par
+[SHORT] Energy attribute (0 - 39)\par
+[SHORT] Breath attribute (0 - 39)\par
+[SHORT] Toughness attribute (0 - 39)\par
+[SHORT] Strength attribute (0 - 39)\par
+[SHORT] Speed attribute (0 - 39)\page\b\f0\fs36\par
+\par
+\par
+\\Data\\Server Data\\Items.dat\par
+\b0\fs28\par
+This file contains the data for all item templates created. The file is loaded in the Items module. The format consists of multiple blocks of the following format:\par
+\par
+\f1\fs24 [SHORT]  Item ID\par
+[STRING] Item name\par
+[STRING] Exclusive race name\par
+[STRING] Exclusive class name\par
+[STRING] Item use script\par
+[STRING] Item use script function\par
+[BYTE]   Item type (1 - 7)\par
+[INT]    Value\par
+[SHORT]  Mass\par
+[BYTE]   Takes damage flag (0 or 1)\par
+[SHORT]  Texture ID for item thumbnail image\par
+\par
+\tab followed by 6 repetitions of:\par
+\par
+\tab\tab [SHORT] Gubbin activation flag (0 or 1)\par
+\par
+[SHORT] Male mesh ID\par
+[SHORT] Female mesh ID\par
+[SHORT] Item slot type (1 - 11)\par
+[BYTE]  Stackable flag (0 or 1)\par
+\par
+\tab followed by 40 repetitions of:\par
+\par
+\tab\tab [SHORT] Attribute value (with +5000 modifier)\par
+\par
+\f0\fs28 The next section depends on the item type:\par
+\f1\fs24\par
+\tab if the item type is I_Weapon (1):\par
+\par
+\tab\tab [SHORT]  Weapon damage\par
+\tab\tab [SHORT]  Weapon damage type\par
+\tab\tab [SHORT]  Weapon type (1 - 3)\par
+\tab\tab [SHORT]  Ranged projectile ID\par
+\tab\tab [FLOAT]  Maximum range\par
+\tab\tab [STRING] Ranged firing animation\par
+\par
+\tab if the item type is I_Armour (2):\par
+\par
+\tab\tab [SHORT] Armour level\par
+\par
+\tab if the type is I_Potion (4) or I_Ingredient (5):\par
+\par
+\tab\tab [SHORT] Length of actor effect (buff)\par
+\par
+\tab if the type is I_Image (6):\par
+\par
+\tab\tab [SHORT] Texture ID for image to display\par
+\par
+\tab if the type is I_Other (7):\par
+\par
+\tab\tab [STRING] Misc item data for scripting use\par
+\par
+\par
+\f0\fs28 There is no limit to the number of such blocks in the file. Reading should continue until the end of the file is reached.\page\b\fs36\par
+\par
+\par
+\\Data\\Server Data\\Misc.dat\par
+\b0\fs28\par
+This file contains miscellaneous server settings. It is used by GUE and Server. The format is a simple list as follows:\par
+\par
+\f1\fs24 [INT]   Initial money level for new characters\par
+[INT]   Initial reputation for new characters\par
+[BYTE]  Flag for forced portal transfer (0 or 1)\par
+[SHORT] Combat delay time\par
+[BYTE]  Combat formula to use\par
+[BYTE]  Flag for weapon damage during combat (0 or 1)\par
+[BYTE]  Flag for armour damage during combat (0 or 1)\par
+[BYTE]  Flag for rating adjustment after combat (0 or 1)\par
+[BYTE]  Flag for allowing clients to create new accounts (0 or 1)\par
+[BYTE]  Maximum characters allowed per account (1 - 10)\par
+[INT]   Server UDP port (1 - 65535)\par
+[BYTE]  Flag to require memorisation of abilities (0 or 1)\page\b\f0\fs36\par
+\par
+\par
+\\Data\\Server Data\\Projectiles.dat\par
+\b0\fs28\par
+This file stores the settings for the projectile types. The file is loaded in the Projectiles module. The format consists of multiple blocks of the following format:\par
+\par
+\f1\fs24 [SHORT]  Projectile ID\par
+[STRING] Projectile name\par
+[SHORT]  Mesh ID for projectile\par
+[STRING] Name of emitter #1\par
+[STRING] Name of emitter #2\par
+[SHORT]  Texture ID for emitter #1\par
+[SHORT]  Texture ID for emitter #2\par
+[BYTE]   Homing flag (0 or 1)\par
+[BYTE]   Hit chance (1 - 100)\par
+[SHORT]  Projectile damage\par
+[SHORT]  Damage type\par
+[BYTE]   Projectile speed\par
+\par
+\f0\fs28 There is no limit to the number of such blocks in the file. Reading should continue until the end of the file is reached.\f1\fs24\page\b\f0\fs36\par
+\par
+\par
+\\Data\\Server Data\\Spells.dat\par
+\b0\fs28\par
+This file stores the settings for abilities (referred to as \ldblquote spells\rdblquote  in the code). The file is loaded in the Spells module. The format consists of multiple blocks of the following format:\par
+\par
+\f1\fs24 [SHORT]  Ability ID\par
+[STRING] Ability name\par
+[STRING] Ability description\par
+[SHORT]  Texture ID for thumbnail image\par
+[STRING] Exclusive race name\par
+[STRING] Exclusive class name\par
+[INT]    Recharge time\par
+[STRING] Projectile script name\par
+[STRING] Projectile script function\par
+\par
+\f0\fs28 There is no limit to the number of such blocks in the file. Reading should continue until the end of the file is reached.\f1\fs24\page\b\f0\fs36\par
+\par
+\par
+\\Data\\Server Data\\Superglobals.dat\par
+\b0\fs28\par
+This file saves the contents of the 100 script superglobals. The file is loaded in the Scripting module. The format is a simple list:\par
+\par
+\f1\fs24 100 repetitions of:\par
+\par
+\tab [STRING] Superglobal value\page\b\f0\fs36\par
+\par
+\par
+\\Data\\Server Data\\Areas\\*.dat\par
+\b0\fs28\par
+This folder contains an unlimited number of zone data files (server side). Each file has a counterpart in \\Data\\Areas\\ (documented below). These files are used in the ServerAreas module. The format is a simple list as follows:\par
+\par
+\f1\fs24 [BYTE]   Probability of rain\par
+[BYTE]   Probability of snow\par
+[BYTE]   Probability of fog\par
+[BYTE]   Probability of storm\par
+[BYTE]   Probability of wind\par
+[STRING] Zone entry script\par
+[STRING] Zone exit script\par
+[BYTE]   PvP flag (0 or 1)\par
+[SHORT]  Gravity level\par
+[BYTE]   Outdoors flag (0 or 1)\par
+[STRING] Name of weather link zone\par
+\par
+\tab followed by 150 repetitions of:\par
+\par
+\tab\tab [FLOAT]  Trigger X position\par
+\tab\tab [FLOAT]  Trigger Y position\par
+\tab\tab [FLOAT]  Trigger Z position\par
+\tab\tab [FLOAT]  Trigger radius\par
+\tab\tab [STRING] Trigger script \par
+\tab\tab [STRING] Trigger script function\par
+\par
+\tab followed by 2000 repetitions of:\par
+\par
+\tab\tab [FLOAT] Waypoint X position\par
+\tab\tab [FLOAT] Waypoint Y position\par
+\tab\tab [FLOAT] Waypoint Z position\par
+\tab\tab [SHORT] Next waypoint A\par
+\tab\tab [SHORT] Next waypoint B\par
+\tab\tab [SHORT] Previous waypoint\par
+\par
+\tab followed by 100 repetitions of:\par
+\par
+\tab\tab [STRING] Portal name\par
+\tab\tab [STRING] Portal linked zone name\par
+\tab\tab [STRING] Portal linked portal name\par
+\tab\tab [FLOAT]  Portal X position\par
+\tab\tab [FLOAT]  Portal Y position\par
+\tab\tab [FLOAT]  Portal Z position\par
+\tab\tab [FLOAT]  Portal radius\par
+\tab\tab [FLOAT]  Portal yaw (rotation angle)\par
+\par
+\tab followed by 1000 repetitions of:\par
+\par
+\tab\tab [SHORT]  Spawn point actor ID\par
+\tab\tab [SHORT]  Spawn point waypoint number\par
+\tab\tab [FLOAT]  Spawn point radius\par
+\tab\tab [STRING] Spawn script name\par
+\tab\tab [STRING] Spawned actor right click script name\par
+\tab\tab [STRING] Spawned actor death script name\par
+\tab\tab [SHORT]  Maximum number of actors to spawn\par
+\tab\tab [SHORT]  Spawn delay\par
+\tab\tab [FLOAT]  Auto-movement range\par
+\par
+[SHORT] Number of water areas\par
+\par
+\tab followed by <number of water areas> repetitions of:\par
+\par
+\tab\tab [FLOAT] Water X position\par
+\tab\tab [FLOAT] Water Y position\par
+\tab\tab [FLOAT] Water Z position\par
+\tab\tab [FLOAT] Water X size\par
+\tab\tab [FLOAT] Water Z size\par
+\tab\tab [SHORT] Water damage\par
+\tab\tab [SHORT] Water damage type\page\b\f0\fs36\par
+\par
+\par
+\\Data\\Server Data\\Areas\\Ownerships\\*.dat\par
+\par
+\b0\fs28 This folder contains an unlimited number of zone scenery ownership data files. Each file corresponds to a zone data file in \\Data\\Server Data\\Areas\\ (documented above). The number in parentheses after the zone name is the instance ID for the ownership data, numbered 0 - 99. These files are used in the ServerAreas module. The format is as follows:\par
+\par
+\f1\fs24 500 repetitions of:\par
+\par
+\tab [BYTE] This scenery ID exists\par
+\par
+\tab if <this scenery ID exists> is 1:\par
+\par
+\tab\tab [STRING] Owner account name\par
+\tab\tab [BYTE]   Owner character number\par
+\tab\tab [BYTE]   Scenery inventory size\par
+\par
+\tab\tab if <scenery inventory size> is non-zero:\par
+\par
+\tab\tab\tab <scenery inventory size> repetitions of:\par
+\par
+\tab\tab\tab\tab [ITEMINSTANCE] Item in this slot\par
+\tab\tab\tab\tab [SHORT]        Item quantity\par
+\par
+\f0\fs28 The [ITEMINSTANCE] block is documented above as part of the \\Data\\Server Data\\Accounts.dat file.\page\b\fs36\par
+\par
+\par
+\\Data\\Areas\\*.dat\par
+\par
+\b0\fs28 This folder contains an unlimited number of zone data files (client side). Each file has a counterpart in \\Data\\Server Data\\Areas\\ (documented above). These files are used in the ClientAreas module. The format is as follows:\par
+\par
+\f1\fs24 [SHORT] Texture ID of zone loading screen image\par
+[SHORT] Music ID of zone loading music\par
+[SHORT] Texture ID of sky\par
+[SHORT] Texture ID of clouds\par
+[SHORT] Texture ID of storm clouds\par
+[SHORT] Texture ID of stars\par
+[BYTE]  Fog red colour (0 - 255)\par
+[BYTE]  Fog green colour (0 - 255)\par
+[BYTE]  Fog blue colour (0 - 255)\par
+[FLOAT] Fog minimum distance\par
+[FLOAT] Fog maximum distance\par
+[SHORT] Texture ID of map for this zone\par
+[BYTE]  Outdoors flag (0 or 1)\par
+[BYTE]  Ambient light red colour (0 - 255)\par
+[BYTE]  Ambient light green colour (0 - 255)\par
+[BYTE]  Ambient light blue colour (0 - 255)\par
+[FLOAT] Default light pitch (-90 - 90)\par
+[FLOAT] Default light yaw (-180 - 180)\par
+[FLOAT] Slope movement restriction coefficient (0 - 1)\par
+[SHORT] Number of scenery objects\par
+\par
+\tab followed by <number of scenery objects> repetitions of:\par
+\par
+\tab\tab [SHORT]  Mesh ID of scenery object\par
+\tab\tab [FLOAT]  Scenery position X\par
+\tab\tab [FLOAT]  Scenery position Y\par
+\tab\tab [FLOAT]  Scenery position Z\par
+\tab\tab [FLOAT]  Scenery pitch angle\par
+\tab\tab [FLOAT]  Scenery yaw angle\par
+\tab\tab [FLOAT]  Scenery roll angle\par
+\tab\tab [FLOAT]  Scenery scale X\par
+\tab\tab [FLOAT]  Scenery scale Y\par
+\tab\tab [FLOAT]  Scenery scale Z\par
+\tab\tab [BYTE]   Scenery animation mode\par
+\tab\tab [BYTE]   Scenery ownership ID\par
+\tab\tab [SHORT]  Texture ID for mesh retexturing\par
+\tab\tab [BYTE]   Stop rain particles?\par
+\tab\tab [BYTE]   Collision mode\par
+\tab\tab [STRING] Lightmap texture\par
+\tab\tab [STRING] Reserved for RCTE use\par
+\par
+[SHORT] Number of water areas\par
+\par
+\tab followed by <number of water areas> repetitions of:\par
+\par
+\tab\tab [SHORT] Texture ID for water\par
+\tab\tab [FLOAT] Water texture scale\par
+\tab\tab [FLOAT] Water position X\par
+\tab\tab [FLOAT] Water position Y\par
+\tab\tab [FLOAT] Water position Z\par
+\tab\tab [FLOAT] Water scale X\par
+\tab\tab [FLOAT] Water scale Z\par
+\tab\tab [BYTE]  Water red colour (0 - 255)\par
+\tab\tab [BYTE]  Water green colour (0 - 255)\par
+\tab\tab [BYTE]  Water blue colour (0 - 255)\par
+\tab\tab [BYTE]  Water opacity (0 - 255)\par
+\par
+[SHORT] Number of collision boxes\par
+\par
+\tab followed by <number of collision boxes> repetitions of:\par
+\par
+\tab\tab [FLOAT] Collision box position X\par
+\tab\tab [FLOAT] Collision box position Y\par
+\tab\tab [FLOAT] Collision box position Z\par
+\tab\tab [FLOAT] Collision box pitch angle\par
+\tab\tab [FLOAT] Collision box yaw angle\par
+\tab\tab [FLOAT] Collision box roll angle\par
+\tab\tab [FLOAT] Collision box scale X\par
+\tab\tab [FLOAT] Collision box scale Y\par
+\tab\tab [FLOAT] Collision box scale Z\par
+\par
+[SHORT] Number of emitters\par
+\par
+\tab followed by <number of emitters> repetitions of:\par
+\par
+\tab\tab [STRING] Emitter configuration name\par
+\tab\tab [SHORT]  Texture ID for particles\par
+\tab\tab [FLOAT]  Emitter position X\par
+\tab\tab [FLOAT]  Emitter position Y\par
+\tab\tab [FLOAT]  Emitter position Z\par
+\tab\tab [FLOAT]  Emitter pitch angle\par
+\tab\tab [FLOAT]  Emitter yaw angle\par
+\tab\tab [FLOAT]  Emitter roll angle\par
+\par
+[SHORT] Number of terrains\par
+\par
+\tab followed by <number of terrains> repetitions of:\par
+\par
+\tab\tab [SHORT] Texture ID of base texture\par
+\tab\tab [SHORT] Texture ID of detail texture\par
+\tab\tab [INT]   Terrain grid size (must be power of 2)\par
+\par
+\tab\tab\tab followed by <grid size>  + 1 repetitions of:\par
+\par
+\pard\fi720\tab\tab\tab followed by <grid size> + 1 repetitions of:\par
+\pard\par
+\tab\tab\tab\tab\tab [FLOAT] Node height (0.0 - 1.0)\par
+\par
+\tab\tab [FLOAT] Terrain position X\par
+\tab\tab [FLOAT] Terrain position Y\par
+\tab\tab [FLOAT] Terrain position Z\par
+\tab\tab [FLOAT] Terrain pitch angle\par
+\tab\tab [FLOAT] Terrain yaw angle\par
+\tab\tab [FLOAT] Terrain roll angle\par
+\tab\tab [FLOAT] Terrain scale X\par
+\tab\tab [FLOAT] Terrain scale Y\par
+\tab\tab [FLOAT] Terrain scale Z\par
+\tab\tab [FLOAT] Detail texture scale\par
+\tab\tab [INT]   Terrain detail level\par
+\tab\tab [BYTE]  Morphing flag (0 or 1)\par
+\tab\tab [BYTE]  Shading flag (0 or 1)\par
+\par
+[SHORT] Number of sound zones\par
+\par
+\tab followed by <number of sound zones > repetitions of:\par
+\par
+\tab\tab [FLOAT] Sound zone position X\par
+\tab\tab [FLOAT] Sound zone position Y\par
+\tab\tab [FLOAT] Sound zone position Z\par
+\tab\tab [FLOAT] Sound zone radius\par
+\tab\tab [SHORT] Sound ID of zone\par
+\tab\tab [SHORT] Music ID of zone\par
+\tab\tab [INT]   Repeat time\par
+\tab\tab [BYTE]  Volume \par
+}
+ 

@@ -1,0 +1,92 @@
+<html>
+
+	<head>
+		<style type="text/css">
+		<!--
+			body
+			{
+				color:black
+				background-color:white
+			}
+			a:link{ color:#0070FF }
+			a:visited{ color:#0070FF }
+		-->
+		</style>
+
+		<title>Realm Crafter Pro Documentation</title>
+	</head>
+
+	<body>
+		<p><b>Packets.bb</b></p>
+
+		<p>
+			This module contains the following constants: <br>
+			<ul>
+				<li><a href="#CP">P_...</a></li>
+			</ul>
+		</p>
+
+		<br><hr>
+
+		<br>
+		<p><b><a name="CP">P_... (constant)</a></b><br><br>
+		This list of constants gives IDs for each type of network packet sent or received within the engine. Packet uses are
+		as follows: <br>
+		<ul>
+			<li>P_CreateAccount - Request from the client to create a new account</li>
+			<li>P_VerifyAccount - Request from the client to verify an account username/password and return available characters</li>
+			<li>P_FetchCharacter - Request from the client to retrieve full information for a particular character</li>
+			<li>P_CreateCharacter - Request from the client to create a new character</li>
+			<li>P_DeleteCharacter - Request from the client to delete an existing character</li>
+			<li>P_ChangePassword - Request from the client to change the password on an account (not implemented)</li>
+			<li>P_FetchActors - Request from the client to retrieve details of all actors in the game (also retrieves items etc.)</li>
+			<li>P_FetchItems - Request from the client to retrieve details of all items in the game (unused)</li>
+			<li>P_ChangeArea - Request from the client to move to a different zone</li>
+			<li>P_FetchUpdateFiles - Request from the client for a list of the latest game data files</li>
+			<li>P_NewActor - Sent to the client whenever a new actor instance enters the zone</li>
+			<li>P_StartGame - Request from the client to enter the game with a specified character</li>
+			<li>P_ActorGone - Sent to the client whenever an actor instance leaves the zone</li>
+			<li>P_StandardUpdate - Standard actor instance update packet, sent in both directions</li>
+			<li>P_InventoryUpdate - Item added to/removed from inventory, or being picked up/dropped, sent in both directions</li>
+			<li>P_ChatMessage - Sent to the client to display chat text, usually either from another player or a script</li>
+			<li>P_WeatherChange - Sent to the client whenever the current weather for the zone changes</li>
+			<li>P_AttackActor - Sent to the server to request an attack against a target, or to the client to display an attack between any two actor instances</li>
+			<li>P_ActorDead - Sent to the client when an actor dies but does not leave the zone (only used for NPC death)</li>
+			<li>P_RightClick - Sent to the server when the player attempts to interact with an actor instance</li>
+			<li>P_Dialog - Dialog creation/deletion/update instruction sent to the client, or a reply sent back to the server</li>
+			<li>P_StatUpdate - Sent to the client with a new value for one of the player's attributes</li>
+			<li>P_QuestLog - Sent to the client when the player's quest log is updated</li>
+			<li>P_GoldChange - Sent to the client to update the player's money</li>
+			<li>P_NameChange - Sent to the client to update any character's name</li>
+			<li>P_KnownSpellUpdate - Sent to the client when the player learns or loses an ability</li>
+			<li>P_SpellUpdate - Sent to the server to request memorisation or firing of an ability</li>
+			<li>P_CreateEmitter - Sent to the client to create an emitter, usually from a script</li>
+			<li>P_Sound - Sent to the client to play a sound, usually from a script</li>
+			<li>P_AnimateActor - Sent to the client to play an animation on any character</li>
+			<li>P_ActionBarUpdate - Sent to the client at login with the current action bar contents, and to the server when they change during play</li>
+			<li>P_XPUpdate - Sent to the client when the player's XP level changes</li>
+			<li>P_ScreenFlash - Sent to the client to display a fullscreen effect</li>
+			<li>P_Music - Sent to the client to play a music file, usually from a script</li>
+			<li>P_OpenTrading - Sent to the client to initiate trade mode, and back to the server to signal completion</li>
+			<li>P_ActorEffect - Sent to the client when an actor effect is added, removed or updated</li>
+			<li>P_Projectile - Sent to the client when a new projectile is created</li>
+			<li>P_PartyUpdate - Sent to the client when the members of the player's party change</li>
+			<li>P_AppearanceUpdate - Sent to the client when a character changes clothes, face etc.</li>
+			<li>P_CloseTrading - Sent to the client when trading mode is completed (player-player trading)</li>
+			<li>P_UpdateTrading - Sent to the client when trading mode is updated (player-player trading)</li>
+			<li>P_SelectScenery - Sent to the server to request 'trading' with an ownable scenery object</li>
+			<li>P_ItemScript - Sent to the server when a player attempts to use an item instance</li>
+			<li>P_EatItem - Sent to the server when a player attempts to eat an item instance</li>
+			<li>P_ItemHealth - Sent to the client when the health of an item instance changes</li>
+			<li>P_Jump - Sent to the server when the player jumps, and from the server to all clients when any character in the zone jumps</li>
+			<li>P_Dismount - Sent to the server to request to dismount from a rideable actor instance</li>
+			<li>P_FloatingNumber - Sent to the client to create a new <a href="clientcombat.html#TFloatingNumber">ClientCombat->FloatingNumber</a></li>
+			<li>P_RepositionActor - Sent to the client when an actor teleports to a new spot, usually from a script</li>
+			<li>P_Speech - Sent to the client to play an actor speech sound effect</li>
+			<li>P_ProgressBar - Sent to the client when a progress bar is created, deleted or updated</li>
+			<li>P_BubbleMessage - Sent to the client to create a new <a href="interface.html#TBubble">Interface->Bubble</a> </li>
+			<li>P_ScriptInput - Sent to the client when a text input dialog is created, and back to the server with the player's text</li>
+		</ul></p>
+	</body>
+
+</html>

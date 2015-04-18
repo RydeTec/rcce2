@@ -1,0 +1,185 @@
+<html>
+
+	<head>
+		<style type="text/css">
+		<!--
+			body
+			{
+				color:black
+				background-color:white
+			}
+			a:link{ color:#0070FF }
+			a:visited{ color:#0070FF }
+		-->
+		</style>
+
+		<title>Realm Crafter Pro Documentation</title>
+	</head>
+
+	<body>
+		<p><b>ClientCombat.bb</b></p>
+
+		<p>
+			This module contains the following globals: <br>
+			<ul>
+				<li><a href="#GLastAttack">LastAttack</a></li>
+				<li><a href="#GAttackTarget">AttackTarget</a></li>
+				<li><a href="#GCombatDelay">CombatDelay</a></li>
+				<li><a href="#GDamageInfoStyle">DamageInfoStyle</a></li>
+			</ul>
+		</p>
+
+		<p>
+			This module contains the following types: <br>
+			<ul>
+				<li><a href="#TBloodSpurt">BloodSpurt</a></li>
+				<li><a href="#TFloatingNumber">FloatingNumber</a></li>
+			</ul>
+		</p>
+
+		<p>
+			This module contains the following functions: <br>
+			<ul>
+				<li><a href="#FUpdateCombat">UpdateCombat</a></li>
+				<li><a href="#FLoadCombat">LoadCombat</a></li>
+				<li><a href="#FAnimateActorAttack">AnimateActorAttack</a></li>
+				<li><a href="#FAnimateActorParry">AnimateActorParry</a></li>
+				<li><a href="#FCombatDamageOutput">CombatDamageOutput</a></li>
+				<li><a href="#FCreateFloatingNumber">CreateFloatingNumber</a></li>
+				<li><a href="#FUpdateFloatingNumbers">UpdateFloatingNumbers</a></li>
+			</ul>
+		</p>
+
+		<br><hr>
+
+		<br>
+		<p><b><a name="GLastAttack">LastAttack (global)</a></b><br><br>
+		This global stores the moment (from Blitz's MilliSecs command) at which the player character last performed an attack.
+		It is used to ensure that an attack is not attempted sooner after a previous attack than allowed by the game.</p>
+
+		<br>
+		<p><b><a name="GAttackTarget">AttackTarget (global)</a></b><br><br>
+		This global is set by the <a href="interface3d.html">Interface3D</a> module to either True or False, depending on
+		whether the player is trying to attack his target. If set to True, attacks will be attempted by
+		<a href="#FUpdateCombat">UpdateCombat</a>.</p>
+
+		<br>
+		<p><b><a name="GCombatDelay">CombatDelay (global)</a></b><br><br>
+		This global stores the minimum time in milliseconds between attacks. It is set once and not changed during the game.</p>
+
+		<br>
+		<p><b><a name="GDamageInfoStyle">DamageInfoStyle (global)</a></b><br><br>
+		This global stores the style in which combat damage should be displayed to the player. It is set once and not changed
+		during the game.</p>
+
+		<br><hr>
+
+		<br>
+		<p><b><a name="TBloodSpurt">BloodSpurt (type)</a></b><br><br>
+		This type represents a blood spurt emitter, created whenever an actor is damaged in an attack. It stores the entity handle
+		of the emitter and the time at which it was created.</p>
+
+		<br>
+		<p><b><a name="TFloatingNumber">FloatingNumber (type)</a></b><br><br>
+		This type represents a floating number. It stores the entity handle for the text and the amount of lifespan used by the
+		floating number so far. For more information see <a href="#FCreateFloatingNumber">CreateFloatingNumber</a>.</p>
+
+		<br><hr>
+
+		<br><br><br>
+		<p>
+			<b><a name="FUpdateCombat">UpdateCombat()</a></b><br><br>
+			Return value: None <br><br>
+			Parameters: None <br><br>
+			This function updates combat for the player's actor instance. It checks if the player has a valid target and is able
+			to attack (e.g. in range, not mounted), and handles the attack if one can be made. It loops through all blood spurt
+			emitters current active and removes them once they have been active for a certain length of time, currently 600
+			milliseconds. It is called repeatedly from the client's main loop.
+		</p>
+
+		<br><br><br>
+		<p>
+			<b><a name="FLoadCombat">LoadCombat()</a></b><br><br>
+			Return value: None <br><br>
+			Parameters: None <br><br>
+			This function loads all combat related data at the start of the game. First it reads in settings from Combat.dat
+			and assigns them to the approriate globals, then sets the time of the last attack to a default value. Finally it
+			cycles through each actor, replacing the texture ID for blood with the handle of a loaded
+			<a href="rottparticles.html">RottParticles</a> blood emitter configuration. It is called once from
+			<a href="clientloaders.html#FLoadGame">ClientLoaders->LoadGame</a>.
+		</p>
+
+		<br><br><br>
+		<p>
+			<b><a name="FAnimateActorAttack">AnimateActorAttack(A.ActorInstance)</a></b><br><br>
+			Return value: None <br><br>
+			Parameters: <br>
+			<ul>
+				<li><i>A.ActorInstance</i> - The actor instance who is attacking</li>
+			</ul>
+			<br>
+			This function runs the appropriate attack animation for an actor instance. The animation chosen depends on what type
+			of weapon, if any, the actor instance has equipped.
+		</p>
+
+		<br><br><br>
+		<p>
+			<b><a name="FAnimateActorParry">AnimateActorParry(A.ActorInstance)</a></b><br><br>
+			Return value: None <br><br>
+			Parameters: <br>
+			<ul>
+				<li><i>A.ActorInstance</i> - The actor instance who is parrying</li>
+			</ul>
+			<br>
+			This function runs the appropriate parry animation for an actor instance. The animation chosen depends on what type
+			of weapon and shield, if any, the actor instance has equipped.
+		</p>
+
+		<br><br><br>
+		<p>
+			<b><a name="FCombatDamageOutput">CombatDamageOutput(AI.ActorInstance, Amount, DType$)</a></b><br><br>
+			Return value: None <br><br>
+			Parameters: <br>
+			<ul>
+				<li><i>AI.ActorInstance</i> - The actor instance who has been damaged</li>
+				<li><i>Amount</i> - The amount of damage applied</li>
+				<li><i>DType$</i> - The name of the relevant damage type</li>
+			</ul>
+			<br>
+			This function gives an onscreen display when an actor is damaged in a fight. It uses the
+			<a href="#GDamageInfoStyle">DamageInfoStyle</a> global to choose which type of output to give, based on the setting
+			in GE. For a DamageInfoStyle value of 2, the damage is displayed as a chat message using
+			<a href="interface3d.bb#FOutput">Interface3D->Output</a>. For a DamageInfoStyle value of 3, it is displayed as a
+			floating number using <a href="#FCreatFloatingNumber">CreateFloatingNumber</a>. Other values result in nothing
+			happening.
+		</p>
+
+		<br><br><br>
+		<p>
+			<b><a name="FCreateFloatingNumber">CreateFloatingNumber(AI.ActorInstance, Amount, R, G, B)</a></b><br><br>
+			Return value: None <br><br>
+			Parameters: <br>
+			<ul>
+				<li><i>AI.ActorInstance</i> - The actor instance whom the number will appear above</li>
+				<li><i>Amount</i> - The number to display</li>
+				<li><i>R</i> - The red value of the colour</li>
+				<li><i>G</i> - The green value of the colour</li>
+				<li><i>B</i> - The blue value of the colour</li>
+			</ul>
+			<br>
+			This function creates a "floating number" -- coloured text above a character's head, usually representing an amount
+			of damage which that character has received. The text is rendered using the
+			<a href="gooey_3d_text.html">Gooey_3D_Text</a> module.
+		</p>
+
+		<br><br><br>
+		<p>
+			<b><a name="FUpdateFloatingNumbers">UpdateFloatingNumbers()</a></b><br><br>
+			Return value: None <br><br>
+			Parameters: None<br><br>
+			This function loops through and updates all active floating numbers. It will move them upwards at a constant speed
+			and remove them once their lifespan has expired.
+		</p>
+	</body>
+
+</html>
