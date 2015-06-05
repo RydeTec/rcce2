@@ -1,0 +1,16 @@
+Terrier adds:
+
+- refractive water added
+- NPC facing player when dialog opened
+- custom Glow and custom DOF
+- Not display Lens flare and Sun rays indoor when "scene outdoors" is not checked in GUE
+- Mainmenu Logo not "transparent" anymore, and logo can be mask now (black part)
+- Disabled double ESC to quit the game
+- ESC now directly open Menu window
+
+Menu button ingame added:
+_ Select Character button disabled 
+_ Exit button works fine
+_ Help Button works fine
+_ Options button works fine
+ => LogOut button works but MAV when the progress bar finish, need to redone client.bb and mainmenu.bb, due to InitialSetUp function....

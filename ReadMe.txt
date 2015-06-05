@@ -17,8 +17,15 @@ How to use source:
 4. Click Settings
 5. Click Advanced Tab
 6. In User information put your name and EMail you used on bitbucket
-2. Goto https://bitbucket.org/rcce/rcce2 and click "Clone in Source Tree"
-3. You will now be able to download the latest stable source.
+7. Goto https://bitbucket.org/rcce/rcce2 and click "Clone in Source Tree"
+8. You will now be able to download the latest stable source.
+9. Copy the files in Decls/ to their appropriate blitz userlibs/ folder.
+10. Copy your own source files for fastextension 1.17 into the fastextension_1_17_retail/
+	10.1 You can obtain a copy from fastext.com
+	10.2 Copy the Decls/ to the userlibs/ in your Blitz3D install
+	10.2 Copy FastExt.bb from include/ to Client/Modules/ and GUE/Modules/
+11. Compile Client.bb, Server.bp, GUE.exe, GUE Max.exe and Project Manager.bb
+12. Copy those .exe you compiled to your project for use.
 
 To Refresh:
 Click Fetch and it will fetch the latest version.
