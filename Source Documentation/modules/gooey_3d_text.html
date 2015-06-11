@@ -1,0 +1,239 @@
+<html>
+
+	<head>
+		<style type="text/css">
+		<!--
+			body
+			{
+				color:black
+				background-color:white
+			}
+			a:link{ color:#0070FF }
+			a:visited{ color:#0070FF }
+		-->
+		</style>
+
+		<title>Realm Crafter Pro Documentation</title>
+	</head>
+
+	<body>
+		<p><b>Gooey_3D_Text.bb</b></p>
+
+		<p>
+			This module contains the following constants: <br>
+			<ul>
+				<li><a href="#CGYLetters">GY_Letters$</a></li>
+			</ul>
+		</p>
+
+		<p>
+			This module contains the following globals: <br>
+			<ul>
+				<li><a href="#GGYFontSpacing">GY_Font_Spacing(256)</a></li>
+				<li><a href="#GGYFontOffsetX">GY_Font_OffsetX(256)</a></li>
+				<li><a href="#GGYFontOffsetY">GY_Font_OffsetY(256)</a></li>
+			</ul>
+		</p>
+
+		<p>
+			This module contains the following types: <br>
+			<ul>
+				<li><a href="#TGYFont">GY_Font</a></li>
+				<li><a href="#TGYText3D">GY_Text3D</a></li>
+			</ul>
+		</p>
+
+		<p>
+			This module contains the following functions: <br>
+			<ul>
+				<li><a href="#FGYTextWidth">GY_TextWidth</a></li>
+				<li><a href="#FGYCreate3DText">GY_Create3DText</a></li>
+				<li><a href="#FGYPosition3DText">GY_Position3DText</a></li>
+				<li><a href="#FGYSet3DText">GY_Set3DText</a></li>
+				<li><a href="#FGYFree3DText">GY_Free3DText</a></li>
+				<li><a href="#FGYFreeFont">GY_FreeFont</a></li>
+				<li><a href="#FGYLoadFont">GY_LoadFont</a></li>
+				<li><a href="#FGYGenerateFont">GY_GenerateFont</a></li>
+			</ul>
+		</p>
+
+		<br><hr>
+
+		<br>
+		<p><b><a name="CGYLetters">GY_Letters$ (constant)</a></b><br><br>
+		This constant contains all characters which can be displayed using Gooey's 3D text.</p>
+
+		<br><hr>
+
+		<br>
+		<p><b><a name="GGYFontSpacing">GY_Font_Spacing(256) (global)</a></b><br><br>
+		This global array is used as a temporary storage area by the <a href="#FGYGenerateFont">GY_GenerateFont</a> function.</p>
+
+		<br>
+		<p><b><a name="GGYFontOffsetX">GY_Font_OffsetX(256) (global)</a></b><br><br>
+		This global array is used as a temporary storage area by the <a href="#FGYGenerateFont">GY_GenerateFont</a> function.</p>
+
+		<br>
+		<p><b><a name="GGYFontOffsetY">GY_Font_OffsetY(256) (global)</a></b><br><br>
+		This global array is used as a temporary storage area by the <a href="#FGYGenerateFont">GY_GenerateFont</a> function.</p>
+
+		<br><hr>
+
+		<br>
+		<p><b><a name="TGYFont">GY_Font (type)</a></b><br><br>
+		This type represents a font used to render Gooey 3D text. Fonts are loaded individually with the
+		<a href="#FGYLoadFont">GY_LoadFont</a> function.</p>
+
+		<br>
+		<p><b><a name="TGYText3D">GY_Text3D (type)</a></b><br><br>
+		This type represents a section of Gooey 3D text. It stores the entity handle for the text mesh, the font object used
+		for the text, the maximum possible number of characters which can be displayed in this section of text, and the scale of
+		the text on the X axis.</p>
+
+		<br><hr>
+
+		<br><br><br>
+		<p>
+			<b><a name="FGY_TextWidth">GY_TextWidth#(TextHandle, Dat$)</a></b><br><br>
+			Return value: The screen width the specified string would take up if rendered <br><br>
+			Parameters: <br>
+			<ul>
+				<li><i>TextHandle</i> - The <a href="#TGYText3D">GY_Text3D</a> object which would be used to render the
+				string</li>
+				<li><i>Dat$</i> - The string to test</li>
+
+			</ul>
+			<br>
+			This function returns the screen width which a particular string would take if it were rendered. Since this value can
+			change depending on the font and scale of a text section, the value is provided for a specific GY_Text3D object. The
+			value returned is a floating point number between 0.0 and 1.0 representing a fraction of the screen width.
+		</p>
+
+		<br><br><br>
+		<p>
+			<b><a name="FGYCreate3DText">GY_Create3DText(X#, Y#, Width#, Height#, MaxLength, Font, Parent, ZOrder)</a></b><br><br>
+			Return value: The entity handle of the newly created Gooey 3D text object <br><br>
+			Parameters: <br>
+			<ul>
+				<li><i>X#</i> - The X component of the screen position of the text</li>
+				<li><i>Y#</i> - The Y component of the screen position of the text</li>
+				<li><i>Width#</i> - The screen width of the text</li>
+				<li><i>Height#</i> - The screen height of the text</li>
+				<li><i>MaxLength</i> - The maximum number of characters this object will be able to display</li>
+				<li><i>Font</i> - The handle of the Gooey 3D text font to use</li>
+				<li><i>Parent</i> - Optional parent entity for the text (defaults to 0)</li>
+				<li><i>ZOrder</i> - Rendering Z order for the text (defaults to -1)</li>
+
+			</ul>
+			<br>
+			This function creates a new section of text and returns the handle of the entity. The mesh consists of a series of
+			seperate quads, each representing a single letter. The X, Y, Width and Height parameters should be a fraction of the
+			screen width/height between 0.0 and 1.0. For instance, an X parameter of 0.5 would mean that the text would be
+			positioned exactly halfway across the screen. It is inadvisable to use this function directly for the display of text;
+			the label objects in the <a href="gooey.html">Gooey</a> module provide a more fully featured and compatible derivation.
+		</p>
+
+		<br><br><br>
+		<p>
+			<b><a name="FGYPosition3DText">GY_Position3DText(TextHandle, X#, Y#)</a></b><br><br>
+			Return value: None <br><br>
+			Parameters: <br>
+			<ul>
+				<li><i>TextHandle</i> - A 3D text entity previously created with
+				<a href="#FGYCreate3DText">GY_Create3DText</a></li>
+				<li><i>X#</i> - The X component of the new screen position of the text</li>
+				<li><i>Y#</i> - The Y component of the new screen position of the text</li>
+
+			</ul>
+			<br>
+			This function allows 3D text objects to be repositioned onscreen.
+		</p>
+
+		<br><br><br>
+		<p>
+			<b><a name="FGYSet3DText">GY_Set3DText(TextHandle, Dat$)</a></b><br><br>
+			Return value: Success flag <br><br>
+			Parameters: <br>
+			<ul>
+				<li><i>TextHandle</i> - A 3D text entity previously created with
+				<a href="#FGYCreate3DText">GY_Create3DText</a></li>
+				<li><i>Dat$</i> - The new string to display</li>
+
+			</ul>
+			<br>
+			This function is used to set the string to display in a 3D text object. Each quad in the mesh is assigned new texture
+			coordinates to display the correct letter. If the 3D text object is not found, False is returned. The string given
+			should not be longer than the MaxLength specified when creating the 3D text.
+		</p>
+
+		<br><br><br>
+		<p>
+			<b><a name="FGYFree3DText">GY_Free3DText(TextHandle, FreeFontAlso)</a></b><br><br>
+			Return value: Success flag <br><br>
+			Parameters: <br>
+			<ul>
+				<li><i>TextHandle</i> - A 3D text entity previously created with
+				<a href="#FGYCreate3DText">GY_Create3DText</a></li>
+				<li><i>FreeFontAlso</i> - True/False flag for whether to free the font used by the 3D text object (defaults
+				to False)</li>
+
+			</ul>
+			<br>
+			This function is used to free 3D text. If the 3D text object is not found, False is returned.
+		</p>
+
+		<br><br><br>
+		<p>
+			<b><a name="FGYFreeFont">GY_FreeFont(FontHandle)</a></b><br><br>
+			Return value: Success flag <br><br>
+			Parameters: <br>
+			<ul>
+				<li><i>FontHandle</i> - The handle of the Gooey 3D text font to free</li>
+
+			</ul>
+			<br>
+			This function is used to free a GY 3D text font. If the font is not found, False is returned.
+		</p>
+
+		<br><br><br>
+		<p>
+			<b><a name="FGYLoadFont">GY_LoadFont(Name$)</a></b><br><br>
+			Return value: Newly created Gooey 3D text font handle <br><br>
+			Parameters: <br>
+			<ul>
+				<li><i>Name$</i> - The name of the Gooey 3D text font to load</li>
+
+			</ul>
+			<br>
+			This function is used to load a GY 3D text font from disk. If the font data file or texture is not found, 0 is
+			returned.
+		</p>
+
+		<br><br><br>
+		<p>
+			<b><a name="FGYGenerateFont">GY_GenerateFont(Name$, Font$, Height, R, G, B, SR, SG, SB, Bold, Italic, UnderL,
+			Shadow)</a></b><br><br>
+			Return value: None <br><br>
+			Parameters: <br>
+			<ul>
+				<li><i>Name$</i> - The output name for the font</li>
+				<li><i>Font$</i> - The name of the system font to generate the output font from</li>
+				<li><i>Height</i> - The height in pixels to use for the font (recommended ~54)</li>
+				<li><i>R</i> - The red component of the output font colour</li>
+				<li><i>G</i> - The green component of the output font colour</li>
+				<li><i>B</i> - The blue component of the output font colour</li>
+				<li><i>R</i> - The red component of the output font shadow colour</li>
+				<li><i>G</i> - The green component of the output font shadow colour</li>
+				<li><i>B</i> - The blue component of the output font shadow colour</li>
+				<li><i>Bold</i> - True/False flag to enable bold on the font</li>
+				<li><i>Italic</i> - True/False flag to enable italics on the font</li>
+				<li><i>UnderL</i> - True/False flag to enable underlining on the font</li>
+				<li><i>Shadowe</i> - True/False flag to include a shadow on the output font</li>
+			</ul>
+			<br>
+			This function generates a new Gooey 3D text font, saving a data file and texture to the current directory. The font
+			can then be loaded by the <a href="#FGYLoadFont">GY_LoadFont</a> function and used for rendering text.
+		</p>
+	</body>
+
+</html>
