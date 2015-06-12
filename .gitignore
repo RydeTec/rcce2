@@ -9,3 +9,5 @@ GUE/GUE.exe
 Project Manager/Project Manager.exe
 Project Manager/ProjectManager.exe
 Server/Server.exe
+Client/Modules/FastExt.bb
+GUE/Modules/FastExt.bb
