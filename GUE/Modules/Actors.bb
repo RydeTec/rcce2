@@ -873,4 +873,114 @@ Function DeleteSpell(AI.ActorInstance, ID)
 
 	; If they are a player in game, tell them
 	If AI\RNID > 0 And Sp <> Null Then RCE_Send(Host, PeerToHost, P_KnownSpellUpdate, "D" + Sp\Name$, True)
+
+End Function
+
+
+Function CleanActorEffects()
+	Local AE.ActorEffect
+	For AE = Each ActorEffect
+		DestroyActorEffect( AE )
+	Next
+	Delete Each ActorEffect
+
+End Function
+
+; Creates a new ActorEffect
+; AI is the ActorInstance to apply the effect to
+; Effects is an Attributes set that holds the differences
+; EffectName$ is the name the effect is meant to have
+; EffectLength is the length of the effect in milliseconds
+; ThumbnailTexID is the texture ID the effect icon is meant to have
+Function CreateActorEffect.ActorEffect( AI.ActorInstance, Effects.Attributes, EffectName$, EffectLength%, ThumbnailTexID% )
+	Found = False
+	For AE.ActorEffect = Each ActorEffect
+		If AE\Owner = AI
+			If Upper$(AE\Name$) = Upper$(EffectName$)
+				FoundAE.ActorEffect = AE
+				Found = True
+				Exit
+			EndIf
+		EndIf
+	Next
+	If Found = False
+		FoundAE = New ActorEffect
+		FoundAE\Attributes = New Attributes
+		FoundAE\Name$ = EffectName$
+		FoundAE\Owner = AI
+		Pa$ = RCE_StrFromInt$(Handle(FoundAE), 4) + RCE_StrFromInt$(ThumbnailTexID, 2) + FoundAE\Name$
+		RCE_Send(Host, AI\RNID, P_ActorEffect, "A" + Pa$, True)
+	EndIf
+	FoundAE\CreatedTime = MilliSecs()
+	FoundAE\Length = EffectLength%
+	For i = 0 To 39
+		If Effects\Value[i] <> 0
+			Old = FoundAE\Attributes\Value[i]
+			FoundAE\Attributes\Value[i] = AI\Inventory\Items[Slot]\Attributes\Value[i]
+			Pa$ = RCE_StrFromInt$(i, 1) + RCE_StrFromInt$(FoundAE\Attributes\Value[i] - Old, 4)
+			FoundAE\Owner\Attributes\Value[i] = FoundAE\Owner\Attributes\Value[i] + (FoundAE\Attributes\Value[i] - Old)
+			RCE_Send(Host, FoundAE\Owner\RNID, P_ActorEffect, "E" + Pa$, True)
+		EndIf
+	Next
+	Return FoundAE
+End Function
+
+Function DestroyActorEffect( AE.ActorEffect )
+	; Owner has gone
+	
+	If AE\Owner = Null
+		Delete AE\Attributes
+		Delete AE
+		Return True
+		
+	; Owner still alive and online
+	Else;If AE\Owner\RNID <> 0
+		DebugLog( "RNID: " + AE\Owner\RNID )
+		; Tell client if applicable
+		If AE\Owner\RNID > 0
+			Pa$ = RCE_StrFromInt$(Handle(AE), 4)
+			For i = 0 To 39
+				Pa$ = Pa$ + RCE_StrFromInt$(AE\Attributes\Value[i], 4)
+			Next
+			RCE_Send(Host, AE\Owner\RNID, P_ActorEffect, "R" + Pa$, True)
+		EndIf
+
+		DebugLog("Fixing Actor Effect on " + AE\Owner\Name)
+		; Remove effect
+		For i = 0 To 39
+			If AE\Attributes\Value[i] <> 0 Then DebugLog("Fixing Attribute " + i + " by " + (- AE\Attributes\Value[i]) )
+			AE\Owner\Attributes\Value[i] = AE\Owner\Attributes\Value[i] - AE\Attributes\Value[i]
+		Next
+		Delete AE\Attributes
+		Delete AE
+		Return True
+	EndIf
+	Return False
+
+End Function
+
+Function RemoveActorEffectFromActor( AI.ActorInstance, EffectName$ )
+	For AE.ActorEffect = Each ActorEffect
+		If AE\Owner = AI
+			If Upper$(AE\Name$) = Upper$(EffectName$)
+				If AE\Owner\RNID > 0
+				Pa$ = RCE_StrFromInt$(Handle(AE), 4)
+					For i = 0 To 39
+						Pa$ = Pa$ + RCE_StrFromInt$(AE\Attributes\Value[i], 4)
+					Next
+					RCE_Send(Host, AE\Owner\RNID, P_ActorEffect, "R" + Pa$, True)
+				EndIf
+				
+				; Remove effect
+				For i = 0 To 39
+					AE\Owner\Attributes\Value[i] = AE\Owner\Attributes\Value[i] - AE\Attributes\Value[i]
+				Next
+			
+				Delete AE\Attributes
+				Delete AE
+				Return True
+			EndIf
+		EndIf
+	Next
+	Return False
 End Function
