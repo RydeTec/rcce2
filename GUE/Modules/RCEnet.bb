@@ -1,27 +1,3 @@
-;##############################################################################################################################
-; Realm Crafter version 1.10																									
-; Copyright (C) 2007 Solstar Games, LLC. All rights reserved																	
-; contact@solstargames.com																																																		
-;																																																																#
-; Programmer: Rob Williams																										
-; Program: Realm Crafter Actors module
-;																																
-;This is a licensed product:
-;BY USING THIS SOURCECODE, YOU ARE CONFIRMING YOUR ACCEPTANCE OF THE SOFTWARE AND AGREEING TO BECOME BOUND BY THE TERMS OF 
-;THIS AGREEMENT. IF YOU DO NOT AGREE TO BE BOUND BY THESE TERMS, THEN DO NOT USE THE SOFTWARE.
-;																		
-;Licensee may NOT: 
-; (i)   create any derivative works of the Engine, including translations Or localizations, other than Games;
-; (ii)  redistribute, encumber, sell, rent, lease, sublicense, Or otherwise transfer rights To the Engine; or
-; (iii) remove Or alter any trademark, logo, copyright Or other proprietary notices, legends, symbols Or labels in the Engine.
-; (iv)   licensee may Not distribute the source code Or documentation To the engine in any manner, unless recipient also has a 
-;       license To the Engine.													
-; (v)  use the Software to develop any software or other technology having the same primary function as the Software, 
-;       including but not limited to using the Software in any development or test procedure that seeks to develop like 
-;       software or other technology, or to determine if such software or other technology performs in a similar manner as the
-;       Software																																
-;##############################################################################################################################
-
 ; Globals ------------------------------------------------------------------------------------------------------------
 Global RCE_ConvertBank = CreateBank(4)
 
@@ -54,24 +30,24 @@ End Function
 Function RCE_CreateMessages()
 	If (RCE_MoveToFirstMessage() <> 0)
 	
-	Repeat
-		M.RCE_Message = New RCE_Message
-		M\Connection = RCE_GetMessageConnection()
-		M\FromID = M\Connection
-		M\MessageType = RCE_GetMessageType()
-		
-		Length% = RCE_MessageLength()
-		If (Length > 0)
-			MessageData= CreateBank(Length)
-			RCE_GetMessageData(MessageData)
-			; Copy the data	
-			For i = 0 To Length - 1
-				M\MessageData$ = M\MessageData$ + Chr$(PeekByte(MessageData, i))
-			Next
-			FreeBank(MessageData)
-		EndIf
-		
-	Until RCE_AreMoreMessage() = 0 	
+		Repeat
+			M.RCE_Message = New RCE_Message
+			M\Connection = RCE_GetMessageConnection()
+			M\FromID = M\Connection
+			M\MessageType = RCE_GetMessageType()
+			
+			Length% = RCE_MessageLength()
+			If (Length > 0)
+				MessageData= CreateBank(Length)
+				RCE_GetMessageData(MessageData)
+				; Copy the data	
+				For i = 0 To Length - 1
+					M\MessageData$ = M\MessageData$ + Chr$(PeekByte(MessageData, i))
+				Next
+				FreeBank(MessageData)
+			EndIf
+			
+		Until RCE_AreMoreMessage() = 0 	
 	EndIf	
 End Function 
 

@@ -617,7 +617,7 @@ weather_wind_swaymax#(W_RAIN,2)=4
 weather_wind_swayspeed#(W_RAIN,2)=.05
 weather_wind_swaymax#(W_RAIN,3)=2
 weather_wind_swayspeed#(W_RAIN,3)=.14
-
+
 weather_wind_swaymax#(W_SNOW,1)=3
 weather_wind_swayspeed#(W_SNOW,1)=0.07
 weather_wind_swaymax#(W_SNOW,2)=2

@@ -8,202 +8,19 @@ Using "ProcessGlobals.rcm"
 ; You may not override built in /commands
 ; The actor is the player who entered the /command, and there is no context actor
 
-Dim Score$(1000,1)
-
-Function MyLeague()
-	
-	PreviousPage$ = "Previous Page|"
-	NxtPage$ = "Next Page|"
-	PageSize = 5
-	CurrentPage = 1
-	CMD$ = Lower(Parameter(1))
-	If CMD$ = ""
-		DW = OpenDialog(Actor(), 0, "League Standings:")
-		League = Int(PullGlobal$(Actor(), 8, 2, ","))
-		DialogOutput(Actor(), DW, "You're in League: #" + League)
-		PlayerName$ = Name(Actor())
-		FileName$ = "League"
-		If League = 1 or League = 2
-			LeagueScore$ = PullGlobal$(Actor(), 8, 3, ",")
-		ElseIf League = 3
-			LeagueScore$ = PullGlobal$(Actor(), 8, 4, ",")
-		EndIf
-		LoadLeagueScores(Filename$ + Chr(48 + League), LeagueScore$, PlayerName$, 0)
-		DialogOutput(Actor(), DW, "Your League Score is: " + LeagueScore$)
-		Repeat
-			Counter = Counter + 1
-			If Lower(Score$(Counter, 1)) = Lower(PlayerName$)
-				Foundit = 1
-			EndIf
-		Until Counter = 1000 Or Foundit = 1
-		DispString$ = "Your Rank in League #" + League + " is: " + Counter
-		If Right$(DispString$, 1) = "0" Then DispString$ = DispString$ + "th"
-		If Right$(DispString$, 1) = "1" Then DispString$ = DispString$ + "st"
-		If Right$(DispString$, 1) = "2" Then DispString$ = DispString$ + "nd"
-		If Right$(DispString$, 1) = "3" Then DispString$ = DispString$ + "rd"
-		If Right$(DispString$, 1) = "4" Then DispString$ = DispString$ + "th"
-		If Right$(DispString$, 1) = "5" Then DispString$ = DispString$ + "th"
-		If Right$(DispString$, 1) = "6" Then DispString$ = DispString$ + "th"
-		If Right$(DispString$, 1) = "7" Then DispString$ = DispString$ + "th"
-		If Right$(DispString$, 1) = "8" Then DispString$ = DispString$ + "th"
-		If Right$(DispString$, 1) = "9" Then DispString$ = DispString$ + "th"
-		DialogOutput(Actor(), DW, DispString$)
-	EndIf
-	Result = DialogInput(Actor(), DW, "<League 1>|<League 2>|<League 3>|Nothing","|")
-	CloseDialog(Actor(), DW)
-	If Result <> 4
-		LoadLeagueScores(Filename$ + Chr(48 + Result),"", "", 1)
-		For i = 1 to 1000
-			If Score$(i, 1) = ""
-				MaxCount = i - 1
-				Exit
-			EndIf
-		Next
-		Repeat
-			If CurrentPage * PageSize >= MaxCount
-				NextSet = MaxCount
-				AddNXT = 0
-			Else
-				NextSet = CurrentPage * PageSize
-				AddNXT = 1
-			EndIf
-			If CurrentPage > 1
-				AddPVS = 1
-			Else
-				AddPVS = 0
-			EndIf
-			DW = OpenDialog(Actor(), 0, "League " + League + " Standings:")
-			DialogOutput(Actor(), DW, "RANK          NAME           SCORE")
-			For i = ((CurrentPage * PageSize) - PageSize) + 1 To NextSet
-				DisplayString$ = ""
-				If i < 10 And i > 0
-					DisplayString$ = "|   " + i
-				ElseIf i < 100 And i > 9
-					DisplayString$ = "|  " + i
-				ElseIf i < 1000 And i > 99
-					DisplayString$ = "| " + i
-				Else
-					DisplayString$ = "|" + i
-				EndIf
-				DisplayString$ = DisplayString$  + " -- "
-				Space = (25 - Len(Score$(i, 1)))
-				LeftSide = Int(Space / 2)
-				RightSide = Space - LeftSide
-				For j = 1 to LeftSide
-					DisplayString$  = DisplayString$ + " "
-				Next
-				DisplayString$ = DisplayString$ + Score$(i, 1)
-				For j = 1 to RightSide
-					DisplayString$  = DisplayString$ + " "
-				Next
-				DisplayString$ = DisplayString$ + " -- " + Score$(i, 0)
-				DialogOutput(Actor(), DW, DisplayString$)
-			Next
-			If AddPVS = 1
-				DispInput$ = PreviousPage$
-			EndIf
-			If AddNXT = 1
-				DispInput$ = DispInput$ + NxtPage$
-			EndIf
-			Result = DialogInput(Actor(), DW, DispInput$ + "Done", "|")
-			If AddNXT = 1 And AddPVS = 1
-				If Result = 1
-					CurrentPage = CurrentPage -1
-				ElseIf Result = 2
-					CurrentPage = CurrentPage + 1
-				ElseIf Result = 3
-					TTE = 1
-				EndIf
-			ElseIf AddNXT = 1 and AddPVS = 0
-				If Result = 1
-					CurrentPage = CurrentPage + 1
-				ElseIf Result = 2
-					TTE = 1
-				EndIf
-			Else
-				TTE = 1
-			EndIf
-			CloseDialog(Actor(), DW)
-		Until TTE = 1
-
-	EndIf
-
-End Function
-Function AddScore()
-
-		Points = Int(PullGlobal$(Actor(), 8, 3, ",")) + 1
-		PushGlobal(Actor(), 8, 3, Points, ",", 10)
-
-End Function
-
-Function SortScores(MyScore$, PlayerName$)
-
-	For i = 1 to 999
-		If Score$(i, 0) = MyScore$ And Upper(Score$(i, 1)) = Upper(PlayerName$)
-			ScoreSet = 1
-		ElseIf Upper(Score$(i, 1)) = Upper(PlayerName$) And Score$(i, 0) <> MyScore$
-			ScoreSet = 2
-			Score$(i, 0) = MyScore$
-		EndIf
-		If Score$(i, 0) < Score$(i + 1, 0)
-			Tempscore$ = Score$(i, 0)
-			Tempname$ = Score$(i, 1)
-			Score$(i, 0) = Score$(i+1, 0)
-			Score$(i, 1) = Score$(i+1, 1)
-			Score$(i + 1, 0) = Tempscore$
-			Score$(i + 1, 1) = Tempname$
-		EndIf
-	Next
-	If ScoreSet < 1
-		For i = 1 to 1000
-			If Score$(i, 0) < MyScore$
-				Score$(i, 0) = MyScore$ : Score$(i, 1) = PlayerName$
-				ScoreSet = 2
-				Exit
-			EndIf
-		Next
-		If ScoreSet <> 2
-			ScoreSet = 1
-		EndIf
-	EndIf
-	OutPut(Actor(), "ScoreSet = " + ScoreSet)
-	If ScoreSet <> 1
-		SortScores(MyScore$, PlayerName$)
-	EndIf
-
-End Function
-
-; Load Leauge Scores File
-Function LoadLeagueScores(Filename$, MyScore$, PlayerName$, View)
-
-	While FileType(FileName$ + "_SORT.SEM") > 0
-		DoEvents(333)
-	Wend
-	FH = WriteFile(FileName$ + "_SORT.SEM")
-	CloseFile(FH)
-	FH = ReadFile(FileName$ + ".DATA")
-		While Not EoF(FH)
-			Counter = Counter + 1
-			String$ = ReadLine(FH)
-			Score$(Counter, 0) = GetStringFromString$(String$, 1, "")
-			Score$(Counter, 1) = GetStringFromString$(String$, 2, "")
-		Wend
-	CloseFile(FH)
-	If View = 0
-		SortScores(MyScore$, PlayerName$)
-		FH = WriteFile(FileName$ + ".DATA")
-			Counter = 1
-			While Score$(Counter, 1) <> ""
-				WriteLine(FH, Score$(Counter, 0) + "," + Score$(Counter, 1))
-				Counter = Counter + 1
-			Wend
-		CloseFile(FH)
-	EndIf
-	DeleteFile(FileName$ + "_SORT.SEM")
-
-End Function
 
 ;	Target (Targeted players Target)
+
+Function ItemPack()
+
+GiveItem(Actor(), "Sword", 1)
+GiveItem(Actor(), "Imperial Armor", 1)
+GiveItem(Actor(), "Imperial Helmet", 1)
+GiveItem(Actor(), "Scarred Shield", 1)
+			Return
+
+End Function
+
 Function Assist()
 
 	Player = Actor()
@@ -219,5 +36,34 @@ Function Assist()
 	EndIf
 	SetActorTarget(Player, ActorTarget(Assisted))
 	OutPut(Player, "Now assisting " + Assisting$)
+
+End Function
+
+
+; Example '/wave' command
+Function Wave()
+
+	; Animate player
+	AnimateActor(Actor(), "Wave", 0.2, 0)
+
+	; Done
+	Return
+
+End Function
+
+; Example '/heal' command for GMs
+Function Heal()
+
+	Player = Actor()
+
+	; Check player is a GM
+	If (PlayerIsGM(Player))
+		; Set health to maximum
+		Max = MaxAttribute(Player, "Health")
+		SetAttribute(Player, "Health", Max)
+	EndIf
+
+	; Done
+	Return
 
 End Function

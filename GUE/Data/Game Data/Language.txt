@@ -7,26 +7,26 @@
 ; ---------
 ; Main menu
 ; ---------
-Connecting to server...;Server status connecting
+Status: Connecting to server...
 Current File Progress:
 File:
 Overall Progress:
 Invalid host name
-Server timed out. No response from;Server status timed out
-is full. ;Server status full
+No response from server
+Too many players already connected
 Lost connection to server!
-Receiving files list from server... ;Server status receiving files
-Checking files...;Server status checking files
-Could not download file from;Server status could not download file
+Status: Receiving files list from server...
+Status: Checking files...
+Could not download file from
 Username:
 Password:
 Email Address:
-Connected to;Server status successfully connected
+Status: Connected
 Error
 Invalid username!
 Invalid password!
-Waiting for reply from server...;Server status waiting for reply from server
-Downloading characters from server...;Server status downloading characters from server
+Status: Waiting for reply from server...
+Status: Downloading characters from server...
 Invalid character name - it may already be taken
 Points:
 Graphics Options
@@ -220,51 +220,3 @@ Disabled; -------------
 ; -------------
 New Character
 Help
-
-; Slash commands
-KICK
-UNIGNORE
-IGNORE
-NETDUMP
-PET
-LEAVE
-ACCEPT
-INVITE
-XP
-GOLD
-SETATTRIBUTE
-SETATTRIBUTEMAX
-SCRIPT
-ME
-YELL
-GM
-G
-P
-PM
-TRADE
-ALLPLAYERS
-PLAYERS
-WARP
-WARPOTHER
-ABILITY
-GIVE
-WEATHER
-TIME
-DATE
-SEASON
-
-;New additions
-Back to Game
-Back to Mainmenu
-Quit Game
-Quit Game
-Do you want to leave immediately or wait for 10 seconds?
-After logout you must wait for 30 seconds to login again
-This account is already connected
-
-;Added by clan_fd Mar 19, 2014
-Server Status:;Server status label
-was not found. Please try again later.;Server status server not found
-Game Options
-Full Screen
-V-Sync On

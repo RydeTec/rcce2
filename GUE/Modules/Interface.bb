@@ -1,28 +1,3 @@
-;##############################################################################################################################
-; Realm Crafter version 1.10																									
-; Copyright (C) 2007 Solstar Games, LLC. All rights reserved																	
-; contact@solstargames.com																																																		
-;																																																																#
-; Programmer: Rob Williams																										
-; Program: Realm Crafter Actors module
-;																																
-;This is a licensed product:
-;BY USING THIS SOURCECODE, YOU ARE CONFIRMING YOUR ACCEPTANCE OF THE SOFTWARE AND AGREEING TO BECOME BOUND BY THE TERMS OF 
-;THIS AGREEMENT. IF YOU DO NOT AGREE TO BE BOUND BY THESE TERMS, THEN DO NOT USE THE SOFTWARE.
-;																		
-;Licensee may NOT: 
-; (i)   create any derivative works of the Engine, including translations Or localizations, other than Games;
-; (ii)  redistribute, encumber, sell, rent, lease, sublicense, Or otherwise transfer rights To the Engine; or
-; (iii) remove Or alter any trademark, logo, copyright Or other proprietary notices, legends, symbols Or labels in the Engine.
-; (iv)   licensee may Not distribute the source code Or documentation To the engine in any manner, unless recipient also has a 
-;       license To the Engine.													
-; (v)  use the Software to develop any software or other technology having the same primary function as the Software, 
-;       including but not limited to using the Software in any development or test procedure that seeks to develop like 
-;       software or other technology, or to determine if such software or other technology performs in a similar manner as the
-;       Software																																
-;##############################################################################################################################
-; Realm Crafter Interface module by Rob W (rottbott@hotmail.com), August 2004
-
 ; Dialogs
 Type Dialog
 	Field Win
@@ -77,8 +52,10 @@ Global ActionBarUpTex, ActionBarDownTex
 ; Character interaction window
 Global WCharInteract, CharInteractVisible = False
 Global SCharInteractHealth
-Global LCharInteractTalk
 Global CharInteract.ActorInstance = Null
+Global LCharInteractFaction
+Global LCharInteractLevel
+Global LCharInteractReputation
 
 ; Tooltip window
 Global WTooltip ; Created/destroyed in the fly
@@ -90,6 +67,18 @@ Global WParty, PartyVisible = False
 Global BPartyLeave
 Dim PartyName$(6)
 Dim LPartyName(6)
+
+;##############################################################################################################
+;	Menu window and options added by clan_fd on Mar 20, 2014
+Global WMenu, MenuVisible = False
+Global BMenu, BLogOut, BCharSelect, BExit
+
+Global BOptions
+
+;	End edit
+;##############################################################################################################
+
+
 
 ; Help window
 Global WHelp, HelpVisible = False
@@ -107,6 +96,7 @@ Global LInventoryGold, BInventoryDrop, BInventoryEat
 Global WAmount, BAmountOK, TAmount, AmountSlot, AmountVisible
 Global MouseSlotEN, MouseSlotItem.ItemInstance, MouseSlotAmount, MouseSlotSource = -1
 Dim BSlots(49)
+Global WItemWindow, ItemWindowFromInventory ; Image Item Window
 
 ; Trading window
 Global WTrading, TradingVisible = False
@@ -137,6 +127,8 @@ Global LMemorising, SMemorising, MemoriseSpell, MemoriseSlot, MemoriseProgress, 
 Dim BSpellImgs(9)  ; 10 abilities in book
 Dim LSpellNames(9) ; Ability name text
 Dim LSpellLevels(9) ; Ability level text
+Dim LSpellDesc(9) ; Ability Description
+;Dim LSpellDesc2(9) ; Ability Description line 2
 Global FirstSpell = -1 ; -1 means we are looking at memorised spells rather than the longer list of known spells
 Global LastSpellRecharge
 
@@ -154,7 +146,6 @@ Type EffectIconSlot
 End Type
 
 ; Misc
-Global WInfo
 Global LastMouseMove, LastLeftClick, MouseControl, MouseWasDown, InWaitPeriod, MouseDownTime, MouseClicks
 Global RightWasDown, RightDownTime
 Global SelectKeyWasDown, SelectKeyClickTime
@@ -197,19 +188,7 @@ Global InventoryWindow.InterfaceComponent    ; Inventory window
 Global InventoryDrop.InterfaceComponent      ; Inventory drop button
 Global InventoryEat.InterfaceComponent       ; Inventory use button
 Global InventoryGold.InterfaceComponent      ; Inventory money display
-Dim InventoryButtons.InterfaceComponent(Slots_Inventory)  ; Buttons for inventory slots
-
-;Global LoginWindow.InterfaceComponent               ; Login Window
-;Global LoginUsername.InterfaceComponent             ; Login Username Field
-;Global LoginPassword.InterfaceComponent             ; Login Password Field
-;Global LoginNewAccount.InterfaceComponent           ; Login New Account
-;Global LoginLogIn.InterfaceComponent               ; Login Log-In
-;Global LoginGraphic.InterfaceComponent              ; Login Graphic Buttons
-;Global LoginControl.InterfaceComponent              ; Login Control Buttons
-;Global LoginSound.InterfaceComponent                ; Login Sound Button
-;Global LoginClose.InterfaceComponent                ; Login Close Button
-;Global LoginServerStat.InterfaceComponent           ; Login Server Status
-
+Dim InventoryButtons.InterfaceComponent(45)  ; Buttons for inventory slots
 
 ; Gets the script handle for a dialog
 Function DialogScriptHandle(Han)
@@ -345,33 +324,11 @@ Function LoadInterfaceSettings(Filename$)
 		ReadInterfaceComponent(InventoryEat, F)
 		InventoryGold = New InterfaceComponent
 		ReadInterfaceComponent(InventoryGold, F)
-		For i = 0 To Slots_Inventory
+		For i = 0 To 45
 			InventoryButtons(i) = New InterfaceComponent
 			ReadInterfaceComponent(InventoryButtons(i), F)
 		Next
-		
-	;	; Login Screen
-	;	LoginWindow = New InterfaceComponent
-	;	ReadInterfaceComponent(LoginWindow, F)
-	;	LoginUsername = New InterfaceComponent
-	;	ReadInterfaceComponent(LoginUsername, F)
-	;	LoginPassword = New InterfaceComponent
-	;	ReadInterfaceComponent(Loginpassword, F)
-	;	LoginNewAccount = New InterfaceComponent
-	;	ReadInterfaceComponent(LoginNewAccount, F)
-	;	LoginLogIn = New InterfaceComponent
-	;	ReadInterfaceComponent(LoginLogIn, F)
-	;	LoginGraphic = New InterfaceComponent
-	;	ReadInterfaceComponent(LoginGraphic, F)
-	;	LoginControl = New InterfaceComponent
-	;	ReadInterfaceComponent(LoginControl, F)
-	;	LoginSound = New InterfaceComponent
-	;	ReadInterfaceComponent(LoginSound, F)
-	;	LoginClose = New InterfaceComponent
-	;	ReadInterfaceComponent(LoginClose, F)
-	;	LoginServerStat = New InterfaceComponent
-	;	ReadInterfaceComponent(LoginServerStat, F)		
-		
+
 	CloseFile(F)
 	Return True
 
@@ -399,21 +356,9 @@ Function SaveInterfaceSettings(Filename$)
 		WriteInterfaceComponent(InventoryDrop, F)
 		WriteInterfaceComponent(InventoryEat, F)
 		WriteInterfaceComponent(InventoryGold, F)
-		For i = 0 To Slots_Inventory
+		For i = 0 To 45
 			WriteInterfaceComponent(InventoryButtons(i), F)
 		Next
-		
-	;	; Login Screen
-	;	WriteInterfaceComponent(LoginWindow, F)
-	;	WriteInterfaceComponent(LoginUsername, F)
-	;	WriteInterfaceComponent(LoginPassword, F)
-	;	WriteInterfaceComponent(LoginNewAccount, F)
-	;	WriteInterfaceComponent(LoginLogIn, F)
-	;	WriteInterfaceComponent(LoginGraphic, F)
-	;	WriteInterfaceComponent(LoginControl, F)
-	;	WriteInterfaceComponent(LoginSound, F)
-	;	WriteInterfaceComponent(LoginClose, F)
-	;	WriteInterfaceComponent(LoginServerStat, F)
 
 	CloseFile(F)
 	Return True

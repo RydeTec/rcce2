@@ -18,14 +18,14 @@ Function Main()
 	EndIf
 
 	; Wait
-	DoEvents(1000)
+	DoEvents(5000)
 
 	; Restore some health and take away some gold
 	SetAttribute(Actor(), "Health", 50)
-	ChangeGold(Actor(), -10)
+;	ChangeGold(Actor(), -10)
 
 	; Warp back to area start
-	Warp(Actor(), ActorZone(Actor()), "Start")
+	Warp(Actor(), ActorZone(Actor()), "Begin")
 
 	; Done
 	Return

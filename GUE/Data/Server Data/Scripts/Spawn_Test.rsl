@@ -1,0 +1,11 @@
+Using "RC_Core.rcm"
+; Define entry function 'Main'
+
+Function Main()
+
+NPC = Actor()
+
+SetName(NPC, "Test Human")
+SetTag(NPC, "Tag Test")
+
+End Function

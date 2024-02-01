@@ -1,0 +1,44 @@
+Using "RC_Core.rcm"
+;
+; Date/Time: 14:27:55 on 17/04/2012
+; By Terrier on GIULIANI-PC
+
+Function Main()
+
+    Player = Actor()
+    Target = ContextActor()
+
+    ;Check if the target is correct?
+    If(Target = 0)
+        Output(Player, "Target not correct")
+        Return
+    EndIf
+
+    ;Check the mana
+    ManaLevel = Attribute(Player, "Mana")
+    If(ManaLevel < 1)
+        Output(Player, "Not enough Mana")
+        Return
+    EndIf
+        SetAttribute(Player, "Mana", ManaLevel -1)
+
+
+    ;Particles and casting animation
+    AnimateActor(Player, "Pray", 0.05, 1)
+    FireProjectile(Player, Target, "Fireball")
+
+    DoEvents(2000)
+ CreateEmitter(Target, "Waterfall", 10, 100)
+    hp = Attribute(Target, "Health")
+    damage = Rand(30,60)
+    SetAttribute(Target, "Health", hp-damage)
+
+	;If (hp-Damage)<1
+	;KillActor(Target, Player)
+	;Endif
+
+    Return
+
+End Function
+
+

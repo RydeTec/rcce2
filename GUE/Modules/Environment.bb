@@ -1,28 +1,4 @@
-;##############################################################################################################################
-; Realm Crafter version 1.10																									
-; Copyright (C) 2007 Solstar Games, LLC. All rights reserved																	
-; contact@solstargames.com																																																		
-;																																																																#
-; Programmer: Rob Williams																										
-; Program: Realm Crafter Actors module
-;																																
-;This is a licensed product:
-;BY USING THIS SOURCECODE, YOU ARE CONFIRMING YOUR ACCEPTANCE OF THE SOFTWARE AND AGREEING TO BECOME BOUND BY THE TERMS OF 
-;THIS AGREEMENT. IF YOU DO NOT AGREE TO BE BOUND BY THESE TERMS, THEN DO NOT USE THE SOFTWARE.
-;																		
-;Licensee may NOT: 
-; (i)   create any derivative works of the Engine, including translations Or localizations, other than Games;
-; (ii)  redistribute, encumber, sell, rent, lease, sublicense, Or otherwise transfer rights To the Engine; or
-; (iii) remove Or alter any trademark, logo, copyright Or other proprietary notices, legends, symbols Or labels in the Engine.
-; (iv)   licensee may Not distribute the source code Or documentation To the engine in any manner, unless recipient also has a 
-;       license To the Engine.													
-; (v)  use the Software to develop any software or other technology having the same primary function as the Software, 
-;       including but not limited to using the Software in any development or test procedure that seeks to develop like 
-;       software or other technology, or to determine if such software or other technology performs in a similar manner as the
-;       Software																																
-;##############################################################################################################################
-; Realm Crafter Environment module by Rob W (rottbott@hotmail.com), August 2004
-
+; Set constants
 Const W_Sun   = 0
 Const W_Rain  = 1
 Const W_Snow  = 2
@@ -42,12 +18,14 @@ Global CurrentSeason, Year, Day, TimeH, TimeM, TimeFactor = 10
 Global TimeUpdate, HourChanged = True, MinuteChanged = True
 
 Type Sun
+
 	;Field EN, LightEN, TexID, Size#, LightR, LightG, LightB
 	Field EN, LightEN, Size#, LightR, LightG, LightB
 	Field ShowPhases	; 0 = disable phases, 1 = show phases
 	Field Phase_Length ; in number of days
 	Field TexID[7] ; 8 possible spots for phase images
-	
+	Field CurrentPhase
+
 	
 	Field StartH[11], StartM[11], EndH[11], EndM[11]
 	Field PathAngle#
@@ -133,36 +111,40 @@ Function GetMonth()
 
 End Function
 
-; Updates time of day etc.
-Function UpdateEnvironment()
+; Updates time of day etc. 
+Function UpdateEnvironment() 
+    
+   MinuteChanged = False 
+   HourChanged = False 
 
-	MinuteChanged = False
-	HourChanged = False
+   milliS = MilliSecs();<<<<<<<<<<<<<<<<< 
+   timeDiff = milliS - TimeUpdate;<<<<<<<<<<<<<<<<<< 
+   minFactor = 60000 / TimeFactor;<<<<<<<<<<<<<<<<<<< 
 
-	; Advance by one minute
-	If MilliSecs() - TimeUpdate > 60000 / TimeFactor
-		TimeUpdate = MilliSecs()
-		TimeM = TimeM + 1
-		MinuteChanged = True
-		If TimeM > 59
-			TimeH = TimeH + 1
-			TimeM = 0
-			HourChanged = True
-			If TimeH > 23
-				TimeH = 0
-				Day = Day + 1
-				CurrentSeason = GetSeason()
-				If Day > MonthStartDay(0)
-					Day = 0
-					Year = Year + 1
-				EndIf
-			EndIf
-		EndIf
-	EndIf
+   ; Advance by one minute 
+   If timeDiff > minFactor;<<<<<<<<<<<<<<<<<<< 
+      TimeUpdate = milliS - (timeDiff - minFactor);<<<<<<<<<<<<<<<< 
+      TimeM = TimeM + 1 
+      MinuteChanged = True 
+      If TimeM > 59 
+         TimeH = TimeH + 1 
+         TimeM = 0 
+         HourChanged = True 
+         If TimeH > 23 
+            TimeH = 0 
+            Day = Day + 1 
+            CurrentSeason = GetSeason() 
+            If Day > MonthStartDay(0) 
+               Day = 0 
+               Year = Year + 1 
+            EndIf 
+         EndIf 
+      EndIf 
+   EndIf 
 
 End Function
 
-; Loads and creates all suns
+; Loads And creates all suns
 Function LoadSuns()
 
 	F = ReadFile("Data\Game Data\Suns.dat")
@@ -172,16 +154,16 @@ Function LoadSuns()
 		For i = 1 To Suns
 			S.Sun = New Sun
 			
+		
 			;S\TexID = ReadShort(F)
+
 			For j = 0 To 7
 				S\TexID[j] = ReadShort(F)
 			Next
 			
 			S\ShowPhases = ReadByte(F)
 			S\Phase_Length = ReadByte(F)
-			If S\Phase_Length <= 1
-				S\Phase_Length = 1
-			EndIf
+			S\CurrentPhase = 0
 			
 			S\Size# = ReadFloat#(F)
 			S\LightR = ReadByte(F)
@@ -212,15 +194,15 @@ Function SaveSuns()
 		WriteInt(F, Count)
 		For S.Sun = Each Sun
 		
-			;WriteShort(F, S\TexID)
+		;WriteShort(F, S\TexID)
+		
 			For i = 0 To 7
 				WriteShort(F, S\TexID[i])
 			Next
 			
 			WriteByte(F, S\ShowPhases)
 			WriteByte(F, S\Phase_Length)
-
-			
+		
 			WriteFloat(F, S\Size#)
 			WriteByte(F, S\LightR)
 			WriteByte(F, S\LightG)

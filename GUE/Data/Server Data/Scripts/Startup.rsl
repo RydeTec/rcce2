@@ -1,21 +1,13 @@
 Using "RC_Core.rcm"
-Using "ProcessGlobals.rcm"
+; Default server startup script
+; You may alter this script however you like
 
+; The entry function for this script is always "Main"
+; There is no actor or context actor for this script
 Function Main()
+	Return
 
-	If FileType("League1.DATA") <> 1
-		FH = WriteFile("League1.DATA")
-		CloseFile(FH)
-	EndIf
-	If FileType("League2.DATA") <> 1
-		FH = WriteFile("League2.DATA")
-		CloseFile(FH)
-	EndIf
-	If FileType("League3.DATA") <> 1
-		FH = WriteFile("League3.DATA")
-		CloseFile(FH)
-	EndIf
-	DeleteFile("League1_SORT.SEM")
-	DeleteFile("League2_SORT.SEM")
-	DeleteFile("League3_SORT.SEM")
 End Function
+
+
+

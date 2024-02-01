@@ -1,28 +1,3 @@
-;##############################################################################################################################
-; Realm Crafter version 1.10																									
-; Copyright (C) 2007 Solstar Games, LLC. All rights reserved																	
-; contact@solstargames.com																																																		
-;																																																																#
-; Programmer: Rob Williams																										
-; Program: Realm Crafter Actors module
-;																																
-;This is a licensed product:
-;BY USING THIS SOURCECODE, YOU ARE CONFIRMING YOUR ACCEPTANCE OF THE SOFTWARE AND AGREEING TO BECOME BOUND BY THE TERMS OF 
-;THIS AGREEMENT. IF YOU DO NOT AGREE TO BE BOUND BY THESE TERMS, THEN DO NOT USE THE SOFTWARE.
-;																		
-;Licensee may NOT: 
-; (i)   create any derivative works of the Engine, including translations Or localizations, other than Games;
-; (ii)  redistribute, encumber, sell, rent, lease, sublicense, Or otherwise transfer rights To the Engine; or
-; (iii) remove Or alter any trademark, logo, copyright Or other proprietary notices, legends, symbols Or labels in the Engine.
-; (iv)   licensee may Not distribute the source code Or documentation To the engine in any manner, unless recipient also has a 
-;       license To the Engine.													
-; (v)  use the Software to develop any software or other technology having the same primary function as the Software, 
-;       including but not limited to using the Software in any development or test procedure that seeks to develop like 
-;       software or other technology, or to determine if such software or other technology performs in a similar manner as the
-;       Software																																
-;##############################################################################################################################
-; Realm Crafter Actors 3D module by Rob W (rottbott@hotmail.com), November 2004
-
 Include "Modules\CharacterEditorLoader.bb" ; RifRaf's character editor loading function
 
 ; Gubbin joint names
@@ -37,6 +12,9 @@ GubbinJoints$(5) = "R_Forearm"
 
 ; Other options
 Global HideNametags = 0, DisableCollisions = False
+
+Const nearFadeModifier# = 0.25 ; 500 units
+Const farFadeModifier# = 0.75 ; 1500 units
 
 ; Loads gubbin joint names from file
 Function LoadGubbinNames()
@@ -63,6 +41,7 @@ Function SetActorWeapon(AI.ActorInstance, MeshID)
 	If MeshID > -1 And MeshID < 65535
 		AI\WeaponEN = GetMesh(MeshID)
 		If AI\WeaponEN = 0 Then RuntimeError("Could not load weapon mesh!")
+		EntityAutoFade(AI\WeaponEN, nearFadeModifier * CameraViewRange, farFadeModifier * CameraViewRange)
 		RHand = FindChild(AI\EN, "R_Hand")
 		If RHand = 0 Then RuntimeError(AI\Actor\Race$ + " actor mesh is missing an 'R_Hand' joint!")
 		EntityParent AI\WeaponEN, RHand, False
@@ -88,6 +67,7 @@ Function SetActorShield(AI.ActorInstance, MeshID)
 	If MeshID > -1 And MeshID < 65535
 		AI\ShieldEN = GetMesh(MeshID)
 		If AI\ShieldEN = 0 Then RuntimeError("Could not load shield mesh!")
+		EntityAutoFade(AI\ShieldEN, nearFadeModifier * CameraViewRange, farFadeModifier * CameraViewRange)
 		LHand = FindChild(AI\EN, "L_Hand")
 		If LHand = 0 Then RuntimeError(AI\Actor\Race$ + " actor mesh is missing an 'L_Hand' joint!")
 		EntityParent AI\ShieldEN, LHand, False
@@ -113,6 +93,7 @@ Function SetActorChestArmour(AI.ActorInstance, MeshID)
 	If MeshID > -1 And MeshID < 65535
 		AI\ChestEN = GetMesh(MeshID)
 		If AI\ChestEN = 0 Then RuntimeError("Could not load chest item mesh!")
+		EntityAutoFade(AI\ChestEN, nearFadeModifier * CameraViewRange, farFadeModifier * CameraViewRange)
 		Chest = FindChild(AI\EN, "Chest")
 		If Chest = 0 Then RuntimeError(AI\Actor\Race$ + " actor mesh is missing a 'Chest' joint!")
 		EntityParent AI\ChestEN, Chest, False
@@ -138,6 +119,7 @@ Function SetActorHat(AI.ActorInstance, MeshID)
 	If MeshID > -1 And MeshID < 65535
 		AI\HatEN = GetMesh(MeshID)
 		If AI\HatEN = 0 Then RuntimeError("Could not load hat item mesh!")
+		EntityAutoFade(AI\HatEN, nearFadeModifier* CameraViewRange, farFadeModifier * CameraViewRange)
 		Bonce = FindChild(AI\EN, "Head")
 		If Bonce = 0 Then RuntimeError(AI\Actor\Race$ + " actor mesh is missing a 'Head' joint!")
 		EntityParent AI\HatEN, Bonce, False
@@ -155,6 +137,7 @@ Function SetActorHat(AI.ActorInstance, MeshID)
 		If ID > -1 And ID < 65535
 			AI\HatEN = GetMesh(ID)
 			If AI\HatEN = 0 Then RuntimeError("Could not load hair mesh!")
+			EntityAutoFade(AI\HatEN, nearFadeModifier * CameraViewRange, farFadeModifier * CameraViewRange)
 			Bonce = FindChild(AI\EN, "Head")
 			If Bonce = 0 Then RuntimeError(AI\Actor\Race$ + " actor mesh is missing a 'Head' joint!")
 			EntityParent AI\HatEN, Bonce, False
@@ -169,7 +152,7 @@ Function SetActorHat(AI.ActorInstance, MeshID)
 End Function
 
 ; Loads the 3D stuff for an actor instance
-Function LoadActorInstance3D(A.ActorInstance, Scale# = 1.0, SkipAttachments = False)
+Function LoadActorInstance3D(A.ActorInstance, Scale# = 1.0, SkipAttachments = False, charSelection = False)
 
 	A\Actor\Radius# = 0.0
 	A\CollisionEN = CreatePivot()
@@ -317,6 +300,7 @@ Function LoadActorInstance3D(A.ActorInstance, Scale# = 1.0, SkipAttachments = Fa
 		If A\Actor\FemaleBodyIDs[BodyTex] = 65535 And BodyTex > 0 Then BodyTex = 0
 		FaceTex = A\FaceTex
 		If A\Actor\FemaleFaceIDs[FaceTex] = 65535 And FaceTex > 0 Then FaceTex = 0
+		
 		If CountSurfaces(A\EN) > 1 And A\Actor\FemaleFaceIDs[FaceTex] < 65535
 			; Find which surface is body
 			B = GetSurfaceBrush(GetSurface(A\EN, 1)) : T = GetBrushTexture(B)
@@ -393,22 +377,6 @@ Function LoadActorInstance3D(A.ActorInstance, Scale# = 1.0, SkipAttachments = Fa
 		; Hair
 		SetActorHat(A, -1)
 
-		; Shadow
-		A\ShadowEN = CreateMesh()
-		s = CreateSurface(A\ShadowEN)
-		v1 = AddVertex(s, -1.0, 0.0, -1.0, 0.0, 0.0)
-		v2 = AddVertex(s, -1.0, 0.0, 1.0,  0.0, 1.0)
-		v3 = AddVertex(s, 1.0,  0.0, 1.0,  1.0, 1.0)
-		v4 = AddVertex(s, 1.0,  0.0, -1.0, 1.0, 0.0)
-		AddTriangle s, v1, v2, v3
-		AddTriangle s, v1, v3, v4
-		EntityFX A\ShadowEN, 1
-		EntityBlend A\ShadowEN, 2
-		ScaleEntity A\ShadowEN, MeshWidth#(A\EN) * Scale# * 0.5, 1.0, MeshDepth#(A\EN) * Scale# * 0.5
-		Tex = LoadTexture("Data\Textures\Shadow.bmp")
-		If Tex = 0 Then RuntimeError("Could not load Data\Textures\Shadow.bmp!")
-		EntityTexture(A\ShadowEN, Tex)
-
 		; Collision
 		MaxLength# = MMV\MaxX# - MMV\MinX#
 		If MMV\MaxZ# - MMV\MinZ# > MaxLength# Then MaxLength# = ((MMV\MaxZ# - MMV\MinZ#) + MaxLength#) / 2.0
@@ -424,6 +392,22 @@ Function LoadActorInstance3D(A.ActorInstance, Scale# = 1.0, SkipAttachments = Fa
 			EntityType(A\EN, C_ActorTri2)
 		EndIf
 
+		; Shadow	[###]	
+	;	A\ShadowEN = CreateMesh()
+	;	s = CreateSurface(A\ShadowEN)
+	;	v1 = AddVertex(s, -1.0, 0.0, -1.0, 0.0, 0.0)
+	;	v2 = AddVertex(s, -1.0, 0.0, 1.0,  0.0, 1.0)
+	;	v3 = AddVertex(s, 1.0,  0.0, 1.0,  1.0, 1.0)
+	;	v4 = AddVertex(s, 1.0,  0.0, -1.0, 1.0, 0.0)
+	;	AddTriangle s, v1, v2, v3
+	;	AddTriangle s, v1, v3, v4
+	;	EntityFX A\ShadowEN, 1
+	;	EntityBlend A\ShadowEN, 2
+	;	ScaleEntity A\ShadowEN, (MaxLength# * Scale#) * 0.3, 1, (MaxLength# * Scale#) * 0.3 ; 0.5 for half side * 0.75 to compensate for falloff ; MeshWidth#(A\EN) * Scale# * 0.5, 1.0, MeshDepth#(A\EN) * Scale# * 0.5  ;
+	;	Tex = LoadTexture("Data\Textures\Shadow.bmp")
+	;	If Tex = 0 Then RuntimeError("Could not load Data\Textures\Shadow.bmp!")
+	;	EntityTexture(A\ShadowEN, Tex)
+
 		; Debug code to display the collision radius
 ;		CollisionSphere = CreateSphere()
 ;		EntityColor(CollisionSphere, 255, 0, 0)
@@ -438,13 +422,21 @@ Function LoadActorInstance3D(A.ActorInstance, Scale# = 1.0, SkipAttachments = Fa
 		If HideNametags <> 1 Then CreateActorNametag(A)
 	EndIf
 
+	;- Enable AutoFade when not in CharSelection Screen
+	If Not charSelection
+		EntityAutoFade(A\EN, nearFadeModifier * CameraViewRange, farFadeModifier * CameraViewRange)
+		If BeardEN <> 0 Then EntityAutoFade(BeardEN, nearFadeModifier * CameraViewRange, farFadeModifier * CameraViewRange)
+		;If A\ShadowEN <> 0 Then EntityAutoFade(A\ShadowEN, nearFadeModifier * CameraViewRange, farFadeModifier * CameraViewRange)
+	EndIf
+	
 	; Free MinMaxVertices data
 	Delete(MMV)
 
 	; Type handle
 	NameEntity A\CollisionEN, Handle(A)
 	NameEntity A\EN, Handle(A)
-
+	
+	
 	Return True
 
 End Function
@@ -461,15 +453,23 @@ Function CreateActorNametag(A.ActorInstance)
 	GY_Set3DText(A\NametagEN, A\Name$)
 	PositionMesh(A\NametagEN, MeshWidth#(A\NametagEN) / -2.0, 1.0, 0.0)
 	EntityParent(A\NametagEN, A\EN)
-	ScaleEntity(A\NametagEN, -0.45 * Len(A\Name$), 0.75, 1, True)
+	ScaleEntity(A\NametagEN, -0.35 * Len(A\Name$), 0.65, 1, True) ;-0.45, 0.75
 	PositionEntity(A\NametagEN, 0, MMV\MaxY#, 0)
-	TranslateEntity(A\NametagEN, 0, 0.5, 0, True)
-	EntityAutoFade(A\NametagEN, 40.0, 45.0)
+	TranslateEntity(A\NametagEN, 0, 0.5, 0, True) ;0, 0.5, 0
+	EntityAutoFade(A\NametagEN, 70, 75)
 	If A\RNID = 0
+	;Adding 3rd color options for name tags Cysis145
 		If A\Actor\Aggressiveness = 3
-			EntityColor(A\NametagEN, 50, 100, 255)
+			EntityColor(A\NametagEN, 0, 174, 14) ;Non Combatant
+			
+		ElseIf A\Actor\Aggressiveness = 0
+			EntityColor(A\NametagEN, 255, 219, 114) ; Passive
+			
+		ElseIf A\Actor\Aggressiveness = 1
+			EntityColor(A\NametagEN, 255, 219, 114) ;Defensive
+			
 		Else
-			EntityColor(A\NametagEN, 255, 50, 50)
+			EntityColor(A\NametagEN, 168, 0, 0) ; Always Attacks
 		EndIf
 	EndIf
 
@@ -480,16 +480,24 @@ Function CreateActorNametag(A.ActorInstance)
 		GY_Set3DText(EN, Tag$)
 		PositionMesh(EN, MeshWidth#(EN) / -2.0, 1.0, 0.0)
 		EntityParent(EN, A\NametagEN)
-		ScaleEntity(EN, -0.45 * Len(Tag$), 0.75, 1, True)
+		ScaleEntity(EN, -0.3 * Len(Tag$), 0.6, 1, True) ;-0.45, 0.75
 		PositionEntity(EN, 0, 0, 0)
-		TranslateEntity(EN, 0.0, -0.7, 0.0, True)
-		TranslateEntity(A\NametagEN, 0.0, 0.7, 0.0, True)
-		EntityAutoFade(EN, 40.0, 45.0)
+		TranslateEntity(EN, 0.0, -0.5, 0.0, True) ; 0,-0.7
+		TranslateEntity(A\NametagEN, 0.0, 0.7, 0.0, True) ;0, 0.7, 0
+		EntityAutoFade(EN, 70, 75)
 		If A\RNID = 0
-			If A\Actor\Aggressiveness = 3
-				EntityColor(EN, 50, 100, 255)
+		;Adding 3rd color options for name tags Cysis145
+			If A\Actor\Aggressiveness = 3 ;Non combatant
+				EntityColor(EN, 0, 174, 14)
+			
+			ElseIf A\Actor\Aggressiveness = 0 ; Passive
+				EntityColor(EN, 255, 219, 114)
+				
+			ElseIf A\Actor\Aggressiveness = 1 ; Defensive
+				EntityColor(EN, 255, 219, 114)
+			
 			Else
-				EntityColor(EN, 255, 50, 50)
+				EntityColor(EN, 168, 0, 0) ;Always Attacks
 			EndIf
 		EndIf
 		TranslateEntity(A\NametagEN, 0, 0.5, 0, True)
@@ -509,7 +517,7 @@ Function FreeActorInstance3D(A.ActorInstance)
 	If A\ShieldEN <> 0 Then FreeEntityEmitters(A\ShieldEN) : FreeEntity A\ShieldEN : A\ShieldEN = 0
 	If A\WeaponEN <> 0 Then FreeEntityEmitters(A\WeaponEN) : FreeEntity A\WeaponEN : A\WeaponEN = 0
 	If A\ChestEN <> 0 Then FreeEntityEmitters(A\ChestEN) : FreeEntity A\ChestEN : A\ChestEN = 0
-	If A\ShadowEN <> 0 Then FreeEntity A\ShadowEN : A\ShadowEN = 0
+	;If A\ShadowEN <> 0 Then FreeEntity A\ShadowEN : A\ShadowEN = 0
 	If A\NametagEN <> 0 Then FreeEntity A\NametagEN : A\NametagEN = 0
 	If A\EN <> 0
 		; If no other actor instances are using this mesh, unload it completely
@@ -556,6 +564,7 @@ Function ShowGubbin(A.ActorInstance, Num, SuppressError = False)
 					Return
 				EndIf
 			EndIf
+			EntityAutoFade(A\GubbinEN[Num], nearFadeModifier * CameraViewRange, farFadeModifier * CameraViewRange)
 			Bone = FindChild(A\EN, GubbinJoints$(Num))
 			If Bone = 0 Then RuntimeError(A\Actor\Race$ + " actor mesh is missing a '" + GubbinJoints$(Num) + "' joint!")
 			EntityParent(A\GubbinEN[Num], Bone, False)

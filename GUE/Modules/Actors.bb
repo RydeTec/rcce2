@@ -1,31 +1,3 @@
-;##############################################################################################################################
-; Realm Crafter version 1.10																									
-; Copyright (C) 2007 Solstar Games, LLC. All rights reserved																	
-; contact@solstargames.com																																																		
-;																																																																#
-; Programmer: Rob Williams																										
-; Program: Realm Crafter Actors module
-;																																
-;This is a licensed product:
-;BY USING THIS SOURCECODE, YOU ARE CONFIRMING YOUR ACCEPTANCE OF THE SOFTWARE AND AGREEING TO BECOME BOUND BY THE TERMS OF 
-;THIS AGREEMENT. IF YOU DO NOT AGREE TO BE BOUND BY THESE TERMS, THEN DO NOT USE THE SOFTWARE.
-;																		
-;Licensee may NOT: 
-; (i)   create any derivative works of the Engine, including translations Or localizations, other than Games;
-; (ii)  redistribute, encumber, sell, rent, lease, sublicense, Or otherwise transfer rights To the Engine; or
-; (iii) remove Or alter any trademark, logo, copyright Or other proprietary notices, legends, symbols Or labels in the Engine.
-; (iv)   licensee may Not distribute the source code Or documentation To the engine in any manner, unless recipient also has a 
-;       license To the Engine.													
-; (v)  use the Software to develop any software or other technology having the same primary function as the Software, 
-;       including but not limited to using the Software in any development or test procedure that seeks to develop like 
-;       software or other technology, or to determine if such software or other technology performs in a similar manner as the
-;       Software																																
-;##############################################################################################################################
-;HISTORY:
-;Ability fix 8/1/2007 Rofar: added spell ID to message for client in AddSpell.
-;Actor moves/change areas standard update timing fix. 8/16/2007 Rofar.  added IgnoreUpdate field
-;##############################################################################################################################
-
 ; AI modes
 Const AI_Wait        = 0
 Const AI_Patrol      = 1
@@ -141,6 +113,11 @@ Type ActorInstance
 	Field TradeResult$
 	Field Underwater
 	Field IgnoreUpdate   ;used to ignore standard update while waiting for client to complete actor moves
+	
+	;Strafing
+	Field WalkingRight
+	
+	Field Active		; used for visibility update handling
 	; Additional variables used when saving field in MySQL
 	; These store the integer of the first field in each table
 	Field Faction_ID
@@ -255,7 +232,7 @@ Function WriteActorInstance(Stream, A.ActorInstance)
 		WriteShort Stream, A\Inventory\Amounts[i]
 	Next
 	WriteString Stream, A\Script$
-	WriteString Stream, A\DeathScript$
+	WriteString Stream, A\Script$
 	WriteShort Stream, A\Reputation
 	WriteInt Stream, A\Gold
 	WriteByte Stream, A\NumberOfSlaves
@@ -701,6 +678,102 @@ Function FindAttribute(Name$)
 
 End Function
 
+; Converts the important parts of an actor instance to a string to be sent over the network
+Function ActorInstanceToString$(A.ActorInstance)
+
+	Pa$ = RCE_StrFromInt$(A\ServerArea, 4) + RCE_StrFromInt$(A\RuntimeID, 2) + RCE_StrFromInt$(A\Level, 2) + RCE_StrFromInt$(A\XP, 4)
+	Pa$ = Pa$ + RCE_StrFromInt$(A\Actor\ID, 2) + RCE_StrFromFloat$(A\X#) + RCE_StrFromFloat$(A\Y#) + RCE_StrFromFloat$(A\Z#) + RCE_StrFromFloat$(A\Yaw#)
+	If A\RNID = -1 Then Pa$ = Pa$ + RCE_StrFromInt$(0, 1) Else Pa$ = Pa$ + RCE_StrFromInt$(1, 1)
+	Pa$ = Pa$ + RCE_StrFromInt$(Len(A\Name$), 1) + A\Name$
+	Pa$ = Pa$ + RCE_StrFromInt$(Len(A\Tag$), 1) + A\Tag$
+	If A\Actor\Genders = 0 Then Pa$ = Pa$ + RCE_StrFromInt$(A\Gender, 1)
+	Pa$ = Pa$ + RCE_StrFromInt$(A\Reputation, 2)
+	Pa$ = Pa$ + RCE_StrFromInt$(A\FaceTex, 2) + RCE_StrFromInt$(A\Hair, 2) + RCE_StrFromInt$(A\BodyTex, 2) + RCE_StrFromInt$(A\Beard, 2)
+	Pa$ = Pa$ + RCE_StrFromInt$(A\Attributes\Value[SpeedStat], 2) + RCE_StrFromInt$(A\Attributes\Maximum[SpeedStat], 2)
+	Pa$ = Pa$ + RCE_StrFromInt$(A\Attributes\Value[HealthStat], 2) + RCE_StrFromInt$(A\Attributes\Maximum[HealthStat], 2)
+	If A\Inventory\Items[SlotI_Weapon] <> Null
+		Pa$ = Pa$ + RCE_StrFromInt$(A\Inventory\Items[SlotI_Weapon]\Item\ID, 2)
+	Else
+		Pa$ = Pa$ + RCE_StrFromInt$(65535, 2)
+	EndIf
+	If A\Inventory\Items[SlotI_Shield] <> Null
+		Pa$ = Pa$ + RCE_StrFromInt$(A\Inventory\Items[SlotI_Shield]\Item\ID, 2)
+	Else
+		Pa$ = Pa$ + RCE_StrFromInt$(65535, 2)
+	EndIf
+	If A\Inventory\Items[SlotI_Hat] <> Null
+		Pa$ = Pa$ + RCE_StrFromInt$(A\Inventory\Items[SlotI_Hat]\Item\ID, 2)
+	Else
+		Pa$ = Pa$ + RCE_StrFromInt$(65535, 2)
+	EndIf
+	If A\Inventory\Items[SlotI_Chest] <> Null
+		Pa$ = Pa$ + RCE_StrFromInt$(A\Inventory\Items[SlotI_Chest]\Item\ID, 2)
+	Else
+		Pa$ = Pa$ + RCE_StrFromInt$(65535, 2)
+	EndIf
+	Pa$ = Pa$ + RCE_StrFromInt$(A\HomeFaction, 1)
+	For i = 0 To 99
+		Pa$ = Pa$ + RCE_StrFromInt$(A\FactionRatings[i], 1)
+	Next
+
+	Return Pa$
+
+End Function
+
+; Converts a string back into an actor instance after network transmission
+Function ActorInstanceFromString.ActorInstance(Pa$)
+
+	Local ServerArea = RCE_IntFromStr(Mid$(Pa$, 1, 4))
+	If ServerArea <> CurrentAreaID Then Return Null
+
+	RuntimeID = RCE_IntFromStr(Mid$(Pa$, 5, 2))
+	ActorID = RCE_IntFromStr(Mid$(Pa$, 13, 2))
+	A.ActorInstance = CreateActorInstance(ActorList(ActorID))
+	A\RuntimeID = RuntimeID
+	RuntimeIDList(RuntimeID) = A
+	A\Level = RCE_IntFromStr(Mid$(Pa$, 7, 2))
+	A\XP = RCE_IntFromStr(Mid$(Pa$, 9, 4))
+	A\X# = RCE_FloatFromStr#(Mid$(Pa$, 15, 4))
+	A\Y# = RCE_FloatFromStr#(Mid$(Pa$, 19, 4))
+	A\Z# = RCE_FloatFromStr#(Mid$(Pa$, 23, 4))
+	A\Yaw# = RCE_FloatFromStr#(Mid$(Pa$, 27, 4))
+	A\DestX# = A\X#
+	A\DestZ# = A\Z#
+	A\RNID = RCE_IntFromStr(Mid$(Pa$, 31, 1)) ; 1 if human, 0 if AI
+	NameLen = RCE_IntFromStr(Mid$(Pa$, 32, 1))
+	A\Name$ = Mid$(Pa$, 33, NameLen)
+	Offset = 33 + NameLen
+	NameLen = RCE_IntFromStr(Mid$(Pa$, Offset, 1))
+	A\Tag$ = Mid$(Pa$, Offset + 1, NameLen)
+	Offset = Offset + 1 + NameLen
+	If A\Actor\Genders = 0 Then A\Gender = RCE_IntFromStr(Mid$(Pa$, Offset, 1)) : Offset = Offset + 1
+	A\Reputation = RCE_IntFromStr(Mid$(Pa$, Offset, 2))
+	A\FaceTex = RCE_IntFromStr(Mid$(Pa$, Offset + 2, 2))
+	A\Hair    = RCE_IntFromStr(Mid$(Pa$, Offset + 4, 2))
+	A\BodyTex = RCE_IntFromStr(Mid$(Pa$, Offset + 6, 2))
+	A\Beard   = RCE_IntFromStr(Mid$(Pa$, Offset + 8, 2))
+	A\Attributes\Value[SpeedStat] = RCE_IntFromStr(Mid$(Pa$, Offset + 10, 2))
+	A\Attributes\Maximum[SpeedStat] = RCE_IntFromStr(Mid$(Pa$, Offset + 12, 2))
+	A\Attributes\Value[HealthStat] = RCE_IntFromStr(Mid$(Pa$, Offset + 14, 2))
+	A\Attributes\Maximum[HealthStat] = RCE_IntFromStr(Mid$(Pa$, Offset + 16, 2))
+	WeaponID = RCE_IntFromStr(Mid$(Pa$, Offset + 18, 2))
+	ShieldID = RCE_IntFromStr(Mid$(Pa$, Offset + 20, 2))
+	HatID = RCE_IntFromStr(Mid$(Pa$, Offset + 22, 2))
+	ChestID = RCE_IntFromStr(Mid$(Pa$, Offset + 24, 2))
+	If WeaponID < 65535 Then A\Inventory\Items[SlotI_Weapon] = CreateItemInstance(ItemList(WeaponID))
+	If ShieldID < 65535 Then A\Inventory\Items[SlotI_Shield] = CreateItemInstance(ItemList(ShieldID))
+	If HatID < 65535 Then A\Inventory\Items[SlotI_Hat] = CreateItemInstance(ItemList(HatID))
+	If ChestID < 65535 Then A\Inventory\Items[SlotI_Chest] = CreateItemInstance(ItemList(ChestID))
+	A\HomeFaction = RCE_IntFromStr(Mid$(Pa$, Offset + 26, 1))
+	Offset = Offset + 27
+	For i = 0 To 99
+		A\FactionRatings[i] = RCE_IntFromStr(Mid$(Pa$, Offset + i, 1))
+	Next
+
+	Return A
+
+End Function
+
 ; Returns True/False for a single bit in an int (numbered from 0)
 Function GetFlag(TheInt, Flag)
 
@@ -764,3 +837,40 @@ Function SaveFactions(Filename$)
 
 End Function
 
+; Gives a known spell (ability) to an actor instance (SERVER ONLY!)
+Function AddSpell(AI.ActorInstance, SpellID, Lvl = 1)
+
+	; Find a free slot
+	For i = 0 To 999
+		If AI\SpellLevels[i] <= 0
+			; Add the spell
+			AI\KnownSpells[i] = SpellID
+			AI\SpellLevels[i] = Lvl
+			; If they are a player in game, tell them
+			If AI\RNID > 0
+				Sp.Spell = SpellsList(SpellID)
+				Pa$ = RCE_StrFromInt$(Lvl, 2) + RCE_StrFromInt$(Sp\ThumbnailTexID, 2) + RCE_StrFromInt$(Sp\RechargeTime, 2)
+				Pa$ = Pa$ + RCE_StrFromInt$(Len(Sp\Name$), 2) + Sp\Name$ + RCE_StrFromInt$(Len(Sp\Description$), 2) + Sp\Description$
+				RCE_Send(Host, PeerToHost, P_KnownSpellUpdate, "A" + Pa$, True)
+			EndIf
+			; Done
+			Exit
+		EndIf
+	Next
+
+End Function
+
+; Removes a known spell (ability) from an actor instance (SERVER ONLY!)
+Function DeleteSpell(AI.ActorInstance, ID)
+
+	; Remove
+	Sp.Spell = SpellsList(AI\KnownSpells[ID])
+	AI\KnownSpells[ID] = 0
+	AI\SpellLevels[ID] = 0
+	For i = 0 To 9
+		If AI\MemorisedSpells[i] = ID Then AI\MemorisedSpells[i] = 5000
+	Next
+
+	; If they are a player in game, tell them
+	If AI\RNID > 0 And Sp <> Null Then RCE_Send(Host, PeerToHost, P_KnownSpellUpdate, "D" + Sp\Name$, True)
+End Function

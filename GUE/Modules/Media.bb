@@ -1,28 +1,3 @@
-;##############################################################################################################################
-; Realm Crafter version 1.10																									
-; Copyright (C) 2007 Solstar Games, LLC. All rights reserved																	
-; contact@solstargames.com																																																		
-;																																																																#
-; Programmer: Rob Williams																										
-; Program: Realm Crafter Actors module
-;																																
-;This is a licensed product:
-;BY USING THIS SOURCECODE, YOU ARE CONFIRMING YOUR ACCEPTANCE OF THE SOFTWARE AND AGREEING TO BECOME BOUND BY THE TERMS OF 
-;THIS AGREEMENT. IF YOU DO NOT AGREE TO BE BOUND BY THESE TERMS, THEN DO NOT USE THE SOFTWARE.
-;																		
-;Licensee may NOT: 
-; (i)   create any derivative works of the Engine, including translations Or localizations, other than Games;
-; (ii)  redistribute, encumber, sell, rent, lease, sublicense, Or otherwise transfer rights To the Engine; or
-; (iii) remove Or alter any trademark, logo, copyright Or other proprietary notices, legends, symbols Or labels in the Engine.
-; (iv)   licensee may Not distribute the source code Or documentation To the engine in any manner, unless recipient also has a 
-;       license To the Engine.													
-; (v)  use the Software to develop any software or other technology having the same primary function as the Software, 
-;       including but not limited to using the Software in any development or test procedure that seeks to develop like 
-;       software or other technology, or to determine if such software or other technology performs in a similar manner as the
-;       Software																																
-;##############################################################################################################################
-; Realm Crafter Media module by Rob W (rottbott@hotmail.com), August 2004
-
 Dim LoadedTextures(65534)
 Dim LoadedMeshes(65534)
 Dim LoadedMeshScales#(65534)
@@ -818,7 +793,7 @@ Function GetMesh(ID, Duplicate = False)
 		Else
 			EN = LoadMesh("Data\Meshes\" + Name$)
 			If EN = 0 Then Return(0)
-			ScaleEntity(EN, LoadedMeshScales#(ID), LoadedMeshScales#(ID), LoadedMeshScales#(ID))
+				ScaleEntity(EN, LoadedMeshScales#(ID), LoadedMeshScales#(ID), LoadedMeshScales#(ID))
 		EndIf	
 
 		Return(EN)
@@ -1052,4 +1027,33 @@ Function MeshMinMaxVerticesTransformed.MeshMinMaxVertices(EN, Pitch#, Yaw#, Roll
 	Next
 	Return(Result)
 
+End Function
+
+;Bump mapping
+Function GetMeshNameClean$(ID)
+If LockedMeshes = 0
+   F = OpenFile("Data\Game Data\Meshes.dat")
+   If F = 0 Then Return ""
+Else
+   F = LockedMeshes
+EndIf
+
+SeekFile(F, ID * 4)
+DataAdress = ReadInt(F)
+If DataAdress = 0
+   If LockedMeshes = 0 Then CloseFile(F)
+   Return ""
+EndIf
+
+SeekFile(F, DataAdress)
+IsAnim = ReadByte(F)
+ReadFloat#(F)
+ReadFloat#(F)
+ReadFloat#(F)
+ReadFloat#(F)
+ReadShort(F)
+NameWithExt$ = ReadString$(F)
+NameClean$ = Left(NameWithExt$, Len(NameWithExt$)-4)   
+If LockedMeshes = 0 Then CloseFile(F)
+Return NameClean$
 End Function

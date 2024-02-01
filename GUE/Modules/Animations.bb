@@ -1,28 +1,3 @@
-;##############################################################################################################################
-; Realm Crafter version 1.10																									
-; Copyright (C) 2007 Solstar Games, LLC. All rights reserved																	
-; contact@solstargames.com																																																		
-;																																																																#
-; Programmer: Rob Williams																										
-; Program: Realm Crafter Actors module
-;																																
-;This is a licensed product:
-;BY USING THIS SOURCECODE, YOU ARE CONFIRMING YOUR ACCEPTANCE OF THE SOFTWARE AND AGREEING TO BECOME BOUND BY THE TERMS OF 
-;THIS AGREEMENT. IF YOU DO NOT AGREE TO BE BOUND BY THESE TERMS, THEN DO NOT USE THE SOFTWARE.
-;																		
-;Licensee may NOT: 
-; (i)   create any derivative works of the Engine, including translations Or localizations, other than Games;
-; (ii)  redistribute, encumber, sell, rent, lease, sublicense, Or otherwise transfer rights To the Engine; or
-; (iii) remove Or alter any trademark, logo, copyright Or other proprietary notices, legends, symbols Or labels in the Engine.
-; (iv)   licensee may Not distribute the source code Or documentation To the engine in any manner, unless recipient also has a 
-;       license To the Engine.													
-; (v)  use the Software to develop any software or other technology having the same primary function as the Software, 
-;       including but not limited to using the Software in any development or test procedure that seeks to develop like 
-;       software or other technology, or to determine if such software or other technology performs in a similar manner as the
-;       Software																																
-;##############################################################################################################################
-; Realm Crafter Animation module by Rob W (rottbott@hotmail.com), August 2004
-
 ; Required animations
 Const Anim_Walk          = 149
 Const Anim_Run           = 148
@@ -52,6 +27,8 @@ Const Anim_LookRound     = 123
 Const Anim_SitDown       = 122
 Const Anim_SitIdle       = 121
 Const Anim_StandUp       = 120
+;Adding Strafing Cysis145 
+Const Anim_StrafeRight   = 119
 
 Dim AnimList.AnimSet(999)
 Type AnimSet
@@ -119,6 +96,7 @@ Function CreateAnimSet()
 	A\AnimName$[122] = "Sit down"
 	A\AnimName$[121] = "Sit idle"
 	A\AnimName$[120] = "Stand up"
+	A\AnimName$[119] = "Strafe Right"
 	For i = 0 To 149
 		A\AnimSpeed#[i] = 1.0
 	Next
@@ -171,21 +149,6 @@ Function SaveAnimSets(Filename$)
 		Next
 
 	CloseFile(F)
-	;Allows for animation sets to be recovered or something... cysis145
-	G = WriteFile("Data\Game Data\Animations_debug.txt")
-	If G = 0 Then Return False  
-	For A.AnimSet = Each AnimSet
-		WriteLine(G, "Anim ID: " + A\ID)
-		WriteLine(G, "Anim Set: " + A\Name$)
-		For i = 0 To 149
-			If A\AnimName$[i] <> "" Then WriteLine(G, A\AnimName$[i] + "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" + A\AnimStart[i] + "-" + A\AnimEnd[i])
-		Next
-		WriteLine(G, "")
-		WriteLine(G, "")
-	Next
-	CloseFile(G)
-
-	
 	Return True
 
 End Function

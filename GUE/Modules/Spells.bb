@@ -1,33 +1,11 @@
-;##############################################################################################################################
-; Realm Crafter version 1.10																									
-; Copyright (C) 2007 Solstar Games, LLC. All rights reserved																	
-; contact@solstargames.com																																																		
-;																																																																#
-; Programmer: Rob Williams																										
-; Program: Realm Crafter Actors module
-;																																
-;This is a licensed product:
-;BY USING THIS SOURCECODE, YOU ARE CONFIRMING YOUR ACCEPTANCE OF THE SOFTWARE AND AGREEING TO BECOME BOUND BY THE TERMS OF 
-;THIS AGREEMENT. IF YOU DO NOT AGREE TO BE BOUND BY THESE TERMS, THEN DO NOT USE THE SOFTWARE.
-;																		
-;Licensee may NOT: 
-; (i)   create any derivative works of the Engine, including translations Or localizations, other than Games;
-; (ii)  redistribute, encumber, sell, rent, lease, sublicense, Or otherwise transfer rights To the Engine; or
-; (iii) remove Or alter any trademark, logo, copyright Or other proprietary notices, legends, symbols Or labels in the Engine.
-; (iv)   licensee may Not distribute the source code Or documentation To the engine in any manner, unless recipient also has a 
-;       license To the Engine.													
-; (v)  use the Software to develop any software or other technology having the same primary function as the Software, 
-;       including but not limited to using the Software in any development or test procedure that seeks to develop like 
-;       software or other technology, or to determine if such software or other technology performs in a similar manner as the
-;       Software																																
-;##############################################################################################################################
-; Realm Crafter Spells module by Rob W (rottbott@hotmail.com), March 2005
 ; Note: "Abilities" is the actual name used for spells as they are general purpose effects, not just for magic users!
 
 ; Describes a spell
 Dim SpellsList.Spell(65534)
+Global Spells% = 0
+
 Type Spell
-	Field ID
+	Field ID							  ; ServerSide Spell ID
 	Field Name$, Description$             ; Name and description displayed in the spellbook
 	Field ThumbnailTexID                  ; Icon displayed in the spellbook
 	Field ExclusiveRace$, ExclusiveClass$ ; If this spell can only be used by a certain race and/or class
@@ -44,7 +22,8 @@ End Type
 
 ; Creates a new spell
 Function CreateSpell.Spell()
-
+	
+	
 	For i = 0 To 65534
 		If SpellsList(i) = Null
 			S.Spell = New Spell

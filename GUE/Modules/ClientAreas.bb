@@ -1,28 +1,4 @@
-;##############################################################################################################################
-; Realm Crafter version 1.10																									
-; Copyright (C) 2007 Solstar Games, LLC. All rights reserved																	
-; contact@solstargames.com																																																		
-;																																																																#
-; Programmer: Rob Williams																										
-; Program: Realm Crafter Actors module
-;																																
-;This is a licensed product:
-;BY USING THIS SOURCECODE, YOU ARE CONFIRMING YOUR ACCEPTANCE OF THE SOFTWARE AND AGREEING TO BECOME BOUND BY THE TERMS OF 
-;THIS AGREEMENT. IF YOU DO NOT AGREE TO BE BOUND BY THESE TERMS, THEN DO NOT USE THE SOFTWARE.
-;																		
-;Licensee may NOT: 
-; (i)   create any derivative works of the Engine, including translations Or localizations, other than Games;
-; (ii)  redistribute, encumber, sell, rent, lease, sublicense, Or otherwise transfer rights To the Engine; or
-; (iii) remove Or alter any trademark, logo, copyright Or other proprietary notices, legends, symbols Or labels in the Engine.
-; (iv)   licensee may Not distribute the source code Or documentation To the engine in any manner, unless recipient also has a 
-;       license To the Engine.													
-; (v)  use the Software to develop any software or other technology having the same primary function as the Software, 
-;       including but not limited to using the Software in any development or test procedure that seeks to develop like 
-;       software or other technology, or to determine if such software or other technology performs in a similar manner as the
-;       Software																																
-;##############################################################################################################################
-; Realm Crafter Areas module by Rob W (rottbott@hotmail.com), August 2004
-
+;Set Constants
 Const MaxFogFar# = 2000.0
 
 Global SkyEN, CloudEN, StarsEN
@@ -44,7 +20,7 @@ Type Cluster
 End Type
 
 Type Scenery
-	Field SceneryID ; Set by user, used for scenery ownerships
+	Field SceneryID ; Set by user, used for scenery ownerships {##}
 	Field EN, MeshID
 	Field AnimationMode ; 0 = no animation, 1 = constant animation (loops), 2 = constant (ping-pongs), 3 = animate when selected
 	Field ScaleX#, ScaleY#, ScaleZ#
@@ -54,19 +30,30 @@ Type Scenery
 	Field CatchRain
 	Field Locked
 	
-	Field CastShadow
+	Field CastShadow ;[010]
 	Field ReceiveShadow
 	Field RenderRange ;[011]
 	
-	;Dynamic Lights
-	Field ENWF$
-	Field ENFM$
-
-	Field LightID 
+	Field SceneryType$ ;Variable declaration for view distance Ramoida
+	
+	Field LightID ; Dynamic lighting
 	Field ENName$ 
 	Field ENLight$
-	Field TexHandle
+	Field ENWF$
+	Field ENFM$
+	Field ENFL$
+	Field Name$
 End Type
+
+;LOD Ramoida (Set view distances here)
+Const BuildingMinViewDistance# = 230.0 ; If distance < this value will be Visible, else will autofade slowly
+Const BuildingMaxViewDistance# = 250.0 ; If distance > this value will be 100% invisible
+Const GrassMinViewDistance# = 75.0
+Const GrassMaxViewDistance# = 90.0
+Const RunicMinViewDistance# = 5.0
+Const RunicMaxViewDistance# = 10.0
+
+Const ParticleMaxViewDistance# = 10.0
 
 Type Water
 	Field EN, TexID, Opacity
@@ -74,7 +61,10 @@ Type Water
 	Field ScaleX#, ScaleZ#
 	Field TexHandle, TexScale#, U#, V#
 	Field ServerWater ; Used by editor only
+	; Water refraction terrier 
+    Field WaterClipplane
 End Type
+
 
 Type ColBox
 	Field EN
@@ -133,18 +123,138 @@ Function CreateSubdividedPlane(XDivs, ZDivs, UScale# = 1.0, VScale# = 1.0, Paren
 	PositionMesh(EN, -0.5, 0.0, -0.5)
 	Return EN
 
+
 End Function
+
+
+;&&&&&&&&&&&&&&& Refractive water terrier
+Function RenderWater(Camera)
+      For W.Water = Each Water
+
+        ; CameraFogMode Camera,0   
+         ;HideEntity CameraSprite
+            
+        ; ShowClipplane W\WaterClipplane => 
+			AlignClipplane W\WaterClipplane, W\EN
+
+			;EntityAlpha W\EN,0.25 => sinon impose un alpha au plan d'eau
+			EntityTexture W\EN, FoamTexture
+      Next
+       
+      SetBuffer TextureBuffer(RefractTexture)
+     ; CameraViewport Camera, 0,0, TextureWidth(RefractTexture), TextureHeight(RefractTexture)
+	 ; CameraViewport Camera, 0,0, 1, 1
+	
+	;CameraViewport Camera, 0, 0, TextureWidth(RefractTexture) , TextureHeight(RefractTexture)
+  ;  ScaleEntity Camera,1,Float(GraphicsHeight())/Float(GraphicsWidth()),1  
+;	
+	;ShowEntity(Camera)    
+      RenderWorld 
+	
+	HideEntity(Camera)
+	
+
+
+		; render world in backBuffer (set refractions texture to water plane)
+     
+      For W.Water = Each Water
+      		;	If CameraUnderWater = True 
+			;	;ShowEntity CameraSprite
+			;	CameraFogMode Camera,1
+			;	CameraFogRange Camera,0.5,35
+			;	CameraFogColor Camera,20,20,40
+			;Else
+				;HideEntity CameraSprite
+				;CameraFogMode Camera,1
+				;CameraFogRange Camera,20,250
+				;CameraFogColor Camera,190,200,220
+			;EndIf
+      
+         
+         HideClipplane W\WaterClipplane
+         
+			EntityTexture W\EN, BumpTexture, (BumpTextureFrame Mod 32), 0
+			EntityTexture W\EN, RefractTexture, 0, 1
+			;EntityAlpha W\EN,1 => sinon impose un alpha au plan d'eau
+			EntityColor W\EN,25,30,35 ; => renforce le réalisme mais bleu par défaut
+	
+			SetBuffer BackBuffer()
+			
+			
+			ShowEntity(Camera)
+		;	CameraViewport Camera, 0,0, GraphicsWidth(), GraphicsHeight()
+		;	ScaleEntity Camera,1,1,1		; âîññòàíîâèì ïðîïîðöèþ êàìåðû
+			;RenderWorld  ;=> fait gagner 10 FPS de +
+            Next  
+End Function
+
 
 ; Loads the client (3D) data for an area
 Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
-
+		
 	; RottNet update
 	Local RNUpdateTime% = MilliSecs()
 	Local CLoadMusic%
 	
+	;Adding shadows to options menu Cysis145
+	F = ReadFile("Data\Options.dat")
+		Width = ReadShort(F)
+		Height = ReadShort(F)
+		Depth = ReadByte(F)
+		AA = ReadByte(F)
+		DefaultVolume# = ReadFloat#(F)
+		GrassEnabled = ReadByte(F)
+		AnisotropyLevel = ReadByte(F)
+		FullScreen = ReadByte(F)
+		VSync = ReadByte(F)
+		Bloom = ReadByte(F)
+		Rays = ReadByte(F)
+		AWater = ReadByte(F)
+		ShadowC = ReadByte(F)
+		ShadowQ = ReadByte(F)
+		ShadowR = ReadByte(F)
+	CloseFile(F)
+	Select ShadowQ
+		Case 0
+			CreateShadow 0
+		Case 1
+			CreateShadow 1
+		Case 2
+			CreateShadow 2
+	End Select
+	
+	Select ShadowR
+		Case 0
+			ShadowRange 50
+		Case 1
+			ShadowRange 75
+		Case 2
+			ShadowRange 100
+		Case 3
+			ShadowRange 130
+	End Select
+	
+	;Season = GetSeason()
+	; Dusk
+	;If TimeH = SeasonDuskH(Season)
+	;	ShadowPower 0.0  ;Set Shadow Opacity
+	; Dawn
+	;ElseIf TimeH = SeasonDawnH(Season)
+	;	ShadowPower 0.0  ;Set Shadow Opacity
+	;EndIf
+
+	ShadowPower 0.4  ;Set Shadow Opacity
+	ShadowColor 255, 255, 255
+	;ShadowLight DefaultLight\EN
+	ShadowTexture = ShadowTexture() ; Gets shadow map
+	
+	;Shadow Fading
+	FadeOutTexture = LoadTexture("Data\Textures\Shadows\fade.png", 59)	
+	ShadowFade FadeOutTexture
+		
 	LockMeshes()
 	LockTextures()
-
+	
 	; Open file
 	F = ReadFile("Data\Areas\" + Name$ + ".dat")
 	If F = 0 Then Return False
@@ -154,11 +264,10 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 		LoadingMusicID = ReadShort(F)
 		
 		; Music
-		If LoadingMusicID < 65535 Then CLoadMusic = PlayMusic("Data\Music\" + GetMusicName$(LoadingMusicID))
-		
+		If LoadingMusicID < 65535 Then CLoadMusic = PlayMusic("Data\Music\" + GetMusicName$(LoadingMusicID))		
 		If DisplayItems = False
 			; Progress bar
-			LoadProgressBar = GY_CreateProgressBar(0, 0.3, 0.9, 0.4, 0.03, 0, 100, 255, 255, 255, -3012)
+			LoadProgressBar = GY_CreateProgressBar(0, 0.3, 0.9, 0.4, 0.035, 0, 100, 255, 255, 255, -3012)
 			; Preset image
 			LoadScreen = CreateMesh(GY_Cam)
 			Surf = CreateSurface(LoadScreen)
@@ -168,10 +277,20 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 			v4 = AddVertex(Surf, 0.0, 0.0, 0.0, 0.0, 0.0)
 			AddTriangle Surf, v3, v2, v1
 			AddTriangle Surf, v4, v3, v1
-			ScaleMesh LoadScreen, 20.0, 15.0, 1.0
-			PositionEntity LoadScreen, -10.0, 7.5, 10.0
-			EntityOrder LoadScreen, -3011
+			
+			
+			;Widescreen Ramoida
+			If ResolutionType = 1 ; 16:9 ratio
+				ScaleMesh LoadScreen, 27.0, 15.05, 1.0 ;x,y,z
+				PositionEntity LoadScreen, -13.5, 7.55, 10.0
+			Else  ;;4:3 ratio
+				ScaleMesh LoadScreen, 20.5, 15.5, 1.0
+				PositionEntity LoadScreen, -10.07, 7.55, 10.0
+			EndIf
+			
+			EntityOrder LoadScreen,-3011
 			EntityFX LoadScreen, 1 + 8
+						
 			If LoadingTexID < 65535
 				Tex = GetTexture(LoadingTexID)
 				If Tex <> 0
@@ -270,6 +389,13 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 		DefaultLightYaw# = ReadFloat#(F)
 		SlopeRestrict# = ReadFloat#(F)
 		AmbientLight(AmbientR, AmbientG, AmbientB)
+		
+	;&&&&& Camera refractive water terrier
+	CameraSprite = CreateSprite(Camera)
+	PositionEntity CameraSprite,0,0,0.11
+	EntityColor CameraSprite,20,20,40
+    EntityAlpha CameraSprite,0.35
+
 
 		; RottNet update
 		If UpdateRottNet = True And MilliSecs() - RNUpdateTime > 500 Then RCE_Update() : RCE_CreateMessages() : RNUpdateTime = MilliSecs()
@@ -277,7 +403,7 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 		; Loading bar update
 		If LoadScreen <> 0
 			GY_UpdateProgressBar(LoadProgressBar, 5)
-			RenderWorld()
+			RenderWorld() ;[998]
 			Flip()
 		EndIf
 
@@ -287,13 +413,14 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 			S.Scenery = New Scenery
 			; Mesh (from media database ID)
 			S\MeshID = ReadShort(F)
-
-			; Nasty hack to disable decryption on RCTE terrains in a subfolder
+			
+		; Nasty hack to disable decryption on RCTE terrains in a subfolder DISABLED terrains are no longer encrypted so no need to keep code.
 			NoDecrypt = False
 			Name$ = Upper$(GetMeshName$(S\MeshID))
-			If Instr(Name$, "RCTE\") = 1 Or Instr(Name$, "RCTE/") = 1
-				If Instr(Name$, "\", 6) > 0 Or Instr(Name$, "/", 6) > 0 Then NoDecrypt = True
-			EndIf
+			;If Instr(Name$, "RCTE\") = 1 Or Instr(Name$, "RCTE/") = 1
+			;	If Instr(Name$, "\", 6) > 0 Or Instr(Name$, "/", 6) > 0 Then NoDecrypt = True
+			;EndIf
+			
 			; Load the mesh
 			S\EN = GetMesh(S\MeshID, False)
 
@@ -301,14 +428,29 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 			X# = ReadFloat#(F) : Y# = ReadFloat#(F) : Z# = ReadFloat#(F)
 			Pitch# = ReadFloat#(F) : Yaw# = ReadFloat#(F) : Roll# = ReadFloat#(F)
 			S\ScaleX# = ReadFloat#(F) : S\ScaleY# = ReadFloat#(F) : S\ScaleZ# = ReadFloat#(F)
+		
+			; is it a bump mesh? [BUMP]
+         If Instr(Name$, "BUMPED\") Then
+        	 meshName$ = GetMeshNameClean$(S\MeshID)
+        	 bumpMap = LoadTexture("Data\Meshes\"+meshName$+"_NORMAL.jpg")
+			 ;TextureCoords(colorMap, 1)
+			 EntityTexture S\EN, bumpMap, 0, 1
+        	 TextureBlend bumpMap,4
+			 FreeTexture(bumpMap)
+         EndIf
+
+			; bump mesh end
+			
 			; Animation mode and ownership ID
 			S\AnimationMode = ReadByte(F)
-			S\SceneryID = ReadByte(F)
+			S\SceneryID = ReadByte(F) ;{##}
 			; Retexturing
 			S\TextureID = ReadShort(F)
 			; Collision/picking
 			S\CatchRain = ReadByte(F)
-					
+			
+			
+			
 			Collides = ReadByte(F)
 			; Lightmap information and RCTE data
 			S\Lightmap$ = ReadString$(F)
@@ -318,33 +460,32 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 			S\CastShadow = ReadByte(F)
 			S\ReceiveShadow = ReadByte(F)
 			
-			S\RenderRange = ReadByte(F)
-			
+			S\RenderRange = ReadByte(F) ;[011]
 
 			If S\EN <> 0
-				; Toolbox extras
-				If Len(S\RCTE$) > 5
-					Select Left$(S\RCTE$, 5)
-						Case "_TREE"
-							If DisplayItems = False
-								swingsty = Int(Mid$(S\RCTE$, 6, 1))
-								evergrn = Int(Mid$(S\RCTE$, 7, 1))
-								S\EN = LoadTree("", evergrn, S\EN, swingsty)
-							EndIf
-						Case "_GRSS"
-							swingsty = Int(Mid$(S\RCTE$, 6, 1))
-							evergrn = Int(Mid$(S\RCTE$, 7, 1))
-							S\EN = LoadGrass("", evergrn, S\EN, swingsty)
-						Case "_TRRN", "_RCDN"
-							If DisplayItems = False
-								RotateMesh(S\EN, Pitch#, Yaw#, Roll#)
-								ScaleEntity(S\EN, S\ScaleX#, S\ScaleY#, S\ScaleZ#)
-								ChunkTerrain(S\EN, 3, 3, 3, X#, Y#, Z#)
-								Delete S
-								Goto CancelScenery
-							EndIf
-					End Select
-				EndIf
+				; Toolbox extras [~@~]
+				;If Len(S\RCTE$) > 5
+				;	Select Left$(S\RCTE$, 5)
+				;		Case "_TREE"
+				;			If DisplayItems = False
+				;				swingsty = Int(Mid$(S\RCTE$, 6, 1))
+				;				evergrn = Int(Mid$(S\RCTE$, 7, 1))
+				;				S\EN = LoadTree("", evergrn, S\EN, swingsty)
+				;			EndIf
+				;		Case "_GRSS"
+				;			swingsty = Int(Mid$(S\RCTE$, 6, 1))
+				;			evergrn = Int(Mid$(S\RCTE$, 7, 1))
+				;			S\EN = LoadGrass("", evergrn, S\EN, swingsty)
+				;		Case "_RCDN"
+				;			If DisplayItems = False
+				;				RotateMesh(S\EN, Pitch#, Yaw#, Roll#)
+				;				ScaleEntity(S\EN, S\ScaleX#, S\ScaleY#, S\ScaleZ#)
+				;				ChunkTerrain(S\EN, 3, 3, 3, X#, Y#, Z#)
+				;				Delete S
+				;				Goto CancelScenery
+				;			EndIf
+				;	End Select
+				;EndIf
 
 				; Set position/rotation
 				PositionEntity S\EN, X#, Y#, Z# : RotateEntity S\EN, Pitch#, Yaw#, Roll#
@@ -356,46 +497,70 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 				S\ENLight=Lower(GetFilename$(Name$))
 				S\ENWF=Lower(GetFilename$(Name$))
 				S\ENFM=Lower(GetFilename$(Name$))
-								
-				If Left$(S\ENLight$, 6) = "light_" ;And S\LightID=0 And EntityDistance# (S\EN,Me\EN)<=10.0
-					
-					TypeLength% = Len(S\ENLight$)
-					newTypeName$ = Left(S\ENLight$,TypeLength% - 4)
-
-					entTypeLoc% = (Instr(newTypeName$, "_", 1) - 1) ;This gets how long the word of the type is
-			
-					numLen% = Instr(newTypeName$, "_",1) + 1
-			
-			;Get Setting 1
-			tempLength1% = (Instr(newTypeName$, "_", numLen%))
-			realLength% = (Instr(newTypeName$, "_", numLen%)-numLen%)
-			setting1$ = Mid$(newTypeName$, entTypeLoc%+2, realLength%)
-			setting1Num# = setting1$ ;Convert setting to a number (float)
-			
-			;Get Setting 2
-			realLength2% = (Instr(newTypeName$, "_", ((entTypeLoc%+2) + realLength%+2))-tempLength1%)
-			setting2$ = Mid$(newTypeName$, (tempLength1%+1), (realLength2%-1))
-			setting2Num# = setting2$ ;Convert setting to a number (float)
-			
-			;Get Setting 3
-			realLength3% = Instr(newTypeName$, "_", (tempLength1%+realLength2% + 1))
-			tempL% = realLength3% - (tempLength1% + realLength2%+1)
-			setting3$ = Mid$(newTypeName$, (tempLength1%+realLength2% + 1), tempL%)
-			setting3Num# = setting3$ ;Convert setting to a number (float)
-			
-			;Get Setting 4
-			realLength4% = (tempLength1%+realLength2% + 1) + tempL%
-			rLength% = Len(newTypeName$) - realLength4%
-			setting4$ = Right(newTypeName$, rLength%)
-			setting4Num# = setting4$ ;Convert setting to a number (float)
-
-			    S\LightID = CreateLight(2) 
-    	        LightColor(S\LightID, setting2Num#, setting3Num#, setting4Num#) 
-	            LightRange S\LightID,setting1Num#
-				PositionEntity S\LightID, EntityX(S\EN), EntityY(S\EN), EntityZ(S\EN)			
-		EndIf
+				S\ENFL=Lower(GetFilename$(Name$))
 				
-				; Chunking for dungeons etc.
+				
+				;;LOD RAMOIDA
+	;			S\SceneryType$ = "" ;initiate the variable just in case Ramoida
+	;			If Instr(Name$, "RCTE\") Or  Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\CITYPATHS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFSCAFFOLD\") Or  Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\ICE CAVES\") Or  Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\CAVE\") Or Instr(Name$, "AAAAAAAM\OLD_MINE\OLD_MINE\")
+	;				S\SceneryType$ = "T" ;If it is Terrain, mark it as "T" ;This will be used at Client.bb
+	;			;;BUILDINGS
+	;		    ElseIf Instr(Name$, "BUILDINGS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\ALKERZ\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\DONE\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\DRAGON GATE\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\MIDDEL EAST\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\NEWBUILDINGS2\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\RUINED_BRIDGE\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\TREE BASE\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\TROPICAL\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\WAGONS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\WARTORN\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\CASTLE2\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\FARM\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\MARKET STALLS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\NEW BUILDINGS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\RESPAWN POINT\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\SNOW PILES\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\DOCKS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\FIRT06\")  Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\FOUNTAIN\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\STATUES\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\VILLAGE\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\ALKERZARK CENTER CHURCH\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\ANCIENT_RUINS03\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\ARTERIA3D_TROPICALPACK\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\ELVENCITY_2010_UPDATE_GENERIC\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\OLD PORTAL\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\RUINED_BRIDGE\") Or Instr(Name$, "AAAAAAAM\CATAPULTS-SRC\") Or Instr(Name$, "AAAAAAAM\STONE BRIDGE\") Or Instr(Name$, "AAAAAAAM\WAGONS\") Or Instr(Name$, "AAAAAAAM\WINDMILL\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\NICE RS\") Or Instr(Name$, "RCTREES\") Or Instr(Name$, "AAAAAAAM\SPIKES\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\")
+	;				S\SceneryType$ = "B" 
+	;				EntityAutoFade S\EN,BuildingMinViewDistance#,BuildingMaxViewDistance#;If it is an object set autofade
+	;			;GRASS
+	;			ElseIf Instr(Name$, "GRASS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\FOREST GRASSS\")  Or Instr(Name$, "AAAAAAAM\CRATES3D\CRATES\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\BARRELS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\HANGING ANIMALS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\BANNERS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\LAMP POST\") Or Instr(Name$, "ACTORS\HORSE AND CHART\") Or Instr(Name$, "ACTORS\NPC'S\ALKERZARK SOLDIERS\")
+	;				S\SceneryType$ = "G"
+	;				EntityAutoFade S\EN, GrassMinViewDistance#, GrassMaxViewDistance#
+	;			;;RUNIC
+	;			ElseIf Instr(Name$, "EFFECTS\RUNICPATH\")
+	;				S\SceneryType$ = "Z"
+	;				EntityAutoFade S\EN, RunicMinViewDistance#, RunicMaxViewDistance#
+	;			EndIf
+	;	
+	;			;Shadows file trackers				
+	;			;Recievers
+	;			If Instr(Name$, "RCTE\") Or Instr(Name$, "Decles\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\ALKERZ\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\DRAGON GATE\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\TRACK 1.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\TRACK 2.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\TRACK END.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\TRACK SLIGHT TURN.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\TRACK STRAIGHT END.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\TRACK STRAIGHT.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\TRACK TIGHT TURN.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\NEWBUILDINGS2\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\RUINED_BRIDGE\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\TREE BASE\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\TROPICAL\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\WAGONS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\FARM\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\MARKET STALLS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\NEW BUILDINGS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\RESPAWN POINT\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\VIKINGPACK2\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\CITYPATHS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\DOCKS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\FOUNTAIN\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\STATUES\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\VILLAGE\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\ALKERZARK CENTER CHURCH\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\ANCIENT_RUINS03\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\ARTERIA3D_TROPICALPACK\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\ELVENCITY_2010_UPDATE_GENERIC\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\OLD PORTAL\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\RUINED_BRIDGE\")  Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\NICE RS\")  Or Instr(Name$, "AAAAAAAM\CATAPULTS-SRC\") Or Instr(Name$, "AAAAAAAM\PEASANT_HOUSE\") Or Instr(Name$, "AAAAAAAM\STONE BRIDGE\") Or Instr(Name$, "AAAAAAAM\WAGONS\") Or Instr(Name$, "AAAAAAAM\WINDMILL\") Or Instr(Name$, "AAAFROMDEMO\") Or Instr(Name$, "AAAM") Or Instr(Name$, "ATREEMAGIK\") Or Instr(Name$, "B3D ACTORS\") Or Instr(Name$, "BRIDGES\") Or Instr(Name$, "ITEMS\") Or Instr(Name$, "MYMODLES\") Or Instr(Name$, "MYWEAPONS\") Or Instr(Name$, "RCTREES\") Or Instr(Name$, "SHADRE\") Or Instr(Name$, "TREEMAGIK\") Or Instr(Name$, "AAAAAAAM\SPIKES\") Or Instr(Name$, "CHARACTER SET\")
+	;			 	;Any models in the rcte folder becomes a receiver
+	;				EntityTexture S\EN, ShadowTexture, 0, 2
+	;				;AttachShadowReceiver% (S\EN) ; removes incorrect shadows (this was disabled as it was massively impacting on performance of around 30 fps)
+	;			EndIf
+	;			;Casters
+	;			If Instr(Name$, "AAAAAAAAAAAAMMMMMM2\ALKERZ\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\BONES DINO\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\DONE\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\CLIFF SUPPORT.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\CRANE.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\MINE CART.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\PROP SET1.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\PROP SET2.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\SHAFT SUPPORT.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\STATUE.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\STONE CARVING.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\TRACK STOPPER.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\DRAGO RUINS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\DRAGON GATE\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\MIDDEL EAST\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\NEWBUILDINGS2\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\RUINED_BRIDGE\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\TROPICAL\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\WAGONS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\WARTORN\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\CASTLE2\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\LAMP POST\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\MARKET STALLS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\NEW BUILDINGS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\RESPAWN POINT\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\VIKINGPACK2\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\DOCKS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\FIRT06\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\FOUNTAIN\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\STATUES\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\VILLAGE\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\ALKERZARK CENTER CHURCH\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\ANCIENT_RUINS03\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\ARTERIA3D_TROPICALPACK\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\ELVENCITY_2010_UPDATE_GENERIC\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\ROOTS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\RUINED_BRIDGE\") Or Instr(Name$, "AAAAAAAM\CATAPULTS-SRC\") Or Instr(Name$, "AAAAAAAM\CRATES3D\") Or Instr(Name$, "AAAAAAAM\LOGS\") Or Instr(Name$, "AAAAAAAM\PEASANT_HOUSE\") Or Instr(Name$, "AAAAAAAM\STONE BRIDGE\") Or Instr(Name$, "AAAAAAAM\WAGONS") Or Instr(Name$, "AAAAAAAM\WINDMILL") Or Instr(Name$, "AAAM\") Or Instr(Name$, "AFROM RANDOM\") Or Instr(Name$, "ANIMAL PACKS\") Or Instr(Name$, "ATREEMAGIK\") Or Instr(Name$, "B3D ACTORS\") Or Instr(Name$, "BRIDGES\") Or Instr(Name$, "DUNGEON PACK 1\") Or Instr(Name$, "ITEMS\") Or Instr(Name$, "MY MODLES\") Or Instr(Name$, "MYWEAPONS\") Or Instr(Name$, "RCTREES\")
+	;				CreateShadowCaster% (S\EN)
+	;			EndIf
+				
+				; NewLOD cysis145 [011]
+				S\SceneryType$ = "" 
+				If DisplayItems = False
+					;Always Renders
+					If S\RenderRange = 0
+						S\SceneryType$ = "T"
+					;Short Range
+					ElseIf S\RenderRange = 1
+						S\SceneryType$ = "G"
+						EntityAutoFade S\EN, GrassMinViewDistance#, GrassMaxViewDistance#
+					;Long Range
+					ElseIf S\RenderRange =2
+						S\SceneryType$ = "B" 
+						EntityAutoFade S\EN, BuildingMinViewDistance#, BuildingMaxViewDistance#
+					EndIf
+				EndIf
+
+
+	; Scenery Shadows cysis145 [010]
+	If S\ReceiveShadow And DisplayItems = False 
+		EntityTexture S\EN, ShadowTexture, 0, 2 
+  	    AttachShadowReceiver S\EN ;helps remove incorrect shadowing 
+	EndIf
+
+	If S\CastShadow And DisplayItems = False 
+		CreateShadowCaster S\EN 
+	EndIf 
+				
+				
+
+				; Chunking for dungeons etc. 
 				If DisplayItems = False
 					Name$ = Upper$(GetMeshName$(S\MeshID))
 					If Instr(Name$, "RCDUNGEON\") Or Instr(Name$, "CUSTOMCHUNK\")
@@ -416,7 +581,48 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 				EndIf
 
 				; Retexturing
-				If S\TextureID < 65535 Then EntityTexture S\EN, GetTexture(S\TextureID)
+           ; If Instr(Name$, "BUMPED\") Then
+        ;	    colorMap = LoadTexture ("Data\Meshes\"+meshName$+"_DIMMER.jpg")
+		;		;TextureCoords(colorMap, 1)
+		;		EntityTexture S\EN, colorMap, 0, 0
+         ;	 	TextureBlend colorMap, 3
+		;		FreeTexture(colorMap)
+         ;   Else
+        ;	    If S\TextureID < 65535 Then EntityTexture S\EN, GetTexture(S\TextureID)
+         ;   EndIf
+
+			If Instr(Name$, "BUMPED\") Then
+        	    colorMap = LoadTexture ("Data\Meshes\"+meshName$+"_SPEC.jpg")
+				;TextureCoords(colorMap, 1)
+				EntityTexture S\EN, colorMap, 0, 0
+         	 	TextureBlend colorMap, 3
+				FreeTexture(colorMap)
+            Else
+        	    If S\TextureID < 65535 Then EntityTexture S\EN, GetTexture(S\TextureID)
+            EndIf
+
+			If Instr(Name$, "BUMPED\") Then
+        	    colorMap = LoadTexture ("Data\Meshes\"+meshName$+"_COLOR.jpg")
+				;TextureCoords(colorMap, 1)
+				EntityTexture S\EN, colorMap, 0, 2
+         	 	TextureBlend colorMap, 2
+				FreeTexture(colorMap)
+            Else
+        	    If S\TextureID < 65535 Then EntityTexture S\EN, GetTexture(S\TextureID)
+            EndIf
+
+
+			;Glow models
+	;		If Instr(Name$, "GLOWMODELS\") Then
+    ;    	    colorMap = LoadTexture ("Data\Meshes\"+meshName$+"_GLOW.jpg")
+	;			;TextureCoords(colorMap, 1)
+	;			EntityTexture S\EN, colorMap, 0, 4
+    ;     	 	TextureBlend colorMap, 3
+	;			FreeTexture(colorMap)
+    ;        Else
+    ;    	    If S\TextureID < 65535 Then EntityTexture S\EN, GetTexture(S\TextureID)
+    ;        EndIf
+
 
 				; Type handle
 				NameEntity S\EN, Handle(S)
@@ -441,10 +647,10 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 					EntityPickMode(S\EN, 2)
 				ElseIf Collides = C_Box
 					EntityPickMode(S\EN, 3)
-					Width# = MeshWidth#(S\EN) * S\ScaleX#
-					Height# = MeshHeight#(S\EN) * S\ScaleY#
-					Depth# = MeshDepth#(S\EN) * S\ScaleZ#
-					EntityBox(S\EN, Width# / -2.0, Height# / -2.0, Depth# / -2.0, Width#, Height#, Depth#)
+					WidthT# = MeshWidth#(S\EN) * S\ScaleX#
+					HeightT# = MeshHeight#(S\EN) * S\ScaleY#
+					DepthT# = MeshDepth#(S\EN) * S\ScaleZ#
+					EntityBox(S\EN, WidthT# / -2.0, HeightT# / -2.0, DepthT# / -2.0, WidthT#, HeightT#, DepthT#)
 				EndIf
 				ResetEntity(S\EN)
 
@@ -498,7 +704,30 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 			ScaleEntity W\EN, W\ScaleX#, 1.0, W\ScaleZ#
 			PositionEntity W\EN, X#, Y#, Z#
 			ScaleTexture W\TexHandle, W\TexScale#, W\TexScale#
-			EntityTexture W\EN, W\TexHandle
+			
+			EntityTexture W\EN, W\TexHandle,0,2 ; 1 par défaut mais invisible avec refract		
+			
+		;&&& Water edit terrier 
+   		;BumpTexA = LoadAnimTexture("Data\Textures\Water\water_anim.jpg", 9, 64, 64, 0, 32) ;I'm using the FastExt demo bump. If you are using your own, you may need to change the parameters. 
+  		;TextureBlend BumpTexA, FE_BUMPLUM 
+		; bump
+		
+		BumpTexture = LoadAnimTexture ( "Data\Textures\Water\water_anim.jpg", 9, 64, 64, 0, 32 )
+		TextureBlend BumpTexture, FE_BUMP
+	 	;ScaleTexture BumpTexture,0.012,0.012	
+									; <<<< 	Íîâûé áëåíä äëÿ áàìïà 
+		FoamTexture = LoadTexture ( "Data\Textures\Water\foam.png", 1+2 )
+		TextureBlend FoamTexture, 1
+		ScaleTexture FoamTexture,30,30
+			
+        ScaleTexture BumpTexture,W\TexScale#, W\TexScale#
+       	;ScaleTexture FoamTexture,W\TexScale#, W\TexScale#
+
+       	 W\WaterClipplane = CreateClipplane (  WaterPlane  )               
+		;ClipPivotUp = CreatePivot()  :  RotateEntity ClipPivotUp,0,0,180   :   PositionEntity ClipPivotUp, 0, 0.05, 0
+         
+		AlignClipplane W\WaterClipplane, W\EN
+			
 			; Colour
 			W\Red = ReadByte(F)
 			W\Green = ReadByte(F)
@@ -513,6 +742,7 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 			Alpha# = Float#(W\Opacity) / 100.0
 			If Alpha# > 1.0 Then Alpha# = 1.0
 			EntityAlpha(W\EN, Alpha#)
+				
 			; Picking
 			EntityBox W\EN, W\ScaleX# / -2.0, -1.0, W\ScaleZ# / -2.0, W\ScaleX#, 2.0, W\ScaleZ#
 			; Type handle
@@ -578,11 +808,12 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 		For i = 1 To Emitters
 			; Create emitter parent entity
 			E.Emitter = New Emitter
-			If DisplayItems = True
+			If DisplayItems = True 
 				E\EN = CreateCone() : ScaleMesh E\EN, 3, 3, 3 : EntityAlpha E\EN, 0.5
-			Else
+			Else 
 				E\EN = CreatePivot()
 			EndIf
+								
 			; Read in emitter data
 			E\ConfigName$ = ReadString$(F)
 			E\TexID = ReadShort(F)
@@ -591,22 +822,27 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 			Pitch# = ReadFloat#(F) : Yaw# = ReadFloat#(F) : Roll# = ReadFloat#(F)
 			; Load config
 			E\Config = RP_LoadEmitterConfig("Data\Emitter Configs\" + E\ConfigName$ + ".rpc", Texture, CameraEN)
+			
 			; Loaded successfully, create the emitter
-			If E\Config <> 0
+			If E\Config <> 0 
 				EmitterEN = RP_CreateEmitter(E\Config)
 				EntityParent EmitterEN, E\EN, False
 				EntityPickMode E\EN, 2
 				NameEntity E\EN, Handle(E)
 				; Position/rotation
 				PositionEntity E\EN, X#, Y#, Z#
-				RotateEntity E\EN, Pitch#, Yaw#, Roll#
-			; Failed to load config, remove the emitter and display an error message if running on client
+				RotateEntity E\EN, Pitch#, Yaw#, Roll# 
+			; Failed To load config, remove the emitter And display an error message If running on client
 			Else
 				If DisplayItems = False Then RuntimeError("Could not load emitter: " + E\ConfigName$)
+				HideEntity(E\EN)
 				FreeEntity(E\EN)
 				Delete(E)
 			EndIf
-
+			
+		;	EntityAutoFade E\EN, 10, 20 
+			
+						
 			; RottNet update
 			If UpdateRottNet = True And MilliSecs() - RNUpdateTime > 500 Then RCE_Update() : RCE_CreateMessages() : RNUpdateTime = MilliSecs()
 		Next
@@ -684,7 +920,7 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 
 		; Loading bar update
 		If LoadScreen <> 0
-			GY_UpdateProgressBar(LoadProgressBar, 95)
+			GY_UpdateProgressBar(LoadProgressBar, 98) ;95
 			RenderWorld()
 			Flip()
 		EndIf
@@ -731,10 +967,11 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 	; End loading screen
 	If LoadScreen <> 0
 		FreeEntity(LoadScreen)
+		;FreeEntity(LoadLabel)
 		GY_FreeGadget(LoadProgressBar)
 	EndIf
 	If ChannelPlaying(CLoadMusic) = True Then StopChannel(CLoadMusic)
-
+	
 	Return True
 
 End Function
@@ -789,15 +1026,15 @@ Function SaveArea(Name$)
 			WriteByte F, S\SceneryID
 			WriteShort F, S\TextureID
 			WriteByte F, S\CatchRain
-			
-			
+						
 			WriteByte F, GetEntityType(S\EN)
 			WriteString F, S\Lightmap$
 			WriteString F, S\RCTE$ ; Extra data for RTCE
 			
 			WriteByte F, S\CastShadow ;[010]
-			WriteByte F, S\ReceiveShadow ;[010]
- 			WriteByte F, S\RenderRange ;[011]
+			WriteByte F, S\ReceiveShadow
+			WriteByte F, S\RenderRange ;[011]
+			
 		Next
 
 		; Water
@@ -905,13 +1142,14 @@ Function UnloadArea()
 	If StormCloudTexID > -1 And StormCloudTexID < 65535 Then UnloadTexture(StormCloudTexID)
 	If StarsTexID > -1 And StarsTexID < 65535 Then UnloadTexture(StarsTexID)
 
-	UnloadTrees(False)
+;	UnloadTrees(False) [~@~]
 
 	For S.Scenery = Each Scenery
+		;Shadow
+		FreeShadowCaster% (S\EN)
+		;FreeShadowReceiver% (S\EN)
+	
 		If S\TextureID < 65535 Then UnloadTexture(S\TextureID)
-		;Dynamic Lights
-		If S\LightID>0 Then FreeEntity(S\LightID)
-		S\LightID=0
 		UnloadMesh(S\MeshID)
 		FreeEntity(S\EN)
 		Delete(S)
@@ -921,6 +1159,9 @@ Function UnloadArea()
 		UnloadTexture(W\TexID)
 		FreeTexture(W\TexHandle)
 		FreeEntity(W\EN)
+		
+		;FreeTexture(W\BumpTexA)
+		
 		Delete(W)
 	Next
 
@@ -950,8 +1191,16 @@ Function UnloadArea()
 		If T\DetailTexID < 65535 Then UnloadTexture(T\DetailTexID)
 		Delete(T)
 	Next
+	
+	;For AI.ActorInstance = Each ActorInstance
+	;		FreeShadowCaster% (AI\EN)
+	;Next
 
 	Delete Each CatchPlane
+
+	;Shadow
+	FreeShadows
+	FreeTexture ShadowTexture
 
 End Function
 
