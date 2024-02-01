@@ -283,27 +283,29 @@ Function LoadLanguage(Filename$)
 	
 	F = ReadFile(Filename$)
 	If F = 0 Then Return False
-	
-	ID = 0
-	While Eof(F) = False
-		LString$ = Trim$(ReadLine$(F))
-		If Len(LString$) > 0
-			Pos = Instr(LString$, ";")
+
+		ID = 0
+		While Eof(F) = False
+			LString$ = Trim$(ReadLine$(F))
+			If Len(LString$) > 0
+				Pos = Instr(LString$, ";")
 				; Ignore lines which are comments only
-			If Pos <> 1
+				If Pos <> 1
 					; Strip comments from the end of lines
-				If Pos > 1
-					LString$ = Left$(LString$, Pos - 1)
-				EndIf
+					If Pos > 1
+						LString$ = Left$(LString$, Pos - 1)
+					EndIf
 					; Add line
-				If ID > MaxLanguageString Then Return
-				If ID >= LS_SCKick And ID <= LS_SCSeason Then LString$ = Upper$(LString$)
-				LanguageString$(ID) = LString$
-				ID = ID + 1
+					If ID > MaxLanguageString Then RuntimeError("Too many string constants in Language.txt!")
+					
+					If ID >= LS_SKick And ID <= LS_SSeason Then LString$ = Upper(LString$)
+					
+					LanguageString$(ID) = LString$
+					ID = ID + 1
+				EndIf
 			EndIf
-		EndIf
-	Wend
-	
+		Wend
+
 	CloseFile(F)
 	Return True
 	

@@ -28,6 +28,8 @@ Const Environment_Swim       = 1
 Const Environment_Fly        = 2
 Const Environment_Walk       = 3
 
+Const InteractDist = 400 ; radius of 20
+
 ; Actor template
 Dim ActorList.Actor(65535)
 Type Actor
@@ -232,7 +234,7 @@ Function WriteActorInstance(Stream, A.ActorInstance)
 		WriteShort Stream, A\Inventory\Amounts[i]
 	Next
 	WriteString Stream, A\Script$
-	WriteString Stream, A\Script$
+	WriteString Stream, A\DeathScript$
 	WriteShort Stream, A\Reputation
 	WriteInt Stream, A\Gold
 	WriteByte Stream, A\NumberOfSlaves
