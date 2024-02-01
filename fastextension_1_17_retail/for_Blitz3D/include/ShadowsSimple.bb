@@ -102,7 +102,7 @@ Function CreateShadow (quality%=1, mode%=1)
 				Shadow\quality = 1
 			Case 2
 				Shadow\texSize = 2048
-				Shadow\quality = 2		
+				Shadow\quality = 2
 			Default
 				Shadow\texSize = 512
 				Shadow\quality = 0
