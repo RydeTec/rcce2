@@ -2,12 +2,9 @@
 *.bb_bak2
 *.bp_bak1
 *.bp_bak2
-fastextension_1_17_retail/fastextension_1_17_retail
 Client/Client.exe
 GUE/GUE Max.exe
 GUE/GUE.exe
 Project Manager/Project Manager.exe
 Project Manager/ProjectManager.exe
 Server/Server.exe
-Client/Modules/FastExt.bb
-GUE/Modules/FastExt.bb
