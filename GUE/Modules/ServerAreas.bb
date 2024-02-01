@@ -78,6 +78,41 @@ Type AreaInstance
 	Field OwnedScenery.OwnedScenery[499]
 End Type
 
+; Updates weather for an area
+Function UpdateWeather(A.AreaInstance)
+
+	A\CurrentWeatherTime = A\CurrentWeatherTime - 1
+
+	; Time to update the weather for this area
+	If A\CurrentWeatherTime <= 0
+		; Get weather from linked area
+		If A\Area\WeatherLinkArea <> Null
+			A\CurrentWeatherTime = A\Area\WeatherLinkArea\Instances[0]\CurrentWeatherTime
+			A\CurrentWeather = A\Area\WeatherLinkArea\Instances[0]\CurrentWeather
+		; Choose own weather from probabilities
+		Else
+			A\CurrentWeatherTime = Rand(2500, 10000)
+			A\CurrentWeather = 0
+			NewWeather = Rand(1, 100)
+			Min = 0
+			For i = 0 To 4
+				If A\Area\WeatherChance[i] > 0
+					Max = Min + A\Area\WeatherChance[i]
+					If NewWeather >= Min And NewWeather < Max Then A\CurrentWeather = i + 1 : Exit
+					Min = Max
+				EndIf
+			Next
+		EndIf
+
+		; Inform players in this area
+		AI.ActorInstance = A\FirstInZone
+		While AI <> Null
+			If AI\RNID > 0 Then RCE_Send(Host, AI\RNID, P_WeatherChange, RCE_StrFromInt$(Handle(A), 4) + RCE_StrFromInt$(A\CurrentWeather, 1), True)
+			AI = AI\NextInZone
+		Wend
+	EndIf
+
+End Function
 
 
 ; Creates a new blank area
