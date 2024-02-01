@@ -29,10 +29,6 @@ Function WriteLog(LogHandle, Dat$, Timestamp = True, Datestamp = False)
 
 	WriteLine(LogHandle, Dat$)
 
-	LOG = StartLog("DEBUG")
-	WriteLine(LOG, Dat$)
-	StopLog(LOG)
-
 End Function
 
 ; Closes a log file
