@@ -48,6 +48,7 @@ End Type
 
 ; A configuration template for emitters
 Type RP_EmitterConfig
+	Field ConfigID
 	Field Name$
 	Field MaxParticles, ParticlesPerFrame
 	Field Texture, TexAcross, TexDown, RndStartFrame, TexAnimSpeed

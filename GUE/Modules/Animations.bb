@@ -149,6 +149,21 @@ Function SaveAnimSets(Filename$)
 		Next
 
 	CloseFile(F)
+	;Allows for animation sets to be recovered or something... cysis145
+	G = WriteFile("Data\Game Data\Animations_debug.txt")
+	If G = 0 Then Return False  
+	For A.AnimSet = Each AnimSet
+		WriteLine(G, "Anim ID: " + A\ID)
+		WriteLine(G, "Anim Set: " + A\Name$)
+		For i = 0 To 149
+			If A\AnimName$[i] <> "" Then WriteLine(G, A\AnimName$[i] + "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" + A\AnimStart[i] + "-" + A\AnimEnd[i])
+		Next
+		WriteLine(G, "")
+		WriteLine(G, "")
+	Next
+	CloseFile(G)
+
+	
 	Return True
 
 End Function

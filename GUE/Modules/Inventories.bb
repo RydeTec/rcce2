@@ -187,9 +187,14 @@ Function ActorHasSlot(A.Actor, SlotI, I.Item)
 
 	; If it's an equipped slot
 	If SlotI < Slot_Backpack
-		; Never allow the slot if the item is exclusive to another race
 		If I\ExclusiveRace$ <> ""
-			If Upper$(I\ExclusiveRace$) <> Upper$(A\Race$) Then Return False
+			; Allow even disabled equipment slots to be used if the item is exclusive to this race
+			If Upper$(I\ExclusiveRace$) = Upper$(A\Race$)
+				Return True
+			; Never allow the slot if the item is exclusive to another race
+			Else
+				Return False
+			EndIf
 		EndIf
 
 		; Never allow the slot if the item is exclusive to another race

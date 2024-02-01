@@ -176,14 +176,14 @@ Function RenderWater(Camera)
 			EntityTexture W\EN, BumpTexture, (BumpTextureFrame Mod 32), 0
 			EntityTexture W\EN, RefractTexture, 0, 1
 			;EntityAlpha W\EN,1 => sinon impose un alpha au plan d'eau
-			EntityColor W\EN,25,30,35 ; => renforce le réalisme mais bleu par défaut
+			EntityColor W\EN,25,30,35 ; => renforce le rï¿½alisme mais bleu par dï¿½faut
 	
 			SetBuffer BackBuffer()
 			
 			
 			ShowEntity(Camera)
 		;	CameraViewport Camera, 0,0, GraphicsWidth(), GraphicsHeight()
-		;	ScaleEntity Camera,1,1,1		; âîññòàíîâèì ïðîïîðöèþ êàìåðû
+		;	ScaleEntity Camera,1,1,1		; ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 			;RenderWorld  ;=> fait gagner 10 FPS de +
             Next  
 End Function
@@ -705,7 +705,7 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 			PositionEntity W\EN, X#, Y#, Z#
 			ScaleTexture W\TexHandle, W\TexScale#, W\TexScale#
 			
-			EntityTexture W\EN, W\TexHandle,0,2 ; 1 par défaut mais invisible avec refract		
+			EntityTexture W\EN, W\TexHandle,0,2 ; 1 par dï¿½faut mais invisible avec refract		
 			
 		;&&& Water edit terrier 
    		;BumpTexA = LoadAnimTexture("Data\Textures\Water\water_anim.jpg", 9, 64, 64, 0, 32) ;I'm using the FastExt demo bump. If you are using your own, you may need to change the parameters. 
@@ -715,7 +715,7 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 		BumpTexture = LoadAnimTexture ( "Data\Textures\Water\water_anim.jpg", 9, 64, 64, 0, 32 )
 		TextureBlend BumpTexture, FE_BUMP
 	 	;ScaleTexture BumpTexture,0.012,0.012	
-									; <<<< 	Íîâûé áëåíä äëÿ áàìïà 
+									; <<<< 	ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ 
 		FoamTexture = LoadTexture ( "Data\Textures\Water\foam.png", 1+2 )
 		TextureBlend FoamTexture, 1
 		ScaleTexture FoamTexture,30,30
@@ -832,7 +832,7 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 				; Position/rotation
 				PositionEntity E\EN, X#, Y#, Z#
 				RotateEntity E\EN, Pitch#, Yaw#, Roll# 
-			; Failed To load config, remove the emitter And display an error message If running on client
+			; Failed to load config, remove the emitter and display an error message if running on client
 			Else
 				If DisplayItems = False Then RuntimeError("Could not load emitter: " + E\ConfigName$)
 				HideEntity(E\EN)
