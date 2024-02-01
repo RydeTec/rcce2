@@ -7,20 +7,20 @@ Const FE_VERSION$ = "1.17"
 
 
 
-; новые константы для создания текстуры (функция CreateTexture)
+; пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅ CreateTexture)
 ; New constants for texture creating (CreateTexture function only)
 Const FE_ExSIZE = 2048
 Const FE_RENDER = 4096
 Const FE_ZRENDER = 8192
 
 
-; новые константы для FX ( функции EntityFX или BrushFX )
+; пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ FX ( пїЅпїЅпїЅпїЅпїЅпїЅпїЅ EntityFX пїЅпїЅпїЅ BrushFX )
 ; New constants for brush Fx ( EntityFX or BrushFX functions only)
-Const FE_WIRE = 64				; рисуются только линии
-Const FE_POINT = 128			; рисуются только точки
+Const FE_WIRE = 64				; пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
+Const FE_POINT = 128			; пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 
 
-; Константы для функции RenderPostprocess
+; пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ RenderPostprocess
 ; RenderPostprocess function constants
 Const FE_DOF = 1
 Const FE_Glow = 2
@@ -109,14 +109,14 @@ Const FE_Rays = 4096
 		
 
 
-; новые константы для текстурных смешиваний (функция TextureBlend)
+; пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅ TextureBlend)
 ; New constants for texture stage blending (TextureBlend function)
-Const FE_ALPHACURRENT = 	(D3DTOP_BLENDCURRENTALPHA Shl 8) Or D3DTOP_SELECTARG1				; = $1002		прозрачность предыдущей текстуры для текущей
-Const FE_ALPHAMODULATE = 	(D3DTOP_MODULATE Shl 8) Or D3DTOP_MODULATE					; = $0404		умножение прозрачности (используем еще и текущую прозрачность)
-Const FE_BUMP = 	(D3DTOP_BUMPENVMAP Shl 8) Or D3DTOP_SELECTARG2							; = $1603		текстура искажений
-Const FE_BUMPLUM = 	(D3DTOP_BUMPENVMAPLUMINANCE Shl 8) Or D3DTOP_SELECTARG2				; = $1703		текстура искажений + канал яркости
-Const FE_PROJECT =	 FETOP_PROJECT Or (D3DTOP_MODULATE Shl 8) Or D3DTOP_MODULATE			; = $010404	текстура накладывается как проекция (умножением)
-Const FE_PROJECTSMOOTH = 	FETOP_PROJECT Or (D3DTOP_ADDSMOOTH Shl 8) Or D3DTOP_MODULATE	; = $010B04	текстура накладывается как проекция (плавным сложением)
+Const FE_ALPHACURRENT = 	(D3DTOP_BLENDCURRENTALPHA Shl 8) Or D3DTOP_SELECTARG1				; = $1002		пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+Const FE_ALPHAMODULATE = 	(D3DTOP_MODULATE Shl 8) Or D3DTOP_MODULATE					; = $0404		пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
+Const FE_BUMP = 	(D3DTOP_BUMPENVMAP Shl 8) Or D3DTOP_SELECTARG2							; = $1603		пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+Const FE_BUMPLUM = 	(D3DTOP_BUMPENVMAPLUMINANCE Shl 8) Or D3DTOP_SELECTARG2				; = $1703		пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ + пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+Const FE_PROJECT =	 FETOP_PROJECT Or (D3DTOP_MODULATE Shl 8) Or D3DTOP_MODULATE			; = $010404	пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
+Const FE_PROJECTSMOOTH = 	FETOP_PROJECT Or (D3DTOP_ADDSMOOTH Shl 8) Or D3DTOP_MODULATE	; = $010B04	пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ)
 Const FE_MULTIPLY4X = 	(D3DTOP_MODULATE4X Shl 8)
 Const FE_ADDSIGNED = 	(D3DTOP_ADDSIGNED Shl 8)
 Const FE_ADDSIGNED2X = 	(D3DTOP_ADDSIGNED2X Shl 8)
@@ -130,7 +130,7 @@ Const FE_SPECULAR3 = (D3DTOP_MODULATEINVCOLOR_ADDALPHA Shl 8)
 
 
 
-; новые константы для браш (ентити) смешиваний (функция BrushBlend и EntityBlend)
+; пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅ) пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅ BrushBlend пїЅ EntityBlend)
 ; New constants for brush (entity) blending (BrushBlend and EntityBlend function)
 Const FE_INVALPHA = $010605
 Const FE_INVCOLOR = $010406
@@ -140,7 +140,7 @@ Const FE_NOALPHA = $000101
 
 
 
-; глобальный тип для получения возможностей видео-драйвера
+; пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ-пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ; Global type for Gfx-driver capabilities
 Type GfxDriverCapsEx_Type
 	Field BrushBlendsSrc%
@@ -184,7 +184,7 @@ Global FE_PostprocessTexture5% = 0
 
 
 
-; главная функция инициализации библиотеки, обязательно запускается после команды Graphics3D
+; пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ Graphics3D
 ; Main function for library initialising, must call after command Graphics3D
 
 Function InitExt% ()
@@ -203,7 +203,7 @@ End Function
 
 
 
-; функция для рендеринга одного ентити (все его чилды тоже будут отрендерены, если не скрыты)
+; пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ)
 ; Function for render single entity or entity with childrens
 Function RenderEntity% (entity%, camera%, clearViewport%=0, tween#=1.0)
 	Return RenderEntity_ (entity, camera, tween, clearViewport, FE_PivotSys)
@@ -211,7 +211,7 @@ End Function
 
 
 
-; функция для рендеринга группы ентитей (все его чилды тоже будут отрендерены, если не скрыты)
+; пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ)
 ; Function for render group of entities (with childrens, if not hidden)
 Function RenderGroup% (group%, camera%, clearViewport%=0, tween#=1.0)
 	Return RenderGroup_ (group, camera, tween, clearViewport, FE_PivotSys)
@@ -231,7 +231,7 @@ End Function
 
 
 
-; Допольнительные функции для КлипПлейнов
+; пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ; Additional functions for ClipPlanes
 
 Function CreateClipplane% (entity%=0,  x1#=0, y1#=0, z1#=0,  x2#=0, y2#=0, z2#=1,  x3#=1, y3#=0, z3#=0)
@@ -255,7 +255,7 @@ End Function
 
 
 
-; Допольнительные функции для Камеры
+; пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 ; Additional functions for Camera
 
 Global MirrorCameraLast% = 0
@@ -301,7 +301,7 @@ End Function
 
 
 
-; старые функции теперь с новыми возможностями
+; пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 ; Old functions with NEW capabilities
 
 Function SetBuffer% (buffer%)
@@ -349,7 +349,7 @@ End Function
 
 
 
-; новые функция для задания СВОИХ текстурных смешиваний (используйте только D3DTOP_* константы, см. их ниже)
+; пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ D3DTOP_* пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅ. пїЅпїЅ пїЅпїЅпїЅпїЅ)
 ; New function for custom texture blending (use D3DTOP_* constans only, see below)
 
 Function TextureBlendCustom% (texture%, color_operation%, alpha_operation%=0, projection_flag%=0)
@@ -363,7 +363,7 @@ End Function
 
 
 
-; новые функции для создания СВОИХ смешиваний при рендере объектов (используйте только D3DBLEND_* константы, см. их ниже)
+; пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ (пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ D3DBLEND_* пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅ. пїЅпїЅ пїЅпїЅпїЅпїЅ)
 ; New functions for custom entity (brush) blending (use D3DBLEND_* constans only, see below)
 
 Function EntityBlendCustom% (entity%, source_blend%=1, destination_blend%=1, alphablending_enable%=0)
