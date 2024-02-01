@@ -64,4 +64,15 @@ Notes for Developers:
 -Always branch from the development branch to work on new features and bugs, otherwise you may be working with outdated code
 -Always branch from the development branch to create new versions or update other versions no other branch should become a version
 	
+Blitz3D:
+	Official Download: https://blitzresearch.itch.io/blitz3d
+	Source: https://github.com/blitz-research/blitz3d_msvc2017
 
+BlitzPlus:
+	Official Download: https://blitzresearch.itch.io/blitzplus
+	Source: https://github.com/blitz-research/blitzplus_msvc2017
+
+
+VS Code Setup:
+ 	Extension for BlitzBasic syntax
+	VS Marketplace Link: https://marketplace.visualstudio.com/items?itemName=dones.blitz3d
