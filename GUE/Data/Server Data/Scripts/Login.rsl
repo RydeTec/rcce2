@@ -1,0 +1,270 @@
+Using "RC_Core.rcm"
+Using "ProcessGlobals.rcm"
+Dim Score$(1000,1)
+; Default player login script
+; You may alter this script however you like
+
+; The entry function for this script is always "Main"
+; There is no context actor for this script
+Function Main()
+
+;   Check to see if this is a 'NEW' player and if so set their ActorGlobal for League
+	Player = Actor()
+	If Len(ActorGlobal(Player, 8)) < 10
+		SetActorGlobal(Player, 8, "0,0,1,0,0,0,0,0,0,0")
+	EndIf
+	League% = 0
+	CurrentDate$ = RealDate()
+	FirstLogin$ = PullGlobal$(Player, 8, 1, ",")
+	If Len(FirstLogin$) < 5
+		PushGlobal(Player, 8, 1, CurrentDate$, ",", 10)
+		PushGlobal(Player, 8, 2, "1", ",", 10)
+		League = 1
+	Else
+		League = Int(PullGlobal$(Player, 8, 2, ","))
+		Result = CheckDate%(PullGlobal$(Player, 8, 1, ","), 182)
+	EndIf
+	If League = 1
+		Result = CheckDate%(PullGlobal$(Player, 8, 1, ","), 182)
+		If Result = 0
+			PushGlobal(Player, 8, 2, "2", ",", 10)
+			League = 2
+		EndIf
+	ElseIf League = 2
+		If Result = 0
+			If Int(PullGlobal$(Player, 8, 4, ",")) > 0
+				PushGlobal(Player, 8, 2, "3", ",", 10)
+				League = 3
+			EndIf
+		EndIf
+	EndIf
+	PlayerName$ = Name(Player)
+	FileName$ = "League" + Chr(48 + League)
+	If League = 1 or League = 2
+		MyScore$ = PullGlobal$(Player, 8, 3, ",")
+	ElseIf League = 3
+		MyScore$ = PullGlobal$(Player, 8, 4, ",")
+	EndIf
+	LoadLeagueScores(Filename$, MyScore$, PlayerName$)
+End Function
+
+; Sort Scores
+Function SortScores(Counter, MyScore$, PlayerName$)
+
+    If Counter > 1
+        For i = 1 to Counter
+            For j = 2 to Counter
+                If Score$(i, 0) < Score$(j, 0)
+                    Tempscore$ = Score$(i, 0)
+                    Tempname$ = Score$(i, 1)
+                    Score$(i, 0) = Score$(j, 0)
+                    Score$(i, 1) = Score$(j, 1)
+                    Score$(j, 0) = Tempscore$
+                    Score$(j, 1) = Tempname$
+                EndIf
+            Next
+        Next
+     EndIf
+     
+End Function
+
+; Load Leauge Scores File
+Function LoadLeagueScores(Filename$, MyScore$, PlayerName$)
+
+    While FileType(FileName$ + "_SORT.SEM") > 0
+        DoEvents(333)
+    Wend
+    FH = WriteFile(FileName$ + "_SORT.SEM")
+    CloseFile(FH)
+    FH = ReadFile(FileName$ + ".DATA")
+    While Not EoF(FH)
+        Counter = Counter + 1
+        String$ = ReadLine(FH)
+            Score$(Counter, 0) = GetStringFromString$(String$, 1, "")
+            Score$(Counter, 1) = GetStringFromString$(String$, 2, "")
+    Wend
+    CloseFile(FH)
+    SortScores(Counter, MyScore$, PlayerName$)
+    FH = WriteFile(FileName$ + ".DATA")
+    Counter = 1
+    While Score$(Counter, 1) <> ""
+        WriteLine(FH, Score$(Counter, 0) + "," + Score$(Counter, 1))
+        Counter = Counter + 1
+    Wend
+    CloseFile(FH)
+    DeleteFile(FileName$ + "_SORT.SEM")
+End Function
+
+;   Check to see if the player has been playing for 6 months
+Function Checkdate%(StartDateValue$, Range%)
+
+   StartYear# = Float(Int(Right(StartDateValue$, 4)) + 0.0)
+   StartDay% = Int(Left(StartDateValue$, 2))
+   Part2$ = Upper(Mid(StartDateValue$, 4, 3))
+   Select Part2$
+      Case "JAN"
+         StartMonth% = 1
+      Case "FEB"
+         StartMonth% = 2
+      Case "MAR"
+         StartMonth% = 3
+      Case "APR"
+         StartMonth% = 4
+      Case "MAY"
+         StartMonth% = 5
+      Case "JUN"
+         StartMonth% = 6
+      Case "JUL"
+         StartMonth% = 7
+      Case "AUG"
+         StartMonth% = 8
+      Case "SEP"
+         StartMonth% = 9
+      Case "OCT"
+         StartMonth% = 10
+      Case "NOV"
+         StartMonth% = 11
+      Case "DEC"
+         StartMonth% = 12
+   End Select
+   Part2$ = ""
+;   Is start date in a Leap Year?
+   IsLeapYear% = 0
+   ConverttoLeap# = ((StartYear# - 2000.0) / 4)
+   If Int(ConverttoLeap#) = ConverttoLeap# Then
+      IsLeapYear% = 1
+   EndIf
+   TotalAnnualDays% = 0
+   Select StartMonth%
+      Case 1
+         TotalAnnualDays% = StartDay%
+      Case 2
+         TotalAnnualDays% = StartDay% + 31
+      Case 3
+         TotalAnnualDays% = StartDay% + IsLeapYear% + 59
+         Range% = Range% + IsLeapYear%
+      Case 4
+         TotalAnnualDays% = StartDay% + IsLeapYear% + 90
+         Range% = Range% + IsLeapYear%
+      Case 5
+         TotalAnnualDays% = StartDay% + IsLeapYear% + 120
+         Range% = Range% + IsLeapYear%
+      Case 6
+         TotalAnnualDays% = StartDay% + IsLeapYear% + 151
+         Range% = Range% + IsLeapYear%
+      Case 7
+         TotalAnnualDays% = StartDay% + IsLeapYear% + 181
+         Range% = Range% + IsLeapYear%
+      Case 8
+         TotalAnnualDays% = StartDay% + IsLeapYear% + 212
+         Range% = Range% + IsLeapYear%
+      Case 9
+         TotalAnnualDays% = StartDay% + IsLeapYear% + 243
+         Range% = Range% + IsLeapYear%
+      Case 10
+         TotalAnnualDays% = StartDay% + IsLeapYear% + 273
+         Range% = Range% + IsLeapYear%
+      Case 11
+         TotalAnnualDays% = StartDay% + IsLeapYear% + 304
+         Range% = Range% + IsLeapYear%
+      Case 12
+         TotalAnnualDays% = StartDay% + IsLeapYear% + 334
+         Range% = Range% + IsLeapYear%
+   End Select
+   TotalAnnualDays% = TotalAnnualDays% + Range%
+   DaysThisYear% = 365 + IsLeapYear%
+
+;    What is the last day of the trial going to be?
+
+   FinalMonth% = 0
+   FinalDay% = 0
+   FinalYear% = Int(StartYear#)
+   If TotalAnnualDays% > DaysThisYear% Then
+      FinalYear% = FinalYear% + 1
+      TotalAnnualDays% = TotalAnnualDays% - DaysThisYear%
+   EndIf
+   If TotalAnnualDays% > (334 + IsLeapYear%) Then
+      FinalMonth% = 12
+      FinalDay% = TotalAnnualDays% - (334 + IsLeapYear%)
+   ElseIf TotalAnnualDays% > (304 + IsLeapYear%) Then
+      FinalMonth% = 11
+      FinalDay% = TotalAnnualDays% - (304 + IsLeapYear%)
+   ElseIf TotalAnnualDays% > (273 + IsLeapYear%) Then
+      FinalMonth% = 10
+      FinalDay% = TotalAnnualDays% - (273 + IsLeapYear%)
+   ElseIf TotalAnnualDays% > (243 + IsLeapYear%) Then
+      FinalMonth% = 9
+      FinalDay% = TotalAnnualDays% - (243 + IsLeapYear%)
+   ElseIf TotalAnnualDays% > (212 + IsLeapYear%) Then
+      FinalMonth% = 8
+      FinalDay% = TotalAnnualDays% - (212 + IsLeapYear%)
+   ElseIf TotalAnnualDays% > (181 + IsLeapYear%) Then
+      FinalMonth% = 7
+      FinalDay% = TotalAnnualDays% - (181 + IsLeapYear%)
+   ElseIf TotalAnnualDays% > (151 + IsLeapYear%) Then
+      FinalMonth% = 6
+      FinalDay% = TotalAnnualDays% - (151 + IsLeapYear%)
+   ElseIf TotalAnnualDays% > (120 + IsLeapYear%) Then
+      FinalMonth% = 5
+      FinalDay% = TotalAnnualDays% - (120 + IsLeapYear%)
+   ElseIf TotalAnnualDays% > (90 + IsLeapYear%) Then
+      FinalMonth% = 4
+      FinalDay% = TotalAnnualDays% - (90 + IsLeapYear%)
+   ElseIf TotalAnnualDays% > (59 + IsLeapYear%) Then
+      FinalMonth% = 3
+      FinalDay% = TotalAnnualDays% - (59 + IsLeapYear%)
+   ElseIf TotalAnnualDays% > (31 + IsLeapYear%) Then
+      FinalMonth% = 2
+      FinalDay% = TotalAnnualDays% - (31)
+   Else
+      FinalMonth% = 1
+      FinalDay% = TotalAnnualDays%
+   EndIf
+
+;   Lets get the RealDate and convert it to something that can be compaired to
+
+   CurrentDate$ = RealDate()
+   CurrentYear% = Int(Right(CurrentDate$, 4))
+   CurrentDay% = Int(Left(CurrentDate$, 2))
+   Part2$ = Upper(Mid(CurrentDate$, 4, 3))
+   Select Part2$
+      Case "JAN"
+         CurrentMonth% = 1
+      Case "FEB"
+         CurrentMonth% = 2
+      Case "MAR"
+         CurrentMonth% = 3
+      Case "APR"
+         CurrentMonth% = 4
+      Case "MAY"
+         CurrentMonth% = 5
+      Case "JUN"
+         CurrentMonth% = 6
+      Case "JUL"
+         CurrentMonth% = 7
+      Case "AUG"
+         CurrentMonth% = 8
+      Case "SEP"
+         CurrentMonth% = 9
+      Case "OCT"
+         CurrentMonth% = 10
+      Case "NOV"
+         CurrentMonth% = 11
+      Case "DEC"
+         CurrentMonth% = 12
+   End Select
+
+;   Now lets compare and return if the date is in the range
+
+   If CurrentYear% > FinalYear% Then
+      Return(0)
+   ElseIf CurrentMonth% > FinalMonth% AND CurrentYear% = FinalYear% Then
+      Return(0)
+   ElseIf CurrentMonth% = FinalMonth% AND CurrentDay% > FinalDay% AND FinalYear% >= CurrentYear% Then
+      Return(0)
+   Else
+      Return(1)
+   EndIf
+
+End Function
+

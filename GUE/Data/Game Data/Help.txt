@@ -1,0 +1,3 @@
+This is the in-game help. You may edit this text by altering the \Data\Game Data\Help.txt file. It has automatic word wrap and scrolling.
+
+So you can make it as long as you like!

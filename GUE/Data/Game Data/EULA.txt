@@ -1,0 +1,3 @@
+This is the EULA you can edit this by going to /Data/Game Data/EULA.txt
+
+Also deleteing everything in the file skips this screen completely.
