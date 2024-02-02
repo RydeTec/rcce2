@@ -718,7 +718,7 @@ Function BVM_SETITEMHEALTH(Param1%, Param2%)
 		Done = False
 		For AI.ActorInstance = Each ActorInstance
 			If AI\RNID > 0
-				For i = 0 To 49
+				For i = 0 To Slots_Inventory
 					If AI\Inventory\Items[i] = Item
 						Pa$ = "H" + RCE_StrFromInt$(i, 1) + RCE_StrFromInt$(Item\ItemHealth, 1)
 						RCE_Send(Host, AI\RNID, P_InventoryUpdate, Pa$, True)
@@ -990,7 +990,7 @@ Function BVM_BACKPACKCOUNT%(Param1%, Param2%)
 	Actor.ActorInstance = Object.ActorInstance(Param1)
 	If Actor <> Null
 		Num = Param2 - 1
-		If SlotI_Backpack + Num >= SlotI_Backpack And SlotI_Backpack + Num <= 49 Then
+		If SlotI_Backpack + Num >= SlotI_Backpack And SlotI_Backpack + Num <= Slots_Inventory Then
 			If Actor\Inventory\Items[SlotI_Backpack + Num] <> Null
 				Result = Actor\Inventory\Amounts[SlotI_Backpack + Num]
 			EndIf
@@ -2252,7 +2252,7 @@ Function BVM_GIVEITEM(Param1%, Param2$, Param3%=1)
 						; AI
 						Else
 							II.ItemInstance = CreateItemInstance(It)
-							For i = 0 To 49
+							For i = 0 To Slots_Inventory
 								If Actor\Inventory\Items[i] = Null Or (ItemInstancesIdentical(II, Actor\Inventory\Items[i]) And II\Item\Stackable = True And i >= SlotI_Backpack)
 									If SlotsMatch(It, i)
 										; Only put one item in this slot if it is an equipped slot
@@ -2283,7 +2283,7 @@ Function BVM_GIVEITEM(Param1%, Param2$, Param3%=1)
 				; Take
 				Else
 					Amount = Abs(Amount)
-					For i = 0 To 49
+					For i = 0 To Slots_Inventory
 						If Actor\Inventory\Items[i] <> Null
 							If Actor\Inventory\Items[i]\Item = It
 								AmountTaken = 0

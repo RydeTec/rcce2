@@ -9,3 +9,5 @@ src/Project Manager.exe
 src/ProjectManager.exe
 src/Server.exe
 src/Data/Logs/*
+
+src/Data/Logs/

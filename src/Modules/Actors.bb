@@ -229,7 +229,7 @@ Function WriteActorInstance(Stream, A.ActorInstance)
 	For i = 0 To 19
 		WriteShort Stream, A\Resistances[i]
 	Next
-	For i = 0 To 49
+	For i = 0 To Slots_Inventory
 		WriteItemInstance(Stream, A\Inventory\Items[i])
 		WriteShort Stream, A\Inventory\Amounts[i]
 	Next
@@ -304,7 +304,7 @@ Function ReadActorInstance.ActorInstance(Stream)
 	For i = 0 To 19
 		A\Resistances[i] = ReadShort(Stream)
 	Next
-	For i = 0 To 49
+	For i = 0 To Slots_Inventory
 		A\Inventory\Items[i]   = ReadItemInstance(Stream)
 		A\Inventory\Amounts[i] = ReadShort(Stream)
 	Next

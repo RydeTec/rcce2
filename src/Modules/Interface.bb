@@ -96,7 +96,7 @@ Global WInventory, InventoryVisible = False
 Global LInventoryGold, BInventoryDrop, BInventoryEat
 Global WAmount, BAmountOK, TAmount, AmountSlot, AmountVisible
 Global MouseSlotEN, MouseSlotItem.ItemInstance, MouseSlotAmount, MouseSlotSource = -1
-Dim BSlots(49)
+Dim BSlots(Slots_Inventory)
 Global WItemWindow, ItemWindowFromInventory ; Image Item Window
 
 ; Trading window
