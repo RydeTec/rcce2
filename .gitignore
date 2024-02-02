@@ -2,10 +2,10 @@
 *.bb_bak2
 *.bp_bak1
 *.bp_bak2
-Client/Client.exe
-GUE/GUE Max.exe
-GUE/GUE.exe
-Project Manager/Project Manager.exe
-Project Manager/ProjectManager.exe
-Server/Server.exe
-GUE/Data/Logs/*
+src/Client.exe
+src/GUE Max.exe
+src/GUE.exe
+src/Project Manager.exe
+src/ProjectManager.exe
+src/Server.exe
+src/Data/Logs/*
