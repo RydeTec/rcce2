@@ -28,6 +28,8 @@
 Global ClientMode = 0; 0 for login scree, 1 for character selection, 2 for main game	
 ;&&&&&&&&&&	
 
+Global componentName$ = "client"
+
 
 ; Variables -------------------------------
 
@@ -154,7 +156,7 @@ Include "Modules\Interface.bb"             ; In-game user interface
 Include "Modules\Interface3D.bb"           ; In-game user interface 3D stuff
 Include "Modules\Radar.bb"                 ; RifRaf's radar	
 ;Include "Modules\RCTrees.bb"               ; RifRaf's trees/grass			[DISABLED]
-Include "Modules\ClientAreas.bb"           ; Area/zone module
+Include "Modules\ClientAreas_FE.bb"           ; Area/zone module
 Include "Modules\Logging.bb"               ; Logging
 Include "Modules\ClientLoaders.bb"         ; Client startup module
 Include "Modules\ClientNet.bb"             ; Client specific network module

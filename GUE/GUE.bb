@@ -1,5 +1,6 @@
 
 Global rcceVersion$ = "v2.0"
+Global componentName$ = "gue"
 
 ; Includes --------------------------------------------------------------------------------------------------------------------------
 
@@ -79,7 +80,7 @@ POYear = Mid$(CurrentDate$(), 8)
 
 ; GUE startup log -------------------------------------------------------------------------------------------------------------------
 
-GUELog = StartLog("GUE Log", False)
+Global GUELog = StartLog("GUE Log", False)
 WriteLog(GUELog, "** GUE startup log begins **", True, True)
 
 ; Graphics mode ---------------------------------------------------------------------------------------------------------------------
