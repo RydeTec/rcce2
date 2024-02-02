@@ -44,9 +44,9 @@ Include "Modules\Inventories.bb"          ; Inventory module
 Include "Modules\ServerAreas.bb"          ; Areas module
 Include "Modules\Scripting.bb"            ; Script language module
 Include "Modules\Logging.bb"              ; Logging module
-Include "Modules\AccountsServer.bp"       ; Accounts server module
-Include "Modules\GameServer.bp"           ; Game server module
-Include "Modules\UpdatesServer.bp"        ; Updates server module
+Include "Modules\AccountsServer.bb"       ; Accounts server module
+Include "Modules\GameServer.bb"           ; Game server module
+Include "Modules\UpdatesServer.bb"        ; Updates server module
 Include "Modules\Packets.bb"              ; Packet types module
 Include "Modules\ServerNet.bb"            ; Server specific network module
 Include "Modules\MySQL.bb"				  ; MySQL functions
