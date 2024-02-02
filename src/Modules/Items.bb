@@ -89,13 +89,25 @@ Function ItemInstanceFromString.ItemInstance(Pa$)
 
 	If Len(Pa$) < ItemInstanceStringLength() Then Return Null
 
-	I.ItemInstance = CreateItemInstance(ItemList(RCE_IntFromStr(Left$(Pa$, 2))))
-	Offset = 3
-	For j = 0 To 39
-		I\Attributes\Value[j] = RCE_IntFromStr(Mid$(Pa$, Offset, 2)) - 5000
-		Offset = Offset + 2
-	Next
-	I\ItemHealth = RCE_IntFromStr(Mid$(Pa$, Offset, 1))
+	Local I.ItemInstance = Null
+	Local id% = RCE_IntFromStr(Left$(Pa$, 2))
+	If ItemList(id) <> Null
+		I.ItemInstance = CreateItemInstance(ItemList(id))
+		Offset = 3
+		For j = 0 To 39
+			I\Attributes\Value[j] = RCE_IntFromStr(Mid$(Pa$, Offset, 2)) - 5000
+			Offset = Offset + 2
+		Next
+		I\ItemHealth = RCE_IntFromStr(Mid$(Pa$, Offset, 1))
+	Else
+		WriteLog(MainLog, "Item Removal: Item with ID " + ID + " has been removed from actor as it is no longer existant!")
+		Offset = 3
+		For j = 0 To 39
+			RCE_IntFromStr(Mid$(Pa$, Offset, 2))
+			Offset = Offset + 2
+		Next
+		RCE_IntFromStr(Mid$(Pa$, Offset, 1))
+	EndIf
 
 	Return I
 
@@ -122,12 +134,18 @@ Function ReadItemInstance.ItemInstance(Stream)
 	ID = ReadShort(Stream)
 	If ID = 65535 Then Return
 
-	I.ItemInstance = CreateItemInstance(ItemList(ID))
-	For j = 0 To 39
-		I\Attributes\Value[j] = ReadShort(Stream) - 5000
-	Next
-	I\ItemHealth = ReadByte(Stream)
-
+	Local I.ItemInstance = Null
+	If ItemList(ID) <> Null
+		I.ItemInstance = CreateItemInstance(ItemList(ID))
+		For j = 0 To 39
+			I\Attributes\Value[j] = ReadShort(Stream) - 5000
+		Next
+		I\ItemHealth = ReadByte(Stream)
+	Else
+		WriteLog(MainLog, "Item not found: Item with ID " + ID + " has been found during the character loading.!")
+		; Jump the block
+		SeekFile( stream, FilePos(stream) + 40*2 + 1)
+	EndIf
 	Return I
 
 End Function
