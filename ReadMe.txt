@@ -78,3 +78,9 @@ BlitzPlus:
 VS Code Setup:
  	Extension for BlitzBasic syntax
 	VS Marketplace Link: https://marketplace.visualstudio.com/items?itemName=dones.blitz3d
+
+
+IDEal:
+	Dowload: https://gryfhorn.pages.dev/blitzhub/IDEal_Editor.zip
+
+	Need to run IDEal in compatibility mode for Windows 7
