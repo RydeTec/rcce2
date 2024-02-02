@@ -11,3 +11,5 @@ src/Server.exe
 src/Data/Logs/*
 
 src/Data/Logs/
+
+*.bb_bak3
