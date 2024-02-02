@@ -68,6 +68,8 @@ Blitz3D:
 	Official Download: https://blitzresearch.itch.io/blitz3d
 	Source: https://github.com/blitz-research/blitz3d_msvc2017
 
+	Need to run Blitz3d in compatibility mode for Windows 7
+
 BlitzPlus:
 	Official Download: https://blitzresearch.itch.io/blitzplus
 	Source: https://github.com/blitz-research/blitzplus_msvc2017
