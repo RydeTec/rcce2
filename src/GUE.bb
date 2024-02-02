@@ -4805,74 +4805,74 @@ Cls
 					EndIf
 				EndIf
 			Case SSceneryInvenSize
-				Sc.Scenery = Object.Scenery(EntityName$(SelectedEN))
-				If E\EventData > 0
-					; If this scenery doesn't have an ownership ID, find one for it
-					If Sc\SceneryID = 0
-						For i = 0 To 499
-							If CurrentArea\Instances[0]\OwnedScenery[i] = Null
-								CurrentArea\Instances[0]\OwnedScenery[i] = New OwnedScenery
-								Sc\SceneryID = i + 1
-								FUI_SendMessage(BSceneryOwnable, M_SETCHECKED, True)
-								FUI_SendMessage(LSceneryID, M_SETCAPTION, "Ownership ID: " + Str$(Sc\SceneryID - 1))
-								Exit
-							EndIf
-						Next
-					EndIf
-					; Apply inventory size if an ID was found, or already present
-					If Sc\SceneryID > 0
-						CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]\InventorySize = E\EventData
-						If CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]\InventorySize = 0
-							If CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]\Inventory <> Null
-								Delete CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]\Inventory
-							EndIf
-						Else
-							If CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]\Inventory = Null
-								CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]\Inventory = New Inventory
-							EndIf
-						EndIf
-						ZoneSaved = False
-					Else
-						FUI_CustomMessageBox("Maximum ownable scenery objects already set!", "Error", MB_OK)
-					EndIf
-				Else
-					If Sc\SceneryID > 0
-						If CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1] <> Null
-							CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]\InventorySize = 0
-						EndIf
-						ZoneSaved = False
-					EndIf
-				EndIf
+;				Sc.Scenery = Object.Scenery(EntityName$(SelectedEN))
+;				If E\EventData > 0
+;					; If this scenery doesn't have an ownership ID, find one For it
+;					If Sc\SceneryID = 0
+;						For i = 0 To 499
+;							If CurrentArea\Instances[0]\OwnedScenery[i] = Null
+;								CurrentArea\Instances[0]\OwnedScenery[i] = New OwnedScenery
+;								Sc\SceneryID = i + 1
+;								FUI_SendMessage(BSceneryOwnable, M_SETCHECKED, True)
+;								FUI_SendMessage(LSceneryID, M_SETCAPTION, "Ownership ID: " + Str$(Sc\SceneryID - 1))
+;								Exit
+;							EndIf
+;						Next
+;					EndIf
+;					; Apply inventory size If an ID was found, Or already present
+;					If Sc\SceneryID > 0
+;						CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]\InventorySize = E\EventData
+;						If CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]\InventorySize = 0
+;							If CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]\Inventory <> Null
+;								Delete CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]\Inventory
+;							EndIf
+;						Else
+;							If CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]\Inventory = Null
+;								CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]\Inventory = New Inventory
+;							EndIf
+;						EndIf
+;						ZoneSaved = False
+;					Else
+;						FUI_CustomMessageBox("Maximum ownable scenery objects already set!", "Error", MB_OK)
+;					EndIf
+;				Else
+;					If Sc\SceneryID > 0
+;						If CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1] <> Null
+;							CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]\InventorySize = 0
+;						EndIf
+;						ZoneSaved = False
+;					EndIf
+;				EndIf
 			Case BSceneryOwnable
-				Sc.Scenery = Object.Scenery(EntityName$(SelectedEN))
-				If E\EventData = False
-					If Sc\SceneryID > 0
-						If CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1] <> Null
-							If CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]\Inventory <> Null
-								Delete CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]\Inventory
-							EndIf
-							Delete CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]
-						EndIf
-						Sc\SceneryID = 0
-						FUI_SendMessage(LSceneryID, M_SETCAPTION, "Ownership ID: N/A")
-						ZoneSaved = False
-					EndIf
-				Else
-					If Sc\SceneryID = 0
-						Found = False
-						For i = 0 To 499
-							If CurrentArea\Instances[0]\OwnedScenery[i] = Null
-								CurrentArea\Instances[0]\OwnedScenery[i] = New OwnedScenery
-								Sc\SceneryID = i + 1
-								FUI_SendMessage(LSceneryID, M_SETCAPTION, "Ownership ID: " + Str$(Sc\SceneryID - 1))
-								Found = True
-								ZoneSaved = False
-								Exit
-							EndIf
-						Next
-						If Found = False Then FUI_CustomMessageBox("Maximum ownable scenery objects already set!", "Error", MB_OK)
-					EndIf
-				EndIf
+;				Sc.Scenery = Object.Scenery(EntityName$(SelectedEN))
+;				If E\EventData = False
+;					If Sc\SceneryID > 0
+;						If CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1] <> Null
+;							If CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]\Inventory <> Null
+;								Delete CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]\Inventory
+;							EndIf
+;							Delete CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]
+;						EndIf
+;						Sc\SceneryID = 0
+;						FUI_SendMessage(LSceneryID, M_SETCAPTION, "Ownership ID: N/A")
+;						ZoneSaved = False
+;					EndIf
+;				Else
+;					If Sc\SceneryID = 0
+;						Found = False
+;						For i = 0 To 499
+;							If CurrentArea\Instances[0]\OwnedScenery[i] = Null
+;								CurrentArea\Instances[0]\OwnedScenery[i] = New OwnedScenery
+;								Sc\SceneryID = i + 1
+;								FUI_SendMessage(LSceneryID, M_SETCAPTION, "Ownership ID: " + Str$(Sc\SceneryID - 1))
+;								Found = True
+;								ZoneSaved = False
+;								Exit
+;							EndIf
+;						Next
+;						If Found = False Then FUI_CustomMessageBox("Maximum ownable scenery objects already set!", "Error", MB_OK)
+;					EndIf
+;				EndIf
 			Case BSceneryCatchRain
 				Sc.Scenery = Object.Scenery(EntityName$(SelectedEN))
 				Sc\CatchRain = E\EventData
@@ -8244,7 +8244,7 @@ Function UpdateZoneDisplay(View)
 			S.Scenery = Object.Scenery(EntityName$(SelectedEN))
 			FUI_SendMessage(CSceneryAnim, M_SETINDEX, S\AnimationMode + 1)
 			If S\SceneryID > 0
-				FUI_SendMessage(SSceneryInvenSize, M_SETVALUE, CurrentArea\Instances[0]\OwnedScenery[S\SceneryID - 1]\InventorySize)
+;				FUI_SendMessage(SSceneryInvenSize, M_SETVALUE, CurrentArea\Instances[0]\OwnedScenery[S\SceneryID - 1]\InventorySize)
 				FUI_SendMessage(BSceneryOwnable, M_SETCHECKED, True)
 				FUI_SendMessage(LSceneryID, M_SETCAPTION, "Ownership ID: " + Str$(S\SceneryID - 1))
 			Else
@@ -8821,11 +8821,11 @@ Function ZoneDeleteEntity(EN, NoUndo = False)
 			PokeShort(B, 40, Sc\TextureID)
 			PokeByte(B, 42, GetEntityType(Sc\EN))
 			If Sc\SceneryID > 0
-				If CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1] <> Null
-					PokeInt(B, 43, CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]\InventorySize)
-				Else
+;				If CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1] <> Null
+;					PokeInt(B, 43, CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]\InventorySize)
+;				Else
 					PokeInt(B, 43, 0)
-				EndIf
+;				EndIf
 			Else
 				PokeInt(B, 43, 0)
 			EndIf
@@ -8833,12 +8833,12 @@ Function ZoneDeleteEntity(EN, NoUndo = False)
 			PokeString(B, 49 + Len(Sc\Lightmap$), Sc\RCTE$)
 		EndIf
 		If Sc\SceneryID > 0
-			If CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1] <> Null
-				If CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]\Inventory <> Null
-					Delete CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]\Inventory
-				EndIf
-				Delete CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]
-			EndIf
+;			If CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1] <> Null
+;				If CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]\Inventory <> Null
+;					Delete CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]\Inventory
+;				EndIf
+;				Delete CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]
+;			EndIf
 		EndIf
 		UnloadMesh(Sc\MeshID)
 		FreeEntity(Sc\EN)
@@ -9575,11 +9575,11 @@ Function PerformUndo()
 					PositionEntity Sc\EN, X#, Y#, Z# : RotateEntity Sc\EN, Pitch#, Yaw#, Roll#
 					ScaleEntity Sc\EN, Sc\ScaleX#, Sc\ScaleY#, Sc\ScaleZ#
 					If Sc\SceneryID > 0
-						CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1] = New OwnedScenery
-						If InventorySize > 0
-							CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]\InventorySize = InventorySize
-							CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]\Inventory = New Inventory
-						EndIf
+;						CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1] = New OwnedScenery
+;						If InventorySize > 0
+;							CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]\InventorySize = InventorySize
+;							CurrentArea\Instances[0]\OwnedScenery[Sc\SceneryID - 1]\Inventory = New Inventory
+;						EndIf
 					EndIf
 					If Sc\Lightmap$ <> ""
 						LMap = LoadTexture("Data\Textures\Lightmaps\" + Sc\Lightmap$)
