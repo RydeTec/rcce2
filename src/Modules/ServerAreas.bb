@@ -61,12 +61,12 @@ Type ServerWater
 	Field Damage, DamageType
 End Type
 
-; Each area instance may have up to 500 player owned items of scenery (e.g. chests, doors, etc.)
-Type OwnedScenery
-	Field InventorySize
-	Field Inventory.Inventory
-	Field AccountName$, CharNumber
-End Type
+; Each area instance may have up to 500 player owned items of scenery (e.g. chests, doors, etc.) {##}
+;Type OwnedScenery
+;	Field InventorySize
+;	Field Inventory.Inventory
+;	Field AccountName$, CharNumber
+;End Type
 
 ; Instancing structure
 Type AreaInstance
@@ -75,7 +75,7 @@ Type AreaInstance
 	Field FirstInZone.ActorInstance ; Head of linked list containing all actor instances in a zone
 	Field CurrentWeather, CurrentWeatherTime
 	Field SpawnLast[999], Spawned[999]
-	Field OwnedScenery.OwnedScenery[499]
+	;Field OwnedScenery.OwnedScenery[499] ; {##}
 End Type
 
 ; Updates weather for an area
@@ -145,16 +145,16 @@ Function ServerCreateAreaInstance.AreaInstance(Ar.Area, ID)
 		AInstance\SpawnLast[i] = MilliSecs()
 	Next
 
-	; Copy ownable scenery data from default instance
-	If ID > 0
-		For i = 0 To 499
-			If Ar\Instances[0]\OwnedScenery[i] <> Null
-				AInstance\OwnedScenery[i] = New OwnedScenery
-				AInstance\OwnedScenery[i]\InventorySize = Ar\Instances[0]\OwnedScenery[i]\InventorySize
-				If AInstance\OwnedScenery[i]\InventorySize > 0 Then AInstance\OwnedScenery[i]\Inventory = New Inventory
-			EndIf
-		Next
-	EndIf
+	; Copy ownable scenery data from default instance [@@@]
+	;If ID > 0
+	;	For i = 0 To 499
+	;		If Ar\Instances[0]\OwnedScenery[i] <> Null
+	;			AInstance\OwnedScenery[i] = New OwnedScenery
+	;			AInstance\OwnedScenery[i]\InventorySize = Ar\Instances[0]\OwnedScenery[i]\InventorySize
+	;			If AInstance\OwnedScenery[i]\InventorySize > 0 Then AInstance\OwnedScenery[i]\Inventory = New Inventory
+	;		EndIf
+	;	Next
+	;EndIf
 
 	; Done
 	Return AInstance
@@ -168,7 +168,6 @@ Function FindArea.Area(Name$)
 	For A.Area = Each Area
 		If Upper$(A\Name$) = Name$ Then Return A
 	Next
-	Return First Area
 
 End Function
 
@@ -178,17 +177,17 @@ Function ServerUnloadArea(A.Area)
 	For W.ServerWater = Each ServerWater
 		If W\Area = A Then Delete(W)
 	Next
-	For j = 0 To 99
-		If A\Instances[j] <> Null
-			For i = 0 To 499
-				If A\Instances[j]\OwnedScenery[i] <> Null
-					If A\Instances[j]\OwnedScenery[i]\Inventory <> Null Then Delete A\Instances[j]\OwnedScenery[i]\Inventory
-					Delete A\Instances[j]\OwnedScenery[i]
-				EndIf
-			Next
-			Delete A\Instances[j]
-		EndIf
-	Next
+	;For j = 0 To 99 {##}
+	;	If A\Instances[j] <> Null
+	;		For i = 0 To 499
+	;			If A\Instances[j]\OwnedScenery[i] <> Null
+	;				If A\Instances[j]\OwnedScenery[i]\Inventory <> Null Then Delete A\Instances[j]\OwnedScenery[i]\Inventory
+	;				Delete A\Instances[j]\OwnedScenery[i]
+	;			EndIf
+	;		Next
+	;		Delete A\Instances[j]
+	;	EndIf
+	;Next
 	Delete(A)
 
 End Function
@@ -264,35 +263,35 @@ Function ServerLoadArea.Area(Name$)
 	; Create default instance (#0)
 	AInstance.AreaInstance = ServerCreateAreaInstance(A, 0)
 
-	; Load in any scenery ownerships
-	For k = 0 To 99
-		F = ReadFile("Data\Server Data\Areas\Ownerships\" + Name$ + " (" + Str$(k) + ") Ownerships.dat")
-		If F <> 0
-
+	; Load in any scenery ownerships {##}
+	;For k = 0 To 99
+	;	F = ReadFile("Data\Server Data\Areas\Ownerships\" + Name$ + " (" + Str$(k) + ") Ownerships.dat")
+	;	If F <> 0
+;
 			; Create instance if required
-			If k > 0 Then AInstance = ServerCreateAreaInstance(A, k)
-
+	;		If k > 0 Then AInstance = ServerCreateAreaInstance(A, k)
+;
 			; Load data into instance
-			For i = 0 To 499
-				Exists = ReadByte(F)
-				If Exists = 1
-					AInstance\OwnedScenery[i] = New OwnedScenery
-					AInstance\OwnedScenery[i]\AccountName$ = ReadString$(F)
-					AInstance\OwnedScenery[i]\CharNumber = ReadByte(F)
-					AInstance\OwnedScenery[i]\InventorySize = ReadByte(F)
-					If AInstance\OwnedScenery[i]\InventorySize > 0
-						AInstance\OwnedScenery[i]\Inventory = New Inventory
-						For j = 0 To AInstance\OwnedScenery[i]\InventorySize - 1
-							AInstance\OwnedScenery[i]\Inventory\Items[j] = ReadItemInstance(F)
-							AInstance\OwnedScenery[i]\Inventory\Amounts[j] = ReadShort(F)
-						Next
-					EndIf
-				EndIf
-			Next
-			CloseFile(F)
-
-		EndIf
-	Next
+	;		For i = 0 To 499
+	;			Exists = ReadByte(F)
+	;			If Exists = 1
+	;				AInstance\OwnedScenery[i] = New OwnedScenery
+	;				AInstance\OwnedScenery[i]\AccountName$ = ReadString$(F)
+	;				AInstance\OwnedScenery[i]\CharNumber = ReadByte(F)
+	;				AInstance\OwnedScenery[i]\InventorySize = ReadByte(F)
+	;				If AInstance\OwnedScenery[i]\InventorySize > 0
+	;					AInstance\OwnedScenery[i]\Inventory = New Inventory
+	;					For j = 0 To AInstance\OwnedScenery[i]\InventorySize - 1
+	;						AInstance\OwnedScenery[i]\Inventory\Items[j] = ReadItemInstance(F)
+	;						AInstance\OwnedScenery[i]\Inventory\Amounts[j] = ReadShort(F)
+	;					Next
+	;				EndIf
+	;			EndIf
+	;		Next
+	;		CloseFile(F)
+;
+;		EndIf
+;	Next
 
 	Return A
 
@@ -371,7 +370,7 @@ Function ServerSaveArea(A.Area)
 
 	CloseFile(F)
 
-	ServerSaveAreaOwnerships(A)
+	;ServerSaveAreaOwnerships(A) {##}
 
 	Return True
 
@@ -393,13 +392,13 @@ Function ServerCopyArea.Area(A.Area)
 	Next
 	NewA\Outdoors = A\Outdoors
 	NewA\WeatherLink$ = A\WeatherLink$
-	For i = 0 To 499
-		If A\Instances[0]\OwnedScenery[i] <> Null
-			NewA\Instances[0]\OwnedScenery[i] = New OwnedScenery
-			NewA\Instances[0]\OwnedScenery[i]\InventorySize = A\Instances[0]\OwnedScenery[i]\InventorySize
-			If NewA\Instances[0]\OwnedScenery[i]\InventorySize > 0 Then NewA\Instances[0]\OwnedScenery[i]\Inventory = New Inventory
-		EndIf
-	Next
+	;For i = 0 To 499 ;{##}
+	;	If A\Instances[0]\OwnedScenery[i] <> Null
+	;		NewA\Instances[0]\OwnedScenery[i] = New OwnedScenery
+	;		NewA\Instances[0]\OwnedScenery[i]\InventorySize = A\Instances[0]\OwnedScenery[i]\InventorySize
+	;		If NewA\Instances[0]\OwnedScenery[i]\InventorySize > 0 Then NewA\Instances[0]\OwnedScenery[i]\Inventory = New Inventory
+	;	EndIf
+	;Next
 	NewA\EntryScript$ = A\EntryScript$
 	NewA\ExitScript$ = A\ExitScript$
 	For i = 0 To 149
@@ -446,58 +445,58 @@ Function ServerCopyArea.Area(A.Area)
 
 End Function
 
-; Save scenery ownerships
-Function ServerSaveAreaOwnerships(Ar.Area)
-
-	For j = 0 To 99
-		; Find whether this instance has any ownerships which need saving
-		If j = 0
-			SaveInstance = True
-		Else
-			SaveInstance = False
-			If Ar\Instances[j] <> Null
-				For i = 0 To 499
-					If Ar\Instances[j]\OwnedScenery[i] <> Null
-						If Ar\Instances[j]\OwnedScenery[i]\AccountName$ <> ""
-							SaveInstance = True
-							Exit
-						Else
-							For k = 0 To Ar\Instances[j]\OwnedScenery[i]\InventorySize - 1
-								If Ar\Instances[j]\OwnedScenery[i]\Inventory\Items[k] <> Null
-									SaveInstance = True
-									Exit
-								EndIf
-							Next
-						EndIf
-					EndIf
-				Next
-			EndIf
-		EndIf
-
-		; Save ownerships for this instance
-		If SaveInstance = True
-			F = WriteFile("Data\Server Data\Areas\Ownerships\" + Ar\Name$ + " (" + Ar\Instances[j]\ID + ") Ownerships.dat")
-			If F = 0 Then RuntimeError("Could not write to " + "Data\Server Data\Areas\Ownerships\" + Ar\Name$ + " (" + Ar\Instances[j]\ID + ") Ownerships.dat!")
-
-				For i = 0 To 499
-					If Ar\Instances[j]\OwnedScenery[i] <> Null
-						WriteByte(F, 1)
-						WriteString(F, Ar\Instances[j]\OwnedScenery[i]\AccountName$)
-						WriteByte(F, Ar\Instances[j]\OwnedScenery[i]\CharNumber)
-						WriteByte(F, Ar\Instances[j]\OwnedScenery[i]\InventorySize)
-						If Ar\Instances[j]\OwnedScenery[i]\Inventory <> Null
-							For k = 0 To Ar\Instances[j]\OwnedScenery[i]\InventorySize - 1
-								WriteItemInstance(F, Ar\Instances[j]\OwnedScenery[i]\Inventory\Items[k])
-								WriteShort(F, Ar\Instances[j]\OwnedScenery[i]\Inventory\Amounts[k])
-							Next
-						EndIf
-					Else
-						WriteByte(F, 0)
-					EndIf
-				Next
-
-			CloseFile(F)
-		EndIf
-	Next
-
-End Function
+; Save scenery ownerships {##}
+;Function ServerSaveAreaOwnerships(Ar.Area)
+;
+;	For j = 0 To 99
+;		; Find whether this instance has any ownerships which need saving
+;		If j = 0
+;			SaveInstance = True
+;		Else
+;			SaveInstance = False
+;			If Ar\Instances[j] <> Null
+;				For i = 0 To 499
+;					If Ar\Instances[j]\OwnedScenery[i] <> Null
+;						If Ar\Instances[j]\OwnedScenery[i]\AccountName$ <> ""
+;							SaveInstance = True
+;							Exit
+;						Else
+;							For k = 0 To Ar\Instances[j]\OwnedScenery[i]\InventorySize - 1
+;								If Ar\Instances[j]\OwnedScenery[i]\Inventory\Items[k] <> Null
+;									SaveInstance = True
+;									Exit
+;								EndIf
+;							Next
+;						EndIf
+;					EndIf
+;				Next
+;			EndIf
+;		EndIf
+;
+;		; Save ownerships for this instance
+;		If SaveInstance = True
+;			F = WriteFile("Data\Server Data\Areas\Ownerships\" + Ar\Name$ + " (" + Ar\Instances[j]\ID + ") Ownerships.dat")
+;			If F = 0 Then RuntimeError("Could not write to " + "Data\Server Data\Areas\Ownerships\" + Ar\Name$ + " (" + Ar\Instances[j]\ID + ") Ownerships.dat!")
+;
+;				For i = 0 To 499
+;					If Ar\Instances[j]\OwnedScenery[i] <> Null
+;						WriteByte(F, 1)
+;						WriteString(F, Ar\Instances[j]\OwnedScenery[i]\AccountName$)
+;						WriteByte(F, Ar\Instances[j]\OwnedScenery[i]\CharNumber)
+;						WriteByte(F, Ar\Instances[j]\OwnedScenery[i]\InventorySize)
+;						If Ar\Instances[j]\OwnedScenery[i]\Inventory <> Null
+;							For k = 0 To Ar\Instances[j]\OwnedScenery[i]\InventorySize - 1
+;								WriteItemInstance(F, Ar\Instances[j]\OwnedScenery[i]\Inventory\Items[k])
+;								WriteShort(F, Ar\Instances[j]\OwnedScenery[i]\Inventory\Amounts[k])
+;							Next
+;						EndIf
+;					Else
+;						WriteByte(F, 0)
+;					EndIf
+;				Next
+;
+;			CloseFile(F)
+;		EndIf
+;;	Next
+;
+;End Function
