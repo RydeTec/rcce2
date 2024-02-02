@@ -841,7 +841,11 @@ End Function
 
 ; Gives a known spell (ability) to an actor instance (SERVER ONLY!)
 Function AddSpell(AI.ActorInstance, SpellID, Lvl = 1)
-
+	If Lvl < 1 Then Return
+	
+	Sp.Spell = SpellsList(SpellID)
+	
+	If Sp = Null Then Return
 	; Find a free slot
 	For i = 0 To 999
 		If AI\SpellLevels[i] <= 0
@@ -850,10 +854,11 @@ Function AddSpell(AI.ActorInstance, SpellID, Lvl = 1)
 			AI\SpellLevels[i] = Lvl
 			; If they are a player in game, tell them
 			If AI\RNID > 0
-				Sp.Spell = SpellsList(SpellID)
-				Pa$ = RCE_StrFromInt$(Lvl, 2) + RCE_StrFromInt$(Sp\ThumbnailTexID, 2) + RCE_StrFromInt$(Sp\RechargeTime, 2)
+				;Sp.Spell = SpellsList(SpellID)
+				Pa$ = RCE_StrFromInt$(Lvl, 2) + RCE_StrFromInt$(SpellID,2) +  RCE_StrFromInt$(Sp\ThumbnailTexID, 2) + RCE_StrFromInt$(Sp\RechargeTime, 2)
 				Pa$ = Pa$ + RCE_StrFromInt$(Len(Sp\Name$), 2) + Sp\Name$ + RCE_StrFromInt$(Len(Sp\Description$), 2) + Sp\Description$
-				RCE_Send(Host, PeerToHost, P_KnownSpellUpdate, "A" + Pa$, True)
+				Pa$ = Pa$ + RCE_StrFromInt$(0, 1)
+				RCE_Send(Host, AI\RNID, P_KnownSpellUpdate, "A" + Pa$, True)
 			EndIf
 			; Done
 			Exit
@@ -870,11 +875,11 @@ Function DeleteSpell(AI.ActorInstance, ID)
 	AI\KnownSpells[ID] = 0
 	AI\SpellLevels[ID] = 0
 	For i = 0 To 9
-		If AI\MemorisedSpells[i] = ID Then AI\MemorisedSpells[i] = 5000
+		If AI\MemorisedSpells[i] = ID Then AI\MemorisedSpells[i] = 5000 : Exit
 	Next
 
 	; If they are a player in game, tell them
-	If AI\RNID > 0 And Sp <> Null Then RCE_Send(Host, PeerToHost, P_KnownSpellUpdate, "D" + Sp\Name$, True)
+	If AI\RNID > 0 And Sp <> Null Then RCE_Send(Host, AI\RNID, P_KnownSpellUpdate, "D" + Sp\Name$, True)
 
 End Function
 
