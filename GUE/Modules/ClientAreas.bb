@@ -360,70 +360,46 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 				S\ENLight=Lower(GetFilename$(Name$))
 				S\ENWF=Lower(GetFilename$(Name$))
 				S\ENFM=Lower(GetFilename$(Name$))
-				S\ENFL=Lower(GetFilename$(Name$))
-				
-				
-				;;LOD RAMOIDA
-	;			S\SceneryType$ = "" ;initiate the variable just in case Ramoida
-	;			If Instr(Name$, "RCTE\") Or  Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\CITYPATHS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFSCAFFOLD\") Or  Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\ICE CAVES\") Or  Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\CAVE\") Or Instr(Name$, "AAAAAAAM\OLD_MINE\OLD_MINE\")
-	;				S\SceneryType$ = "T" ;If it is Terrain, mark it as "T" ;This will be used at Client.bb
-	;			;;BUILDINGS
-	;		    ElseIf Instr(Name$, "BUILDINGS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\ALKERZ\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\DONE\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\DRAGON GATE\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\MIDDEL EAST\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\NEWBUILDINGS2\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\RUINED_BRIDGE\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\TREE BASE\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\TROPICAL\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\WAGONS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\WARTORN\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\CASTLE2\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\FARM\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\MARKET STALLS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\NEW BUILDINGS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\RESPAWN POINT\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\SNOW PILES\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\DOCKS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\FIRT06\")  Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\FOUNTAIN\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\STATUES\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\VILLAGE\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\ALKERZARK CENTER CHURCH\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\ANCIENT_RUINS03\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\ARTERIA3D_TROPICALPACK\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\ELVENCITY_2010_UPDATE_GENERIC\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\OLD PORTAL\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\RUINED_BRIDGE\") Or Instr(Name$, "AAAAAAAM\CATAPULTS-SRC\") Or Instr(Name$, "AAAAAAAM\STONE BRIDGE\") Or Instr(Name$, "AAAAAAAM\WAGONS\") Or Instr(Name$, "AAAAAAAM\WINDMILL\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\NICE RS\") Or Instr(Name$, "RCTREES\") Or Instr(Name$, "AAAAAAAM\SPIKES\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\")
-	;				S\SceneryType$ = "B" 
-	;				EntityAutoFade S\EN,BuildingMinViewDistance#,BuildingMaxViewDistance#;If it is an object set autofade
-	;			;GRASS
-	;			ElseIf Instr(Name$, "GRASS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\FOREST GRASSS\")  Or Instr(Name$, "AAAAAAAM\CRATES3D\CRATES\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\BARRELS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\HANGING ANIMALS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\BANNERS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\LAMP POST\") Or Instr(Name$, "ACTORS\HORSE AND CHART\") Or Instr(Name$, "ACTORS\NPC'S\ALKERZARK SOLDIERS\")
-	;				S\SceneryType$ = "G"
-	;				EntityAutoFade S\EN, GrassMinViewDistance#, GrassMaxViewDistance#
-	;			;;RUNIC
-	;			ElseIf Instr(Name$, "EFFECTS\RUNICPATH\")
-	;				S\SceneryType$ = "Z"
-	;				EntityAutoFade S\EN, RunicMinViewDistance#, RunicMaxViewDistance#
-	;			EndIf
-	;	
-	;			;Shadows file trackers				
-	;			;Recievers
-	;			If Instr(Name$, "RCTE\") Or Instr(Name$, "Decles\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\ALKERZ\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\DRAGON GATE\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\TRACK 1.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\TRACK 2.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\TRACK END.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\TRACK SLIGHT TURN.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\TRACK STRAIGHT END.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\TRACK STRAIGHT.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\TRACK TIGHT TURN.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\NEWBUILDINGS2\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\RUINED_BRIDGE\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\TREE BASE\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\TROPICAL\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\WAGONS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\FARM\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\MARKET STALLS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\NEW BUILDINGS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\RESPAWN POINT\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\VIKINGPACK2\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\CITYPATHS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\DOCKS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\FOUNTAIN\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\STATUES\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\VILLAGE\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\ALKERZARK CENTER CHURCH\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\ANCIENT_RUINS03\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\ARTERIA3D_TROPICALPACK\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\ELVENCITY_2010_UPDATE_GENERIC\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\OLD PORTAL\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\RUINED_BRIDGE\")  Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\NICE RS\")  Or Instr(Name$, "AAAAAAAM\CATAPULTS-SRC\") Or Instr(Name$, "AAAAAAAM\PEASANT_HOUSE\") Or Instr(Name$, "AAAAAAAM\STONE BRIDGE\") Or Instr(Name$, "AAAAAAAM\WAGONS\") Or Instr(Name$, "AAAAAAAM\WINDMILL\") Or Instr(Name$, "AAAFROMDEMO\") Or Instr(Name$, "AAAM") Or Instr(Name$, "ATREEMAGIK\") Or Instr(Name$, "B3D ACTORS\") Or Instr(Name$, "BRIDGES\") Or Instr(Name$, "ITEMS\") Or Instr(Name$, "MYMODLES\") Or Instr(Name$, "MYWEAPONS\") Or Instr(Name$, "RCTREES\") Or Instr(Name$, "SHADRE\") Or Instr(Name$, "TREEMAGIK\") Or Instr(Name$, "AAAAAAAM\SPIKES\") Or Instr(Name$, "CHARACTER SET\")
-	;			 	;Any models in the rcte folder becomes a receiver
-	;				EntityTexture S\EN, ShadowTexture, 0, 2
-	;				;AttachShadowReceiver% (S\EN) ; removes incorrect shadows (this was disabled as it was massively impacting on performance of around 30 fps)
-	;			EndIf
-	;			;Casters
-	;			If Instr(Name$, "AAAAAAAAAAAAMMMMMM2\ALKERZ\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\BONES DINO\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\DONE\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\CLIFF SUPPORT.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\CRANE.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\MINE CART.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\PROP SET1.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\PROP SET2.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\SHAFT SUPPORT.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\STATUE.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\STONE CARVING.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\FROZENREEFMINES\TRACK STOPPER.B3D") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\DRAGO RUINS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\DRAGON GATE\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\MIDDEL EAST\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\NEWBUILDINGS2\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\RUINED_BRIDGE\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\TROPICAL\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\WAGONS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\WARTORN\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\CASTLE2\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\LAMP POST\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\MARKET STALLS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\NEW BUILDINGS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\RESPAWN POINT\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\VIKINGPACK2\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\DOCKS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\FIRT06\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\FOUNTAIN\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\STATUES\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\VILLAGE\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\ALKERZARK CENTER CHURCH\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\ANCIENT_RUINS03\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\ARTERIA3D_TROPICALPACK\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\ELVENCITY_2010_UPDATE_GENERIC\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\ROOTS\") Or Instr(Name$, "AAAAAAAAAAAAMMMMMM2\AMMMMM222\AMMMMM1\AMMMM\RUINED_BRIDGE\") Or Instr(Name$, "AAAAAAAM\CATAPULTS-SRC\") Or Instr(Name$, "AAAAAAAM\CRATES3D\") Or Instr(Name$, "AAAAAAAM\LOGS\") Or Instr(Name$, "AAAAAAAM\PEASANT_HOUSE\") Or Instr(Name$, "AAAAAAAM\STONE BRIDGE\") Or Instr(Name$, "AAAAAAAM\WAGONS") Or Instr(Name$, "AAAAAAAM\WINDMILL") Or Instr(Name$, "AAAM\") Or Instr(Name$, "AFROM RANDOM\") Or Instr(Name$, "ANIMAL PACKS\") Or Instr(Name$, "ATREEMAGIK\") Or Instr(Name$, "B3D ACTORS\") Or Instr(Name$, "BRIDGES\") Or Instr(Name$, "DUNGEON PACK 1\") Or Instr(Name$, "ITEMS\") Or Instr(Name$, "MY MODLES\") Or Instr(Name$, "MYWEAPONS\") Or Instr(Name$, "RCTREES\")
-	;				CreateShadowCaster% (S\EN)
-	;			EndIf
-				
-				; NewLOD cysis145 [011]
-				S\SceneryType$ = "" 
-				If DisplayItems = False
-					;Always Renders
-					If S\RenderRange = 0
-						S\SceneryType$ = "T"
-					;Short Range
-					ElseIf S\RenderRange = 1
-						S\SceneryType$ = "G"
-						EntityAutoFade S\EN, GrassMinViewDistance#, GrassMaxViewDistance#
-					;Long Range
-					ElseIf S\RenderRange =2
-						S\SceneryType$ = "B" 
-						EntityAutoFade S\EN, BuildingMinViewDistance#, BuildingMaxViewDistance#
-					EndIf
-				EndIf
+								
+				If Left$(S\ENLight$, 6) = "light_" ;And S\LightID=0 And EntityDistance# (S\EN,Me\EN)<=10.0
+					
+					TypeLength% = Len(S\ENLight$)
+					newTypeName$ = Left(S\ENLight$,TypeLength% - 4)
 
+					entTypeLoc% = (Instr(newTypeName$, "_", 1) - 1) ;This gets how long the word of the type is
+			
+					numLen% = Instr(newTypeName$, "_",1) + 1
+			
+			;Get Setting 1
+			tempLength1% = (Instr(newTypeName$, "_", numLen%))
+			realLength% = (Instr(newTypeName$, "_", numLen%)-numLen%)
+			setting1$ = Mid$(newTypeName$, entTypeLoc%+2, realLength%)
+			setting1Num# = setting1$ ;Convert setting to a number (float)
+			
+			;Get Setting 2
+			realLength2% = (Instr(newTypeName$, "_", ((entTypeLoc%+2) + realLength%+2))-tempLength1%)
+			setting2$ = Mid$(newTypeName$, (tempLength1%+1), (realLength2%-1))
+			setting2Num# = setting2$ ;Convert setting to a number (float)
+			
+			;Get Setting 3
+			realLength3% = Instr(newTypeName$, "_", (tempLength1%+realLength2% + 1))
+			tempL% = realLength3% - (tempLength1% + realLength2%+1)
+			setting3$ = Mid$(newTypeName$, (tempLength1%+realLength2% + 1), tempL%)
+			setting3Num# = setting3$ ;Convert setting to a number (float)
+			
+			;Get Setting 4
+			realLength4% = (tempLength1%+realLength2% + 1) + tempL%
+			rLength% = Len(newTypeName$) - realLength4%
+			setting4$ = Right(newTypeName$, rLength%)
+			setting4Num# = setting4$ ;Convert setting to a number (float)
 
-	; Scenery Shadows cysis145 [010]
-	If S\ReceiveShadow And DisplayItems = False 
-		EntityTexture S\EN, ShadowTexture, 0, 2 
-  	    AttachShadowReceiver S\EN ;helps remove incorrect shadowing 
-	EndIf
-
-	If S\CastShadow And DisplayItems = False 
-		CreateShadowCaster S\EN 
-	EndIf 
+			    S\LightID = CreateLight(2) 
+    	        LightColor(S\LightID, setting2Num#, setting3Num#, setting4Num#) 
+	            LightRange S\LightID,setting1Num#
+				PositionEntity S\LightID, EntityX(S\EN), EntityY(S\EN), EntityZ(S\EN)			
+		EndIf
 				
-				
-
-				; Chunking for dungeons etc. 
+				; Chunking for dungeons etc.
 				If DisplayItems = False
 					Name$ = Upper$(GetMeshName$(S\MeshID))
 					If Instr(Name$, "RCDUNGEON\") Or Instr(Name$, "CUSTOMCHUNK\")
@@ -985,14 +961,13 @@ Function UnloadArea()
 	If StormCloudTexID > -1 And StormCloudTexID < 65535 Then UnloadTexture(StormCloudTexID)
 	If StarsTexID > -1 And StarsTexID < 65535 Then UnloadTexture(StarsTexID)
 
-;	UnloadTrees(False) [~@~]
+	UnloadTrees(False)
 
 	For S.Scenery = Each Scenery
-		;Shadow
-		FreeShadowCaster% (S\EN)
-		;FreeShadowReceiver% (S\EN)
-	
 		If S\TextureID < 65535 Then UnloadTexture(S\TextureID)
+		;Dynamic Lights
+		If S\LightID>0 Then FreeEntity(S\LightID)
+		S\LightID=0
 		UnloadMesh(S\MeshID)
 		FreeEntity(S\EN)
 		Delete(S)
@@ -1034,16 +1009,8 @@ Function UnloadArea()
 		If T\DetailTexID < 65535 Then UnloadTexture(T\DetailTexID)
 		Delete(T)
 	Next
-	
-	;For AI.ActorInstance = Each ActorInstance
-	;		FreeShadowCaster% (AI\EN)
-	;Next
 
 	Delete Each CatchPlane
-
-	;Shadow
-	FreeShadows
-	FreeTexture ShadowTexture
 
 End Function
 
