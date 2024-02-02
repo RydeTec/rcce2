@@ -1,0 +1,41 @@
+[02 Feb 2024]  [09:04:49]  ** GUE startup log begins **
+[09:04:49]  Initialising windowed graphics mode
+[09:04:49]  Initialising encryption system
+[09:04:49]  Loading splash screen
+[09:04:56]  Creating media dialogs
+[09:04:58]  Loading game interface settings
+[09:04:58]  Loading emitter configurations
+[09:04:58]  Loading damage types
+[09:04:58]  Loading attributes
+[09:04:58]  Loading factions
+[09:04:58]  Loading animations
+[09:04:58]  Loading projectiles
+[09:04:58]  Loading items
+[09:04:58]  Loading actors
+[09:04:58]  Loading abilities
+[09:04:58]  Loading server-side zones
+[09:04:58]  Loading environment settings
+[09:04:58]  Loading suns/moons
+[09:04:58]  Creating main window
+[09:04:58]  Creating project tab
+[09:04:58]  Creating media tab
+[09:04:58]  Creating particles tab
+[09:04:59]  Creating combat tab
+[09:04:59]  Creating projectiles tab
+[09:04:59]  Creating factions tab
+[09:04:59]  Creating animations tab
+[09:05:00]  Creating attributes tab
+[09:05:00]  Creating actors tab
+[09:05:01]  Creating items tab
+[09:05:01]  Creating seasons tab
+[09:05:02]  Creating zones tab
+[09:05:03]  Creating abilities tab
+[09:05:03]  Creating interface tab
+[09:05:04]  Creating host options
+[09:05:04]  Creating game options
+[09:05:04]  Creating money options
+[09:05:04]  Creating gubbin remapping options
+[09:05:04]  Initialising gadgets
+[09:05:04]  Creating skyspheres
+[09:05:04]  Performing final initialisation
+[09:05:04]  ** GUE loading complete **

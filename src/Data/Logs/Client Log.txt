@@ -1,0 +1,6 @@
+[08:35:07]  Loaded options from file
+[08:35:07]  Gooey loaded for menu
+[08:35:09]  EULA complete
+[08:35:09]  Loaded animation sets
+[08:35:09]  Server chosen
+[08:35:21]  Logged in
