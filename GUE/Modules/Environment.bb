@@ -144,7 +144,7 @@ Function UpdateEnvironment()
 
 End Function
 
-; Loads And creates all suns
+; Loads and creates all suns
 Function LoadSuns()
 
 	F = ReadFile("Data\Game Data\Suns.dat")

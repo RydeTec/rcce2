@@ -52,6 +52,7 @@ Global ActionBarUpTex, ActionBarDownTex
 ; Character interaction window
 Global WCharInteract, CharInteractVisible = False
 Global SCharInteractHealth
+Global LCharInteractTalk
 Global CharInteract.ActorInstance = Null
 Global LCharInteractFaction
 Global LCharInteractLevel
@@ -146,6 +147,7 @@ Type EffectIconSlot
 End Type
 
 ; Misc
+Global WInfo
 Global LastMouseMove, LastLeftClick, MouseControl, MouseWasDown, InWaitPeriod, MouseDownTime, MouseClicks
 Global RightWasDown, RightDownTime
 Global SelectKeyWasDown, SelectKeyClickTime
@@ -188,7 +190,7 @@ Global InventoryWindow.InterfaceComponent    ; Inventory window
 Global InventoryDrop.InterfaceComponent      ; Inventory drop button
 Global InventoryEat.InterfaceComponent       ; Inventory use button
 Global InventoryGold.InterfaceComponent      ; Inventory money display
-Dim InventoryButtons.InterfaceComponent(45)  ; Buttons for inventory slots
+Dim InventoryButtons.InterfaceComponent(Slots_Inventory)  ; Buttons for inventory slots
 
 ; Gets the script handle for a dialog
 Function DialogScriptHandle(Han)
@@ -324,7 +326,7 @@ Function LoadInterfaceSettings(Filename$)
 		ReadInterfaceComponent(InventoryEat, F)
 		InventoryGold = New InterfaceComponent
 		ReadInterfaceComponent(InventoryGold, F)
-		For i = 0 To 45
+		For i = 0 To Slots_Inventory
 			InventoryButtons(i) = New InterfaceComponent
 			ReadInterfaceComponent(InventoryButtons(i), F)
 		Next
@@ -356,7 +358,7 @@ Function SaveInterfaceSettings(Filename$)
 		WriteInterfaceComponent(InventoryDrop, F)
 		WriteInterfaceComponent(InventoryEat, F)
 		WriteInterfaceComponent(InventoryGold, F)
-		For i = 0 To 45
+		For i = 0 To Slots_Inventory
 			WriteInterfaceComponent(InventoryButtons(i), F)
 		Next
 
