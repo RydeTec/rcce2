@@ -29,6 +29,7 @@ Global ClientMode = 0; 0 for login scree, 1 for character selection, 2 for main 
 ;&&&&&&&&&&	
 
 Global componentName$ = "client"
+Global LogMode = 1; (0 = standard logging, 1 = debug mode)
 
 
 ; Variables -------------------------------

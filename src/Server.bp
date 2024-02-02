@@ -27,7 +27,7 @@
 Global componentName$ = "server"
 
 ; Debug log mode
-Global LogMode = 1; (0 = standard logging, 1 = debug mode which writes log instantly)
+Global LogMode = 1; (0 = standard logging, 1 = debug mode)
 Global LogCounter = 0
 Dim DBLog$(10, 1);
 ; Includes --------------------------------------------------------------------------------------------------------------------------
