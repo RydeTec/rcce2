@@ -16,6 +16,10 @@ and [bugs](https://github.com/RydeTec/rcce2/issues).
 If you would like to add to the Community Edition source please feel free to clone or fork the repo. If you would like to push a branch and open a 
 pull request to have your modifications included as part of the official source please request to join the [RCCE Contributors](https://github.com/orgs/RydeTec/teams/rcce-contributors) group.
 
+#### Strategy
+
+Branch from `develop` and target pull request to `develop`. Releases will be a pull request from `develop` targeting `master`.
+
 ### Documentation
 
 The source documentation can be found [here](docs/index.md). It is currently outdated and incomplete. If you would like to contribute to improving the documentation please request to join the [RCCE Contributors](https://github.com/orgs/RydeTec/teams/rcce-contributors) group.
