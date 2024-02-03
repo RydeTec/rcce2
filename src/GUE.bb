@@ -1,6 +1,7 @@
 
 Global rcceVersion$ = "v2.0"
 Global componentName$ = "gue"
+Global RootDir$ = ".\"
 Global LogMode = 1; (0 = standard logging, 1 = debug mode)
 
 ; Includes --------------------------------------------------------------------------------------------------------------------------
@@ -15,6 +16,7 @@ Include "Modules\Inventories.bb"
 Include "Modules\Animations.bb"
 Include "Modules\Spells.bb"
 Include "Modules\Actors.bb"
+Include "Modules\CharacterEditorLoader.bb" ; RifRaf's character editor loading function
 Include "Modules\Actors3D.bb"
 Include "Modules\Environment.bb"
 Include "Modules\Interface.bb"

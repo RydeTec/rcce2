@@ -29,6 +29,7 @@ Global ClientMode = 0; 0 for login scree, 1 for character selection, 2 for main 
 ;&&&&&&&&&&	
 
 Global componentName$ = "client"
+Global RootDir$ = ".\"
 Global LogMode = 1; (0 = standard logging, 1 = debug mode)
 
 
@@ -151,6 +152,7 @@ Include "Modules\Spells.bb"                ; Spells (abilities) module
 Include "Modules\Items.bb"                 ; Items
 Include "Modules\Inventories.bb"           ; Inventory
 Include "Modules\Actors.bb"                ; Actors
+Include "Modules\CharacterEditorLoader.bb" ; RifRaf's character editor loading function
 Include "Modules\Actors3D.bb"              ; Actors 3D stuff
 Include "Modules\ClientCombat.bb"          ; Combat module
 Include "Modules\Interface.bb"             ; In-game user interface

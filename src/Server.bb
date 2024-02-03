@@ -24,7 +24,9 @@
 ;##############################################################################################################################
 ;Brisk VM2 Integration by Bill "Mr.Bill" Steelhammer
 
+; This application should be compiled with BlitzPlus
 Global componentName$ = "server"
+Global RootDir$ = ".\"
 
 ; Debug log mode
 Global LogMode = 1; (0 = standard logging, 1 = debug mode)

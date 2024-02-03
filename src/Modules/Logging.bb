@@ -5,13 +5,13 @@ End Type
 ; Starts a log and returns the handle
 Function StartLog(Logname$, Append = True)
 
-	If FileType("Data\Logs\") <> 2 Then CreateDir "Data\Logs\"
+	If FileType(RootDir$ + "Data\Logs\") <> 2 Then CreateDir RootDir$ + "Data\Logs\"
 
-	If Append = False Or FileType("Data\Logs\" + Logname$ + ".txt") <> 1
-		F = WriteFile("Data\Logs\" + Logname$ + ".txt")
+	If Append = False Or FileType(RootDir$ + "Data\Logs\" + Logname$ + ".txt") <> 1
+		F = WriteFile(RootDir$ + "Data\Logs\" + Logname$ + ".txt")
 	Else
-		F = OpenFile("Data\Logs\" + Logname$ + ".txt")
-		If F <> 0 Then SeekFile(F, FileSize("Data\Logs\" + Logname$ + ".txt"))
+		F = OpenFile(RootDir$ + "Data\Logs\" + Logname$ + ".txt")
+		If F <> 0 Then SeekFile(F, FileSize(RootDir$ + "Data\Logs\" + Logname$ + ".txt"))
 	EndIf
 	If F <> 0
 		L.LogFile = New LogFile
