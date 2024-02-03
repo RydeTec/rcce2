@@ -104,7 +104,7 @@ Type ActorInstance
 	Field SourceSP, CurrentWaypoint, AIMode, AITarget.ActorInstance ; AI stuff
 	Field Rider.ActorInstance, Mount.ActorInstance ; Mount riding
 	Field IsRunning, LastAttack
-	Field FootstepPlayedThisCycle   ; To prevent too many footstep noises! See UpdateActorInstances() in Default Project.bb
+	Field FootstepPlayedThisCycle   ; To prevent too many footstep noises! See UpdateActorInstances() in Client.bb
 	Field ScriptGlobals$[9]
 	Field KnownSpells[999]
 	Field SpellLevels[999]
