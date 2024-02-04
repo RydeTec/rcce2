@@ -121,7 +121,7 @@ WriteLog(GUELog, "Initialising encryption system")
 
 ; Splash screen
 WriteLog(GUELog, "Loading splash screen")
-Img = LoadImage("Data\GUE\Loading.PNG")
+Img = LoadImage(RootDir$ + "Data\GUE\Loading.PNG")
 If Img = 0 Then RuntimeError("Could not open Data\GUE\Loading.PNG!")
 ResizeImage Img, GraphicsWidth(), GraphicsHeight()
 
@@ -136,63 +136,63 @@ InitMediaDialogs()
 WriteLog(GUELog, "Loading game interface settings")
 Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Loaded game interface settings", True : Flip()
 ClearTextureFilters()
-Result = LoadInterfaceSettings("Data\Game Data\Interface.dat")
+Result = LoadInterfaceSettings(RootDir$ + "Data\Game Data\Interface.dat")
 If Result = False Then RuntimeError("Could not open Data\Game Data\Interface.dat!")
 ; Main screen components
-Tex = LoadTexture("Data\GUE\Attribute Bar.bmp")
+Tex = LoadTexture(RootDir$ + "Data\GUE\Attribute Bar.bmp")
 For i = 0 To 39
 	AttributeDisplays(i)\Component = CreateQuad()
 	EntityTexture(AttributeDisplays(i)\Component, Tex)
 Next
 FreeTexture(Tex)
 Chat\Component = CreateQuad()
-Tex = LoadTexture("Data\GUE\Chat Area.bmp") : EntityTexture(Chat\Component, Tex) : FreeTexture(Tex)
+Tex = LoadTexture(RootDir$ + "Data\GUE\Chat Area.bmp") : EntityTexture(Chat\Component, Tex) : FreeTexture(Tex)
 ChatEntry\Component = CreateQuad()
-Tex = LoadTexture("Data\GUE\Chat Entry.bmp") : EntityTexture(ChatEntry\Component, Tex) : FreeTexture(Tex)
+Tex = LoadTexture(RootDir$ + "Data\GUE\Chat Entry.bmp") : EntityTexture(ChatEntry\Component, Tex) : FreeTexture(Tex)
 BuffsArea\Component = CreateQuad()
-Tex = LoadTexture("Data\GUE\Buffs Area.bmp") : EntityTexture(BuffsArea\Component, Tex) : FreeTexture(Tex)
+Tex = LoadTexture(RootDir$ + "Data\GUE\Buffs Area.bmp") : EntityTexture(BuffsArea\Component, Tex) : FreeTexture(Tex)
 Radar\Component = CreateQuad()
-Tex = LoadTexture("Data\GUE\Radar.bmp") : EntityTexture(Radar\Component, Tex) : FreeTexture(Tex)
+Tex = LoadTexture(RootDir$ + "Data\GUE\Radar.bmp") : EntityTexture(Radar\Component, Tex) : FreeTexture(Tex)
 Compass\Component = CreateQuad()
-Tex = LoadTexture("Data\GUE\Compass.bmp") : EntityTexture(Compass\Component, Tex) : FreeTexture(Tex)
+Tex = LoadTexture(RootDir$ + "Data\GUE\Compass.bmp") : EntityTexture(Compass\Component, Tex) : FreeTexture(Tex)
 
 ; Inventory components
 InventoryWindow\Component = CreateQuad()
 EntityOrder(InventoryWindow\Component, 1)
-Tex = LoadTexture("Data\Textures\GUI\InventoryBG.png")
-If Tex = 0 Then Tex = LoadTexture("Data\UI\Window.bmp")
+Tex = LoadTexture(RootDir$ + "Data\Textures\GUI\InventoryBG.png")
+If Tex = 0 Then Tex = LoadTexture(RootDir$ + "Data\UI\Window.bmp")
 EntityTexture(InventoryWindow\Component, Tex) : FreeTexture(Tex)
 InventoryDrop\Component = CreateQuad()
-Tex = LoadTexture("Data\GUE\Drop Button.bmp") : EntityTexture(InventoryDrop\Component, Tex) : FreeTexture(Tex)
+Tex = LoadTexture(RootDir$ + "Data\GUE\Drop Button.bmp") : EntityTexture(InventoryDrop\Component, Tex) : FreeTexture(Tex)
 InventoryEat\Component = CreateQuad()
-Tex = LoadTexture("Data\GUE\Eat Button.bmp") : EntityTexture(InventoryEat\Component, Tex) : FreeTexture(Tex)
+Tex = LoadTexture(RootDir$ + "Data\GUE\Eat Button.bmp") : EntityTexture(InventoryEat\Component, Tex) : FreeTexture(Tex)
 InventoryGold\Component = CreateQuad()
-Tex = LoadTexture("Data\GUE\Gold.bmp") : EntityTexture(InventoryGold\Component, Tex) : FreeTexture(Tex)
+Tex = LoadTexture(RootDir$ + "Data\GUE\Gold.bmp") : EntityTexture(InventoryGold\Component, Tex) : FreeTexture(Tex)
 InventoryButtons(0)\Component = CreateQuad()
 For i = 1 To Slots_Inventory
 	InventoryButtons(i)\Component = CopyEntity(InventoryButtons(0)\Component)
 Next
-Tex = LoadTexture("Data\Textures\GUI\Weapon.bmp", 4) : AddBorders(Tex) : EntityTexture InventoryButtons(SlotI_Weapon)\Component, Tex : FreeTexture Tex
-Tex = LoadTexture("Data\Textures\GUI\Shield.bmp", 4) : AddBorders(Tex) : EntityTexture InventoryButtons(SlotI_Shield)\Component, Tex : FreeTexture Tex
-Tex = LoadTexture("Data\Textures\GUI\Hat.bmp", 4)    : AddBorders(Tex) : EntityTexture InventoryButtons(SlotI_Hat)\Component, Tex    : FreeTexture Tex
-Tex = LoadTexture("Data\Textures\GUI\Chest.bmp", 4)  : AddBorders(Tex) : EntityTexture InventoryButtons(SlotI_Chest)\Component, Tex  : FreeTexture Tex
-Tex = LoadTexture("Data\Textures\GUI\Hand.bmp", 4)   : AddBorders(Tex) : EntityTexture InventoryButtons(SlotI_Hand)\Component, Tex   : FreeTexture Tex
-Tex = LoadTexture("Data\Textures\GUI\Belt.bmp", 4)   : AddBorders(Tex) : EntityTexture InventoryButtons(SlotI_Belt)\Component, Tex   : FreeTexture Tex
-Tex = LoadTexture("Data\Textures\GUI\Legs.bmp", 4)   : AddBorders(Tex) : EntityTexture InventoryButtons(SlotI_Legs)\Component, Tex   : FreeTexture Tex
-Tex = LoadTexture("Data\Textures\GUI\Feet.bmp", 4)   : AddBorders(Tex) : EntityTexture InventoryButtons(SlotI_Feet)\Component, Tex   : FreeTexture Tex
-Tex = LoadTexture("Data\Textures\GUI\Ring.bmp", 4)
+Tex = LoadTexture(RootDir$ + "Data\Textures\GUI\Weapon.bmp", 4) : AddBorders(Tex) : EntityTexture InventoryButtons(SlotI_Weapon)\Component, Tex : FreeTexture Tex
+Tex = LoadTexture(RootDir$ + "Data\Textures\GUI\Shield.bmp", 4) : AddBorders(Tex) : EntityTexture InventoryButtons(SlotI_Shield)\Component, Tex : FreeTexture Tex
+Tex = LoadTexture(RootDir$ + "Data\Textures\GUI\Hat.bmp", 4)    : AddBorders(Tex) : EntityTexture InventoryButtons(SlotI_Hat)\Component, Tex    : FreeTexture Tex
+Tex = LoadTexture(RootDir$ + "Data\Textures\GUI\Chest.bmp", 4)  : AddBorders(Tex) : EntityTexture InventoryButtons(SlotI_Chest)\Component, Tex  : FreeTexture Tex
+Tex = LoadTexture(RootDir$ + "Data\Textures\GUI\Hand.bmp", 4)   : AddBorders(Tex) : EntityTexture InventoryButtons(SlotI_Hand)\Component, Tex   : FreeTexture Tex
+Tex = LoadTexture(RootDir$ + "Data\Textures\GUI\Belt.bmp", 4)   : AddBorders(Tex) : EntityTexture InventoryButtons(SlotI_Belt)\Component, Tex   : FreeTexture Tex
+Tex = LoadTexture(RootDir$ + "Data\Textures\GUI\Legs.bmp", 4)   : AddBorders(Tex) : EntityTexture InventoryButtons(SlotI_Legs)\Component, Tex   : FreeTexture Tex
+Tex = LoadTexture(RootDir$ + "Data\Textures\GUI\Feet.bmp", 4)   : AddBorders(Tex) : EntityTexture InventoryButtons(SlotI_Feet)\Component, Tex   : FreeTexture Tex
+Tex = LoadTexture(RootDir$ + "Data\Textures\GUI\Ring.bmp", 4)
 AddBorders(Tex)
 EntityTexture InventoryButtons(SlotI_Ring1)\Component, Tex
 EntityTexture InventoryButtons(SlotI_Ring2)\Component, Tex
 EntityTexture InventoryButtons(SlotI_Ring3)\Component, Tex
 EntityTexture InventoryButtons(SlotI_Ring4)\Component, Tex
 FreeTexture(Tex)
-Tex = LoadTexture("Data\Textures\GUI\Amulet.bmp", 4)
+Tex = LoadTexture(RootDir$ + "Data\Textures\GUI\Amulet.bmp", 4)
 AddBorders(Tex)
 EntityTexture InventoryButtons(SlotI_Amulet1)\Component, Tex
 EntityTexture InventoryButtons(SlotI_Amulet2)\Component, Tex
 FreeTexture(Tex)
-Tex = LoadTexture("Data\Textures\GUI\Backpack.bmp", 4)
+Tex = LoadTexture(RootDir$ + "Data\Textures\GUI\Backpack.bmp", 4)
 AddBorders(Tex)
 For i = SlotI_Backpack To Slots_Inventory
 	EntityTexture InventoryButtons(i)\Component, Tex
@@ -246,12 +246,12 @@ TextureFilter("", 1 + 8)
 ; All emitter configs
 WriteLog(GUELog, "Loading emitter configurations")
 Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2),(ImageHeight(Img)/2), "Loading emitter configurations", True : Flip()
-DefaultTex = LoadTexture("Data\DefaultParticle.bmp", 4 + 16 + 32)
-D = ReadDir("Data\Emitter Configs")
+DefaultTex = LoadTexture(RootDir$ + "Data\DefaultParticle.bmp", 4 + 16 + 32)
+D = ReadDir(RootDir$ + "Data\Emitter Configs")
  File$ = NextFile$(D)
  While File$ <> ""
-  If FileType("Data\Emitter Configs\" + File$) = 1
-   ConfigID = RP_LoadEmitterConfig("Data\Emitter Configs\" + File$, DefaultTex, app\Cam)
+  If FileType(RootDir$ + "Data\Emitter Configs\" + File$) = 1
+   ConfigID = RP_LoadEmitterConfig(RootDir$ + "Data\Emitter Configs\" + File$, DefaultTex, app\Cam)
    C.RP_EmitterConfig = Object.RP_EmitterConfig(ConfigID)
    C\ConfigID = ConfigID
    If C\DefaultTextureID < 65535
@@ -265,7 +265,7 @@ D = ReadDir("Data\Emitter Configs")
 CloseDir(D)
 
 ; Misc options
-F = ReadFile("Data\Game Data\Misc.dat")
+F = ReadFile(RootDir$ + "Data\Game Data\Misc.dat")
 If F = 0 Then RuntimeError("Could not open Data\Game Data\Misc.dat!")
 	GameName$ = ReadLine$(F)
 CloseFile(F)
@@ -275,7 +275,7 @@ CloseFile(F)
 FUI_AppTitle("RCCE" + " - " + GameName$)
 ;#########
 
-F = ReadFile("Data\Game Data\Hosts.dat")
+F = ReadFile(RootDir$ + "Data\Game Data\Hosts.dat")
 If F = 0 Then RuntimeError("Could not open Data\Game Data\Hosts.dat!")
 	ServerHost$ = ReadLine$(F)
 	UpdatesHost$ = ReadLine$(F)
@@ -284,45 +284,45 @@ CloseFile(F)
 ; Load actors, items, etc.
 WriteLog(GUELog, "Loading damage types")
 Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Loaded damage types", True : Flip()
-Result = LoadDamageTypes("Data\Server Data\Damage.dat")
+Result = LoadDamageTypes(RootDir$ + "Data\Server Data\Damage.dat")
 If Result = False Then RuntimeError("Could not open Data\Server Data\Damage.dat!")
 WriteLog(GUELog, "Loading attributes")
 Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Loaded attributes", True : Flip()
-Result = LoadAttributes("Data\Server Data\Attributes.dat")
+Result = LoadAttributes(RootDir$ + "Data\Server Data\Attributes.dat")
 If Result = False Then RuntimeError("Could not open Data\Server Data\Attributes.dat!")
 WriteLog(GUELog, "Loading factions")
 Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Loaded factions", True : Flip()
-Result = LoadFactions("Data\Server Data\Factions.dat")
+Result = LoadFactions(RootDir$ + "Data\Server Data\Factions.dat")
 If Result = -1 Then RuntimeError("Could not open Data\Server Data\Factions.dat!")
 WriteLog(GUELog, "Loading animations")
 Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Loaded animations", True : Flip()
-Result = LoadAnimSets("Data\Game Data\Animations.dat")
+Result = LoadAnimSets(RootDir$ + "Data\Game Data\Animations.dat")
 If Result = -1 Then RuntimeError("Could not open Data\Game Data\Animations.dat!")
 WriteLog(GUELog, "Loading projectiles")
 Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Loaded projectiles", True : Flip()
-Global TotalProjectiles = LoadProjectiles("Data\Server Data\Projectiles.dat")
+Global TotalProjectiles = LoadProjectiles(RootDir$ + "Data\Server Data\Projectiles.dat")
 If TotalProjectiles = -1 Then RuntimeError("Could not open Data\Server Data\Projectiles.dat!")
 WriteLog(GUELog, "Loading items")
 Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Loaded items", True : Flip()
-Global TotalItems = LoadItems("Data\Server Data\Items.dat")
+Global TotalItems = LoadItems(RootDir$ + "Data\Server Data\Items.dat")
 If TotalItems = -1 Then RuntimeError("Could not open Data\Server Data\Items.dat!")
 WriteLog(GUELog, "Loading actors")
 Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Loaded actors", True : Flip()
-Global TotalActors = LoadActors("Data\Server Data\Actors.dat")
+Global TotalActors = LoadActors(RootDir$ + "Data\Server Data\Actors.dat")
 If TotalActors = -1 Then RuntimeError("Could not open Data\Server Data\Actors.dat!")
 WriteLog(GUELog, "Loading abilities")
 Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Loaded abilities", True : Flip()
-Global TotalSpells = LoadSpells("Data\Server Data\Spells.dat")
+Global TotalSpells = LoadSpells(RootDir$ + "Data\Server Data\Spells.dat")
 If TotalSpells = -1 Then RuntimeError("Could not open Data\Server Data\Spells.dat!")
 
 ; Load zones (just the server side bits, client side parts are loaded on request to save video memory)
 WriteLog(GUELog, "Loading server-side zones")
 Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Loaded zones", True : Flip()
 Global TotalZones = 0
-D = ReadDir("Data\Server Data\Areas")
+D = ReadDir(RootDir$ + "Data\Server Data\Areas")
 File$ = NextFile$(D)
 While File$ <> ""
-	If FileType("Data\Server Data\Areas\" + File$) = 1 And Len(File$) > 4
+	If FileType(RootDir$ + "Data\Server Data\Areas\" + File$) = 1 And Len(File$) > 4
 		ServerLoadArea(Left$(File$, Len(File$) - 4))
 		TotalZones = TotalZones + 1
 	EndIf
@@ -513,12 +513,12 @@ FUI_SendMessage(CParticleConfigs, M_SETINDEX, 1)
 ;New
 BParticlesTex = FUI_Button(TParticles, GUE_width - 374, 20, 100, 20, "Preview texture")
 BParticlesPreviewReset = FUI_Button(TParticles, GUE_width - 224, 20, 100, 20, "Reset preview")
-BParticlesPreviewL = FUI_Button(TParticles, GUE_width - 374, 75, 20, 20, "", "Data\GUE\L.png")
-BParticlesPreviewR = FUI_Button(TParticles, GUE_width - 314, 75, 20, 20, "", "Data\GUE\R.png")
-BParticlesPreviewU = FUI_Button(TParticles, GUE_width - 344, 55, 20, 20, "", "Data\GUE\U.png")
-BParticlesPreviewD = FUI_Button(TParticles, GUE_width - 344, 95, 20, 20, "", "Data\GUE\D.png")
-BParticlesPreviewIn = FUI_Button(TParticles, GUE_width - 274, 55, 20, 20, "", "Data\GUE\In.png")
-BParticlesPreviewOut = FUI_Button(TParticles, GUE_width - 274, 95, 20, 20, "", "Data\GUE\Out.png")
+BParticlesPreviewL = FUI_Button(TParticles, GUE_width - 374, 75, 20, 20, "", RootDir$ + "Data\GUE\L.png")
+BParticlesPreviewR = FUI_Button(TParticles, GUE_width - 314, 75, 20, 20, "", RootDir$ + "Data\GUE\R.png")
+BParticlesPreviewU = FUI_Button(TParticles, GUE_width - 344, 55, 20, 20, "", RootDir$ + "Data\GUE\U.png")
+BParticlesPreviewD = FUI_Button(TParticles, GUE_width - 344, 95, 20, 20, "", RootDir$ + "Data\GUE\D.png")
+BParticlesPreviewIn = FUI_Button(TParticles, GUE_width - 274, 55, 20, 20, "", RootDir$ + "Data\GUE\In.png")
+BParticlesPreviewOut = FUI_Button(TParticles, GUE_width - 274, 95, 20, 20, "", RootDir$ + "Data\GUE\Out.png")
 
 FUI_Label(TParticles, GUE_width - 225, 50, "Preview Window Color:")
 FUI_Label(TParticles, GUE_width - 225, 70, "R:")
@@ -684,7 +684,7 @@ For i = 0 To 19
 	EndIf
 Next
 
-F = ReadFile("Data\Server Data\Misc.dat")
+F = ReadFile(RootDir$ + "Data\Server Data\Misc.dat")
 If F = 0 Then RuntimeError("Could not open Data\Server Data\Misc.dat!")
 	SeekFile F, 9
 	CombatDelay = ReadShort(F)
@@ -712,7 +712,7 @@ CCombatInfoStyle = FUI_ComboBox(G, 120, 140, 110, 20)
 FUI_ComboBoxItem(CCombatInfoStyle, "None")
 FUI_ComboBoxItem(CCombatInfoStyle, "Chat message")
 FUI_ComboBoxItem(CCombatInfoStyle, "Floating number")
-F = ReadFile("Data\Game Data\Combat.dat")
+F = ReadFile(RootDir$ + "Data\Game Data\Combat.dat")
 If F = 0 Then RuntimeError("Could not open Data\Game Data\Combat.dat!")
 	SeekFile F, 2
 	CombatInfoStyle = ReadShort(F)
@@ -1465,20 +1465,20 @@ BZoneSave   = FUI_Button(TZones, 20, 27, 80, 20, "Save zone")
 BZoneCopy   = FUI_Button(TZones, 105, 4, 80, 20, "Copy zone")
 BZoneDelete = FUI_Button(TZones, 105, 27, 80, 20, "Delete zone")
 
-BZoneUndo   = FUI_Button(TZones, 190, 27, 20, 20, "", "Data\GUE\L.png") : FUI_ToolTip(BZoneUndo, "Undo, Ctrl + Z")
+BZoneUndo   = FUI_Button(TZones, 190, 27, 20, 20, "", RootDir$ + "Data\GUE\L.png") : FUI_ToolTip(BZoneUndo, "Undo, Ctrl + Z")
 
-Global BZoneScenery   = FUI_Button(TZones, 240, 27, 20, 20, "", "Data\GUE\612-home.png", 1) : FUI_ToolTip(BZoneScenery, "Scenery Mode")
-Global BZoneTerrain   = FUI_Button(TZones, 265, 27, 20, 20, "", "Data\GUE\128-status.png", 1) : FUI_ToolTip(BZoneTerrain, "Terrain Mode")
-Global BZoneEmitters  = FUI_Button(TZones, 290, 27, 20, 20, "", "Data\GUE\212-thunderbolt.png", 1) : FUI_ToolTip(BZoneEmitters, "Emitters Mode")
-Global BZoneWater     = FUI_Button(TZones, 315, 27, 20, 20, "", "Data\GUE\608-funnel.png", 1) : FUI_ToolTip(BZoneWater, "Water Mode")
-Global BZoneColBox    = FUI_Button(TZones, 340, 27, 20, 20, "", "Data\GUE\614-lock.png", 1) : FUI_ToolTip(BZoneColBox, "Collision box Mode")
-Global BZoneSoundZone = FUI_Button(TZones, 365, 27, 20, 20, "", "Data\GUE\084-music.png", 1) : FUI_ToolTip(BZoneSoundZone, "Sound zone Mode")
-Global BZoneTriggers  = FUI_Button(TZones, 390, 27, 20, 20, "", "Data\GUE\609-gift.png", 1) : FUI_ToolTip(BZoneTriggers, "Trigger Mode")
-Global BZoneWaypoints = FUI_Button(TZones, 415, 27, 20, 20, "", "Data\GUE\409-left_right.png", 1) : FUI_ToolTip(BZoneWaypoints, "Waypoint Mode")
-Global BZonePortals   = FUI_Button(TZones, 440, 27, 20, 20, "", "Data\GUE\029-app.png", 1) : FUI_ToolTip(BZonePortals, "Portal Mode")
-Global BZoneEnviro    = FUI_Button(TZones, 465, 27, 20, 20, "", "Data\GUE\089-star.png", 1) : FUI_ToolTip(BZoneEnviro, "Environment Options")
-Global BZoneOther     = FUI_Button(TZones, 490, 27, 20, 20, "", "Data\GUE\103-options2.png", 1) : FUI_ToolTip(BZoneOther, "Other Options")
-Global BZoneLights    = FUI_Button(TZones, 515, 27, 20, 20, "", "Data\GUE\001-light.png", 1) : FUI_ToolTip(BZoneLights, "Dynamic Lights")
+Global BZoneScenery   = FUI_Button(TZones, 240, 27, 20, 20, "", RootDir$ + "Data\GUE\612-home.png", 1) : FUI_ToolTip(BZoneScenery, "Scenery Mode")
+Global BZoneTerrain   = FUI_Button(TZones, 265, 27, 20, 20, "", RootDir$ + "Data\GUE\128-status.png", 1) : FUI_ToolTip(BZoneTerrain, "Terrain Mode")
+Global BZoneEmitters  = FUI_Button(TZones, 290, 27, 20, 20, "", RootDir$ + "Data\GUE\212-thunderbolt.png", 1) : FUI_ToolTip(BZoneEmitters, "Emitters Mode")
+Global BZoneWater     = FUI_Button(TZones, 315, 27, 20, 20, "", RootDir$ + "Data\GUE\608-funnel.png", 1) : FUI_ToolTip(BZoneWater, "Water Mode")
+Global BZoneColBox    = FUI_Button(TZones, 340, 27, 20, 20, "", RootDir$ + "Data\GUE\614-lock.png", 1) : FUI_ToolTip(BZoneColBox, "Collision box Mode")
+Global BZoneSoundZone = FUI_Button(TZones, 365, 27, 20, 20, "", RootDir$ + "Data\GUE\084-music.png", 1) : FUI_ToolTip(BZoneSoundZone, "Sound zone Mode")
+Global BZoneTriggers  = FUI_Button(TZones, 390, 27, 20, 20, "", RootDir$ + "Data\GUE\609-gift.png", 1) : FUI_ToolTip(BZoneTriggers, "Trigger Mode")
+Global BZoneWaypoints = FUI_Button(TZones, 415, 27, 20, 20, "", RootDir$ + "Data\GUE\409-left_right.png", 1) : FUI_ToolTip(BZoneWaypoints, "Waypoint Mode")
+Global BZonePortals   = FUI_Button(TZones, 440, 27, 20, 20, "", RootDir$ + "Data\GUE\029-app.png", 1) : FUI_ToolTip(BZonePortals, "Portal Mode")
+Global BZoneEnviro    = FUI_Button(TZones, 465, 27, 20, 20, "", RootDir$ + "Data\GUE\089-star.png", 1) : FUI_ToolTip(BZoneEnviro, "Environment Options")
+Global BZoneOther     = FUI_Button(TZones, 490, 27, 20, 20, "", RootDir$ + "Data\GUE\103-options2.png", 1) : FUI_ToolTip(BZoneOther, "Other Options")
+Global BZoneLights    = FUI_Button(TZones, 515, 27, 20, 20, "", RootDir$ + "Data\GUE\001-light.png", 1) : FUI_ToolTip(BZoneLights, "Dynamic Lights")
 
 
 ;FUI_Label(TZones, 720, 22, "Current zone:")
@@ -1993,13 +1993,13 @@ Next
 
 ; Host options
 WriteLog(GUELog, "Creating host options")
-F = ReadFile("Data\Game Data\Hosts.dat")
+F = ReadFile(RootDir$ + "Data\Game Data\Hosts.dat")
 If F = 0 Then RuntimeError("Could not open Data\Game Data\Hosts.dat!")
 	ReadLine$(F)
 	ReadLine$(F)
 	AccountsEnabled = ReadLine$(F)
 CloseFile(F)
-F = ReadFile("Data\Server Data\Misc.dat")
+F = ReadFile(RootDir$ + "Data\Server Data\Misc.dat")
 If F = 0 Then RuntimeError("Could not open Data\Server Data\Misc.dat!")
 	SeekFile F, 16
 	MaxAccountChars = ReadByte(F)
@@ -2024,13 +2024,13 @@ SMaxAccountChars = FUI_Spinner(G, 185, 160, 50, 20, 1, 10, MaxAccountChars, 1, D
 
 ; Game options
 WriteLog(GUELog, "Creating game options")
-F = ReadFile("Data\Server Data\Misc.dat")
+F = ReadFile(RootDir$ + "Data\Server Data\Misc.dat")
 If F = 0 Then RuntimeError("Could not open Data\Server Data\Misc.dat!")
 	StartGold = ReadInt(F)
 	StartReputation = ReadInt(F)
 	ForcePortals = ReadByte(F)
 CloseFile(F)
-F = ReadFile("Data\Game Data\Other.dat")
+F = ReadFile(RootDir$ + "Data\Game Data\Other.dat")
 If F = 0 Then RuntimeError("Could not open Data\Game Data\Other.dat!")
 	HideNames = ReadByte(F)
 	DisableCollisions = ReadByte(F)
@@ -2090,7 +2090,7 @@ FUI_SendMessage(SBubblesB, M_SETVALUE, BubblesB)
 
 ; Money options
 WriteLog(GUELog, "Creating money options")
-F = ReadFile("Data\Game Data\Money.dat")
+F = ReadFile(RootDir$ + "Data\Game Data\Money.dat")
 If F = 0 Then RuntimeError("Could not open Data\Game Data\Money.dat!")
 	Money1$ = ReadString$(F)
 	Money2$ = ReadString$(F)
@@ -2148,10 +2148,10 @@ For Ar.Area = Each Area
 Next
 
 ; Portal/waypoint meshes
-ZonePortalEN = LoadMesh("Data\GUE\Portal.b3d")
+ZonePortalEN = LoadMesh(RootDir$ + "Data\GUE\Portal.b3d")
 FitMesh(ZonePortalEN, -1, -1, -1, 2, 2, 2, True)
 HideEntity(ZonePortalEN)
-ZoneWaypointEN = LoadMesh("Data\GUE\Waypoint.b3d")
+ZoneWaypointEN = LoadMesh(RootDir$ + "Data\GUE\Waypoint.b3d")
 FitMesh(ZoneWaypointEN, -1, -1, -1, 2, 2, 2, True)
 HideEntity(ZoneWaypointEN)
 Global WPRangeEN = CreateSphere(16)
@@ -2161,10 +2161,10 @@ HideEntity(WPRangeEN)
 
 ; Script lists
 Global LoadedScripts = 0
-D = ReadDir("Data\Server Data\Scripts")
+D = ReadDir(RootDir$ + "Data\Server Data\Scripts")
 	File$ = NextFile$(D)
 	While Len(File$) > 0
-		If FileType("Data\Server Data\Scripts\" + File$) = 1
+		If FileType(RootDir$ + "Data\Server Data\Scripts\" + File$) = 1
 			If Len(File$) > 4
 				If Right$(file$,4) = ".rsl" ; or Right$(File$, 9) = ".rcscript"
 ;					If Right$(File$, 9) = ".rcscript"
@@ -2211,7 +2211,7 @@ UpdateRaceClassLists()
 ; Skysphere
 WriteLog(GUELog, "Creating skyspheres")
 Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), 551, "Creating skysphere", True : Flip()
-SkyEN = LoadMesh("Data\Meshes\Sky Sphere.b3d")
+SkyEN = LoadMesh(RootDir$ + "Data\Meshes\Sky Sphere.b3d")
 MMV.MeshMinMaxVertices = MeshMinMaxVertices(SkyEN)
 XScale# = 2.0 / (MMV\MaxX# - MMV\MinX#)
 YScale# = 2.0 / (MMV\MaxY# - MMV\MinY#)
@@ -2975,7 +2975,7 @@ Cls
 							If NewID = -1
 								For i = 0 To 65534
 									If EditorTexName$(i) <> ""
-										If FileType("Data\Textures\" + EditorTexName$(i)) = 1
+										If FileType(RootDir$ + "Data\Textures\" + EditorTexName$(i)) = 1
 											NewID = i
 											Exit
 										EndIf
@@ -3483,33 +3483,33 @@ Cls
 
 			Case BBuildInstaller
 				; Clear \Game folder
-				DelTree("Game")
+				DelTree(RootDir$ + "Game")
 				; Create required folders
-				CreateDir("Game")
-				CreateDir("Game\Data")
-				CreateDir("Game\Data\Textures")
-				CreateDir("Game\Data\Logs")
+				CreateDir(RootDir$ + "Game")
+				CreateDir(RootDir$ + "Game\Data")
+				CreateDir(RootDir$ + "Game\Data\Textures")
+				CreateDir(RootDir$ + "Game\Data\Logs")
 				; Copy required files to \Game folder
-				SafeCopyFile(GameName$ + ".exe", "Game\" + GameName$ + ".exe")
-				SafeCopyFile("Game.exe", "Game\Game.exe")
-				SafeCopyFile("RCEnet.dll", "Game\RCEnet.dll")
-				SafeCopyFile("Language.txt", "Game\Language.txt")
-				SafeCopyFile("libbz2w.dll", "Game\libbz2w.dll")
-				SafeCopyFile("blitzsys.dll", "Game\blitzsys.dll")
-				SafeCopyFile("rc64.dll", "Game\rc64.dll")
-				SafeCopyFile("rc63.dll", "Game\rc63.dll")
-				SafeCopyFile("QuickCrypt.dll", "Game\QuickCrypt.dll")
-				If FileType("dx7test.dll") = 1 Then CopyFile("dx7test.dll", "Game\dx7test.dll")
-				SafeCopyFile("Data\Textures\Menu Logo.bmp", "Game\Data\Textures\Menu Logo.bmp")
-				SafeCopyFile("Data\Last Username.dat", "Game\Data\Last Username.dat")
-				SafeCopyFile("Data\Options.dat", "Game\Data\Options.dat")
-				SafeCopyFile("Data\Controls.dat", "Game\Data\Controls.dat")
-				SafeCopyFile("Data\Patch.exe", "Game\Data\Patch.exe")
-				CopyTree("Data\Game Data", "Game\Data\Game Data")
-				CopyTree("Data\UI", "Game\Data\UI")
-				CopyTree("Data\Textures\Menu", "Game\Data\Textures\Menu")
+				SafeCopyFile(GameName$ + ".exe", RootDir$ + "Game\" + GameName$ + ".exe")
+				SafeCopyFile("Game.exe", RootDir$ + "Game\Game.exe")
+				SafeCopyFile("RCEnet.dll", RootDir$ + "Game\RCEnet.dll")
+				SafeCopyFile("Language.txt", RootDir$ + "Game\Language.txt")
+				SafeCopyFile("libbz2w.dll", RootDir$ + "Game\libbz2w.dll")
+				SafeCopyFile("blitzsys.dll", RootDir$ + "Game\blitzsys.dll")
+				SafeCopyFile("rc64.dll", RootDir$ + "Game\rc64.dll")
+				SafeCopyFile("rc63.dll", RootDir$ + "Game\rc63.dll")
+				SafeCopyFile("QuickCrypt.dll", RootDir$ + "Game\QuickCrypt.dll")
+				If FileType("dx7test.dll") = 1 Then CopyFile("dx7test.dll", RootDir$ + "Game\dx7test.dll")
+				SafeCopyFile(RootDir$ + "Data\Textures\Menu Logo.bmp", RootDir$ + "Game\Data\Textures\Menu Logo.bmp")
+				SafeCopyFile(RootDir$ + "Data\Last Username.dat", RootDir$ + "Game\Data\Last Username.dat")
+				SafeCopyFile(RootDir$ + "Data\Options.dat", RootDir$ + "Game\Data\Options.dat")
+				SafeCopyFile(RootDir$ + "Data\Controls.dat", RootDir$ + "Game\Data\Controls.dat")
+				SafeCopyFile(RootDir$ + "Data\Patch.exe", RootDir$ + "Game\Data\Patch.exe")
+				CopyTree(RootDir$ + "Data\Game Data", RootDir$ + "Game\Data\Game Data")
+				CopyTree(RootDir$ + "Data\UI", RootDir$ + "Game\Data\UI")
+				CopyTree(RootDir$ + "Data\Textures\Menu", RootDir$ + "Game\Data\Textures\Menu")
 				; Change to non development version
-				F = WriteFile("Game\Data\Game Data\Misc.dat")
+				F = WriteFile(RootDir$ + "Game\Data\Game Data\Misc.dat")
 					WriteLine(F, GameName$)
 					WriteLine(F, "Normal")
 					WriteLine F, "1"
@@ -3522,47 +3522,47 @@ Cls
 			Case BBuildServer
 				Result = FUI_CustomMessageBox("Include dynamic data (e.g. accounts)?", "Build Server", MB_YESNO)
 				; Clear \Server folder
-				DelTree("Server")
+				DelTree(RootDir$ + "Server")
 				; Create required folders
-				CreateDir("Server")
-				CreateDir("Server\Data")
-				CreateDir("Server\Data\Logs")
-				CreateDir("Server\Data\Server Data")
-				CreateDir("Server\Data\Server Data\Areas")
-				CreateDir("Server\Data\Server Data\Script Files")
-				CreateDir("Server\Data\Server Data\Scripts")
-				SafeCopyFile("RCEnet.dll", "Server\RCEnet.dll")
-				SafeCopyFile("briskvm.dll", "Server\briskvm.dll")
+				CreateDir(RootDir$ + "Server")
+				CreateDir(RootDir$ + "Server\Data")
+				CreateDir(RootDir$ + "Server\Data\Logs")
+				CreateDir(RootDir$ + "Server\Data\Server Data")
+				CreateDir(RootDir$ + "Server\Data\Server Data\Areas")
+				CreateDir(RootDir$ + "Server\Data\Server Data\Script Files")
+				CreateDir(RootDir$ + "Server\Data\Server Data\Scripts")
+				SafeCopyFile("RCEnet.dll", RootDir$ + "Server\RCEnet.dll")
+				SafeCopyFile("briskvm.dll", RootDir$ + "Server\briskvm.dll")
 				; Copy required files to \Server folder
 				SQLResult = FUI_CustomMessageBox("Build a MySQL server?", "Build Server", MB_YESNO)
 				If SQLResult = IDNO
-	 				SafeCopyFile("Server.exe", "Server\Server.exe")
+	 				SafeCopyFile("Server.exe", RootDir$ + "Server\Server.exe")
 				Else
-	 				SafeCopyFile("MySQL Server.exe", "Server\MySQL Server.exe")
-					SafeCopyFile("MySQL Configure.exe", "Server\MySQL Configure.exe")
-					SafeCopyFile("libmySQL.dll", "Server\libmySQL.dll")
-					SafeCopyFile("SQLDLL.dll", "Server\SQLDLL.dll")
-					SafeCopyFile("BlitzSQL.dll", "Server\BlitzSQL.dll")
-					SafeCopyFile("MySql.Data.dll", "Server\MySql.Data.dll")
-					SafeCopyFile("rcsql.sql", "Server\rcsql.sql")
-					SafeCopyFile("rcsql_flat.sql", "Server\rcsql_flat.sql")
-					SafeCopyFile("mini.exe", "Server\mini.exe")
+	 				SafeCopyFile("MySQL Server.exe", RootDir$ + "Server\MySQL Server.exe")
+					SafeCopyFile("MySQL Configure.exe", RootDir$ + "Server\MySQL Configure.exe")
+					SafeCopyFile("libmySQL.dll", RootDir$ + "Server\libmySQL.dll")
+					SafeCopyFile("SQLDLL.dll", RootDir$ + "Server\SQLDLL.dll")
+					SafeCopyFile("BlitzSQL.dll", RootDir$ + "Server\BlitzSQL.dll")
+					SafeCopyFile("MySql.Data.dll", RootDir$ + "Server\MySql.Data.dll")
+					SafeCopyFile("rcsql.sql", RootDir$ + "Server\rcsql.sql")
+					SafeCopyFile("rcsql_flat.sql", RootDir$ + "Server\rcsql_flat.sql")
+					SafeCopyFile("mini.exe", RootDir$ + "Server\mini.exe")
 				EndIf
- 				CopyFile("ggTray.dll", "Server\ggTray.dll")
-				CopyTree("Data\Server Data", "Server\Data\Server Data")
+ 				CopyFile("ggTray.dll", RootDir$ + "Server\ggTray.dll")
+				CopyTree(RootDir$ + "Data\Server Data", RootDir$ + "Server\Data\Server Data")
 				; If it's only an update, delete accounts etc.
 				If Result = IDNO
-					DeleteFile("Server\Data\Server Data\Accounts.dat")
-					DeleteFile("Server\Data\Server Data\Dropped Items.dat")
-					DeleteFile("Server\Data\Server Data\Superglobals.dat")
-					DelTree("Server\Data\Server Data\Areas\Ownerships")
-					CreateDir("Server\Data\Server Data\Areas\Ownerships")
+					DeleteFile(RootDir$ + "Server\Data\Server Data\Accounts.dat")
+					DeleteFile(RootDir$ + "Server\Data\Server Data\Dropped Items.dat")
+					DeleteFile(RootDir$ + "Server\Data\Server Data\Superglobals.dat")
+					DelTree(RootDir$ + "Server\Data\Server Data\Areas\Ownerships")
+					CreateDir(RootDir$ + "Server\Data\Server Data\Areas\Ownerships")
 				EndIf
 				; Complete
 				FUI_CustomMessageBox("Complete! Required files are in the \Server folder.", "Build Server", MB_OK)
 				
 			Case BRestoreLanguageFile
-				If Not RestoreLanguage("Data\Game Data\Language Restore.txt") Then RuntimeError "Language Restore could not be written"
+				If Not RestoreLanguage(RootDir$ + "Data\Game Data\Language Restore.txt") Then RuntimeError "Language Restore could not be written"
 				
 				;Allows Exit via File Menu cysis145
 			Case mnuFileExit
@@ -3572,14 +3572,14 @@ Cls
 
 			; Hosts
 			Case TServerHost
-				F = WriteFile("Data\Game Data\Hosts.dat")
+				F = WriteFile(RootDir$ + "Data\Game Data\Hosts.dat")
 				If F = 0 Then RuntimeError("Could not open Data\Game Data\Hosts.dat!")
 					WriteLine F, FUI_SendMessage(TServerHost, M_GETCAPTION)
 					WriteLine F, FUI_SendMessage(TUpdatesHost, M_GETCAPTION)
 					WriteLine F, FUI_SendMessage(BNewAccounts, M_GETCHECKED)
 				CloseFile(F)
 			Case TUpdatesHost
-				F = WriteFile("Data\Game Data\Hosts.dat")
+				F = WriteFile(RootDir$ + "Data\Game Data\Hosts.dat")
 				If F = 0 Then RuntimeError("Could not open Data\Game Data\Hosts.dat!")
 					WriteLine F, FUI_SendMessage(TServerHost, M_GETCAPTION)
 					WriteLine F, FUI_SendMessage(TUpdatesHost, M_GETCAPTION)
@@ -3587,12 +3587,12 @@ Cls
 				CloseFile(F)
 			Case TServerPort
 				ServerPort = E\EventData
-				F = OpenFile("Data\Server Data\Misc.dat")
+				F = OpenFile(RootDir$ + "Data\Server Data\Misc.dat")
 				If F = 0 Then RuntimeError("Could not open Data\Server Data\Misc.dat!")
 					SeekFile(F, 17)
 					WriteInt(F, ServerPort)
 				CloseFile(F)
-				F = OpenFile("Data\Game Data\Other.dat")
+				F = OpenFile(RootDir$ + "Data\Game Data\Other.dat")
 				If F = 0 Then RuntimeError("Could not open Data\Game Data\Other.dat!")
 					SeekFile(F, 3)
 					WriteInt(F, ServerPort)
@@ -3600,12 +3600,12 @@ Cls
 
 			; Allow new account creation from client
 			Case BNewAccounts
-				F = WriteFile("Data\Game Data\Hosts.dat")
+				F = WriteFile(RootDir$ + "Data\Game Data\Hosts.dat")
 					WriteLine F, FUI_SendMessage(TServerHost, M_GETCAPTION)
 					WriteLine F, FUI_SendMessage(TUpdatesHost, M_GETCAPTION)
 					WriteLine F, FUI_SendMessage(BNewAccounts, M_GETCHECKED)
 				CloseFile(F)
-				F = OpenFile("Data\Server Data\Misc.dat")
+				F = OpenFile(RootDir$ + "Data\Server Data\Misc.dat")
 				If F = 0 Then RuntimeError("Could not open Data\Server Data\Misc.dat!")
 					SeekFile F, 15
 					WriteByte F, FUI_SendMessage(BNewAccounts, M_GETCHECKED)
@@ -3613,7 +3613,7 @@ Cls
 
 			; Maximum number of characters per account
 			Case SMaxAccountChars
-				F = OpenFile("Data\Server Data\Misc.dat")
+				F = OpenFile(RootDir$ + "Data\Server Data\Misc.dat")
 				If F = 0 Then RuntimeError("Could not open Data\Server Data\Misc.dat!")
 					SeekFile F, 16
 					WriteByte F, E\EventData
@@ -3621,69 +3621,69 @@ Cls
 
 			; Game options
 			Case SStartGold
-				F = OpenFile("Data\Server Data\Misc.dat")
+				F = OpenFile(RootDir$ + "Data\Server Data\Misc.dat")
 				If F = 0 Then RuntimeError("Could not open Data\Server Data\Misc.dat!")
 					WriteInt F, E\EventData
 				CloseFile(F)
 			Case SStartReputation
-				F = OpenFile("Data\Server Data\Misc.dat")
+				F = OpenFile(RootDir$ + "Data\Server Data\Misc.dat")
 				If F = 0 Then RuntimeError("Could not open Data\Server Data\Misc.dat!")
 					SeekFile F, 4
 					WriteInt F, E\EventData
 				CloseFile(F)
 			Case BForcePortals
-				F = OpenFile("Data\Server Data\Misc.dat")
+				F = OpenFile(RootDir$ + "Data\Server Data\Misc.dat")
 				If F = 0 Then RuntimeError("Could not open Data\Server Data\Misc.dat!")
 					SeekFile F, 8
 					WriteByte F, E\EventData
 				CloseFile(F)
 			Case SCombatDelay
-				F = OpenFile("Data\Server Data\Misc.dat")
+				F = OpenFile(RootDir$ + "Data\Server Data\Misc.dat")
 				If F = 0 Then RuntimeError("Could not open Data\Server Data\Misc.dat!")
 					SeekFile F, 9
 					WriteShort F, E\EventData
 				CloseFile(F)
-				F = OpenFile("Data\Game Data\Combat.dat")
+				F = OpenFile(RootDir$ + "Data\Game Data\Combat.dat")
 				If F = 0 Then RuntimeError("Could not open Data\Game Data\Combat.dat!")
 					WriteShort F, E\EventData
 				CloseFile(F)
 			Case CCombatInfoStyle
-				F = OpenFile("Data\Game Data\Combat.dat")
+				F = OpenFile(RootDir$ + "Data\Game Data\Combat.dat")
 				If F = 0 Then RuntimeError("Could not open Data\Game Data\Combat.dat!")
 					SeekFile F, 2
 					WriteShort F, E\EventData
 				CloseFile(F)
 			Case CCombatFormula
-				F = OpenFile("Data\Server Data\Misc.dat")
+				F = OpenFile(RootDir$ + "Data\Server Data\Misc.dat")
 				If F = 0 Then RuntimeError("Could not open Data\Server Data\Misc.dat!")
 					SeekFile F, 11
 					WriteByte F, E\EventData
 				CloseFile(F)
 			Case BDamageWeapon
-				F = OpenFile("Data\Server Data\Misc.dat")
+				F = OpenFile(RootDir$ + "Data\Server Data\Misc.dat")
 				If F = 0 Then RuntimeError("Could not open Data\Server Data\Misc.dat!")
 					SeekFile F, 12
 					WriteByte F, E\EventData
 				CloseFile(F)
 			Case BDamageArmour
-				F = OpenFile("Data\Server Data\Misc.dat")
+				F = OpenFile(RootDir$ + "Data\Server Data\Misc.dat")
 				If F = 0 Then RuntimeError("Could not open Data\Server Data\Misc.dat!")
 					SeekFile F, 13
 					WriteByte F, E\EventData
 				CloseFile(F)
 			Case SCombatRatingAdjust
-				F = OpenFile("Data\Server Data\Misc.dat")
+				F = OpenFile(RootDir$ + "Data\Server Data\Misc.dat")
 				If F = 0 Then RuntimeError("Could not open Data\Server Data\Misc.dat!")
 					SeekFile F, 14
 					WriteByte F, E\EventData
 				CloseFile(F)
 			Case CHideNametags
-				F = OpenFile("Data\Game Data\Other.dat")
+				F = OpenFile(RootDir$ + "Data\Game Data\Other.dat")
 				If F = 0 Then RuntimeError("Could not open Data\Game Data\Other.dat!")
 					WriteByte F, Int(E\EventData) - 1
 				CloseFile(F)
 			Case BDisableCollisions
-				F = OpenFile("Data\Game Data\Other.dat")
+				F = OpenFile(RootDir$ + "Data\Game Data\Other.dat")
 				If F = 0 Then RuntimeError("Could not open Data\Game Data\Other.dat!")
 					SeekFile F, 1
 					WriteByte F, E\EventData
@@ -3696,42 +3696,42 @@ Cls
 				ElseIf Int(E\EventData) = 3
 					ViewMode = 2
 				EndIf
-				F = OpenFile("Data\Game Data\Other.dat")
+				F = OpenFile(RootDir$ + "Data\Game Data\Other.dat")
 				If F = 0 Then RuntimeError("Could not open Data\Game Data\Other.dat!")
 					SeekFile F, 2
 					WriteByte F, ViewMode
 				CloseFile(F)
 			Case BRequireMemorise
-				F = OpenFile("Data\Game Data\Other.dat")
+				F = OpenFile(RootDir$ + "Data\Game Data\Other.dat")
 				If F = 0 Then RuntimeError("Could not open Data\Game Data\Other.dat!")
 					SeekFile F, 7
 					WriteByte F, E\EventData
 				CloseFile(F)
-				F = OpenFile("Data\Server Data\Misc.dat")
+				F = OpenFile(RootDir$ + "Data\Server Data\Misc.dat")
 				If F = 0 Then RuntimeError("Could not open Data\Server Data\Misc.dat!")
 					SeekFile F, 21
 					WriteByte F, E\EventData
 				CloseFile(F)
 			Case CUseBubbles
-				F = OpenFile("Data\Game Data\Other.dat")
+				F = OpenFile(RootDir$ + "Data\Game Data\Other.dat")
 				If F = 0 Then RuntimeError("Could not open Data\Game Data\Other.dat!")
 					SeekFile F, 8
 					WriteByte F, E\EventData
 				CloseFile(F)
 			Case SBubblesR
-				F = OpenFile("Data\Game Data\Other.dat")
+				F = OpenFile(RootDir$ + "Data\Game Data\Other.dat")
 				If F = 0 Then RuntimeError("Could not open Data\Game Data\Other.dat!")
 					SeekFile F, 9
 					WriteByte F, E\EventData
 				CloseFile(F)
 			Case SBubblesG
-				F = OpenFile("Data\Game Data\Other.dat")
+				F = OpenFile(RootDir$ + "Data\Game Data\Other.dat")
 				If F = 0 Then RuntimeError("Could not open Data\Game Data\Other.dat!")
 					SeekFile F, 10
 					WriteByte F, E\EventData
 				CloseFile(F)
 			Case SBubblesB
-				F = OpenFile("Data\Game Data\Other.dat")
+				F = OpenFile(RootDir$ + "Data\Game Data\Other.dat")
 				If F = 0 Then RuntimeError("Could not open Data\Game Data\Other.dat!")
 					SeekFile F, 11
 					WriteByte F, E\EventData
@@ -3739,7 +3739,7 @@ Cls
 
 			; Money options
 			Case TMoney1Name, TMoney2Name, TMoney3Name, TMoney4Name, SMoney2x, SMoney3x, SMoney4x
-				F = WriteFile("Data\Game Data\Money.dat")
+				F = WriteFile(RootDir$ + "Data\Game Data\Money.dat")
 					WriteString F, FUI_SendMessage(TMoney1Name, M_GETTEXT)
 					WriteString F, FUI_SendMessage(TMoney2Name, M_GETTEXT)
 					WriteShort F, FUI_SendMessage(SMoney2x, M_GETVALUE)
@@ -3752,7 +3752,7 @@ Cls
 			; Gubbin remapping
 			Case TGubbin1, TGubbin2, TGubbin3, TGubbin4, TGubbin5, TGubbin6
 				GubbinNamesChanged = True
-				F = WriteFile("Data\Game Data\Gubbins.dat")
+				F = WriteFile(RootDir$ + "Data\Game Data\Gubbins.dat")
 					WriteString(F, FUI_SendMessage(TGubbin1, M_GETTEXT))
 					WriteString(F, FUI_SendMessage(TGubbin2, M_GETTEXT))
 					WriteString(F, FUI_SendMessage(TGubbin3, M_GETTEXT))
@@ -4007,7 +4007,7 @@ Cls
 
 			; Save projectile
 			Case BProjSave
-				SaveProjectiles("Data\Server Data\Projectiles.dat")
+				SaveProjectiles(RootDir$ + "Data\Server Data\Projectiles.dat")
 				ProjectilesSaved = True
 			; New projectile
 			Case BProjNew
@@ -4157,7 +4157,7 @@ Cls
 			; Interface tab events --------------------------------------------------------------------------------------------------
 
 			Case BInterfaceSave
-				SaveInterfaceSettings("Data\Game Data\Interface.dat")
+				SaveInterfaceSettings(RootDir$ + "Data\Game Data\Interface.dat")
 				InterfaceSaved = True
 			Case RInterfaceMain, RInterfaceInventory ;, RInterfaceLogin ;[255]
 				UpdateInterfaceComponentsList() ;[255]
@@ -4219,7 +4219,7 @@ Cls
 			; Attributes tab events -------------------------------------------------------------------------------------------------
 
 			Case BAttributeSave
-				SaveAttributes("Data\Server Data\Attributes.dat")
+				SaveAttributes(RootDir$ + "Data\Server Data\Attributes.dat")
 				StatsSaved = True
 			Case BSetFixedAttributes
 				FixedAttributeDialog()
@@ -5109,8 +5109,8 @@ Cls
 				If Result = IDYES
 					; Delete zone
 					If CurrentArea\Name$ <> ""
-						DeleteFile("Data\Areas\" + CurrentArea\Name$ + ".dat")
-						DeleteFile("Data\Server Data\Areas\" + CurrentArea\Name$ + ".dat")
+						DeleteFile(RootDir$ + "Data\Areas\" + CurrentArea\Name$ + ".dat")
+						DeleteFile(RootDir$ + "Data\Server Data\Areas\" + CurrentArea\Name$ + ".dat")
 						FUI_SendMessage(CZone, M_DELETEINDEX, FUI_SendMessage(CZone, M_GETINDEX))
 						FUI_SendMessage(CActorStartArea, M_RESET)
 						FUI_SendMessage(CWeatherLink, M_RESET)
@@ -5146,7 +5146,7 @@ Cls
 			; Save actors
 			Case BActorSave
 				UpdateActorPreview()
-				SaveActors("Data\Server Data\Actors.dat")
+				SaveActors(RootDir$ + "Data\Server Data\Actors.dat")
 				ActorsSaved = True
 			; New actor
 			Case BActorNew
@@ -5648,7 +5648,7 @@ Cls
 
 			; Animation sets tab events ---------------------------------------------------------------------------------------------
 			Case BAnimsSave
-				SaveAnimSets("Data\Game Data\Animations.dat")
+				SaveAnimSets(RootDir$ + "Data\Game Data\Animations.dat")
 				AnimsSaved = True
 			Case LAnimSets
 				If FUI_SendMessage(LAnimSets, M_GETSELECTED) <> 0
@@ -5789,7 +5789,7 @@ Cls
 
 			; Save factions
 			Case BFactionSave
-				SaveFactions("Data\Server Data\Factions.dat")
+				SaveFactions(RootDir$ + "Data\Server Data\Factions.dat")
 				FactionsSaved = True
 			; New faction
 			Case BFactionAdd
@@ -5881,7 +5881,7 @@ Cls
 
 			; Save spells
 			Case BSpellSave
-				SaveSpells("Data\Server Data\Spells.dat")
+				SaveSpells(RootDir$ + "Data\Server Data\Spells.dat")
 				SpellsSaved = True
 			; New spell
 			Case BSpellNew
@@ -5986,7 +5986,7 @@ Cls
 
 			; Save items
 			Case BItemSave
-				SaveItems("Data\Server Data\Items.dat")
+				SaveItems(RootDir$ + "Data\Server Data\Items.dat")
 				ItemsSaved = True
 			; New item
 			Case BItemNew
@@ -6206,7 +6206,7 @@ Cls
 			Case BParticlesNew
 				Name$ = EmitterNameDialog$()
 				If Name$ <> ""
-					Tex = LoadTexture("Data\DefaultParticle.bmp", 4 + 16 + 32)
+					Tex = LoadTexture(RootDir$ + "Data\DefaultParticle.bmp", 4 + 16 + 32)
 					ID = RP_CreateEmitterConfig(200, 1, ParticlesCam, Tex, 1, 1, Name$)
 					Item = FUI_ComboBoxItem(CParticleConfigs, Name$) : FUI_SendMessage(Item, M_SETDATA, ID)
 					Idx = 0
@@ -6221,7 +6221,7 @@ Cls
 			; Save emitters
 			Case BParticlesSave
 				For EmC.RP_EmitterConfig = Each RP_EmitterConfig
-					RP_SaveEmitterConfig(Handle(EmC), "Data\Emitter Configs\" + EmC\Name$ + ".rpc")
+					RP_SaveEmitterConfig(Handle(EmC), RootDir$ + "Data\Emitter Configs\" + EmC\Name$ + ".rpc")
 				Next
 				ParticlesSaved = True
 			; Delete emitter
@@ -6230,7 +6230,7 @@ Cls
 					Result = FUI_CustomMessageBox("Really delete this emitter?", "Delete emitter", MB_YESNO)
 					If Result = IDYES
 						C.RP_EmitterConfig = Object.RP_EmitterConfig(ParticlesConfig)
-						DeleteFile("Data\Emitter Configs\" + C\Name$ + ".rpc")
+						DeleteFile(RootDir$ + "Data\Emitter Configs\" + C\Name$ + ".rpc")
 						RP_FreeEmitterConfig(ParticlesConfig, False)
 						ParticlesConfig = 0
 						FUI_SendMessage(CParticleConfigs, M_DELETEINDEX, FUI_SendMessage(CParticleConfigs, M_GETINDEX))
@@ -6252,7 +6252,7 @@ Cls
 						FreeTexture C\Texture
 						Tex = GetTexture(ID, True)
 						UnloadTexture(ID)
-						If Tex = 0 Then Tex = LoadTexture("Data\DefaultParticle.bmp", 4 + 16 + 32)
+						If Tex = 0 Then Tex = LoadTexture(RootDir$ + "Data\DefaultParticle.bmp", 4 + 16 + 32)
 						C\DefaultTextureID = ID
 						C\Texture = Tex
 						For Em.RP_Emitter = Each RP_Emitter
@@ -6446,7 +6446,7 @@ Cls
 				;Adding .obj models to import Cysis145
 				If MType = 1
 					FileTypes$ = "Blitz3D (*.b3d)|*.b3d|Encrypted B3D (*.eb3d)|*.eb3d|DirectX (*.x)|*.x|3DS (*.3ds)|*.3ds|Wavefront (*.obj)|*.obj|"
-					Result = FUI_CustomOpenDialog("Choose file to add...", "Data\Meshes\", FileTypes$, False, True)
+					Result = FUI_CustomOpenDialog("Choose file to add...", RootDir$ + "Data\Meshes\", FileTypes$, False, True)
 					If Result = True
 						; Get extra options
 						Flags = MeshDialog()
@@ -6454,7 +6454,7 @@ Cls
 						IsEncrypted = False
 
 						; Copy file/folder if required
-						If Instr(App\CurrentFile$, CurrentDir$() + "Data\Meshes\") = 0
+						If Instr(App\CurrentFile$, CurrentDir$() + "Data\Meshes\") = 0 ;TODO: If RootDir is changed this may break
 							Filename$ = App\CurrentFile$
 							If MediaFolder$ <> "" Then Filename$ = MediaFolder$ + "\" + Filename$
 							For i = Len(App\CurrentFile$) To 1 Step -1
@@ -6465,19 +6465,19 @@ Cls
 								EndIf
 							Next
 							If FileType(App\CurrentFile$) = 1
-								CopyFile(App\CurrentFile$, "Data\Meshes\" + Filename$)
+								CopyFile(App\CurrentFile$, RootDir$ + "Data\Meshes\" + Filename$)
 							ElseIf FileType(App\CurrentFile$) = 2
-								CopyTree(App\CurrentFile$, "Data\Meshes\" + Filename$)
+								CopyTree(App\CurrentFile$, RootDir$ + "Data\Meshes\" + Filename$)
 							EndIf
 						Else
-							Filename$ = Right$(App\CurrentFile$, Len(App\CurrentFile$) - Len(CurrentDir$() + "Data\Meshes\"))
+							Filename$ = Right$(App\CurrentFile$, Len(App\CurrentFile$) - Len(CurrentDir$() + "Data\Meshes\")) ;TODO: If RootDir is changed this may break
 						EndIf
 
 						; Single file
-						If FileType("Data\Meshes\" + Filename$) = 1
+						If FileType(RootDir$ + "Data\Meshes\" + Filename$) = 1
 							AddMeshToManager(Filename$, IsAnim, IsEncrypted)
 						; Folder
-						ElseIf FileType("Data\Meshes\" + Filename$) = 2
+						ElseIf FileType(RootDir$ + "Data\Meshes\" + Filename$) = 2
 							Result = FUI_CustomMessageBox("Also add subfolders to database?", "Add folder", MB_YESNO)
 							If Result = IDYES Then SubFolders = True Else SubFolders = False
 							FUI_CustomMessageBox("Adding an entire folder may take some time. Please be patient.", "Warning", MB_OK)
@@ -6488,13 +6488,13 @@ Cls
 				; Textures
 				ElseIf MType = 2
 					FileTypes$ = "Bitmap (*.bmp)|*.bmp|JPEG (*.jpg)|*.jpg|PNG (*.png)|*.png|Targa (*.tga)|*.tga|Compressed Textures (*.dds)|"
-					Result = FUI_CustomOpenDialog("Choose file to add...", "Data\Textures\", FileTypes$, False, True)
+					Result = FUI_CustomOpenDialog("Choose file to add...", RootDir$ + "Data\Textures\", FileTypes$, False, True)
 					If Result = True
 						; Get extra options
 						Flags = TextureDialog()
 
 						; Copy file/folder if required
-						If Instr(App\CurrentFile$, CurrentDir$() + "Data\Textures\") = 0
+						If Instr(App\CurrentFile$, CurrentDir$() + "Data\Textures\") = 0 ;TODO: If RootDir is changed this may break
 							Filename$ = App\CurrentFile$
 							If MediaFolder$ <> "" Then Filename$ = MediaFolder$ + "\" + Filename$
 							For i = Len(App\CurrentFile$) To 1 Step -1
@@ -6505,20 +6505,20 @@ Cls
 								EndIf
 							Next
 							If FileType(App\CurrentFile$) = 1
-								CopyFile(App\CurrentFile$, "Data\Textures\" + Filename$)
+								CopyFile(App\CurrentFile$, RootDir$ + "Data\Textures\" + Filename$)
 							ElseIf FileType(App\CurrentFile$) = 2
-								CopyTree(App\CurrentFile$, "Data\Textures\" + Filename$)
+								CopyTree(App\CurrentFile$, RootDir$ + "Data\Textures\" + Filename$)
 							EndIf
 						Else
-							Filename$ = Right$(App\CurrentFile$, Len(App\CurrentFile$) - Len(CurrentDir$() + "Data\Textures\"))
+							Filename$ = Right$(App\CurrentFile$, Len(App\CurrentFile$) - Len(CurrentDir$() + "Data\Textures\")) ;TODO: If RootDir is changed this may break
 						EndIf
 
 						; Single file
-						If FileType("Data\Textures\" + Filename$) = 1
+						If FileType(RootDir$ + "Data\Textures\" + Filename$) = 1
 							ID = AddTextureToDatabase(Filename$, Flags)
 							If ID > -1 Then TextureNames$(ID) = GetTextureName$(ID)
 						; Folder
-						ElseIf FileType("Data\Textures\" + Filename$) = 2
+						ElseIf FileType(RootDir$ + "Data\Textures\" + Filename$) = 2
 							Result = FUI_CustomMessageBox("Also add subfolders to database?", "Add folder", MB_YESNO)
 							If Result = IDYES Then SubFolders = True Else SubFolders = False
 							FUI_CustomMessageBox("Adding an entire folder may take some time. Please be patient.", "Warning", MB_OK)
@@ -6529,13 +6529,13 @@ Cls
 				; Sounds
 				ElseIf MType = 3
 					FileTypes$ = "Wave (*.wav)|*.wav|Raw (*.raw)|*.raw|MP3 (*.mp3)|*.mp3|OGG (*.ogg)|*.ogg|"
-					Result = FUI_CustomOpenDialog("Choose file to add...", "Data\Sounds\", FileTypes$, False, True)
+					Result = FUI_CustomOpenDialog("Choose file to add...", RootDir$ + "Data\Sounds\", FileTypes$, False, True)
 					If Result = True
 						; Get extra options
 						Is3D = SoundDialog()
 
 						; Copy file/folder if required
-						If Instr(App\CurrentFile$, CurrentDir$() + "Data\Sounds\") = 0
+						If Instr(App\CurrentFile$, CurrentDir$() + "Data\Sounds\") = 0 ;TODO: If RootDir is changed this may break
 							Filename$ = App\CurrentFile$
 							If MediaFolder$ <> "" Then Filename$ = MediaFolder$ + "\" + Filename$
 							For i = Len(App\CurrentFile$) To 1 Step -1
@@ -6546,20 +6546,20 @@ Cls
 								EndIf
 							Next
 							If FileType(App\CurrentFile$) = 1
-								CopyFile(App\CurrentFile$, "Data\Sounds\" + Filename$)
+								CopyFile(App\CurrentFile$, RootDir$ + "Data\Sounds\" + Filename$)
 							ElseIf FileType(App\CurrentFile$) = 2
-								CopyTree(App\CurrentFile$, "Data\Sounds\" + Filename$)
+								CopyTree(App\CurrentFile$, RootDir$ + "Data\Sounds\" + Filename$)
 							EndIf
 						Else
-							Filename$ = Right$(App\CurrentFile$, Len(App\CurrentFile$) - Len(CurrentDir$() + "Data\Sounds\"))
+							Filename$ = Right$(App\CurrentFile$, Len(App\CurrentFile$) - Len(CurrentDir$() + "Data\Sounds\")) ;TODO: If RootDir is changed this may break
 						EndIf
 
 						; Single file
-						If FileType("Data\Sounds\" + Filename$) = 1
+						If FileType(RootDir$ + "Data\Sounds\" + Filename$) = 1
 							ID = AddSoundToDatabase(Filename$, Is3D)
 							If ID > -1 Then SoundNames$(ID) = GetSoundName$(ID)
 						; Folder
-						ElseIf FileType("Data\Sounds\" + Filename$) = 2
+						ElseIf FileType(RootDir$ + "Data\Sounds\" + Filename$) = 2
 							Result = FUI_CustomMessageBox("Also add subfolders to database?", "Add folder", MB_YESNO)
 							If Result = IDYES Then SubFolders = True Else SubFolders = False
 							FUI_CustomMessageBox("Adding an entire folder may take some time. Please be patient.", "Warning", MB_OK)
@@ -6571,11 +6571,11 @@ Cls
 				ElseIf MType = 4
 					FileTypes$ = "MP3 (*.mp3)|*.mp3|OGG (*.ogg)|*.ogg|MIDI (*.mid)|*.mid|Wave (*.wav)|*.wav|Mod (*.mod)|*.mod|"
 					FileTypes$ = FileTypes$ + "S3M (*.s3m)|*.s3m|XM (*.xm)|*.xm|IT (*.it)|*.it|"
-					Result = FUI_CustomOpenDialog("Choose file to add...", "Data\Music\", FileTypes$, False, True)
+					Result = FUI_CustomOpenDialog("Choose file to add...", RootDir$ + "Data\Music\", FileTypes$, False, True)
 					If Result = True
 
 						; Copy file/folder if required
-						If Instr(App\CurrentFile$, CurrentDir$() + "Data\Music\") = 0
+						If Instr(App\CurrentFile$, CurrentDir$() + "Data\Music\") = 0 ;TODO: If RootDir is changed this may break
 							Filename$ = App\CurrentFile$
 							If MediaFolder$ <> "" Then Filename$ = MediaFolder$ + "\" + Filename$
 							For i = Len(App\CurrentFile$) To 1 Step -1
@@ -6586,20 +6586,20 @@ Cls
 								EndIf
 							Next
 							If FileType(App\CurrentFile$) = 1
-								CopyFile(App\CurrentFile$, "Data\Music\" + Filename$)
+								CopyFile(App\CurrentFile$, RootDir$ + "Data\Music\" + Filename$)
 							ElseIf FileType(App\CurrentFile$) = 2
-								CopyTree(App\CurrentFile$, "Data\Music\" + Filename$)
+								CopyTree(App\CurrentFile$, RootDir$ + "Data\Music\" + Filename$)
 							EndIf
 						Else
-							Filename$ = Right$(App\CurrentFile$, Len(App\CurrentFile$) - Len(CurrentDir$() + "Data\Music\"))
+							Filename$ = Right$(App\CurrentFile$, Len(App\CurrentFile$) - Len(CurrentDir$() + "Data\Music\")) ;TODO: If RootDir is changed this may break
 						EndIf
 
 						; Single file
-						If FileType("Data\Music\" + Filename$) = 1
+						If FileType(RootDir$ + "Data\Music\" + Filename$) = 1
 							ID = AddMusicToDatabase(Filename$)
 							If ID > -1 Then MusicNames$(ID) = GetMusicName$(ID)
 						; Folder
-						ElseIf FileType("Data\Music\" + Filename$) = 2
+						ElseIf FileType(RootDir$ + "Data\Music\" + Filename$) = 2
 							Result = FUI_CustomMessageBox("Also add subfolders to database?", "Add folder", MB_YESNO)
 							If Result = IDYES Then SubFolders = True Else SubFolders = False
 							FUI_CustomMessageBox("Adding an entire folder may take some time. Please be patient.", "Warning", MB_OK)
@@ -6616,24 +6616,24 @@ Cls
 				; Meshes
 				If MType = 1
 					Name$ = MeshNames$(ID)
-					If Len(Name$) > 1 And Result = IDYES Then DeleteFile("Data\Meshes\" + Left$(Name$, Len(Name$) - 1))
+					If Len(Name$) > 1 And Result = IDYES Then DeleteFile(RootDir$ + "Data\Meshes\" + Left$(Name$, Len(Name$) - 1))
 					RemoveMeshFromDatabase(ID)
 					MeshNames$(ID) = ""
 				; Textures
 				ElseIf MType = 2
 					Name$ = TextureNames$(ID)
-					If Len(Name$) > 1 And Result = IDYES Then DeleteFile("Data\Textures\" + Left$(Name$, Len(Name$) - 1))
+					If Len(Name$) > 1 And Result = IDYES Then DeleteFile(RootDir$ + "Data\Textures\" + Left$(Name$, Len(Name$) - 1))
 					RemoveTextureFromDatabase(ID)
 					TextureNames$(ID) = ""
 				; Sounds
 				ElseIf MType = 3
 					Name$ = SoundNames$(ID)
-					If Len(Name$) > 1 And Result = IDYES Then DeleteFile("Data\Sounds\" + Left$(Name$, Len(Name$) - 1))
+					If Len(Name$) > 1 And Result = IDYES Then DeleteFile(RootDir$ + "Data\Sounds\" + Left$(Name$, Len(Name$) - 1))
 					RemoveSoundFromDatabase(ID)
 					SoundNames$(ID) = ""
 				; Music
 				ElseIf MType = 4
-					If Result = IDYES Then DeleteFile("Data\Music\" + MusicNames$(ID))
+					If Result = IDYES Then DeleteFile(RootDir$ + "Data\Music\" + MusicNames$(ID))
 					RemoveMusicFromDatabase(ID)
 					MusicNames$(ID) = ""
 				EndIf
@@ -6677,7 +6677,7 @@ Cls
 					SoundVolume(S, FUI_SendMessage(SMediaPreviewVolume, M_GETVALUE))
 					MediaPreviewChannel = PlaySound(S)
 				ElseIf MType = 4
-					MediaPreviewChannel = PlayMusic("Data\Music\" + MusicNames$(MediaPreviewSoundID))
+					MediaPreviewChannel = PlayMusic(RootDir$ + "Data\Music\" + MusicNames$(MediaPreviewSoundID))
 					ChannelVolume(MediaPreviewChannel, FUI_SendMessage(SMediaPreviewVolume, M_GETVALUE))
 				EndIf
 			; Stop sound/music
@@ -6698,7 +6698,7 @@ Cls
 
 			; Save damage types
 			Case BDamageTypesSave
-				F = WriteFile("Data\Server Data\Damage.dat")
+				F = WriteFile(RootDir$ + "Data\Server Data\Damage.dat")
 					For i = 0 To 19
 						WriteString F, DamageTypes$(i)
 					Next
@@ -7366,7 +7366,7 @@ Function UpdateScriptMethodsList(List, Script$, Method$)
 	If Script$ = "" Then Return
 
 	Found = False
-	F = ReadFile("Data\Server Data\Scripts\" + Script$ + ".rsl")
+	F = ReadFile(RootDir$ + "Data\Server Data\Scripts\" + Script$ + ".rsl")
 	If F <> 0
 		FUI_EnableGadget(List)
 		Num = 0
@@ -9585,7 +9585,7 @@ Function PerformUndo()
 ;						EndIf
 					EndIf
 					If Sc\Lightmap$ <> ""
-						LMap = LoadTexture("Data\Textures\Lightmaps\" + Sc\Lightmap$)
+						LMap = LoadTexture(RootDir$ + "Data\Textures\Lightmaps\" + Sc\Lightmap$)
 						TextureCoords(LMap, 1)
 						EntityTexture(Sc\EN, LMap, 0, 1)
 						FreeTexture(LMap)
@@ -9676,7 +9676,7 @@ Function PerformUndo()
 					; Set up entity
 					Emi\EN = CreateCone() : ScaleMesh Emi\EN, 3, 3, 3 : EntityAlpha Emi\EN, 0.5
 					Texture = GetTexture(Emi\TexID)
-					Emi\Config = RP_LoadEmitterConfig("Data\Emitter Configs\" + Emi\ConfigName$ + ".rpc", Texture, ZoneCam)
+					Emi\Config = RP_LoadEmitterConfig(RootDir$ + "Data\Emitter Configs\" + Emi\ConfigName$ + ".rpc", Texture, ZoneCam)
 					EmitterEN = RP_CreateEmitter(Emi\Config)
 					EntityParent EmitterEN, Emi\EN, False
 					PositionEntity Emi\EN, X#, Y#, Z# : RotateEntity Emi\EN, Pitch#, Yaw#, Roll#
@@ -9776,7 +9776,7 @@ Function PerformUndo()
 						SZ\LoadedSound = GetSound(SZ\SoundID)
 						SZ\Is3D = Asc(Right$(GetSoundName$(SZ\SoundID), 1))
 					Else
-						SZ\MusicFilename$ = "Data\Music\" + GetMusicName$(SZ\MusicID)
+						SZ\MusicFilename$ = RootDir$ + "Data\Music\" + GetMusicName$(SZ\MusicID)
 					EndIf
 					NameEntity SZ\EN, Handle(SZ)
 
@@ -9923,24 +9923,24 @@ Function SaveDialog()
 				Case BSaveSelected
 					Select FUI_SendMessage(List, M_GETCAPTION)
 						Case "Items"
-							SaveItems("Data\Server Data\Items.dat") : ItemsSaved = True
+							SaveItems(RootDir$ + "Data\Server Data\Items.dat") : ItemsSaved = True
 						Case "Actors"
-							SaveActors("Data\Server Data\Actors.dat") : ActorsSaved = True
+							SaveActors(RootDir$ + "Data\Server Data\Actors.dat") : ActorsSaved = True
 						Case "Projectiles"
-							SaveProjectiles("Data\Server Data\Projectiles.dat") : ProjectilesSaved = True
+							SaveProjectiles(RootDir$ + "Data\Server Data\Projectiles.dat") : ProjectilesSaved = True
 						Case "Factions"
-							SaveFactions("Data\Server Data\Factions.dat") : FactionsSaved = True
+							SaveFactions(RootDir$ + "Data\Server Data\Factions.dat") : FactionsSaved = True
 						Case "Animation sets"
-							SaveAnimSets("Data\Game Data\Animations.dat") : AnimsSaved = True
+							SaveAnimSets(RootDir$ + "Data\Game Data\Animations.dat") : AnimsSaved = True
 						Case "Attributes"
-							SaveAttributes("Data\Server Data\Attributes.dat") : StatsSaved = True
+							SaveAttributes(RootDir$ + "Data\Server Data\Attributes.dat") : StatsSaved = True
 						Case "Particles"
 							For EmC.RP_EmitterConfig = Each RP_EmitterConfig
-								RP_SaveEmitterConfig(Handle(EmC), "Data\Emitter Configs\" + EmC\Name$ + ".rpc")
+								RP_SaveEmitterConfig(Handle(EmC), RootDir$ + "Data\Emitter Configs\" + EmC\Name$ + ".rpc")
 							Next
 							ParticlesSaved = True
 						Case "Damage types"
-							F = WriteFile("Data\Server Data\Damage.dat")
+							F = WriteFile(RootDir$ + "Data\Server Data\Damage.dat")
 								For i = 0 To 19
 									WriteString F, DamageTypes$(i)
 								Next
@@ -9953,7 +9953,7 @@ Function SaveDialog()
 						Case "Current zone"
 							ZoneSave()
 						Case "Abilities"
-							SaveSpells("Data\Server Data\Spells.dat") : SpellsSaved = True
+							SaveSpells(RootDir$ + "Data\Server Data\Spells.dat") : SpellsSaved = True
 						Case "Interface"
 							If Chat\Texture <> 65535
 								ChatBar = New InterfaceComponent
@@ -9967,7 +9967,7 @@ Function SaveDialog()
 								ChatBar\G = Chat\G
 								ChatBar\B = Chat\B
 							EndIf
-							SaveInterfaceSettings("Data\Game Data\Interface.dat")
+							SaveInterfaceSettings(RootDir$ + "Data\Game Data\Interface.dat")
 							If ChatBar <> Null Then Delete ChatBar
 							InterfaceSaved = True
 					End Select
@@ -9975,19 +9975,19 @@ Function SaveDialog()
 					FUI_SendMessage(List, M_SETINDEX, 1)
 				; Save all hit
 				Case BSaveAll
-					If ItemsSaved = False Then SaveItems("Data\Server Data\Items.dat")
-					If ActorsSaved = False Then SaveActors("Data\Server Data\Actors.dat")
-					If ProjectilesSaved = False Then SaveProjectiles("Data\Server Data\Projectiles.dat")
-					If FactionsSaved = False Then SaveFactions("Data\Server Data\Factions.dat")
-					If AnimsSaved = False Then SaveAnimSets("Data\Game Data\Animations.dat")
-					If StatsSaved = False Then SaveAttributes("Data\Server Data\Attributes.dat")
+					If ItemsSaved = False Then SaveItems(RootDir$ + "Data\Server Data\Items.dat")
+					If ActorsSaved = False Then SaveActors(RootDir$ + "Data\Server Data\Actors.dat")
+					If ProjectilesSaved = False Then SaveProjectiles(RootDir$ + "Data\Server Data\Projectiles.dat")
+					If FactionsSaved = False Then SaveFactions(RootDir$ + "Data\Server Data\Factions.dat")
+					If AnimsSaved = False Then SaveAnimSets(RootDir$ + "Data\Game Data\Animations.dat")
+					If StatsSaved = False Then SaveAttributes(RootDir$ + "Data\Server Data\Attributes.dat")
 					If ParticlesSaved = False
 						For EmC.RP_EmitterConfig = Each RP_EmitterConfig
 							RP_SaveEmitterConfig(Handle(EmC), "Data\Emitter Configs\" + EmC\Name$ + ".rpc")
 						Next
 					EndIf
 					If DamageTypesSaved = False
-						F = WriteFile("Data\Server Data\Damage.dat")
+						F = WriteFile(RootDir$ + "Data\Server Data\Damage.dat")
 							For i = 0 To 19
 								WriteString F, DamageTypes$(i)
 							Next
@@ -9998,7 +9998,7 @@ Function SaveDialog()
 						SaveSuns()
 					EndIf
 					If ZoneSaved = False Then ZoneSave()
-					If SpellsSaved = False Then SaveSpells("Data\Server Data\Spells.dat")
+					If SpellsSaved = False Then SaveSpells(RootDir$ + "Data\Server Data\Spells.dat")
 					If InterfaceSaved = False
 						If Chat\Texture <> 65535
 							ChatBar = New InterfaceComponent
@@ -10012,7 +10012,7 @@ Function SaveDialog()
 							ChatBar\G = Chat\G
 							ChatBar\B = Chat\B
 						EndIf
-						SaveInterfaceSettings("Data\Game Data\Interface.dat")
+						SaveInterfaceSettings(RootDir$ + "Data\Game Data\Interface.dat")
 						If ChatBar <> Null Then Delete ChatBar
 					EndIf
 					Result = True
@@ -10148,7 +10148,7 @@ Function FixedAttributeDialog()
 	FUI_CenterWindow(W)
 
 	; Load current fixed attributes
-	F = ReadFile("Data\Server Data\Fixed Attributes.dat")
+	F = ReadFile(RootDir$ + "Data\Server Data\Fixed Attributes.dat")
 	If F = 0
 		FUI_CustomMessageBox("Could not open Data\Server Data\Fixed Attributes.dat!", "Error", MB_OK)
 		Return
@@ -10203,7 +10203,7 @@ Function FixedAttributeDialog()
 					Done = True
 				; Save
 				Case BSave
-					F = WriteFile("Data\Server Data\Fixed Attributes.dat")
+					F = WriteFile(RootDir$ + "Data\Server Data\Fixed Attributes.dat")
 						WriteShort(F, HealthStat)
 						WriteShort(F, EnergyStat)
 						WriteShort(F, BreathStat)
@@ -10211,7 +10211,7 @@ Function FixedAttributeDialog()
 						WriteShort(F, StrengthStat)
 						WriteShort(F, SpeedStat)
 					CloseFile(F)
-					F = WriteFile("Data\Game Data\Fixed Attributes.dat")
+					F = WriteFile(RootDir$ + "Data\Game Data\Fixed Attributes.dat")
 						WriteShort(F, HealthStat)
 						WriteShort(F, EnergyStat)
 						WriteShort(F, BreathStat)
@@ -10282,15 +10282,15 @@ End Function
 ; Adds a meshes folder to the MM (RECURSIVE)
 Function AddMeshFolderToManager(Filename$, IsAnim, IsEncrypted, SubFolders = True)
 
-	D = ReadDir("Data\Meshes\" + Filename$)
+	D = ReadDir(RootDir$ + "Data\Meshes\" + Filename$)
 		Name$ = NextFile$(D)
 		While Name$ <> ""
 			If Name$ <> "." And Name$ <> ".."
-				If FileType("Data\Meshes\" + Filename$ + "\" + Name$) = 1
+				If FileType(RootDir$ + "Data\Meshes\" + Filename$ + "\" + Name$) = 1
 					If Instr(Upper$(Name$), ".B3D") Or Instr(Upper$(Name$), ".X") Or Instr(Upper$(Name$), ".3DS") Or Instr(Upper$(Name$), ".OBJ") ;.obj cysis145
 						AddMeshToManager(Filename$ + "\" + Name$, IsAnim, IsEncrypted, False)
 					EndIf
-				ElseIf FileType("Data\Meshes\" + Filename$ + "\" + Name$) = 2 And SubFolders = True
+				ElseIf FileType(RootDir$ + "Data\Meshes\" + Filename$ + "\" + Name$) = 2 And SubFolders = True
 					AddMeshFolderToManager(Filename$ + "\" + Name$, IsAnim, IsEncrypted, SubFolders)
 				EndIf
 			EndIf
@@ -10304,16 +10304,16 @@ End Function
 ; Adds a textures folder to the MM (RECURSIVE)
 Function AddTextureFolderToManager(Filename$, Flags, SubFolders = True)
 
-	D = ReadDir("Data\Textures\" + Filename$)
+	D = ReadDir(RootDir$ + "Data\Textures\" + Filename$)
 		Name$ = NextFile$(D)
 		While Name$ <> ""
 			If Name$ <> "." And Name$ <> ".."
-				If FileType("Data\Textures\" + Filename$ + "\" + Name$) = 1
+				If FileType(RootDir$ + "Data\Textures\" + Filename$ + "\" + Name$) = 1
 					If Instr(Upper$(Name$), ".BMP") Or Instr(Upper$(Name$), ".JPG") Or Instr(Upper$(Name$), ".PNG") Or Instr(Upper$(Name$), ".TGA")
 						ID = AddTextureToDatabase(Filename$ + "\" + Name$, Flags)
 						If ID > -1 Then TextureNames$(ID) = GetTextureName$(ID)
 					EndIf
-				ElseIf FileType("Data\Textures\" + Filename$ + "\" + Name$) = 2 And SubFolders = True
+				ElseIf FileType(RootDir$ + "Data\Textures\" + Filename$ + "\" + Name$) = 2 And SubFolders = True
 					AddTextureFolderToManager(Filename$ + "\" + Name$, Flags, SubFolders)
 				EndIf
 			EndIf
@@ -10328,16 +10328,16 @@ End Function
 ; Adds a sounds folder to the MM (RECURSIVE)
 Function AddSoundFolderToManager(Filename$, Is3D, SubFolders = True)
 
-	D = ReadDir("Data\Sounds\" + Filename$)
+	D = ReadDir(RootDir$ + "Data\Sounds\" + Filename$)
 		Name$ = NextFile$(D)
 		While Name$ <> ""
 			If Name$ <> "." And Name$ <> ".."
-				If FileType("Data\Sounds\" + Filename$ + "\" + Name$) = 1
+				If FileType(RootDir$ + "Data\Sounds\" + Filename$ + "\" + Name$) = 1
 					If Instr(Upper$(Name$), ".WAV") Or Instr(Upper$(Name$), ".RAW") Or Instr(Upper$(Name$), ".MP3") Or Instr(Upper$(Name$), ".OGG")
 						ID = AddSoundToDatabase(Filename$ + "\" + Name$, Is3D)
 						If ID > -1 Then SoundNames$(ID) = GetSoundName$(ID)
 					EndIf
-				ElseIf FileType("Data\Sounds\" + Filename$ + "\" + Name$) = 2 And SubFolders = True
+				ElseIf FileType(RootDir$ + "Data\Sounds\" + Filename$ + "\" + Name$) = 2 And SubFolders = True
 					AddSoundFolderToManager(Filename$ + "\" + Name$, Is3D, SubFolders)
 				EndIf
 			EndIf
@@ -10351,11 +10351,11 @@ End Function
 ; Adds a music folder to the MM (RECURSIVE)
 Function AddMusicFolderToManager(Filename$, SubFolders = True)
 
-	D = ReadDir("Data\Music\" + Filename$)
+	D = ReadDir(RootDir$ + "Data\Music\" + Filename$)
 		Name$ = NextFile$(D)
 		While Name$ <> ""
 			If Name$ <> "." And Name$ <> ".."
-				If FileType("Data\Music\" + Filename$ + "\" + Name$) = 1
+				If FileType(RootDir$ + "Data\Music\" + Filename$ + "\" + Name$) = 1
 					UN$ = Upper$(Name$)
 					If Instr(UN$, ".MP3") Or Instr(UN$, ".OGG") Or Instr(UN$, ".MID") Or Instr(UN$, ".WAV")
 						ID = AddMusicToDatabase(Filename$ + "\" + Name$)
@@ -10364,7 +10364,7 @@ Function AddMusicFolderToManager(Filename$, SubFolders = True)
 						ID = AddMusicToDatabase(Filename$ + "\" + Name$)
 						If ID > -1 Then MusicNames$(ID) = GetMusicName$(ID)
 					EndIf
-				ElseIf FileType("Data\Music\" + Filename$ + "\" + Name$) = 2 And SubFolders = True
+				ElseIf FileType(RootDir$ + "Data\Music\" + Filename$ + "\" + Name$) = 2 And SubFolders = True
 					AddMusicFolderToManager(Filename$ + "\" + Name$, SubFolders)
 				EndIf
 			EndIf
@@ -10499,14 +10499,14 @@ Function GenerateGamePatch()
 
 	; Clean lists and create DIRs
 	CleanDirList()
-	DelTree("Patches")
+	DelTree(RootDir$ + "Patches")
 	Delay 1000
-	CreateDir("Patches")
+	CreateDir(RootDir$ + "Patches")
 	Delay 1000
-	CreateDir("Patches\Files")
+	CreateDir(RootDir$ + "Patches\Files")
 	
 	; Add Updateable files
-	SearchDir("Game\")
+	SearchDir(RootDir$ + "Game\")
 
 	; Reinform
 	FUI_SendMessage(LStatus, M_SETCAPTION, "Building patch files...") : FUI_Update() : Flip(0)
@@ -10516,18 +10516,18 @@ Function GenerateGamePatch()
 		
 ;		bz2(0, 9, U\Name, "Temp.dat")
 		;CopyFile U\Name, "Temp.dat
-		TName$ = Right(U\Name$, Len(U\Name$) - Len("Game\"))
+		TName$ = Right(U\Name$, Len(U\Name$) - Len(RootDir$ + "Game\"))
 		SafeFileName$ = Replace$(TName$, "\", "!!")
 		SafeFileName$ = Replace$(SafeFileName$, " ", "!!!")
 		SafeFileName$ = Upper$(SafeFileName$)
-		CopyFile(U\Name$, "Patches\Files\" + SafeFileName$ + ".DAT")
+		CopyFile(U\Name$, RootDir$ + "Patches\Files\" + SafeFileName$ + ".DAT")
 		;DeleteFile("Temp.dat")
 	
 	Next
 	
 	
 	; Copy PHP file
-	CopyFile("UpdateServer.php", "Patches\Files\UpdateServer.php")
+	CopyFile(RootDir$ + "UpdateServer.php", RootDir$ + "Patches\Files\UpdateServer.php")
 	
 	;If this PHP file shit doesnt't work i might just murder a child... a child of cheesecake that is muhaha ha ha ..... ha...
 
@@ -10596,7 +10596,7 @@ Function DoUpdates(Folder$, ListStream, StatusLabel)
 					SafeFileName$ = Replace$(Folder$ + "\" + File$, "\", "!!")
 					SafeFileName$ = Replace$(SafeFileName$, " ", "!!!")
 					SafeFileName$ = Upper$(SafeFileName$)
-					CopyFile("Temp.dat", "Patches\Files\" + SafeFileName$ + ".DAT")
+					CopyFile("Temp.dat", RootDir$ + "Patches\Files\" + SafeFileName$ + ".DAT")
 					DeleteFile("Temp.dat")
 				EndIf
 
@@ -10728,36 +10728,36 @@ Function GenerateFullInstall()
 
 	FUI_CustomMessageBox("Building full client may take some time. Please be patient.", "Warning", MB_OK)
 	; Clear \Game folder
-	DelTree("Game")
+	DelTree(RootDir$ + "Game")
 	; Create required folders
-	CreateDir("Game")
-	CreateDir("Game\Data")
-	CreateDir("Game\Data\Logs")
+	CreateDir(RootDir$ + "Game")
+	CreateDir(RootDir$ + "Game\Data")
+	CreateDir(RootDir$ + "Game\Data\Logs")
 	For i = 0 To 49
 		If Len(UpdatesList$(i)) = 0 Then Exit
-		CreateDir("Game\" + UpdatesList$(i))
+		CreateDir(RootDir$ + "Game\" + UpdatesList$(i))
 	Next
 	; Copy required files to \Game folder
-	SafeCopyFile(GameName$ + ".exe", "Game\" + GameName$ + ".exe")
-	SafeCopyFile("Game.exe", "Game\Game.exe")
-	SafeCopyFile("RCEnet.dll", "Game\RCEnet.dll")
-	SafeCopyFile("Language.txt", "Game\Language.txt")
-	SafeCopyFile("libbz2w.dll", "Game\libbz2w.dll")
-	SafeCopyFile("blitzsys.dll", "Game\blitzsys.dll")
-	SafeCopyFile("rc64.dll", "Game\rc64.dll")
-	SafeCopyFile("rc63.dll", "Game\rc63.dll")
-	SafeCopyFile("QuickCrypt.dll", "Game\QuickCrypt.dll")
-	If FileType("dx7test.dll") = 1 Then CopyFile("dx7test.dll", "Game\dx7test.dll")
-	SafeCopyFile("Data\Last Username.dat", "Game\Data\Last Username.dat")
-	SafeCopyFile("Data\Options.dat", "Game\Data\Options.dat")
-	SafeCopyFile("Data\Controls.dat", "Game\Data\Controls.dat")
-	SafeCopyFile("Data\Patch.exe", "Game\Data\Patch.exe")
+	SafeCopyFile(GameName$ + ".exe", RootDir$ + "Game\" + GameName$ + ".exe")
+	SafeCopyFile(RootDir$ + "Game.exe", RootDir$ + "Game\Game.exe")
+	SafeCopyFile(RootDir$ + "RCEnet.dll", RootDir$ + "Game\RCEnet.dll")
+	SafeCopyFile(RootDir$ + "Language.txt", RootDir$ + "Game\Language.txt")
+	SafeCopyFile(RootDir$ + "libbz2w.dll", RootDir$ + "Game\libbz2w.dll")
+	SafeCopyFile(RootDir$ + "blitzsys.dll", RootDir$ + "Game\blitzsys.dll")
+	SafeCopyFile(RootDir$ + "rc64.dll", RootDir$ + "Game\rc64.dll")
+	SafeCopyFile(RootDir$ + "rc63.dll", RootDir$ + "Game\rc63.dll")
+	SafeCopyFile(RootDir$ + "QuickCrypt.dll", RootDir$ + "Game\QuickCrypt.dll")
+	If FileType(RootDir$ + "dx7test.dll") = 1 Then CopyFile(RootDir$ + "dx7test.dll", RootDir$ + "Game\dx7test.dll")
+	SafeCopyFile(RootDir$ + "Data\Last Username.dat", RootDir$ + "Game\Data\Last Username.dat")
+	SafeCopyFile(RootDir$ + "Data\Options.dat", RootDir$ + "Game\Data\Options.dat")
+	SafeCopyFile(RootDir$ + "Data\Controls.dat", RootDir$ + "Game\Data\Controls.dat")
+	SafeCopyFile(RootDir$ + "Data\Patch.exe", RootDir$ + "Game\Data\Patch.exe")
 	For i = 0 To 49
 		If Len(UpdatesList$(i)) = 0 Then Exit
-		CopyTree(UpdatesList$(i), "Game\" + UpdatesList$(i))
+		CopyTree(UpdatesList$(i), RootDir$ + "Game\" + UpdatesList$(i))
 	Next
 	; Change to non development version
-	F = WriteFile("Game\Data\Game Data\Misc.dat")
+	F = WriteFile(RootDir$ + "Game\Data\Game Data\Misc.dat")
 		WriteLine(F, GameName$)
 		WriteLine(F, "Normal")
 		WriteLine(F, "1")
@@ -10849,12 +10849,12 @@ Function menuSaveAll()
 				
 				; Save emitters
 				For EmC.RP_EmitterConfig = Each RP_EmitterConfig
-					RP_SaveEmitterConfig(Handle(EmC), "Data\Emitter Configs\" + EmC\Name$ + ".rpc")
+					RP_SaveEmitterConfig(Handle(EmC), RootDir$ + "Data\Emitter Configs\" + EmC\Name$ + ".rpc")
 				Next
 				ParticlesSaved = True
 				
 				; Save combat
-				F = WriteFile("Data\Server Data\Damage.dat")
+				F = WriteFile(RootDir$ + "Data\Server Data\Damage.dat")
 					For i = 0 To 19
 						WriteString F, DamageTypes$(i)
 					Next
@@ -10862,28 +10862,28 @@ Function menuSaveAll()
 				DamageTypesSaved = True
 				
 				; Save projectiles
-				SaveProjectiles("Data\Server Data\Projectiles.dat")
+				SaveProjectiles(RootDir$ + "Data\Server Data\Projectiles.dat")
 				ProjectilesSaved = True
 				
 				; Save factions
-				SaveFactions("Data\Server Data\Factions.dat")
+				SaveFactions(RootDir$ + "Data\Server Data\Factions.dat")
 				FactionsSaved = True
 				
 				; Save animations
-				SaveAnimSets("Data\Game Data\Animations.dat")
+				SaveAnimSets(RootDir$ + "Data\Game Data\Animations.dat")
 				AnimsSaved = True
 				
 				; Save attributes
-				SaveAttributes("Data\Server Data\Attributes.dat")
+				SaveAttributes(RootDir$ + "Data\Server Data\Attributes.dat")
 				StatsSaved = True
 
 				; Save actors
 				;UpdateActorPreview()
-				SaveActors("Data\Server Data\Actors.dat")
+				SaveActors(RootDir$ + "Data\Server Data\Actors.dat")
 				ActorsSaved = True
 				
 				; Save items
-				SaveItems("Data\Server Data\Items.dat")
+				SaveItems(RootDir$ + "Data\Server Data\Items.dat")
 				ItemsSaved = True
 				
 				; Save environment
@@ -10895,10 +10895,10 @@ Function menuSaveAll()
 				ZoneSave()
 				
 				; Save spells
-				SaveSpells("Data\Server Data\Spells.dat")
+				SaveSpells(RootDir$ + "Data\Server Data\Spells.dat")
 				SpellsSaved = True
 				
 				; Save interface
-				SaveInterfaceSettings("Data\Game Data\Interface.dat")
+				SaveInterfaceSettings(RootDir$ + "Data\Game Data\Interface.dat")
 				InterfaceSaved = True
 End Function

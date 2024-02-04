@@ -66,7 +66,7 @@ Const MY_ACCOUNTLOGGEDIN = 5
 
 ; Initialise MySQL if set
 If MySQL
-	F = ReadFile("Data\Server Data\MySQL.dat")
+	F = ReadFile(RootDir$ + "Data\Server Data\MySQL.dat")
 	If Not F Then RuntimeError("No MySQL configuration file was found!")
 	
 	My_Host$ = ReadLine$(F)
@@ -138,38 +138,38 @@ Updates.UpdatesWindow   = CreateUpdatesWindow()
 WriteLog(MainLog, "Created server windows...")
 ; Taskbar notification area icon
 ggTrayCreate(QueryObject(Accounts\Window, 1))
-ggTraySetIconFromFile("Data\Server Data\TaskbarIcon.ico")
+ggTraySetIconFromFile(RootDir$ + "Data\Server Data\TaskbarIcon.ico")
 ggTraySetToolTip("Realm Crafter Server is running")
 
 ggTrayShowIcon()
 ServerMinimised = False
 ; Game data
-Result = LoadLanguage("Data\Server Data\Language.txt")
+Result = LoadLanguage(RootDir$ + "Data\Server Data\Language.txt")
 If Result = False Then RuntimeError("Could not open Data\Server Data\Language.txt!")
-Result = LoadAttributes("Data\Server Data\Attributes.dat") : WriteLog(MainLog, "Loaded actor attributes...")
+Result = LoadAttributes(RootDir$ + "Data\Server Data\Attributes.dat") : WriteLog(MainLog, "Loaded actor attributes...")
 If Result = False Then RuntimeError("Could not open Data\Server Data\Attributes.dat!")
-Result = LoadDamageTypes("Data\Server Data\Damage.dat") : WriteLog(MainLog, "Loaded damage types...")
+Result = LoadDamageTypes(RootDir$ + "Data\Server Data\Damage.dat") : WriteLog(MainLog, "Loaded damage types...")
 If Result = False Then RuntimeError("Could not open Data\Server Data\Damage.dat!")
-Number = LoadSpells("Data\Server Data\Spells.dat") : WriteLog(MainLog, "Loaded " + Str$(Number) + " abilities...")
+Number = LoadSpells(RootDir$ + "Data\Server Data\Spells.dat") : WriteLog(MainLog, "Loaded " + Str$(Number) + " abilities...")
 If Number = -1 Then RuntimeError("Could not open Data\Server Data\Spells.dat!")
-Number = LoadFactions("Data\Server Data\Factions.dat") : WriteLog(MainLog, "Loaded " + Str$(Number) + " factions...")
+Number = LoadFactions(RootDir$ + "Data\Server Data\Factions.dat") : WriteLog(MainLog, "Loaded " + Str$(Number) + " factions...")
 If Number = -1 Then RuntimeError("Could not open Data\Server Data\Factions.dat!")
-Number = LoadActors("Data\Server Data\Actors.dat") : WriteLog(MainLog, "Loaded " + Str$(Number) + " actors...")
+Number = LoadActors(RootDir$ + "Data\Server Data\Actors.dat") : WriteLog(MainLog, "Loaded " + Str$(Number) + " actors...")
 If Number = -1 Then RuntimeError("Could not open Data\Server Data\Actors.dat!")
-Number = LoadItems("Data\Server Data\Items.dat") : WriteLog(MainLog, "Loaded " + Str$(Number) + " items...")
+Number = LoadItems(RootDir$ + "Data\Server Data\Items.dat") : WriteLog(MainLog, "Loaded " + Str$(Number) + " items...")
 If Number = -1 Then RuntimeError("Could not open Data\Server Data\Items.dat!")
-Number = LoadProjectiles("Data\Server Data\Projectiles.dat") : WriteLog(MainLog, "Loaded " + Str$(Number) + " projectiles...")
+Number = LoadProjectiles(RootDir$ + "Data\Server Data\Projectiles.dat") : WriteLog(MainLog, "Loaded " + Str$(Number) + " projectiles...")
 If Number = -1 Then RuntimeError("Could not open Data\Server Data\Projectiles.dat!")
 Number = LoadAccounts() : WriteLog(MainLog, "Loaded " + Str$(Number) + " accounts...")
 Number = LoadScripts() : WriteLog(MainLog, "Loaded " + Str$(Number) + " scripts...")
 Number = CompileModules(): WriteLog(MainLog, "Compiled " + Str$(Number) + " Modules...")
-Result = LoadSuperGlobals("Data\Server Data\Superglobals.dat") : WriteLog(MainLog, "Loaded superglobal variables...")
+Result = LoadSuperGlobals(RootDir$ + "Data\Server Data\Superglobals.dat") : WriteLog(MainLog, "Loaded superglobal variables...")
 ; Load zones
-Dir = ReadDir("Data\Server Data\Areas")
+Dir = ReadDir(RootDir$ + "Data\Server Data\Areas")
 File$ = NextFile$(Dir)
 Number = 0
 While File$ <> ""
-	If FileType("Data\Server Data\Areas\" + File$) = 1
+	If FileType(RootDir$ + "Data\Server Data\Areas\" + File$) = 1
 		File$ = Replace$(File$, ".dat", "") : File$ = Replace$(File$, ".DAT", "") : File$ = Replace$(File$, ".Dat", "")
 		If ServerLoadArea(File$) <> Null Then Number = Number + 1
 	EndIf
@@ -180,7 +180,7 @@ If First Area = Null Then RuntimeError("You must create at least one zone to run
 WriteLog(MainLog, "Loaded " + Str$(Number) + " zones...")
 
 ; Load dropped items
-Number = LoadDroppedItems("Data\Server Data\Dropped Items.dat") : WriteLog(MainLog, "Loaded " + Str$(Number) + " dropped items...")
+Number = LoadDroppedItems(RootDir$ + "Data\Server Data\Dropped Items.dat") : WriteLog(MainLog, "Loaded " + Str$(Number) + " dropped items...")
 
 ; Process zones
 For Ar.Area = Each Area
@@ -195,7 +195,7 @@ For Ar.Area = Each Area
 Next
 
 ; Misc settings
-F = ReadFile("Data\Server Data\Misc.dat")
+F = ReadFile(RootDir$ + "Data\Server Data\Misc.dat")
 If F = 0 Then RuntimeError("Could not open Data\Server Data\Misc.dat!")
 	StartGold = ReadInt(F)
 	StartReputation = ReadInt(F)
@@ -217,7 +217,7 @@ If Result = False Then RuntimeError("Could not open Data\Server Data\Environment
 WriteLog(MainLog, "Loaded environment settings...")
 
 ; Fixed attributes needed by engine
-F = ReadFile("Data\Server Data\Fixed Attributes.dat")
+F = ReadFile(RootDir$ + "Data\Server Data\Fixed Attributes.dat")
 If F = 0 Then RuntimeError("Could not open Data\Server Data\Fixed Attributes.dat!")
 HealthStat = ReadShort(F)
 EnergyStat = ReadShort(F)
@@ -250,13 +250,13 @@ If Instr(Upper$(CommandLine$()), "-UNLOCK") > 0
 	; Update window
 	HideGadget Updates\LockLabel
 	SetGadgetText Updates\LockButton, "Lock Updates Server"
-	SetPanelImage(Updates\LockPanel, "Data\Server Data\GreenLight.bmp")
+	SetPanelImage(Updates\LockPanel, RootDir$ + "Data\Server Data\GreenLight.bmp")
 
 	; Reload files list
 	Number = LoadUpdateFiles() : WriteLog(MainLog, "Loaded " + Str$(Number) + " files for update system...")
 
 	; Open network
-	Host = RCE_StartHost(ServerPort, "", 5000, "Data\Logs\Server Connection.txt", False)
+	Host = RCE_StartHost(ServerPort, "", 5000, RootDir$ + "Data\Logs\Server Connection.txt", False)
 	If Host = False
 		WriteLog(MainLog, "** Could not open port " + ServerPort + " - server shut down **", True, True)
 		Shutdown()
@@ -358,7 +358,7 @@ Repeat
 				; Flush chat log
 				Case Game\ChatLogFlushButton
 					StopLog(ChatLog)
-					DeleteFile("Data\Logs\Chat Log.txt")
+					DeleteFile(RootDir$ + "Data\Logs\Chat Log.txt")
 					ChatLog = StartLog("Chat Log", True)
 					WriteLog(ChatLog, "** Log flushed **", True, True)
 				; Toggle DM status
@@ -406,7 +406,7 @@ Repeat
 						; Update window
 						ShowGadget Updates\LockLabel
 						SetGadgetText Updates\LockButton, "Unlock Updates Server"
-						SetPanelImage(Updates\LockPanel, "Data\Server Data\RedLight.bmp")
+						SetPanelImage(Updates\LockPanel, RootDir$ + "Data\Server Data\RedLight.bmp")
 
 						; Boot all players
 						For AI.ActorInstance = Each ActorInstance
@@ -416,13 +416,13 @@ Repeat
 						; Save everything
 						SaveAccounts()
 						WriteLog(MainLog, "Saved accounts...")
-						SaveSuperGlobals("Data\Server Data\Superglobals.dat")
+						SaveSuperGlobals(RootDir$ + "Data\Server Data\Superglobals.dat")
 						WriteLog(MainLog, "Saved superglobal variables...")
 						;For Ar.Area = Each Area : ServerSaveAreaOwnerships(Ar) : Next ;{##}
 						WriteLog(MainLog, "Saved zone ownerships...")
 						SaveEnvironment()
 						WriteLog(MainLog, "Saved environment settings...")
-						SaveDroppedItems("Data\Server Data\Dropped Items.dat")
+						SaveDroppedItems(RootDir$ + "Data\Server Data\Dropped Items.dat")
 						WriteLog(MainLog, "Saved dropped items...")
 
 						; Sit for a little while to make sure everybody gets the boot message
@@ -446,14 +446,14 @@ Repeat
 						; Update window
 						HideGadget Updates\LockLabel
 						SetGadgetText Updates\LockButton, "Lock Updates Server"
-						SetPanelImage(Updates\LockPanel, "Data\Server Data\GreenLight.bmp")
+						SetPanelImage(Updates\LockPanel, RootDir$ + "Data\Server Data\GreenLight.bmp")
 
 						; Reload files list
 						Delete Each UpdateFile
 						Number = LoadUpdateFiles() : WriteLog(MainLog, "Loaded " + Str$(Number) + " files for update system...")
 
 						; Open network
-						Host = RCE_StartHost(ServerPort, "", 5000, "Data\Logs\Server Connection.txt", False)
+						Host = RCE_StartHost(ServerPort, "", 5000, RootDir$ + "Data\Logs\Server Connection.txt", False)
 						If Host = False
 							WriteLog(MainLog, "** Could not open port " + ServerPort + " - server shut down **", True, True)
 							Shutdown()
@@ -698,13 +698,13 @@ Function Shutdown()
 	
 	SaveAccounts()
 	WriteLog(MainLog, "Saved accounts...")
-	SaveSuperGlobals("Data\Server Data\Superglobals.dat")
+	SaveSuperGlobals(RootDir$ + "Data\Server Data\Superglobals.dat")
 	WriteLog(MainLog, "Saved superglobal variables...")
 	;For A.Area = Each Area : ServerSaveAreaOwnerships(A) : Next ;{##}
 	WriteLog(MainLog, "Saved zone ownerships...")
 	SaveEnvironment()
 	WriteLog(MainLog, "Saved environment settings...")
-	SaveDroppedItems("Data\Server Data\Dropped Items.dat")
+	SaveDroppedItems(RootDir$ + "Data\Server Data\Dropped Items.dat")
 	WriteLog(MainLog, "Saved dropped items...")
 
 	WriteLog(MainLog, "Network port scheduled for closing...")
