@@ -1,6 +1,9 @@
 Global debugBanner.TDebugBanner
 Global debugToggleLatency% = 1000 ; milliseconds between toggle interactions
 
+Global FPS#
+Global timeDiff#
+Global lastFPSUpdate
 
 
 Type TDebugBanner
@@ -83,9 +86,19 @@ Function UpdateDebugBanner()
 	EndIf
 End Function
 
+Function InitFPS()
+	FPS = 60
+	lastFPSUpdate = MilliSecs()
+End Function
+
 ; Updates the FPS calculation. This has to be called per frame
 Function UpdateFPS()
-	If debugBanner = Null Then Return
+	If debugBanner = Null
+		timeDiff = MilliSecs() - lastFPSUpdate
+		FPS = 1000.0/timeDiff
+		lastFPSUpdate = MilliSecs()
+		Return
+	EndIf
 	
 	debugBanner\tfps=debugBanner\tfps+1
 	If MilliSecs() - debugBanner\lastUpdate > 999
@@ -128,5 +141,3 @@ Function ToggleDebugBannerVisibility()
 	SetDebugBannerVisibility( 1 - debugBanner\visible )
 	Return
 End Function
-;~IDEal Editor Parameters:
-;~C#Blitz3D
