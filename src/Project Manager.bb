@@ -20,6 +20,9 @@ Global GUE_height = 300
 Global Version$   = "v3.0"
 Global Team$ 	 = "Cysis145, Terrier"
 
+Global RootDir$ = ".\"
+Global LogMode = 1; (0 = standard logging, 1 = debug mode)
+
 FUI_Initialise(GUE_width, GUE_height, 0, 2, True, True, "RCCE 2 Project Manager")
 SetBuffer(BackBuffer())
 

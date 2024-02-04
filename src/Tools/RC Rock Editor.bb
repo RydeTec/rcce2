@@ -1,4 +1,6 @@
 ;Tools
+Global RootDir$ = "..\"
+Global LogMode = 1; (0 = standard logging, 1 = debug mode)
 Global AH_Loca$ = "..\Realm Crafter 1\"
 Global AH_Appb$ = "RCSTD"
 ;Include "antihack.bb"
@@ -109,7 +111,7 @@ AppTitle( "RC ROCK EDITOR", "Really quit?" )
 
 
 Global savepath$="DATA\Meshes\RCROCKS\"
-If FileType (THISPATH$+SAVEPATH$)<>2 Then CreateDir THISPATH$+SAVEPATH$
+If FileType (THISPATH$+savepath$)<>2 Then CreateDir THISPATH$+savepath$
 If FileType (THISPATH$+DEPATH$)<>2 Then CreateDir THISPATH$+DEPATH$
 
 ;#Region Global Variables Setup
@@ -122,7 +124,7 @@ If FileType (THISPATH$+DEPATH$)<>2 Then CreateDir THISPATH$+DEPATH$
 	PositionEntity Cam, -.5, .1, -11
 	CameraClsColor Cam, 6, 9, 20
     TurnEntity RPIVOT, 40, 0, 0
-	EntityParent(cam,rpivot)
+	EntityParent(Cam,RPIVOT)
 
 
 
@@ -140,7 +142,7 @@ Dim vpos#(6,3)
 Global minsides=4
 Global maxsides=12
 Global rockshine#,oldrockshine#
-   myrock=randomrock(minsides,.5,.5,.5)
+   myrock=RandomRock(minsides,.5,.5,.5)
 light = CreateLight():RotateEntity light,45,0,0
 TextureFilter "",1+8
 AmbientLight 100,100,100
