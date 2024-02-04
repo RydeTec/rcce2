@@ -13,3 +13,7 @@ src/Data/Logs/*
 src/Data/Logs/
 
 *.bb_bak3
+
+src/Tools/Modules_old/
+
+src/Tools/toolsource_old/
