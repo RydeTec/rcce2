@@ -150,7 +150,7 @@ Function SaveAnimSets(Filename$)
 
 	CloseFile(F)
 	;Allows for animation sets to be recovered or something... cysis145
-	G = WriteFile(RootDir$ + "Data\Game Data\Animations_debug.txt")
+	G = WriteFile("Data\Game Data\Animations_debug.txt")
 	If G = 0 Then Return False  
 	For A.AnimSet = Each AnimSet
 		WriteLine(G, "Anim ID: " + A\ID)

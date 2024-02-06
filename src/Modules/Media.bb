@@ -18,7 +18,7 @@ End Type
 ; Locks the meshes database (keeps the file open for faster batched Get...() calls)
 Function LockMeshes()
 
-	LockedMeshes = OpenFile(RootDir$ + "Data\Game Data\Meshes.dat")
+	LockedMeshes = OpenFile("Data\Game Data\Meshes.dat")
 	Return LockedMeshes
 
 End Function
@@ -33,7 +33,7 @@ End Function
 ; Locks the textures database (keeps the file open for faster batched Get...() calls)
 Function LockTextures()
 
-	LockedTextures = OpenFile(RootDir$ + "Data\Game Data\Textures.dat")
+	LockedTextures = OpenFile("Data\Game Data\Textures.dat")
 	Return LockedTextures
 
 End Function
@@ -48,7 +48,7 @@ End Function
 ; Locks the sounds database (keeps the file open for faster batched Get...() calls)
 Function LockSounds()
 
-	LockedSounds = OpenFile(RootDir$ + "Data\Game Data\Sounds.dat")
+	LockedSounds = OpenFile("Data\Game Data\Sounds.dat")
 	Return LockedSounds
 
 End Function
@@ -63,7 +63,7 @@ End Function
 ; Locks the music database (keeps the file open for faster batched Get...() calls)
 Function LockMusic()
 
-	LockedMusic = OpenFile(RootDir$ + "Data\Game Data\Music.dat")
+	LockedMusic = OpenFile("Data\Game Data\Music.dat")
 	Return LockedMusic
 
 End Function
@@ -97,7 +97,7 @@ Function RemoveMeshFromDatabase(ID)
 
 	; Open index file
 	If LockedMeshes = 0
-		F = OpenFile(RootDir$ + "Data\Game Data\Meshes.dat")
+		F = OpenFile("Data\Game Data\Meshes.dat")
 		If F = 0 Then Return False
 	Else
 		F = LockedMeshes
@@ -127,11 +127,11 @@ Function RemoveMeshFromDatabase(ID)
 
 	; Clear the database
 	CloseFile(F)
-	Result = CreateDatabase(RootDir$ + "Data\Game Data\Meshes.dat")
+	Result = CreateDatabase("Data\Game Data\Meshes.dat")
 	If Result = False Then LockedMeshes = 0 : Return False
 
 	; Reopen it
-	F = OpenFile(RootDir$ + "Data\Game Data\Meshes.dat")
+	F = OpenFile("Data\Game Data\Meshes.dat")
 	If LockedMeshes <> 0 Then LockedMeshes = F
 
 	; Write everything back out again
@@ -163,7 +163,7 @@ Function RemoveTextureFromDatabase(ID)
 
 	; Open index file
 	If LockedTextures = 0
-		F = OpenFile(RootDir$ + "Data\Game Data\Textures.dat")
+		F = OpenFile("Data\Game Data\Textures.dat")
 		If F = 0 Then Return False
 	Else
 		F = LockedTextures
@@ -188,11 +188,11 @@ Function RemoveTextureFromDatabase(ID)
 
 	; Clear the database
 	CloseFile(F)
-	Result = CreateDatabase(RootDir$ + "Data\Game Data\Textures.dat")
+	Result = CreateDatabase("Data\Game Data\Textures.dat")
 	If Result = False Then LockedTextures = 0 : Return False
 
 	; Reopen it
-	F = OpenFile(RootDir$ + "Data\Game Data\Textures.dat")
+	F = OpenFile("Data\Game Data\Textures.dat")
 	If LockedTextures <> 0 Then LockedTextures = F
 
 	; Write everything back out again
@@ -219,7 +219,7 @@ Function RemoveSoundFromDatabase(ID)
 
 	; Open index file
 	If LockedSounds = 0
-		F = OpenFile(RootDir$ + "Data\Game Data\Sounds.dat")
+		F = OpenFile("Data\Game Data\Sounds.dat")
 		If F = 0 Then Return False
 	Else
 		F = LockedSounds
@@ -244,11 +244,11 @@ Function RemoveSoundFromDatabase(ID)
 
 	; Clear the database
 	CloseFile(F)
-	Result = CreateDatabase(RootDir$ + "Data\Game Data\Sounds.dat")
+	Result = CreateDatabase("Data\Game Data\Sounds.dat")
 	If Result = False Then LockedSounds = 0 : Return False
 
 	; Reopen it
-	F = OpenFile(RootDir$ + "Data\Game Data\Sounds.dat")
+	F = OpenFile("Data\Game Data\Sounds.dat")
 	If LockedSounds <> 0 Then LockedSounds = F
 
 	; Write everything back out again
@@ -273,7 +273,7 @@ Function RemoveMusicFromDatabase(ID)
 
 	; Open index file
 	If LockedMusic = 0
-		F = OpenFile(RootDir$ + "Data\Game Data\Music.dat")
+		F = OpenFile("Data\Game Data\Music.dat")
 		If F = 0 Then Return False
 	Else
 		F = LockedMusic
@@ -297,11 +297,11 @@ Function RemoveMusicFromDatabase(ID)
 
 	; Clear the database
 	CloseFile(F)
-	Result = CreateDatabase(RootDir$ + "Data\Game Data\Music.dat")
+	Result = CreateDatabase("Data\Game Data\Music.dat")
 	If Result = False Then LockedMusic = 0 : Return False
 
 	; Reopen it
-	F = OpenFile(RootDir$ + "Data\Game Data\Music.dat")
+	F = OpenFile("Data\Game Data\Music.dat")
 	If LockedMusic <> 0 Then LockedMusic = F
 
 	; Write everything back out again
@@ -325,7 +325,7 @@ Function AddMeshToDatabase(Filename$, IsAnim)
 
 	; Open index file
 	If LockedMeshes = 0
-		F = OpenFile(RootDir$ + "Data\Game Data\Meshes.dat")
+		F = OpenFile("Data\Game Data\Meshes.dat")
 		If F = 0 Then Return -1
 	Else
 		F = LockedMeshes
@@ -355,8 +355,8 @@ Function AddMeshToDatabase(Filename$, IsAnim)
 		If DataAddress = 0
 			; Write mesh data to index file
 			SeekFile F, ID * 4
-			WriteInt F, FileSize(RootDir$ + "Data\Game Data\Meshes.dat")
-			SeekFile F, FileSize(RootDir$ + "Data\Game Data\Meshes.dat")
+			WriteInt F, FileSize("Data\Game Data\Meshes.dat")
+			SeekFile F, FileSize("Data\Game Data\Meshes.dat")
 			WriteByte F, IsAnim
 			WriteFloat F, 1.0
 			WriteFloat F, 0.0
@@ -381,7 +381,7 @@ Function AddTextureToDatabase(Filename$, Flags)
 
 	; Open index file
 	If LockedTextures = 0
-		F = OpenFile(RootDir$ + "Data\Game Data\Textures.dat")
+		F = OpenFile("Data\Game Data\Textures.dat")
 		If F = 0 Then Return -1
 	Else
 		F = LockedTextures
@@ -406,8 +406,8 @@ Function AddTextureToDatabase(Filename$, Flags)
 		If DataAddress = 0
 			; Write texture data to index file
 			SeekFile(F, ID * 4)
-			WriteInt(F, FileSize(RootDir$ + "Data\Game Data\Textures.dat"))
-			SeekFile(F, FileSize(RootDir$ + "Data\Game Data\Textures.dat"))
+			WriteInt(F, FileSize("Data\Game Data\Textures.dat"))
+			SeekFile(F, FileSize("Data\Game Data\Textures.dat"))
 			WriteShort(F, Flags)
 			WriteString(F, Filename$)
 			If LockedTextures = 0 Then CloseFile(F)
@@ -427,7 +427,7 @@ Function AddSoundToDatabase(Filename$, Is3D)
 
 	; Open index file
 	If LockedSounds = 0
-		F = OpenFile(RootDir$ + "Data\Game Data\Sounds.dat")
+		F = OpenFile("Data\Game Data\Sounds.dat")
 		If F = 0 Then Return -1
 	Else
 		F = LockedSounds
@@ -452,8 +452,8 @@ Function AddSoundToDatabase(Filename$, Is3D)
 		If DataAddress = 0
 			; Write sound data to index file
 			SeekFile F, ID * 4
-			WriteInt F, FileSize(RootDir$ + "Data\Game Data\Sounds.dat")
-			SeekFile F, FileSize(RootDir$ + "Data\Game Data\Sounds.dat")
+			WriteInt F, FileSize("Data\Game Data\Sounds.dat")
+			SeekFile F, FileSize("Data\Game Data\Sounds.dat")
 			WriteByte F, Is3D
 			WriteString F, Filename$
 			If LockedSounds = 0 Then CloseFile(F)
@@ -473,7 +473,7 @@ Function AddMusicToDatabase(Filename$)
 
 	; Open index file
 	If LockedMusic = 0
-		F = OpenFile(RootDir$ + "Data\Game Data\Music.dat")
+		F = OpenFile("Data\Game Data\Music.dat")
 		If F = 0 Then Return -1
 	Else
 		F = LockedMusic
@@ -496,8 +496,8 @@ Function AddMusicToDatabase(Filename$)
 		If DataAddress = 0
 			; Write sound data to index file
 			SeekFile F, ID * 4
-			WriteInt F, FileSize(RootDir$ + "Data\Game Data\Music.dat")
-			SeekFile F, FileSize(RootDir$ + "Data\Game Data\Music.dat")
+			WriteInt F, FileSize("Data\Game Data\Music.dat")
+			SeekFile F, FileSize("Data\Game Data\Music.dat")
 			WriteString F, Filename$
 			; Return new ID
 			If LockedMusic = 0 Then CloseFile(F)
@@ -516,7 +516,7 @@ Function GetMeshName$(ID)
 
 	; Open index file
 	If LockedMeshes = 0
-		F = OpenFile(RootDir$ + "Data\Game Data\Meshes.dat")
+		F = OpenFile("Data\Game Data\Meshes.dat")
 		If F = 0 Then Return ""
 	Else
 		F = LockedMeshes
@@ -550,7 +550,7 @@ Function GetTextureName$(ID)
 
 	; Open index file
 	If LockedTextures = 0
-		F = OpenFile(RootDir$ + "Data\Game Data\Textures.dat")
+		F = OpenFile("Data\Game Data\Textures.dat")
 		If F = 0 Then Return ""
 	Else
 		F = LockedTextures
@@ -579,7 +579,7 @@ Function GetSoundName$(ID)
 
 	; Open index file
 	If LockedSounds = 0
-		F = OpenFile(RootDir$ + "Data\Game Data\Sounds.dat")
+		F = OpenFile("Data\Game Data\Sounds.dat")
 		If F = 0 Then Return ""
 	Else
 		F = LockedSounds
@@ -608,7 +608,7 @@ Function GetMusicName$(ID)
 
 	; Open index file
 	If LockedMusic = 0
-		F = OpenFile(RootDir$ + "Data\Game Data\Music.dat")
+		F = OpenFile("Data\Game Data\Music.dat")
 		If F = 0 Then Return ""
 	Else
 		F = LockedMusic
@@ -638,7 +638,7 @@ Function SetMeshScale(ID, Scale#)
 
 	; Open index file
 	If LockedMeshes = 0
-		F = OpenFile(RootDir$ + "Data\Game Data\Meshes.dat")
+		F = OpenFile("Data\Game Data\Meshes.dat")
 		If F = 0 Then Return False
 	Else
 		F = LockedMeshes
@@ -670,7 +670,7 @@ Function SetMeshOffset(ID, X#, Y#, Z#)
 
 	; Open index file
 	If LockedMeshes = 0
-		F = OpenFile(RootDir$ + "Data\Game Data\Meshes.dat")
+		F = OpenFile("Data\Game Data\Meshes.dat")
 		If F = 0 Then Return False
 	Else
 		F = LockedMeshes
@@ -702,7 +702,7 @@ Function SetMeshShader(ID, Shader)
 
 	; Open index file
 	If LockedMeshes = 0
-		F = OpenFile(RootDir$ + "Data\Game Data\Meshes.dat")
+		F = OpenFile("Data\Game Data\Meshes.dat")
 		If F = 0 Then Return False
 	Else
 		F = LockedMeshes
@@ -733,7 +733,7 @@ Function GetMesh(ID, Duplicate = False)
 
 		; Read in filename and other data from index file
 		If LockedMeshes = 0
-			F = OpenFile(RootDir$ + "Data\Game Data\Meshes.dat")
+			F = OpenFile("Data\Game Data\Meshes.dat")
 			If F = 0 Then Return ""
 		Else
 			F = LockedMeshes
@@ -760,12 +760,12 @@ Function GetMesh(ID, Duplicate = False)
 
 		; Load the mesh
 		If IsAnim = True
-			LoadedMeshes(ID) = LoadAnimMesh(RootDir$ + "Data\Meshes\" + Name$)
+			LoadedMeshes(ID) = LoadAnimMesh("Data\Meshes\" + Name$)
 			If LoadedMeshes(ID) = 0 Then Return(0)
 			HideEntity LoadedMeshes(ID)
 			ScaleEntity LoadedMeshes(ID), LoadedMeshScales#(ID), LoadedMeshScales#(ID), LoadedMeshScales#(ID)
 		Else
-			LoadedMeshes(ID) = LoadMesh(RootDir$ + "Data\Meshes\" + Name$)
+			LoadedMeshes(ID) = LoadMesh("Data\Meshes\" + Name$)
 			If LoadedMeshes(ID) = 0 Then Return(0)
 			HideEntity(LoadedMeshes(ID))
 			ScaleEntity(LoadedMeshes(ID), LoadedMeshScales#(ID), LoadedMeshScales#(ID), LoadedMeshScales#(ID))
@@ -787,11 +787,11 @@ Function GetMesh(ID, Duplicate = False)
 		End If
 		
 		If IsAnim = True
-			EN = LoadAnimMesh(RootDir$ + "Data\Meshes\" + Name$)
+			EN = LoadAnimMesh("Data\Meshes\" + Name$)
 			If EN = 0 Then Return(0)
 			ScaleEntity(EN, LoadedMeshScales#(ID), LoadedMeshScales#(ID), LoadedMeshScales#(ID))
 		Else
-			EN = LoadMesh(RootDir$ + "Data\Meshes\" + Name$)
+			EN = LoadMesh("Data\Meshes\" + Name$)
 			If EN = 0 Then Return(0)
 				ScaleEntity(EN, LoadedMeshScales#(ID), LoadedMeshScales#(ID), LoadedMeshScales#(ID))
 		EndIf	
@@ -808,7 +808,7 @@ Function GetTexture(ID, Copy = False)
 
 		; Read in filename and other data from index file
 		If LockedTextures = 0
-			F = OpenFile(RootDir$ + "Data\Game Data\Textures.dat")
+			F = OpenFile("Data\Game Data\Textures.dat")
 			If F = 0 Then Return -1
 		Else
 			F = LockedTextures
@@ -828,7 +828,7 @@ Function GetTexture(ID, Copy = False)
 
 		If LockedTextures = 0 Then CloseFile(F)
 
-		LoadedTextures(ID) = LoadTexture(RootDir$ + "Data\Textures\" + Name$, Flags)
+		LoadedTextures(ID) = LoadTexture("Data\Textures\" + Name$, Flags)
 		TextureFlags(ID) = Flags
 
 	EndIf
@@ -850,7 +850,7 @@ Function GetSound(ID)
 
 		; Read in filename and other data from index file
 		If LockedSounds = 0
-			F = OpenFile(RootDir$ + "Data\Game Data\Sounds.dat")
+			F = OpenFile("Data\Game Data\Sounds.dat")
 			If F = 0 Then Return -1
 		Else
 			F = LockedSounds
@@ -871,9 +871,9 @@ Function GetSound(ID)
 		If LockedSounds = 0 Then CloseFile(F)
 
 		If Is3D = True
-			LoadedSounds(ID) = Load3DSound(RootDir$ + "Data\Sounds\" + Name$)
+			LoadedSounds(ID) = Load3DSound("Data\Sounds\" + Name$)
 		Else
-			LoadedSounds(ID) = LoadSound(RootDir$ + "Data\Sounds\" + Name$)
+			LoadedSounds(ID) = LoadSound("Data\Sounds\" + Name$)
 		EndIf
 
 	EndIf
@@ -1032,7 +1032,7 @@ End Function
 ;Bump mapping
 Function GetMeshNameClean$(ID)
 If LockedMeshes = 0
-   F = OpenFile(RootDir$ + "Data\Game Data\Meshes.dat")
+   F = OpenFile("Data\Game Data\Meshes.dat")
    If F = 0 Then Return ""
 Else
    F = LockedMeshes

@@ -315,7 +315,7 @@ End Function
 Function RestoreLanguage(Filename$)
 	
 	; Load the present language file to restore the whole system
-	LoadLanguage(RootDir$ + "Data\Game Data\Language.txt")
+	LoadLanguage("Data\Game Data\Language.txt")
 	
 	Local F% = WriteFile(Filename$)
 	If F = 0 Then Return False

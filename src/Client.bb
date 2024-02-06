@@ -32,6 +32,7 @@ Global componentName$ = "client"
 Global RootDir$ = ".\"
 Global LogMode = 1; (0 = standard logging, 1 = debug mode)
 
+ChangeDir RootDir$
 
 ; Variables -------------------------------
 
@@ -189,7 +190,7 @@ LoadGame()
 Connect()
 
 ; Fixed attributes needed by engine
-F = ReadFile(RootDir$ + "Data\Game Data\Fixed Attributes.dat")
+F = ReadFile("Data\Game Data\Fixed Attributes.dat")
 If F = 0 Then RuntimeError("Could not open Data\Game Data\Fixed Attributes.dat!")
 HealthStat = ReadShort(F)
 EnergyStat = ReadShort(F)
@@ -233,7 +234,7 @@ Repeat
 	CameraProjMode(GY_Cam, 0)
 		
 	;Adding FastExt settings to options menu Cysis145
-	F = ReadFile(RootDir$ + "Data\Options.dat")
+	F = ReadFile("Data\Options.dat")
 		Width = ReadShort(F)
 		Height = ReadShort(F)
 		Depth = ReadByte(F)

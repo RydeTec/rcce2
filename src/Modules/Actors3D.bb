@@ -17,8 +17,8 @@ Const farFadeModifier# = 0.75 ; 1500 units
 ; Loads gubbin joint names from file
 Function LoadGubbinNames()
 
-	F = ReadFile(RootDir$ + "Data\Game Data\Gubbins.dat")
-	If F = 0 Then RuntimeError("File not found: " + RootDir$ + "Data\Game Data\Gubbins.dat!")
+	F = ReadFile("Data\Game Data\Gubbins.dat")
+	If F = 0 Then RuntimeError("File not found: " + "Data\Game Data\Gubbins.dat!")
 		For i = 0 To 5
 			GubbinJoints$(i) = ReadString$(F)
 		Next
@@ -605,7 +605,7 @@ Function CreateEntityEmitters(E)
 					TextureID = Mid$(Name$, Pos + 1)
 					Texture = GetTexture(TextureID)
 					If Texture <> 0 And Len(EmitterName$) > 1
-						Config = RP_LoadEmitterConfig(RootDir$ + "Data\Emitter Configs\" + EmitterName$ + ".rpc", Texture, Cam)
+						Config = RP_LoadEmitterConfig("Data\Emitter Configs\" + EmitterName$ + ".rpc", Texture, Cam)
 						If Config <> 0
 							EmitterEN = RP_CreateEmitter(Config)
 							If EmitterEN <> 0

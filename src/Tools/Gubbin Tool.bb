@@ -4,19 +4,21 @@
 ; Initialisation ---------------------------------------------------------------------------------------------------------
 Global RootDir$ = "..\"
 Global LogMode = 1; (0 = standard logging, 1 = debug mode)
+ChangeDir RootDir$
+
 Global AH_AppB$ = "RCSTD", AH_Loca$ = "..\New Game\"
 ;Include "AntiHack.bb"
 
 ; Find and switch to selected project folder
 Const Testing = True; Set this to False for release compilation
 If Testing = False
-	If FileType(RootDir$ + "Data\Selected.dat") = 1
-		F = ReadFile(RootDir$ + "Data\Selected.dat")
+	If FileType("Data\Selected.dat") = 1
+		F = ReadFile("Data\Selected.dat")
 			ProjectName$ = ReadString$(F)
 		CloseFile(F)
 		If ProjectName$ = "" Then RuntimeError("No project selected - please run Realm Crafter.exe")
-		If FileType(RootDir$ + "New Game\" + ProjectName$) <> 2 Then RuntimeError("No project selected - please run Realm Crafter.exe")
-		ChangeDir(RootDir$ + "New Game\" + ProjectName$)
+		If FileType("New Game\" + ProjectName$) <> 2 Then RuntimeError("No project selected - please run Realm Crafter.exe")
+		ChangeDir("New Game\" + ProjectName$)
 	Else
 		RuntimeError("No project selected - please run Realm Crafter.exe")
 	EndIf
@@ -40,8 +42,8 @@ Include "..\Modules\RCEnet.bb"
 Include "..\Modules\Logging.bb"
 
 ; Load data
-LoadAnimSets(RootDir$ + "Data\Game Data\Animations.dat")
-TotalActors = LoadActors(RootDir$ + "Data\Server Data\Actors.dat")
+LoadAnimSets("Data\Game Data\Animations.dat")
+TotalActors = LoadActors("Data\Server Data\Actors.dat")
 If TotalActors < 1 Then RuntimeError("No actors found in project!")
 
 LoadGubbinNames()
@@ -159,7 +161,7 @@ Repeat
 						Name$ = MeshNameDialog$()
 						If Name$ <> ""
 							OldName$ = EditorMeshName$(SelectedMeshID)
-							CopyFile(RootDir$ + "Data\Meshes\" + OldName$, RootDir$ + "Data\Meshes\" + Name$)
+							CopyFile("Data\Meshes\" + OldName$, "Data\Meshes\" + Name$)
 							Result = AddMeshToDatabase(Name$, False)
 							If Result > -1
 								MeshNames$(Result) = Name$ + Chr$(0)
@@ -610,7 +612,7 @@ Function MeshNameDialog$()
 				Case BDone
 					Name$ = EditorMeshName$(SelectedMeshID)
 					Result$ = GetFolder$(Name$) + FUI_SendMessage(TName, M_GETCAPTION) + GetExtension$(Name$)
-					If FileType(RootDir$ + "Data\Meshes\" + Result$) = 0
+					If FileType("Data\Meshes\" + Result$) = 0
 						Done = True
 					Else
 						FUI_CustomMessageBox("A file with that name already exists!", "Error", MB_OK)
@@ -812,7 +814,7 @@ Function SaveRotation()
 		If Right$(Upper$(Name$), 3) = "B3D" Then
 			If Right$(Upper$(Name$), 5) = ".EB3D" Then
 				TName$ = Name$
-				DecryptMesh(RootDir$ + "Data\Meshes\" + Name$)
+				DecryptMesh("Data\Meshes\" + Name$)
 				Name$ = Name$ + ".b3d"
 				;isEncrypted = True
 			End If
@@ -821,8 +823,8 @@ Function SaveRotation()
 		End If
 
 ;		CopyFile( TName$, Name$ )
-		DebugLog( "Save File: " + RootDir$ +  "Data\Meshes\" + Name$)
-		Local F = OpenFile(RootDir$ + "Data\Meshes\" + Name$)
+		DebugLog( "Save File: " +  "Data\Meshes\" + Name$)
+		Local F = OpenFile("Data\Meshes\" + Name$)
 		If F = 0 Then RuntimeError("Could not open " + Name$)
 			temp_bank = CreateBank(12)
 			GPP = CreatePivot()
@@ -906,8 +908,8 @@ Function SaveRotation()
 	Name$ = EditorMeshName$(SelectedMeshID)
 	
 	If TName$ <> "" And isEncrypted Then
-		EncryptMesh(RootDir$ + "Data\Meshes\" + Name$)
-		DeleteFile RootDir$ + "Data\Meshes\" + Name$
+		EncryptMesh("Data\Meshes\" + Name$)
+		DeleteFile "Data\Meshes\" + Name$
 	End If
 
 ;#####################################################################

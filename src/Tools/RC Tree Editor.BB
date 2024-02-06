@@ -1,6 +1,8 @@
 ;Tools
 Global RootDir$ = "..\"
 Global LogMode = 1; (0 = standard logging, 1 = debug mode)
+ChangeDir RootDir$
+
 Global AH_Loca$ = "..\Realm Crafter 1\"
 Global AH_Appb$ = "RCSTD"
 Include "..\modules\Utility.bb"

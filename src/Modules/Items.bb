@@ -337,7 +337,7 @@ Function SaveItems(Filename$)
 
 	CloseFile(F)
 	; Small edit, allows to quickly find IMPORTANT item values, cysis145
-	G = WriteFile(RootDir$ + "Data\Server Data\Items_debug.txt")
+	G = WriteFile("Data\Server Data\Items_debug.txt")
 	If G = 0 Then Return False
 		For I.Item = Each Item
 			WriteLine(G, "Item ID: " + I\ID)

@@ -296,7 +296,7 @@ Function ChooseSoundDialog(SoundType = SoundDialog_All, InitialFolder$ = "", XPo
 					Else
 						Name$ = SoundNames$(FUI_SendMessage(FUI_SendMessage(LSoundDialog, M_GETINDEX), M_GETDATA))
 						If Len(Name$) > 1
-							Sound = LoadSound(RootDir$ + "Data\Sounds\" + Left$(Name$, Len(Name$) - 1))
+							Sound = LoadSound("Data\Sounds\" + Left$(Name$, Len(Name$) - 1))
 							Chan = PlaySound(Sound)
 						EndIf
 					EndIf
@@ -373,7 +373,7 @@ Function ChooseMusicDialog(InitialFolder$ = "", XPos = -1, YPos = -1)
 					Else
 						Name$ = MusicNames$(FUI_SendMessage(FUI_SendMessage(LMusicDialog, M_GETINDEX), M_GETDATA))
 						If Len(Name$) > 0
-							Chan = PlayMusic(RootDir$ + "Data\Music\" + Name$)
+							Chan = PlayMusic("Data\Music\" + Name$)
 						EndIf
 					EndIf
 				; Selected music changed

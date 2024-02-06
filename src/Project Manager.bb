@@ -23,13 +23,15 @@ Global Team$ 	 = "Cysis145, Terrier"
 Global RootDir$ = ".\"
 Global LogMode = 1; (0 = standard logging, 1 = debug mode)
 
+ChangeDir RootDir$
+
 FUI_Initialise(GUE_width, GUE_height, 0, 2, True, True, "RCCE 2 Project Manager")
 SetBuffer(BackBuffer())
 
 ;Images
-LogoTex  = LoadImage(RootDir$ + "Resources\RCCE Banner.jpg")
-LogoTex2 = LoadImage(RootDir$ + "Resources\Gajatix.jpg")
-Splash = LoadImage(RootDir$ + "Resources\Logo_Splash.bmp")
+LogoTex  = LoadImage("Resources\RCCE Banner.jpg")
+LogoTex2 = LoadImage("Resources\Gajatix.jpg")
+Splash = LoadImage("Resources\Logo_Splash.bmp")
 
 ;Resize Images
 ResizeImage LogoTex, 380, 112
@@ -37,40 +39,40 @@ ResizeImage LogoTex2, 100, 67
 ResizeImage Splash, 550, 300
 
 ;Folders
-OMF$ = Chr$(34) + RootDir$ + "Data\Meshes" + Chr$(34)
-OTF$ = Chr$(34) + RootDir$ + "Data\Textures" + Chr$(34)
-OSF$ = Chr$(34) + RootDir$ + "Data\Sounds" + Chr$(34)
-OMuF$ = Chr$(34) + RootDir$ + "Data\Music" + Chr$(34)
+OMF$ = Chr$(34) + "Data\Meshes" + Chr$(34)
+OTF$ = Chr$(34) + "Data\Textures" + Chr$(34)
+OSF$ = Chr$(34) + "Data\Sounds" + Chr$(34)
+OMuF$ = Chr$(34) + "Data\Music" + Chr$(34)
 
 OPF$ = Chr$(34) + "" + Chr$(34)
 
 ;Executables
-SCT$ = Chr$(34) + RootDir$ + "Community ToolKit\Script Crafters Workshop.exe" + Chr$(34)
-RSW$ = Chr$(34) + RootDir$ + "Community ToolKit\RC Spell Wizard\Application Files\RC Spell Wizard_1_0_0_1\RC Spell Wizard.exe" + Chr$(34)
+SCT$ = Chr$(34) + "Community ToolKit\Script Crafters Workshop.exe" + Chr$(34)
+RSW$ = Chr$(34) + "Community ToolKit\RC Spell Wizard\Application Files\RC Spell Wizard_1_0_0_1\RC Spell Wizard.exe" + Chr$(34)
 
-PMH$ = Chr$(34) + RootDir$ + "Resources\Help.txt" + Chr$(34)
-SWH$ = Chr$(34) + RootDir$ + "Community ToolKit\RC Spell Wizard\RC Spell Wizard Documentation.pdf" + Chr$(34)
+PMH$ = Chr$(34) + "Resources\Help.txt" + Chr$(34)
+SWH$ = Chr$(34) + "Community ToolKit\RC Spell Wizard\RC Spell Wizard Documentation.pdf" + Chr$(34)
 
-GUE$ = Chr$(34) + RootDir$ + "GUE.exe" + Chr$(34)
-GUM$ = Chr$(34) + RootDir$ + "GUE_Max.exe" + Chr$(34)
-CLI$ = Chr$(34) + RootDir$ + "Client.exe" + Chr$(34)
-SER$ = Chr$(34) + RootDir$ + "Server.exe" + Chr$(34)
+GUE$ = Chr$(34) + "GUE.exe" + Chr$(34)
+GUM$ = Chr$(34) + "GUE_Max.exe" + Chr$(34)
+CLI$ = Chr$(34) + "Client.exe" + Chr$(34)
+SER$ = Chr$(34) + "Server.exe" + Chr$(34)
 
-LCL$ = Chr$(34) + RootDir$ + "Data\Logs\Client Log.txt" + Chr$(34)
-LSL$ = Chr$(34) + RootDir$ + "Data\Logs\Server Log.txt" + Chr$(34)
+LCL$ = Chr$(34) + "Data\Logs\Client Log.txt" + Chr$(34)
+LSL$ = Chr$(34) + "Data\Logs\Server Log.txt" + Chr$(34)
 
-SRP$ = Chr$(34) + RootDir$ + "RC_Scriptorama\RC Scriptorama.exe - DONT DELETE" + Chr$(34)
-GUB$ = Chr$(34) + RootDir$ + "Gubbin Tool.exe" + Chr$(34)
-FNT$ = Chr$(34) + RootDir$ + "ToolKit\FontGen\Font Generator.exe" + Chr$(34)
-TER$ = Chr$(34) + RootDir$ + "RC_Terrain_Editor.exe" + Chr$(34)
+SRP$ = Chr$(34) + "RC_Scriptorama\RC Scriptorama.exe - DONT DELETE" + Chr$(34)
+GUB$ = Chr$(34) + "Gubbin Tool.exe" + Chr$(34)
+FNT$ = Chr$(34) + "ToolKit\FontGen\Font Generator.exe" + Chr$(34)
+TER$ = Chr$(34) + "RC_Terrain_Editor.exe" + Chr$(34)
 
-B3D$ = Chr$(34) + RootDir$ + "ToolKit\Blitz3D\Blitz3D.exe" + Chr$(34)
-BPS$ = Chr$(34) + RootDir$ + "ToolKit\BlitzPlus\BlitzPlus.exe" + Chr$(34)
+B3D$ = Chr$(34) + "ToolKit\Blitz3D\Blitz3D.exe" + Chr$(34)
+BPS$ = Chr$(34) + "ToolKit\BlitzPlus\BlitzPlus.exe" + Chr$(34)
 
-RPM$ = Chr$(34) + RootDir$ + "Project Manager.exe" + Chr$(34)
+RPM$ = Chr$(34) + "Project Manager.exe" + Chr$(34)
 
 ; Misc options
-F = ReadFile(RootDir$ + "Data\Game Data\Misc.dat")
+F = ReadFile("Data\Game Data\Misc.dat")
 If F = 0 Then RuntimeError("Could not open Data\Game Data\Misc.dat!")
 	GameName$ = ReadLine$(F)
 CloseFile(F)
@@ -228,7 +230,7 @@ Local E.Event
 		Case BCLOSE
 			app\Quit = True
 		Case ProName
-			F = WriteFile(RootDir$ + "Data\Game Data\Misc.dat")
+			F = WriteFile("Data\Game Data\Misc.dat")
 				If F = 0 Then RuntimeError("Could not open Data\Game Data\Misc.dat!")
 					WriteLine F, FUI_SendMessage(ProName, M_GETCAPTION)
 				CloseFile(F)
