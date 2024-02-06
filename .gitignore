@@ -17,3 +17,5 @@ src/Data/Logs/
 src/Tools/Modules_old/
 
 src/Tools/toolsource_old/
+
+*.iws
