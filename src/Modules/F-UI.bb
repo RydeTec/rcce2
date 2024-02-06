@@ -1,12 +1,4 @@
-;#Region ---------- Copyright ------------------
-;Copyright ©2004 F-Software
-;#End Region
-
 ;#Region ---------- Notes ----------------------
-;If you have any queries or problems then contact F-Software at
-;support@f-software.co.uk
-;
-;
 ;The minimum value for the camera range of [app\Cam] should be
 ;less than 1.0.
 ;

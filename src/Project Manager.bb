@@ -1,12 +1,12 @@
 ;##############################################################################
 ; RCCE 2 PROJECT MANAGER v3.0
 ; This piece of software was desgined and built by Zaven Boyrazian
-; Copyright (C) 2015 Gajatix Software All rights reserved																	
-; Support : RCCE Forums : http://www.realmcrafterce.com/forum/
+; Copyright (C) 2024 Gajatix Studios All rights reserved																	
+; Support : RCCE Forums : https://realmcrafter.boards.net/
 ; 
 ; i) By using/editing this source code you agree Not To remove the copyright protection
-;    marker of Ryde Software and Gajatix Software!
-; ii) This code is property of Gajatix Software, the user may edit it in anyway
+;    marker of RydeTec and Gajatix Studios!
+; ii) This code is property of Gajatix Studios, the user may edit it in anyway
 ;     but CANNOT redistribute without authorisation!
 ;##############################################################################
 AppTitle "Project Manager"
@@ -18,7 +18,7 @@ Global GUE_width  = 550
 Global GUE_height = 300
 
 Global Version$   = "v3.0"
-Global Team$ 	 = "Cysis145, Terrier"
+Global Team$ 	 = "Cysis145, Terrier, Corey ""Ryan"" Dean"
 
 Global RootDir$ = ".\"
 Global LogMode = 1; (0 = standard logging, 1 = debug mode)
@@ -147,7 +147,7 @@ CloseFile(F)
 	BBPS = FUI_Button(TProject, 410, 200, 125, 25, "BlitzPlus")
 
 	;Copyright Marker
-	FUI_Label(TProject, 5, 242, "RealmCrafter Community Edition 2 © 2015 Ryde Software, Gajatix Software")
+	FUI_Label(TProject, 5, 242, "RealmCrafter Community Edition 2 © 2024 RydeTec, Gajatix Studios")
 	;Version Marker
 	FUI_Label(TProject, 520, 242, Version$)
 		
@@ -175,7 +175,7 @@ CloseFile(F)
 	BFANO = FUI_Button(TNews, 150, 210, 130, 25, "Forum Annoucements")
 	
 	;Copyright Marker
-	FUI_Label(TNews, 5, 242, "RealmCrafter Community Edition 2 © 2015 Ryde Software, Gajatix Software")
+	FUI_Label(TNews, 5, 242, "RealmCrafter Community Edition 2 © 2024 RydeTec, Gajatix Studios")
 	;Version Marker
 	FUI_Label(TNews, 520, 242, Version$)
 
@@ -202,10 +202,10 @@ CloseFile(F)
 	FUI_Label(TSupport, 170, 210, "rccesupport@rydesoftware.com")
 	FUI_Label(TSupport, 160, 25, "The current Development team: " + Team$)
 	FUI_Label(TSupport, 160, 60, "The Project Manager was coded by Zaven Boyrazian and is property") 
-	FUI_Label(TSupport, 160, 75, "of Gajatix Software.")
+	FUI_Label(TSupport, 160, 75, "of Gajatix Studios.")
 	
 	;Copyright Marker
-	FUI_Label(TSupport, 5, 242, "RealmCrafter Community Edition 2 © 2015 Ryde Software, Gajatix Software")
+	FUI_Label(TSupport, 5, 242, "RealmCrafter Community Edition 2 © 2024 RydeTec, Gajatix Studios")
 	;Version Marker
 	FUI_Label(TSupport, 520, 242, Version$)
 	
