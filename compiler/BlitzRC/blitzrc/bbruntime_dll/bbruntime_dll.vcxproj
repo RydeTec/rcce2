@@ -30,29 +30,29 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Template|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Blitz3DRelease|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Blitz2DRelease|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v143</PlatformToolset>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
@@ -241,7 +241,7 @@
       <ProgramDataBaseFileName>.\bbruntime_dll___Win32_Blitz3DRelease\</ProgramDataBaseFileName>
       <CallingConvention>StdCall</CallingConvention>
       <ExceptionHandling>Async</ExceptionHandling>
-      <AdditionalIncludeDirectories>C:\Program Files %28x86%29\OpenAL 1.1 SDK\include;../../dxsdk/include/</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../../openal/include/;../../dxsdk/include/</AdditionalIncludeDirectories>
     </ClCompile>
     <Midl>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -284,7 +284,7 @@
     <Image Include="bbexe.ico" />
   </ItemGroup>
   <ItemGroup>
-    <Library Include="..\..\..\..\..\..\Program Files (x86)\OpenAL 1.1 SDK\libs\Win32\OpenAL32.lib" />
+    <Library Include="..\..\openal\libs\Win32\OpenAL32.lib" />
     <Library Include="..\..\FreeImage241\Source\FreeImageLib\Release\FreeImage.lib" />
     <Library Include="..\..\libogg\win32\VS2010\Win32\Release\libogg_static.lib" />
     <Library Include="..\..\libvorbis\win32\VS2010\Win32\Release\libvorbisfile_static.lib" />
