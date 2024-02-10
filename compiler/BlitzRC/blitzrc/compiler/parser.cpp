@@ -32,15 +32,15 @@ ProgNode *Parser::parse( const string &main ){
 	try{
 		stmts=parseStmtSeq( STMTS_PROG );
 
-		StmtNode* trnode;
+		//StmtNode* trnode;
 
-		trnode = d_new ExprStmtNode(d_new BlockTraceNode(incfile)); //open block trace
-		trnode->pos = toker->pos();
-		stmts->stmts.insert(stmts->stmts.begin(),trnode);
+		//trnode = d_new ExprStmtNode(d_new BlockTraceNode(incfile)); //open block trace
+		//trnode->pos = toker->pos();
+		//stmts->stmts.insert(stmts->stmts.begin(),trnode);
 
-		trnode = d_new ExprStmtNode(d_new BlockTraceNode());
-		trnode->pos = toker->pos();
-		stmts->push_back(trnode);
+		//trnode = d_new ExprStmtNode(d_new BlockTraceNode());
+		//trnode->pos = toker->pos();
+		//stmts->push_back(trnode);
 
 		if( toker->curr()!=EOF ) exp( "end-of-file" );
 	}catch( Ex ){
@@ -90,17 +90,17 @@ StmtSeqNode *Parser::parseStmtSeq( int scope ){
 
 void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 
-	int line = toker->pos()>>16;
+	//int line = toker->pos()>>16;
 	
-	StmtNode* trnode;
+	//StmtNode* trnode;
 
 	/*trnode = d_new ExprStmtNode(d_new BlockTraceNode(incfile)); //open block trace
 	trnode->pos = toker->pos();
 	stmts->push_back(trnode);*/
 	
-	trnode = d_new ExprStmtNode(d_new LineTraceNode(line));
-	trnode->pos = toker->pos();
-	stmts->push_back(trnode);
+	//trnode = d_new ExprStmtNode(d_new LineTraceNode(line));
+	//trnode->pos = toker->pos();
+	//stmts->push_back(trnode);
 
 	for(;;){
 		while( toker->curr()==':' || (scope!=STMTS_LINE && toker->curr()=='\n') ) {
@@ -108,13 +108,13 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 		}
 		StmtNode *result=0;
 
-		if (line < (toker->pos()>>16)) {
-			line = toker->pos()>>16;
+		//if (line < (toker->pos()>>16)) {
+			//line = toker->pos()>>16;
 
-			trnode = d_new ExprStmtNode(d_new LineTraceNode(line)); //open new line trace
-			trnode->pos = toker->pos();
-			stmts->push_back(trnode);
-		}
+			//trnode = d_new ExprStmtNode(d_new LineTraceNode(line)); //open new line trace
+			//trnode->pos = toker->pos();
+			//stmts->push_back(trnode);
+		//}
 
 		int pos=toker->pos();
 
@@ -524,11 +524,11 @@ DeclNode *Parser::parseFuncDecl(){
 	a_ptr<StmtSeqNode> stmts( parseStmtSeq( STMTS_BLOCK ) );
 	if( toker->curr()!=ENDFUNCTION ) exp( "'End Function'" );
 
-	StmtNode* trnode;
+	//StmtNode* trnode;
 
-	trnode = d_new ExprStmtNode(d_new BlockTraceNode(incfile)); //open block trace
-	trnode->pos = toker->pos();
-	stmts->stmts.insert(stmts->stmts.begin(),trnode);
+	//trnode = d_new ExprStmtNode(d_new BlockTraceNode(incfile)); //open block trace
+	//trnode->pos = toker->pos();
+	//stmts->stmts.insert(stmts->stmts.begin(),trnode);
 
 	StmtNode *ret=d_new ReturnNode(0);ret->pos=toker->pos();
 	stmts->push_back( ret );toker->next();
