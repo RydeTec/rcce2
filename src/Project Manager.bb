@@ -18,7 +18,7 @@ Global GUE_width  = 550
 Global GUE_height = 300
 
 Global Version$   = "v3.0"
-Global Team$ 	 = "Cysis145, Terrier, Corey ""Ryan"" Dean"
+Global Team$ 	 = "Cysis145, Terrier, Corey 'Ryan' Dean"
 
 Global RootDir$ = ".\"
 Global LogMode = 1; (0 = standard logging, 1 = debug mode)
@@ -147,7 +147,7 @@ CloseFile(F)
 	BBPS = FUI_Button(TProject, 410, 200, 125, 25, "BlitzPlus")
 
 	;Copyright Marker
-	FUI_Label(TProject, 5, 242, "RealmCrafter Community Edition 2 © 2024 RydeTec, Gajatix Studios")
+	FUI_Label(TProject, 5, 242, "RealmCrafter Community Edition 2 ï¿½ 2024 RydeTec, Gajatix Studios")
 	;Version Marker
 	FUI_Label(TProject, 520, 242, Version$)
 		
@@ -175,7 +175,7 @@ CloseFile(F)
 	BFANO = FUI_Button(TNews, 150, 210, 130, 25, "Forum Annoucements")
 	
 	;Copyright Marker
-	FUI_Label(TNews, 5, 242, "RealmCrafter Community Edition 2 © 2024 RydeTec, Gajatix Studios")
+	FUI_Label(TNews, 5, 242, "RealmCrafter Community Edition 2 ï¿½ 2024 RydeTec, Gajatix Studios")
 	;Version Marker
 	FUI_Label(TNews, 520, 242, Version$)
 
@@ -205,7 +205,7 @@ CloseFile(F)
 	FUI_Label(TSupport, 160, 75, "of Gajatix Studios.")
 	
 	;Copyright Marker
-	FUI_Label(TSupport, 5, 242, "RealmCrafter Community Edition 2 © 2024 RydeTec, Gajatix Studios")
+	FUI_Label(TSupport, 5, 242, "RealmCrafter Community Edition 2 ï¿½ 2024 RydeTec, Gajatix Studios")
 	;Version Marker
 	FUI_Label(TSupport, 520, 242, Version$)
 	
