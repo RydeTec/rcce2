@@ -1,3 +1,5 @@
+; This file must be compiled with BlitzRC
+
 ;#Region ---------- Notes ----------------------
 ;The minimum value for the camera range of [app\Cam] should be
 ;less than 1.0.
@@ -72,36 +74,36 @@ Type Application
 	Field OldW, OldH, OW, OH, SW, SH, Border, Resizing, ResizingX, ResizingY, OffX, OffY, OverBorder
 	
 	;GUI Framework
-	Field Buffer, R, G, B, A#, R2, G2, B2, A2#, NR, NG, NB, NR2, NG2, NB2, GradDir, Cam, Pivot, Aspect#, Scale#, FrameTimer
+	Field Buffer.BBBuffer, R, G, B, A#, R2, G2, B2, A2#, NR, NG, NB, NR2, NG2, NB2, GradDir, Cam.BBEntity, Pivot.BBEntity, Aspect#, Scale#, FrameTimer
 	Field dirStart$
 	
 	;Frame Rate
 	Field FPeriod, FTime, FRate, FElapsed, FTicks, FTween#, FLimit, FPS#
 	
 	;Fonts
-	Field fntWindow, fntMenu, fntGadget
+	Field fntWindow.BBFont, fntMenu.BBFont, fntGadget.BBFont
 	
 	;Mouse
-	Field Mouse, Win32Mouse, MX, MY, MZ, MXS#, MYS#, MZS#, MB1, MB2, MB3
+	Field Mouse.BBEntity, Win32Mouse, MX, MY, MZ, MXS#, MYS#, MZS#, MB1, MB2, MB3
 	
 	;Window
 	Field overWin.Window, modalWin.Window
 	
 	;Tool Tip
-	Field ToolTipMesh, ToolTip$, TempTip$, ToolTipX, ToolTipY, ToolTipW, ToolTipH, ToolTipTimer, ToolTipDelay
+	Field ToolTipMesh.BBEntity, ToolTip$, TempTip$, ToolTipX, ToolTipY, ToolTipW, ToolTipH, ToolTipTimer, ToolTipDelay
 	
 	;Gadgets
 	Field actMenuTitle.MenuTitle, actContextMenu.ContextMenu, actComboBox.ComboBox, actInputBox, overView, actView.View
-	Field Picked
+	Field Picked.BBEntity
 	
 	;Recent Files
 	Field recentFile$
 	
 	;Dialogs
-	Field currentIndex, currentRGB, currentFile$, currentFont.FONT
+	Field currentIndex, currentRGB, currentFile$, currentFont.Font
 	
 	;Multi-Lingual
-	Field BaseLang, NewLang, BaseLangs$, NewLangs$, OldLang
+	Field BaseLang.BBStream, NewLang.BBStream, BaseLangs$, NewLangs$, OldLang.BBStream
 	
 	;Events
 	Field Quit, ResetEvents, Idle
@@ -119,14 +121,14 @@ End Type
 
 Type Mesh
 	
-	Field ID, Mesh, Wire, Hidden
+	Field ID, Mesh.BBEntity, Wire, Hidden
 	
 End Type
 
 Type Window
 	
 	;Arguments
-	Field X, Y, W, H, Caption$, StatusCaption$, Icon, Flags
+	Field X, Y, W, H, Caption$, StatusCaption$, Icon.BBImage, Flags
 	
 	;Anchor
 	Field OX, OY, OW, OH
@@ -142,10 +144,10 @@ Type Window
 	Field FX, FY, FW, FH
 	
 	;GUI
-	Field Mesh, MinMesh, TitleBar, TitleBarText, MenuBar, StatusBar, StatusBarText, Order, IconMesh
+	Field Mesh.BBEntity, MinMesh.BBEntity, TitleBar.BBEntity, TitleBarText.BBEntity, MenuBar.BBEntity, StatusBar.BBEntity, StatusBarText.BBEntity, Order, IconMesh.BBEntity
 	
 	;Buttons
-	Field MinBtn, CloseBtn
+	Field MinBtn.BBEntity, CloseBtn.BBEntity
 	Field MinBtnActive, MinBtnState, CloseBtnActive, CloseBtnState
 	
 End Type
@@ -166,7 +168,7 @@ Type MenuTitle
 	Field Disabled, Hidden
 	
 	;GUI
-	Field Mesh, DropDown, Order
+	Field Mesh.BBEntity, DropDown.BBEntity, Order
 	
 End Type
 
@@ -176,7 +178,7 @@ Type MenuItem
 	Field Owner.MenuTitle, Parent.MenuItem
 	
 	;Arguments
-	Field X, Y, W, H, Caption$, ShortCut$, Icon, Checkable, Checked, ID
+	Field X, Y, W, H, Caption$, ShortCut$, Icon.BBImage, Checkable, Checked, ID
 	Field overMenuItem.MenuItem, actMenuItem.MenuItem
 	
 	;Properties
@@ -189,7 +191,7 @@ Type MenuItem
 	Field Disabled, Hidden
 	
 	;GUI
-	Field Mesh, DropDown, Order
+	Field Mesh.BBEntity, DropDown.BBEntity, Order
 	
 End Type
 
@@ -210,7 +212,7 @@ Type Region
 	;Misc
 	Field State
 	Field Hidden, Disabled
-	Field Mesh, Order
+	Field Mesh.BBEntity, Order
 	
 End Type
 
@@ -235,7 +237,7 @@ Type Tab
 	;Misc
 	Field State
 	Field Hidden, Disabled
-	Field Mesh, Order
+	Field Mesh.BBEntity, Order
 	
 End Type
 
@@ -245,7 +247,7 @@ Type TabPage
 	Field Owner.Tab
 	
 	;Arguments
-	Field Caption$, Icon
+	Field Caption$, Icon.BBImage
 	
 	;Properties
 	Field X, Y, W, H
@@ -254,7 +256,7 @@ Type TabPage
 	Field Disabled, Hidden
 	
 	;Misc
-	Field Mesh, IconMesh
+	Field Mesh.BBEntity, IconMesh.BBEntity
 	
 End Type
 
@@ -276,7 +278,7 @@ Type Panel
 	Field Hidden, Disabled
 	
 	;Misc
-	Field Mesh, DropDown, Order
+	Field Mesh.BBEntity, DropDown.BBEntity, Order
 	
 End Type
 
@@ -286,7 +288,7 @@ Type Button
 	Field Owner.Window, Parent
 	
 	;Arguments
-	Field X, Y, W, H, Caption$, Icon, Flags, ID
+	Field X, Y, W, H, Caption$, Icon.BBImage, Flags, ID
 	
 	;Anchor
 	Field OX, OY, OW, OH
@@ -299,7 +301,7 @@ Type Button
 	Field Over
 	
 	;Misc
-	Field Mesh
+	Field Mesh.BBEntity
 	
 End Type
 
@@ -320,7 +322,7 @@ Type CheckBox
 	Field Anchor, AX, AY, AW, AH
 	
 	;GUI
-	Field Mesh
+	Field Mesh.BBEntity
 	
 End Type
 
@@ -345,7 +347,7 @@ Type ComboBox
 	Field Anchor, AX, AY, AW, AH
 	
 	;GUI
-	Field Mesh, DropDown, Order
+	Field Mesh.BBEntity, DropDown.BBEntity, Order
 	
 End Type
 
@@ -355,7 +357,7 @@ Type ComboBoxItem
 	Field Owner.ComboBox
 	
 	;Arguments
-	Field Caption$, Icon
+	Field Caption$, Icon.BBImage
 	
 	;Properties
 	Field CData$
@@ -363,7 +365,7 @@ Type ComboBoxItem
 	Field Disabled, Hidden
 	
 	;GUI
-	Field Mesh, IconMesh
+	Field Mesh.BBEntity, IconMesh.BBEntity
 	
 End Type
 
@@ -386,7 +388,7 @@ Type GroupBox
 	Field Hidden, Disabled
 	
 	;Misc
-	Field Mesh, MeshText, Order
+	Field Mesh.BBEntity, MeshText.BBEntity, Order
 	
 End Type
 
@@ -396,7 +398,7 @@ Type ImageBox
 	Field Owner.Window, Parent
 	
 	;Arguments
-	Field X, Y, W, H, Image, Flags
+	Field X, Y, W, H, Image.BBImage, Flags
 	
 	;Properties
 	Field State
@@ -407,7 +409,7 @@ Type ImageBox
 	Field Anchor, AX, AY, AW, AH
 	
 	;GUI
-	Field Mesh
+	Field Mesh.BBEntity
 	
 End Type
 
@@ -428,7 +430,7 @@ Type Label
 	Field Anchor, AX, AY, AW, AH
 	
 	;GUI
-	Field Mesh
+	Field Mesh.BBEntity
 	
 End Type
 
@@ -454,7 +456,7 @@ Type ListBox
 	Field Anchor, AX, AY, AW, AH
 	
 	;GUI
-	Field Mesh, Order
+	Field Mesh.BBEntity, Order
 	
 End Type
 
@@ -464,7 +466,7 @@ Type ListBoxItem
 	Field Owner.ListBox
 	
 	;Arguments
-	Field Caption$, Icon
+	Field Caption$, Icon.BBImage
 	
 	;Properties
 	Field CData$
@@ -472,7 +474,7 @@ Type ListBoxItem
 	Field Disabled, Hidden
 	
 	;GUI
-	Field Mesh, IconMesh
+	Field Mesh.BBEntity, IconMesh.BBEntity
 	
 End Type
 
@@ -495,7 +497,7 @@ Type ProgressBar
 	Field Anchor, AX, AY, AW, AH
 	
 	;GUI
-	Field Mesh, MeshText, Bar
+	Field Mesh.BBEntity, MeshText.BBEntity, Bar.BBEntity
 	
 End Type
 
@@ -516,7 +518,7 @@ Type Radio
 	Field Anchor, AX, AY, AW, AH
 	
 	;GUI
-	Field Mesh
+	Field Mesh.BBEntity
 	
 End Type
 
@@ -540,7 +542,7 @@ Type ScrollBar
 	Field Anchor, AX, AY, AW, AH
 	
 	;GUI
-	Field Mesh, Btn1, Btn2, ScrollBar
+	Field Mesh.BBEntity, Btn1.BBEntity, Btn2.BBEntity, ScrollBar.BBEntity
 	
 End Type
 
@@ -567,7 +569,7 @@ Type Slider
 	Field Anchor, AX, AY, AW, AH
 	
 	;GUI
-	Field Mesh, ScrollBar
+	Field Mesh.BBEntity, ScrollBar.BBEntity
 	
 End Type
 
@@ -598,7 +600,7 @@ Type Spinner
 	Field Timer, CTimer, selStart, selEnd
 	
 	;GUI
-	Field Mesh, MeshText, Caret, Btn1, Btn2
+	Field Mesh.BBEntity, MeshText.BBEntity, Caret.BBEntity, Btn1.BBEntity, Btn2.BBEntity
 	
 End Type
 
@@ -628,7 +630,7 @@ Type TextBox
 	Field Anchor, AX, AY, AW, AH
 	
 	;GUI
-	Field Mesh, MeshText, Caret
+	Field Mesh.BBEntity, MeshText.BBEntity, Caret.BBEntity
 	
 End Type
 
@@ -654,7 +656,7 @@ Type TreeView
 	Field Anchor, AX, AY, AW, AH
 	
 	;GUI
-	Field Mesh, Order
+	Field Mesh.BBEntity, Order
 	
 End Type
 
@@ -674,7 +676,7 @@ Type Node
 	Field Disabled, Hidden
 	
 	;GUI
-	Field Mesh, DropDown
+	Field Mesh.BBEntity, DropDown.BBEntity
 	
 End Type
 
@@ -689,7 +691,7 @@ Type View
 	;Properties
 	Field State
 	
-	Field Cam, R, G, B, Zoom, Wire, ProjMode
+	Field Cam.BBEntity, R, G, B, Zoom, Wire, ProjMode
 	Field Disabled, Hidden
 	
 	;Anchor
@@ -697,7 +699,7 @@ Type View
 	Field Anchor, AX, AY, AW, AH
 	
 	;GUI
-	Field Mesh, MeshText
+	Field Mesh.BBEntity, MeshText.BBEntity
 	
 End Type
 
@@ -717,7 +719,7 @@ Type ContextMenu
 	Field Disabled, Hidden
 	
 	;GUI
-	Field DropDown, Order
+	Field DropDown.BBEntity, Order
 	
 End Type
 
@@ -727,7 +729,7 @@ Type ContextMenuItem
 	Field Owner.ContextMenu, Parent.ContextMenuItem
 	
 	;Arguments
-	Field X, Y, W, H, Caption$, ShortCut$, Icon, Checkable, Checked, ID
+	Field X, Y, W, H, Caption$, ShortCut$, Icon.BBImage, Checkable, Checked, ID
 	Field overMenuItem.ContextMenuItem, actMenuItem.ContextMenuItem
 	
 	;Properties
@@ -738,7 +740,7 @@ Type ContextMenuItem
 	Field Disabled, Hidden
 	
 	;GUI
-	Field Mesh, DropDown, Order
+	Field Mesh.BBEntity, DropDown.BBEntity, Order
 	
 End Type
 
@@ -757,7 +759,7 @@ Type VScrollBar
 	Field Disabled, Hidden
 	
 	;GUI
-	Field Mesh, Btn1, Btn2, ScrollBar
+	Field Mesh.BBEntity, Btn1.BBEntity, Btn2.BBEntity, ScrollBar.BBEntity
 	
 End Type
 
@@ -775,7 +777,7 @@ Type HScrollBar
 	Field Disabled, Hidden
 	
 	;GUI
-	Field Mesh, Btn1, Btn2, ScrollBar
+	Field Mesh.BBEntity, Btn1.BBEntity, Btn2.BBEntity, ScrollBar.BBEntity
 	
 End Type
 ;#End Region
@@ -865,9 +867,9 @@ Global PERCENT_CLIENT = True
 Global RGB_ACCURACY = 20
 
 ;Icons
-Global ICON_NEW = 0
-Global ICON_OPEN = 0
-Global ICON_SAVE = 0
+Global ICON_NEW.BBImage = Null
+Global ICON_OPEN.BBImage = Null
+Global ICON_SAVE.BBImage = Null
 ;#End Region
 
 ;#Region ---------- Constants ------------------
@@ -1252,8 +1254,8 @@ End Function
 
 Function FUI_LoadResolution( fName$ )	
 	
-	file = ReadFile( fName$ )
-	If file <> 0
+	file.BBStream = ReadFile( fName$ )
+	If file <> Null
 		Repeat
 			tline$	= ReadLine( file )
 			var$	= FUI_Parse( tline$, 0, " " )
@@ -1291,11 +1293,11 @@ End Function
 
 Function FUI_MoveApp( X, Y )
 	
-	bnkRECT = CreateBank( 16 )
+	bnkRECT.BBBank = CreateBank( 16 )
 	FUI_API_GetWindowRect( app\hWnd, bnkRECT )
 	FUI_API_MoveWindow( app\hWnd, X, Y, PeekInt( bnkRECT, 8 ) - PeekInt( bnkRECT, 0 ), PeekInt( bnkRECT, 12 ) - PeekInt( bnkRECT, 4 ), True )
 	FreeBank bnkRECT
-	bnkRECT = 0
+	bnkRECT = Null
 	
 End Function
 
@@ -1321,29 +1323,29 @@ Function FUI_ResizeApp( W, H )
 		H = H + FUI_API_GetSystemMetrics( $08 )*2 + FUI_API_GetSystemMetrics( $04 )
 	EndIf
 	
-	bnkRECT = CreateBank( 16 )
+	bnkRECT.BBBank = CreateBank( 16 )
 	FUI_API_GetWindowRect( app\hWnd, bnkRECT )
 	FUI_API_MoveWindow( app\hWnd, PeekInt( bnkRECT, 0 ), PeekInt( bnkRECT, 4 ), W, H, True )
 	FreeBank bnkRECT
-	bnkRECT = 0
+	bnkRECT = Null
 	
 End Function
 
 Function FUI_CenterApp(  )
 	
-	bnkRECT = CreateBank( 16 )
+	bnkRECT.BBBank = CreateBank( 16 )
 	FUI_API_GetWindowRect( app\hWnd, bnkRECT )
 	W = PeekInt( bnkRECT, 8 ) - PeekInt( bnkRECT, 0 )
 	H = PeekInt( bnkRECT, 12 ) - PeekInt( bnkRECT, 4 )
 	FUI_API_MoveWindow( app\hWnd, app\SW / 2 - W / 2, app\SH / 2 - H / 2, W, H, True )
 	FreeBank bnkRECT
-	bnkRECT = 0
+	bnkRECT = Null
 	
 End Function
 
 Function FUI_RemoveBorder(  )
 	
-	bnkRECT = CreateBank( 16 )
+	bnkRECT.BBBank = CreateBank( 16 )
 	FUI_API_GetWindowRect( app\hWnd, bnkRECT )
 	winX = PeekInt( bnkRECT, 0 )
 	winY = PeekInt( bnkRECT, 4 )
@@ -1353,7 +1355,7 @@ Function FUI_RemoveBorder(  )
 	winH = PeekInt( bnkRECT, 12 ) - PeekInt( bnkRECT, 4 )
 	
 	FreeBank bnkRECT
-	bnkRECT = 0
+	bnkRECT = Null
 	
 	If (FUI_API_GetWindowLong( app\hWnd,-16 ) And $40000) = $40000
 		;Sizable window border
@@ -1372,7 +1374,7 @@ End Function
 
 Function FUI_AddBorder(  )
 	
-	bnkRECT = CreateBank( 16 )
+	bnkRECT.BBBank = CreateBank( 16 )
 	FUI_API_GetWindowRect( app\hWnd, bnkRECT )
 	winX = PeekInt( bnkRECT, 0 )
 	winY = PeekInt( bnkRECT, 4 )
@@ -1380,7 +1382,7 @@ Function FUI_AddBorder(  )
 	winH = PeekInt( bnkRECT, 12 ) - PeekInt( bnkRECT, 4 )
 	
 	FreeBank bnkRECT
-	bnkRECT = 0
+	bnkRECT = Null
 	
 	region	= FUI_API_CreateRectRgn( 0, 0, winW, winH )
 	FUI_API_SetWindowRgn( app\hWnd, region, True )
@@ -1419,7 +1421,7 @@ End Function
 
 Function FUI_AppMouseOver( X = 0, Y = 0, W = 0, H = 0 )
 	
-	bnkMouse = CreateBank( 8 )
+	bnkMouse.BBBank = CreateBank( 8 )
 	FUI_API_GetCursorPos( bnkMouse )
 	MX = PeekInt( bnkMouse, 0 )
 	MY = PeekInt( bnkMouse, 4 )
@@ -1429,7 +1431,7 @@ Function FUI_AppMouseOver( X = 0, Y = 0, W = 0, H = 0 )
 		Return False
 	EndIf
 	FreeBank bnkMouse
-	bnkMouse = 0
+	bnkMouse = Null
 	
 End Function
 ;#End Region
@@ -1917,8 +1919,8 @@ Function FUI_GetFiles( lst, dName$ )
 	EndIf
 	
 	;Directories first
-	dir = ReadDir( dName$ )
-	If dir <> 0
+	dir.BBDir = ReadDir( dName$ )
+	If dir <> Null
 		Repeat
 			fName$ = NextFile( dir )
 			
@@ -1932,7 +1934,7 @@ Function FUI_GetFiles( lst, dName$ )
 	
 	;Files
 	dir = ReadDir( dName$ )
-	If dir <> 0
+	If dir <> Null
 		Repeat
 			fName$ = NextFile( dir )
 			
@@ -2015,14 +2017,14 @@ Function FUI_OpenDialog( title$ = "", initdir$ = "", filter$ = "", flags = 0, in
 	If title$ = "" title$ = "Select a File to Open..."
 	If filter$ = "" filter$ = "All Files (*.*)|*.*"
 	
-	lpofn = CreateBank(19*4)
+		lpofn.BBBank = CreateBank(19*4)
 	
 	PokeInt lpofn, 0, BankSize( lpofn )
 	
-	bnkStart = CreateBank( Len( initdir$ ) + 1 )
+	bnkStart.BBBank = CreateBank( Len( initdir$ ) + 1 )
 	strStart = FUI_API_lstrcpy( bnkStart, initdir$ )
 	
-	bnkFilter = CreateBank( Len( filter$ ) + 1 )
+	bnkFilter.BBBank = CreateBank( Len( filter$ ) + 1 )
 	strFilter = FUI_API_lstrcpy( bnkFilter, filter$ )
 	
 	For i = 0 To BankSize( bnkFilter) - 1
@@ -2031,14 +2033,14 @@ Function FUI_OpenDialog( title$ = "", initdir$ = "", filter$ = "", flags = 0, in
 		EndIf
 	Next
 	
-	bnkTitle = CreateBank( Len( title$ ) + 1 )
+	bnkTitle.BBBank = CreateBank( Len( title$ ) + 1 )
 	strTitle = FUI_API_lstrcpy( bnkTitle, title$ )
 	
 	PokeInt lpofn, 4, app\hWnd
 	PokeInt lpofn, 12, strFilter
 	
 	fname$ = String( " ", 5120 )
-	bnkFile = CreateBank( Len( fname$ ) + 1 )
+	bnkFile.BBBank = CreateBank( Len( fname$ ) + 1 )
 	strFile = FUI_API_lstrcpy( bnkFile, fname$)
 	
 	PokeInt lpofn, 24, index
@@ -2074,14 +2076,14 @@ Function FUI_SaveDialog( title$ = "", initdir$ = "", filter$ = "", index = 1 )
 	If title$ = "" title$ = "Select a File to Open..."
 	If filter$ = "" filter$ = "All Files (*.*)|*.*"
 	
-	lpofn = CreateBank(19*4)
+		lpofn.BBBank = CreateBank(19*4)
 	
 	PokeInt lpofn, 0, BankSize( lpofn )
 	
-	bnkStart = CreateBank( Len( initdir$ ) + 1 )
+	bnkStart.BBBank = CreateBank( Len( initdir$ ) + 1 )
 	strStart = FUI_API_lstrcpy( bnkStart, initdir$ )
 	
-	bnkFilter = CreateBank( Len( filter$ ) + 1 )
+	bnkFilter.BBBank = CreateBank( Len( filter$ ) + 1 )
 	strFilter = FUI_API_lstrcpy( bnkFilter, filter$ )
 	
 	For i = 0 To BankSize( bnkFilter) - 1
@@ -2090,14 +2092,14 @@ Function FUI_SaveDialog( title$ = "", initdir$ = "", filter$ = "", index = 1 )
 		EndIf
 	Next
 	
-	bnkTitle = CreateBank( Len( title$ ) + 1 )
+	bnkTitle.BBBank = CreateBank( Len( title$ ) + 1 )
 	strTitle = FUI_API_lstrcpy( bnkTitle, title$ )
 	
 	PokeInt lpofn, 4, app\hWnd
 	PokeInt lpofn, 12, strFilter
 	
 	fname$ = String( " ", 2048 )
-	bnkFile = CreateBank( Len( fname$ ) + 1 )
+	bnkFile.BBBank = CreateBank( Len( fname$ ) + 1 )
 	strFile = FUI_API_lstrcpy( bnkFile, fname$)
 	
 	PokeInt lpofn, 24, index
@@ -2124,15 +2126,15 @@ End Function
 
 Function FUI_ColorDialog( R=0, G=0, B=0 )
 	
-	lpofn = CreateBank(9*4)
+	lpofn.BBBank = CreateBank(9*4)
 	
 	PokeInt lpofn, 0, BankSize( lpofn )
 	PokeInt lpofn, 4, app\hWnd
 	
-	bnkStart = CreateBank( 64 )
+	bnkStart.BBBank = CreateBank( 64 )
 	
-	Address = CreateBank( 4 )
-	FUI_API_RtlMoveMemory2( Address, bnkStart+4, 4 )
+	Address.BBBank = CreateBank( 4 )
+	CopyBank bnkStart, 4, Address, 0, 4
 	
 	rgbResult = FUI_RGBToInt( B, G, R,-1 )
 	PokeInt lpofn, 12, rgbResult
@@ -2160,12 +2162,12 @@ End Function
 
 Function FUI_FontDialog( flags = CF_SCREENFONTS Or CF_EFFECTS )
 	
-	lp = CreateBank( 5*4 + 8 + 32 )
+	lp.BBBank = CreateBank( 5*4 + 8 + 32 )
 	PokeInt lp, 0, 14
 	PokeByte lp, 5*4 + 3, 1
 	
-	Address = CreateBank(4) 
-	FUI_API_RtlMoveMemory2(Address,lp+4,4)
+	Address.BBBank = CreateBank(4) 
+	CopyBank lp, 4, Address, 0, 4
 	
 	lpcf.CHOOSEFONT			= New CHOOSEFONT
 	lpcf\lStructSize		= 15*4
@@ -2208,7 +2210,7 @@ End Function
 
 Function FUI_PrintDialog(  )
 	
-	lppd = CreateBank( 18*4 )
+	lppd.BBBank = CreateBank( 18*4 )
 	PokeInt lppd, 0, BankSize( lppd )
 	PokeInt lppd, 4, app\hWnd
 	
@@ -2242,7 +2244,7 @@ Function FUI_MessageBox( msg$, title$="", style=0 )
 End Function
 
 ;Internal Functions
-Function FUI_GetFilename$( bnkIn, flags=0 )
+Function FUI_GetFilename$( bnkIn.BBBank, flags=0 )
 	
 	fname$ = ""
 	For i = 0 To BankSize( bnkIn ) - 1
@@ -2272,7 +2274,7 @@ Function FUI_GetFilename$( bnkIn, flags=0 )
 	
 End Function
 
-Function FUI_GetFontName$( bnkIn )
+Function FUI_GetFontName$( bnkIn.BBBank )
 	
 	fname$ = ""
 	For i = 5*4 + 8 To BankSize( bnkIn ) - 1
@@ -2311,26 +2313,26 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 	If win <> Null
 		Select Message
 			Case M_SETPOS
-				If Param1 > "" win\X = Param1
-				If Param2 > "" win\Y = Param2
+				If Param1 > "" win\X = Int(Param1)
+					If Param2 > "" win\Y = Int(Param2)
 				FUI_SetPosition win\Mesh, win\X, win\Y
 			Case M_SETPOS_X
-				win\X = Param1
+				win\X = Int(Param1)
 				FUI_SetPosition win\Mesh, win\X, win\Y
 			Case M_SETPOS_Y
-				win\Y = Param1
+				win\Y = Int(Param1)
 				FUI_SetPosition win\Mesh, win\X, win\Y
 			Case M_SETSIZE
-				If Param1 > "" win\W = Param1
-				If Param2 > "" win\H = Param2
+				If Param1 > "" win\W = Int(Param1)
+					If Param2 > "" win\H = Int(Param2)
 				FUI_BuildWindow win
 				FUI_UpdateAnchors Handle( win )
 			Case M_SETSIZE_W
-				win\W = Param1
+				win\W = Int(Param1)
 				FUI_BuildWindow win
 				FUI_UpdateAnchors Handle( win )
 			Case M_SETSIZE_H
-				win\H = Param1
+				win\H = Int(Param1)
 				FUI_BuildWindow win
 				FUI_UpdateAnchors Handle( win )
 			Case M_SETTEXT
@@ -2368,7 +2370,7 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 				If win\Minimised = False
 					ShowEntity win\Mesh
 				Else
-					If win\MinMesh <> 0
+					If win\MinMesh <> Null
 						ShowEntity win\MinMesh
 					EndIf
 				EndIf
@@ -2398,13 +2400,13 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 			Case M_RESTORE
 				win\Minimised = 1 - win\Minimised
 				If win\Minimised = True
-					If win\TitleBar <> 0
+					If win\TitleBar <> Null
 						EntityParent win\TitleBar, win\MinMesh
 					EndIf
 					HideEntity win\Mesh
 					ShowEntity win\MinMesh
 				Else
-					If win\TitleBar <> 0
+					If win\TitleBar <> Null
 						EntityParent win\TitleBar, win\Mesh
 					EndIf
 					ShowEntity win\Mesh
@@ -2495,9 +2497,9 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 				mnui\ShortCut = Param1
 				FUI_BuildMenuItem mnui
 			Case M_SETCHECKED
-				mnui\Checked = Param1
+				mnui\Checked = Int(Param1)
 			Case M_SETID
-				mnui\ID = Param1
+				mnui\ID = Int(Param1)
 				
 			Case M_GETTEXT
 				Return mnui\Caption
@@ -2567,9 +2569,9 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 				cmnui\ShortCut = Param1
 				FUI_BuildContextMenuItem cmnui
 			Case M_SETCHECKED
-				cmnui\Checked = Param1
+				cmnui\Checked = Int(Param1)
 			Case M_SETID
-				cmnui\ID = Param1
+				cmnui\ID = Int(Param1)
 				
 			Case M_GETTEXT
 				Return cmnui\Caption
@@ -2621,30 +2623,30 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 				FUI_ShowGadget(ID)
 			Case M_SETPOS
 				If Param1 > ""
-					FUI_SetGadgetX Handle( Tab ), Param1
+					FUI_SetGadgetX Handle( Tab ), Int(Param1)
 				EndIf
 				If Param2 > ""
-					FUI_SetGadgetY Handle( Tab ), Param2
+					FUI_SetGadgetY Handle( Tab ), Int(Param2)
 				EndIf
 			Case M_SETPOS_X
-				FUI_SetGadgetX Handle( Tab ), Param1
+				FUI_SetGadgetX Handle( Tab ), Int(Param1)
 			Case M_SETPOS_Y
-				FUI_SetGadgetY Handle( Tab ), Param1
+				FUI_SetGadgetY Handle( Tab ), Int(Param1)
 			Case M_SETSIZE
 				If Param1 > ""
-					Tab\W = Param1
+					Tab\W = Int(Param1)
 				EndIf
 				If Param2 > ""
-					Tab\H = Param2
+					Tab\H = Int(Param2)
 				EndIf
 				FUI_BuildTab Tab
 				FUI_UpdateAnchors Handle( Tab )
 			Case M_SETSIZE_W
-				Tab\W = Param1
+				Tab\W = Int(Param1)
 				FUI_BuildTab Tab
 				FUI_UpdateAnchors Handle( Tab )
 			Case M_SETSIZE_H
-				Tab\H = Param1
+				Tab\H = Int(Param1)
 				FUI_BuildTab Tab
 				FUI_UpdateAnchors Handle( Tab )
 			Case M_SETINDEX
@@ -2699,7 +2701,7 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 	If tabp <> Null
 		Select Message
 			Case M_SETSIZE
-				tabp\W = Param1
+				tabp\W = Int(Param1)
 				FUI_BuildTabPage tabp
 			Case M_SETTEXT
 				tabp\Caption = Param1
@@ -2717,7 +2719,7 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 				If FUI_IsImageSource( Param1$ ) = True
 					tabp\Icon = LoadImage( Param1$ )
 				Else
-					tabp\Icon = Int( Param1$ )
+					tabp\Icon = Null
 				EndIf
 				FUI_BuildTabPage tabp
 				
@@ -2761,30 +2763,30 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 				FUI_ShowGadget(ID)
 			Case M_SETPOS
 				If Param1 > ""
-					FUI_SetGadgetX Handle( pan ), Param1
+					FUI_SetGadgetX Handle( pan ), Int(Param1)
 				EndIf
 				If Param2 > ""
-					FUI_SetGadgetY Handle( pan ), Param2
+					FUI_SetGadgetY Handle( pan ), Int(Param2)
 				EndIf
 			Case M_SETPOS_X
-				FUI_SetGadgetX Handle( pan ), Param1
+				FUI_SetGadgetX Handle( pan ), Int(Param1)
 			Case M_SETPOS_Y
-				FUI_SetGadgetY Handle( pan ), Param1
+				FUI_SetGadgetY Handle( pan ), Int(Param1)
 			Case M_SETSIZE
 				If Param1 > ""
-					pan\W = Param1
+					pan\W = Int(Param1)
 				EndIf
 				If Param2 > ""
-					pan\H = Param2
+					pan\H = Int(Param2)
 				EndIf
 				FUI_BuildPanel pan
 				FUI_UpdateAnchors Handle( pan )
 			Case M_SETSIZE_W
-				pan\W = Param1
+				pan\W = Int(Param1)
 				FUI_BuildPanel pan
 				FUI_UpdateAnchors Handle( pan )
 			Case M_SETSIZE_H
-				pan\H = Param1
+				pan\H = Int(Param1)
 				FUI_BuildPanel pan
 				FUI_UpdateAnchors Handle( pan )
 			Case M_SETTEXT
@@ -2823,39 +2825,39 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 				FUI_ShowGadget(ID)
 			Case M_SETPOS
 				If Param1 > ""
-					FUI_SetGadgetX Handle( btn ), Param1
+					FUI_SetGadgetX Handle( btn ), Int(Param1)
 				EndIf
 				If Param2 > ""
-					FUI_SetGadgetY Handle( btn ), Param2
+					FUI_SetGadgetY Handle( btn ), Int(Param2)
 				EndIf
 			Case M_SETPOS_X
-				FUI_SetGadgetX Handle( btn ), Param1
+				FUI_SetGadgetX Handle( btn ), Int(Param1)
 			Case M_SETPOS_Y
-				FUI_SetGadgetY Handle( btn ), Param1
+				FUI_SetGadgetY Handle( btn ), Int(Param1)
 			Case M_SETSIZE
 				If Param1 > ""
-					btn\W = Param1
+					btn\W = Int(Param1)
 				EndIf
 				If Param2 > ""
-					btn\H = Param2
+					btn\H = Int(Param2)
 				EndIf
 				FUI_BuildButton btn
 			Case M_SETSIZE_W
-				btn\W = Param1
+				btn\W = Int(Param1)
 				FUI_BuildButton btn
 			Case M_SETSIZE_H
-				btn\H = Param1
+				btn\H = Int(Param1)
 				FUI_BuildButton btn
 			Case M_SETTEXT
 				btn\Caption = Param1
 				FUI_BuildButton btn
 			Case M_SETSELECTED
 				If btn\ID > 0
-					btn\Active = Param1
+					btn\Active = Int(Param1)
 					If btn\Active = True
 						If btn\Over = True Then btn\State = 1
 						
-						tex = FUI_GadgetTexture( btn\Mesh )
+						tex.BBTexture = FUI_GadgetTexture( btn\Mesh )
 						EntityTexture btn\Mesh, tex, 2
 						FreeTexture tex
 						For btn2.Button = Each Button
@@ -2895,12 +2897,12 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 					Next
 				EndIf
 			Case M_SETID
-				btn\ID = Param1
+				btn\ID = Int(Param1)
 			Case M_SETIMAGE
 				If FUI_IsImageSource( Param1$ ) = True
 					btn\Icon = LoadImage( Param1$ )
 				Else
-					btn\Icon = Int( Param1$ )
+					btn\Icon = Null
 				EndIf
 				FUI_BuildButton btn
 				
@@ -2936,7 +2938,7 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 				Return btn\ID
 			Case M_GETIMAGE
 				;xmlspy
-				If btn\Icon <> 0 Then
+				If btn\Icon <> Null Then
 					Return btn\Icon
 				EndIf
 				;;;Return btn\Icon\Source
@@ -2971,20 +2973,20 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 				FUI_ShowGadget(ID)
 			Case M_SETPOS
 				If Param1 > ""
-					FUI_SetGadgetX Handle( chk ), Param1
+					FUI_SetGadgetX Handle( chk ), Int(Param1)
 				EndIf
 				If Param2 > ""
-					FUI_SetGadgetY Handle( chk ), Param2
+					FUI_SetGadgetY Handle( chk ), Int(Param2)
 				EndIf
 			Case M_SETPOS_X
-				FUI_SetGadgetX Handle( chk ), Param1
+				FUI_SetGadgetX Handle( chk ), Int(Param1)
 			Case M_SETPOS_Y
-				FUI_SetGadgetY Handle( chk ), Param1
+				FUI_SetGadgetY Handle( chk ), Int(Param1)
 			Case M_SETTEXT
 				chk\Caption = Param1
 				FUI_BuildCheckBox chk
 			Case M_SETCHECKED
-				chk\Checked = Param1
+				chk\Checked = Int Param1
 				If chk\Disabled = True
 					FUI_SetTexture chk\Mesh, 3 + chk\Disabled*4
 				EndIf
@@ -3025,28 +3027,28 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 				FUI_ShowGadget(ID)
 			Case M_SETPOS
 				If Param1 > ""
-					FUI_SetGadgetX Handle( cbo ), Param1
+					FUI_SetGadgetX Handle( cbo ), Int Param1
 				EndIf
 				If Param2 > ""
-					FUI_SetGadgetY Handle( cbo ), Param2
+					FUI_SetGadgetY Handle( cbo ), Int Param2
 				EndIf
 			Case M_SETPOS_X
-				FUI_SetGadgetX Handle( cbo ), Param1
+				FUI_SetGadgetX Handle( cbo ), Int Param1
 			Case M_SETPOS_Y
-				FUI_SetGadgetY Handle( cbo ), Param1
+				FUI_SetGadgetY Handle( cbo ), Int Param1
 			Case M_SETSIZE
 				If Param1 > ""
-					cbo\W = Param1
+					cbo\W = Int Param1
 				EndIf
 				If Param2 > ""
-					cbo\H = Param2
+					cbo\H = Int Param2
 				EndIf
 				FUI_BuildComboBox cbo
 			Case M_SETSIZE_W
-				cbo\W = Param1
+				cbo\W = Int Param1
 				FUI_BuildComboBox cbo
 			Case M_SETSIZE_H
-				cbo\H = Param1
+				cbo\H = Int Param1
 				FUI_BuildComboBox cbo
 			Case M_SETINDEX
 				Count = 1
@@ -3208,28 +3210,28 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 				FUI_ShowGadget(ID)
 			Case M_SETPOS
 				If Param1 > ""
-					FUI_SetGadgetX Handle( grp ), Param1
+					FUI_SetGadgetX Handle( grp ), Int Param1
 				EndIf
 				If Param2 > ""
-					FUI_SetGadgetY Handle( grp ), Param2
+					FUI_SetGadgetY Handle( grp ), Int Param2
 				EndIf
 			Case M_SETPOS_X
-				FUI_SetGadgetX Handle( grp ), Param1
+				FUI_SetGadgetX Handle( grp ), Int Param1
 			Case M_SETPOS_Y
-				FUI_SetGadgetY Handle( grp ), Param1
+				FUI_SetGadgetY Handle( grp ), Int Param1
 			Case M_SETSIZE
 				If Param1 > ""
-					grp\W = Param1
+					grp\W = Int Param1
 				EndIf
 				If Param2 > ""
-					grp\H = Param2
+					grp\H = Int Param2
 				EndIf
 				FUI_BuildGroupBox grp
 			Case M_SETSIZE_W
-				grp\W = Param1
+				grp\W = Int Param1
 				FUI_BuildGroupBox grp
 			Case M_SETSIZE_H
-				grp\H = Param1
+				grp\H = Int Param1
 				FUI_BuildGroupBox grp
 			Case M_SETTEXT
 				grp\Caption = Param1
@@ -3275,31 +3277,31 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 				FUI_ShowGadget(ID)
 			Case M_SETPOS
 				If Param1 > ""
-					FUI_SetGadgetX Handle( img ), Param1
+					FUI_SetGadgetX Handle( img ), Int Param1
 				EndIf
 				If Param2 > ""
-					FUI_SetGadgetY Handle( img ), Param2
+					FUI_SetGadgetY Handle( img ), Int Param2
 				EndIf
 			Case M_SETPOS_X
-				FUI_SetGadgetX Handle( img ), Param1
+				FUI_SetGadgetX Handle( img ), Int Param1
 			Case M_SETPOS_Y
-				FUI_SetGadgetY Handle( img ), Param1
+				FUI_SetGadgetY Handle( img ), Int Param1
 			Case M_SETSIZE
 				If Param1 > ""
-					img\W = Param1
+					img\W = Int Param1
 				EndIf
 				If Param2 > ""
-					img\H = Param2
+					img\H = Int Param2
 				EndIf
 				FUI_BuildImageBox img
 			Case M_SETSIZE_W
-				img\W = Param1
+				img\W = Int Param1
 				FUI_BuildImageBox img
 			Case M_SETSIZE_H
-				img\H = Param1
+				img\H = Int Param1
 				FUI_BuildImageBox img
 			Case M_SETIMAGE 
-				img\Image = Param1 
+				img\Image = LoadImage(Param1)
 				If (img\Flags And CS_RESIZE) = CS_RESIZE 
 				   ResizeImage img\Image, img\W, img\H 
 				EndIf 
@@ -3338,15 +3340,15 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 				FUI_ShowGadget(ID)
 			Case M_SETPOS
 				If Param1 > ""
-					FUI_SetGadgetX Handle( lbl ), Param1
+					FUI_SetGadgetX Handle( lbl ), Int Param1
 				EndIf
 				If Param2 > ""
-					FUI_SetGadgetY Handle( lbl ), Param2
+					FUI_SetGadgetY Handle( lbl ), Int Param2
 				EndIf
 			Case M_SETPOS_X
-				FUI_SetGadgetX Handle( lbl ), Param1
+				FUI_SetGadgetX Handle( lbl ), Int Param1
 			Case M_SETPOS_Y
-				FUI_SetGadgetY Handle( lbl ), Param1
+				FUI_SetGadgetY Handle( lbl ), Int Param1
 			Case M_SETTEXT
 				lbl\Caption = Param1
 				FUI_BuildLabel lbl
@@ -3375,28 +3377,28 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 				FUI_ShowGadget(ID)
 			Case M_SETPOS
 				If Param1 > ""
-					FUI_SetGadgetX Handle( lst ), Param1
+					FUI_SetGadgetX Handle( lst ), Int Param1
 				EndIf
 				If Param2 > ""
-					FUI_SetGadgetY Handle( lst ), Param2
+					FUI_SetGadgetY Handle( lst ), Int Param2
 				EndIf
 			Case M_SETPOS_X
-				FUI_SetGadgetX Handle( lst ), Param1
+				FUI_SetGadgetX Handle( lst ), Int Param1
 			Case M_SETPOS_Y
-				FUI_SetGadgetY Handle( lst ), Param1
+				FUI_SetGadgetY Handle( lst ), Int Param1
 			Case M_SETSIZE
 				If Param1 > ""
-					lst\W = Param1
+					lst\W = Int Param1
 				EndIf
 				If Param2 > ""
-					lst\H = Param2
+					lst\H = Int Param2
 				EndIf
 				FUI_BuildListBox lst
 			Case M_SETSIZE_W
-				lst\W = Param1
+				lst\W = Int Param1
 				FUI_BuildListBox lst
 			Case M_SETSIZE_H
-				lst\H = Param1
+				lst\H = Int Param1
 				FUI_BuildListBox lst
 			Case M_SETINDEX
 				Count = 1
@@ -3528,7 +3530,7 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 			Case M_SETDATA
 				lsti\CData = Param1
 			Case M_SETSELECTED
-				lsti\Active = Param1
+				lsti\Active = Int Param1
 				
 			Case M_GETTEXT
 				Return lsti\Caption
@@ -3550,28 +3552,28 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 		Select Message
 			Case M_SETPOS
 				If Param1 > ""
-					FUI_SetGadgetX Handle( prg ), Param1
+					FUI_SetGadgetX Handle( prg ), Int Param1
 				EndIf
 				If Param2 > ""
-					FUI_SetGadgetY Handle( prg ), Param2
+					FUI_SetGadgetY Handle( prg ), Int Param2
 				EndIf
 			Case M_SETPOS_X
-				FUI_SetGadgetX Handle( prg ), Param1
+				FUI_SetGadgetX Handle( prg ), Int Param1
 			Case M_SETPOS_Y
-				FUI_SetGadgetY Handle( prg ), Param1
+				FUI_SetGadgetY Handle( prg ), Int Param1
 			Case M_SETSIZE
 				If Param1 > ""
-					prg\W = Param1
+					prg\W = Int Param1
 				EndIf
 				If Param2 > ""
-					prg\H = Param2
+					prg\H = Int Param2
 				EndIf
 				FUI_BuildProgressBar prg
 			Case M_SETSIZE_W
-				prg\W = Param1
+				prg\W = Int Param1
 				FUI_BuildProgressBar prg
 			Case M_SETSIZE_H
-				prg\H = Param1
+				prg\H = Int Param1
 				FUI_BuildProgressBar prg
 			Case M_SETVALUE
 				prg\Value = Param1
@@ -3617,22 +3619,22 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 				FUI_ShowGadget(ID)
 			Case M_SETPOS
 				If Param1 > ""
-					FUI_SetGadgetX Handle( rad ), Param1
+					FUI_SetGadgetX Handle( rad ), Int Param1
 				EndIf
 				If Param2 > ""
-					FUI_SetGadgetY Handle( rad ), Param2
+					FUI_SetGadgetY Handle( rad ), Int Param2
 				EndIf
 			Case M_SETPOS_X
-				FUI_SetGadgetX Handle( rad ), Param1
+				FUI_SetGadgetX Handle( rad ), Int Param1
 			Case M_SETPOS_Y
-				FUI_SetGadgetY Handle( rad ), Param1
+				FUI_SetGadgetY Handle( rad ), Int Param1
 			Case M_SETTEXT
 				rad\Caption = Param1
 				FUI_BuildRadio rad
 			Case M_SETCHECKED
-				rad\Checked = Param1
+				rad\Checked = Int Param1
 			Case M_SETID
-				rad\ID = Param1
+				rad\ID = Int Param1
 				
 			Case M_GETPOS
 				If Param1 = True
@@ -3668,28 +3670,28 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 		Select Message
 			Case M_SETPOS
 				If Param1 > ""
-					FUI_SetGadgetX Handle( scroll ), Param1
+					FUI_SetGadgetX Handle( scroll ), Int Param1
 				EndIf
 				If Param2 > ""
-					FUI_SetGadgetY Handle( scroll ), Param2
+					FUI_SetGadgetY Handle( scroll ), Int Param2
 				EndIf
 			Case M_SETPOS_X
-				FUI_SetGadgetX Handle( scroll ), Param1
+				FUI_SetGadgetX Handle( scroll ), Int Param1
 			Case M_SETPOS_Y
-				FUI_SetGadgetY Handle( scroll ), Param1
+				FUI_SetGadgetY Handle( scroll ), Int Param1
 			Case M_SETSIZE
 				If Param1 > ""
-					scroll\W = Param1
+					scroll\W = Int Param1
 				EndIf
 				If Param2 > ""
-					scroll\H = Param2
+					scroll\H = Int Param2
 				EndIf
 				FUI_BuildScrollBar scroll
 			Case M_SETSIZE_W
-				scroll\W = Param1
+				scroll\W = Int Param1
 				FUI_BuildScrollBar scroll
 			Case M_SETSIZE_H
-				scroll\H = Param1
+				scroll\H = Int Param1
 				FUI_BuildScrollBar scroll
 			Case M_SETVALUE
 				scroll\Value = Param1
@@ -3735,28 +3737,28 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 				FUI_ShowGadget(ID)
 			Case M_SETPOS
 				If Param1 > ""
-					FUI_SetGadgetX Handle( sld ), Param1
+					FUI_SetGadgetX Handle( sld ), Int Param1
 				EndIf
 				If Param2 > ""
-					FUI_SetGadgetY Handle( sld ), Param2
+					FUI_SetGadgetY Handle( sld ), Int Param2
 				EndIf
 			Case M_SETPOS_X
-				FUI_SetGadgetX Handle( sld ), Param1
+				FUI_SetGadgetX Handle( sld ), Int Param1
 			Case M_SETPOS_Y
-				FUI_SetGadgetY Handle( sld ), Param1
+				FUI_SetGadgetY Handle( sld ), Int Param1
 			Case M_SETSIZE
 				If Param1 > ""
-					sld\W = Param1
+					sld\W = Int Param1
 				EndIf
 				If Param2 > ""
-					sld\H = Param2
+					sld\H = Int Param2
 				EndIf
 				FUI_BuildSlider sld
 			Case M_SETSIZE_W
-				sld\W = Param1
+				sld\W = Int Param1
 				FUI_BuildSlider sld
 			Case M_SETSIZE_H
-				sld\H = Param1
+				sld\H = Int Param1
 				FUI_BuildSlider sld
 			Case M_SETVALUE
 				sld\Value = Param1
@@ -3802,28 +3804,28 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 				FUI_ShowGadget(ID)			
 			Case M_SETPOS
 				If Param1 > ""
-					FUI_SetGadgetX Handle( spn ), Param1
+					FUI_SetGadgetX Handle( spn ), Int Param1
 				EndIf
 				If Param2 > ""
-					FUI_SetGadgetY Handle( spn ), Param2
+					FUI_SetGadgetY Handle( spn ), Int Param2
 				EndIf
 			Case M_SETPOS_X
-				FUI_SetGadgetX Handle( spn ), Param1
+				FUI_SetGadgetX Handle( spn ), Int Param1
 			Case M_SETPOS_Y
-				FUI_SetGadgetY Handle( spn ), Param1
+				FUI_SetGadgetY Handle( spn ), Int Param1
 			Case M_SETSIZE
 				If Param1 > ""
-					spn\W = Param1
+					spn\W = Int Param1
 				EndIf
 				If Param2 > ""
-					spn\H = Param2
+					spn\H = Int Param2
 				EndIf
 				FUI_BuildSpinner spn
 			Case M_SETSIZE_W
-				spn\W = Param1
+				spn\W = Int Param1
 				FUI_BuildSpinner spn
 			Case M_SETSIZE_H
-				spn\H = Param1
+				spn\H = Int Param1
 				FUI_BuildSpinner spn
 			Case M_SETVALUE
 				spn\Value = Param1
@@ -3884,28 +3886,28 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 				FUI_ShowGadget(ID)
 			Case M_SETPOS
 				If Param1 > ""
-					FUI_SetGadgetX Handle( txt ), Param1
+					FUI_SetGadgetX Handle( txt ), Int Param1
 				EndIf
 				If Param2 > ""
-					FUI_SetGadgetY Handle( txt ), Param2
+					FUI_SetGadgetY Handle( txt ), Int Param2
 				EndIf
 			Case M_SETPOS_X
-				FUI_SetGadgetX Handle( txt ), Param1
+				FUI_SetGadgetX Handle( txt ), Int Param1
 			Case M_SETPOS_Y
-				FUI_SetGadgetY Handle( txt ), Param1
+				FUI_SetGadgetY Handle( txt ), Int Param1
 			Case M_SETSIZE
 				If Param1 > ""
-					txt\W = Param1
+					txt\W = Int Param1
 				EndIf
 				If Param2 > ""
-					txt\H = Param2
+					txt\H = Int Param2
 				EndIf
 				FUI_BuildTextBox txt
 			Case M_SETSIZE_W
-				txt\W = Param1
+				txt\W = Int Param1
 				FUI_BuildTextBox txt
 			Case M_SETSIZE_H
-				txt\H = Param1
+				txt\H = Int Param1
 				FUI_BuildTextBox txt
 			Case M_SETTEXT
 				txt\Caption = Param1
@@ -3947,28 +3949,28 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 		Select Message
 			Case M_SETPOS
 				If Param1 > ""
-					FUI_SetGadgetX Handle( tree ), Param1
+					FUI_SetGadgetX Handle( tree ), Int Param1
 				EndIf
 				If Param2 > ""
-					FUI_SetGadgetY Handle( tree ), Param2
+					FUI_SetGadgetY Handle( tree ), Int Param2
 				EndIf
 			Case M_SETPOS_X
-				FUI_SetGadgetX Handle( tree ), Param1
+				FUI_SetGadgetX Handle( tree ), Int Param1
 			Case M_SETPOS_Y
-				FUI_SetGadgetY Handle( tree ), Param1
+				FUI_SetGadgetY Handle( tree ), Int Param1
 			Case M_SETSIZE
 				If Param1 > ""
-					tree\W = Param1
+					tree\W = Int Param1
 				EndIf
 				If Param2 > ""
-					tree\H = Param2
+					tree\H = Int Param2
 				EndIf
 				FUI_BuildTreeView tree
 			Case M_SETSIZE_W
-				tree\W = Param1
+				tree\W = Int Param1
 				FUI_BuildTreeView tree
 			Case M_SETSIZE_H
-				tree\H = Param1
+				tree\H = Int Param1
 				FUI_BuildTreeView tree
 				
 			Case M_GETPOS
@@ -4020,7 +4022,7 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 	If node <> Null
 		Select Message
 			Case M_SETSTATE
-				node\Open = Param1
+				node\Open = Int Param1
 				If node\Open = True
 					For node2.Node = Each Node
 						If node2\Owner = node\Owner And (node2\Layer <= node\Layer) And node2 <> node And node2\Y > node\Y
@@ -4038,7 +4040,7 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 				EntityTexture node\Mesh, tex, node\Active*2 + node\Open*3
 				FreeTexture tex
 			Case M_SETSELECTED
-				node\Active = Param1
+				node\Active = Int Param1
 				If node\Active = True
 					For node2.Node = Each Node
 						If node2\Owner = node\Owner And node2 <> node
@@ -4130,42 +4132,42 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 			Case M_SETROT_Z
 				RotateEntity view\Cam, EntityPitch( view\Cam ), EntityYaw( view\Cam ), Param1
 			Case M_SETCOLOR
-				CameraClsColor view\Cam, FUI_GetRed( Param1 ), FUI_GetGreen( Param1 ), FUI_GetBlue( Param1 )
+				CameraClsColor view\Cam, FUI_GetRed( Int Param1 ), FUI_GetGreen( Int Param1 ), FUI_GetBlue( Int Param1 )
 			Case M_SETMODE
 				Select Param1
 					;Wireframe
 					Case 1
-						view\Wire = Param2
+						view\Wire = Int Param2
 					;Projection Mode
 					Case 2
-						view\ProjMode = Param2
+						view\ProjMode = Int Param2
 						CameraProjMode view\Cam, view\ProjMode
 				End Select
 				
 			Case M_SETPOS
 				If Param1 > ""
-					FUI_SetGadgetX Handle( view ), Param1
+					FUI_SetGadgetX Handle( view ), Int Param1
 				EndIf
 				If Param2 > ""
-					FUI_SetGadgetY Handle( view ), Param2
+					FUI_SetGadgetY Handle( view ), Int Param2
 				EndIf
 			Case M_SETPOS_X
-				FUI_SetGadgetX Handle( view ), Param1
+				FUI_SetGadgetX Handle( view ), Int Param1
 			Case M_SETPOS_Y
-				FUI_SetGadgetY Handle( view ), Param1
+				FUI_SetGadgetY Handle( view ), Int Param1
 			Case M_SETSIZE
 				If Param1 > ""
-					view\W = Param1
+					view\W = Int Param1
 				EndIf
 				If Param2 > ""
-					view\H = Param2
+					view\H = Int Param2
 				EndIf
 				FUI_BuildView view
 			Case M_SETSIZE_W
-				view\W = Param1
+				view\W = Int Param1
 				FUI_BuildView view
 			Case M_SETSIZE_H
-				view\H = Param1
+				view\H = Int Param1
 				FUI_BuildView view
 				
 			Case M_GETPOS
@@ -4251,7 +4253,7 @@ Function FUI_Window( X, Y, W, H, Caption$="Window", Icon$=0, Flags=WS_TITLEBAR O
 		gad\Icon = LoadImage( Icon$ )
 	Else
 		If Int( Icon$ ) <> 0
-			gad\Icon = Int( Icon$ )
+			gad\Icon = Null
 		EndIf
 	EndIf
 	
@@ -4688,7 +4690,7 @@ Function FUI_Region( Owner, X, Y, W, H )
 			OW = reg\FW
 			OH = reg\FH
 			
-			Parent = reg\Mesh
+			Parent.BBEntity = reg\Mesh
 			gad\Owner = reg\Owner
 		ElseIf tabp <> Null
 			OX = tabp\Owner\FX
@@ -4721,7 +4723,7 @@ Function FUI_Region( Owner, X, Y, W, H )
 		OW = gad\Owner\FW
 		OH = gad\Owner\FH
 		
-		Parent = gad\Owner\Mesh
+		Parent.BBEntity = gad\Owner\Mesh
 	EndIf
 	
 	;Arguments
@@ -4785,7 +4787,7 @@ Function FUI_Tab( Owner, X, Y, W, H )
 			OW = reg\FW
 			OH = reg\FH
 			
-			Parent = reg\Mesh
+			Parent.BBEntity = reg\Mesh
 			gad\Owner = reg\Owner
 		ElseIf tabp <> Null
 			OX = tabp\Owner\FX
@@ -4884,7 +4886,7 @@ Function FUI_TabPage( Owner, Caption$="Tab Page", Icon$=0 )
 		EndIf
 	EndIf
 	
-	If gad\Icon <> 0
+	If gad\Icon <> Null
 		gad\W = ImageWidth( gad\Icon ) + 10
 	Else
 		SetFont app\fntGadget
@@ -4928,7 +4930,7 @@ Function FUI_Panel( Owner, X, Y, W, H, Caption$="Panel" )
 			OW = reg\FW
 			OH = reg\FH
 			
-			Parent = reg\Mesh
+			Parent.BBEntity = reg\Mesh
 			gad\Owner = reg\Owner
 		ElseIf tabp <> Null
 			OX = tabp\Owner\FX
@@ -5013,7 +5015,7 @@ Function FUI_Panel( Owner, X, Y, W, H, Caption$="Panel" )
 	
 End Function
 
-Function FUI_Button( Owner, X, Y, W, H, Caption$="Button", Icon$=0, ID=0, Flags=CS_BORDER )
+Function FUI_Button( Owner, X, Y, W, H, Caption$="Button", Icon.BBImage=Null, ID=0, Flags=CS_BORDER )
 	
 	gad.Button				= New Button
 	
@@ -5031,7 +5033,7 @@ Function FUI_Button( Owner, X, Y, W, H, Caption$="Button", Icon$=0, ID=0, Flags=
 			OW = reg\FW
 			OH = reg\FH
 			
-			Parent = reg\Mesh
+			Parent.BBEntity = reg\Mesh
 			gad\Owner = reg\Owner
 		ElseIf tabp <> Null
 			OX = tabp\Owner\FX
@@ -5136,7 +5138,7 @@ Function FUI_CheckBox( Owner, X, Y, Caption$="Check Box", Checked=False )
 			OX = reg\FX
 			OY = reg\FY
 			
-			Parent = reg\Mesh
+			Parent.BBEntity = reg\Mesh
 			gad\Owner = reg\Owner
 		ElseIf tabp <> Null
 			OX = tabp\Owner\FX
@@ -5212,7 +5214,7 @@ Function FUI_ComboBox( Owner, X, Y, W, H, DispItems=0 )
 			OW = reg\FW
 			OH = reg\FH
 			
-			Parent = reg\Mesh
+			Parent.BBEntity = reg\Mesh
 			gad\Owner = reg\Owner
 		ElseIf tabp <> Null
 			OX = tabp\Owner\FX
@@ -5302,7 +5304,7 @@ Function FUI_ComboBox( Owner, X, Y, W, H, DispItems=0 )
 	HideEntity gad\DropDown
 	
 	;Scroll Bars
-	gad\VScroll				= New vScrollBar
+	gad\VScroll				= New VScrollBar
 	gad\VScroll\W			= gad\DH + COMBOBOX_PADDING*2 - 2
 	gad\VScroll\H			= 14
 	gad\VScroll\SW			= gad\VScroll\W / 2
@@ -5402,7 +5404,7 @@ Function FUI_GroupBox( Owner, X, Y, W, H, Caption$="Group Box" )
 			OW = reg\FW
 			OH = reg\FH
 			
-			Parent = reg\Mesh
+			Parent.BBEntity = reg\Mesh
 			gad\Owner = reg\Owner
 		ElseIf tabp <> Null
 			OX = tabp\Owner\FX
@@ -5488,7 +5490,7 @@ Function FUI_GroupBox( Owner, X, Y, W, H, Caption$="Group Box" )
 	
 End Function
 
-Function FUI_ImageBox( Owner, X, Y, W, H, Image$=0, Flags=CS_BORDER)
+Function FUI_ImageBox( Owner, X, Y, W, H, Image.BBImage=Null, Flags=CS_BORDER)
 	
 	gad.ImageBox			= New ImageBox
 	
@@ -5506,7 +5508,7 @@ Function FUI_ImageBox( Owner, X, Y, W, H, Image$=0, Flags=CS_BORDER)
 			OW = reg\FW
 			OH = reg\FH
 			
-			Parent = reg\Mesh
+			Parent.BBEntity = reg\Mesh
 			gad\Owner = reg\Owner
 		ElseIf tabp <> Null
 			OX = tabp\Owner\FX
@@ -5614,7 +5616,7 @@ Function FUI_Label( Owner, X, Y, Caption$="Label", Align=ALIGN_LEFT )
 			OX = reg\FX
 			OY = reg\FY
 			
-			Parent = reg\Mesh
+			Parent.BBEntity = reg\Mesh
 			gad\Owner = reg\Owner
 		ElseIf tabp <> Null
 			OX = tabp\Owner\FX
@@ -5686,7 +5688,7 @@ Function FUI_ListBox( Owner, X, Y, W, H, MultiSel=False, ForceSel=False )
 			OW = reg\FW
 			OH = reg\FH
 			
-			Parent = reg\Mesh
+			Parent.BBEntity = reg\Mesh
 			gad\Owner = reg\Owner
 		ElseIf tabp <> Null
 			OX = tabp\Owner\FX
@@ -5762,7 +5764,7 @@ Function FUI_ListBox( Owner, X, Y, W, H, MultiSel=False, ForceSel=False )
 	FUI_BuildListBox gad
 	
 	;Scroll Bars
-	gad\VScroll				= New vScrollBar
+	gad\VScroll				= New VScrollBar
 	gad\VScroll\W			= gad\H - 2
 	gad\VScroll\H			= 14
 	gad\VScroll\SW			= gad\VScroll\W / 2
@@ -5779,7 +5781,7 @@ Function FUI_ListBox( Owner, X, Y, W, H, MultiSel=False, ForceSel=False )
 	
 	FUI_BuildVScrollBar gad\VScroll
 	
-	gad\HScroll				= New hScrollBar
+	gad\HScroll				= New HScrollBar
 	gad\HScroll\W			= gad\W - 2
 	gad\HScroll\H			= 14
 	gad\HScroll\SW			= gad\HScroll\W / 2
@@ -5795,7 +5797,7 @@ Function FUI_ListBox( Owner, X, Y, W, H, MultiSel=False, ForceSel=False )
 	
 End Function
 
-Function FUI_ListBoxItem( Owner, Caption$="List Box Item", Icon$=0, SortAlphabetically = False)
+Function FUI_ListBoxItem( Owner, Caption$="List Box Item", Icon.BBImage=Null, SortAlphabetically = False)
 	
 	gad.ListBoxItem			= New ListBoxItem
 	
@@ -5877,7 +5879,7 @@ Function FUI_ProgressBar( Owner, X, Y, W, H, Min#=0, Max#=100, Value#=0, DType=D
 			OW = reg\FW
 			OH = reg\FH
 			
-			Parent = reg\Mesh
+			Parent.BBEntity = reg\Mesh
 			gad\Owner = reg\Owner
 		ElseIf tabp <> Null
 			OX = tabp\Owner\FX
@@ -5988,7 +5990,7 @@ Function FUI_Radio( Owner, X, Y, Caption$="Radio", Checked=False, ID=0 )
 			OX = reg\FX
 			OY = reg\FY
 			
-			Parent = reg\Mesh
+			Parent.BBEntity = reg\Mesh
 			gad\Owner = reg\Owner
 		ElseIf tabp <> Null
 			OX = tabp\Owner\FX
@@ -6065,7 +6067,7 @@ Function FUI_ScrollBar( Owner, X, Y, W, H, Min#=0, Max#=100, Value#=0, ScrollW=2
 			OW = reg\FW
 			OH = reg\FH
 			
-			Parent = reg\Mesh
+			Parent.BBEntity = reg\Mesh
 			gad\Owner = reg\Owner
 		ElseIf tabp <> Null
 			OX = tabp\Owner\FX
@@ -6179,7 +6181,7 @@ Function FUI_Slider( Owner, X, Y, W, H, Min#=0, Max#=100, Value#=0, ScrollW=0, D
 			OW = reg\FW
 			OH = reg\FH
 			
-			Parent = reg\Mesh
+			Parent.BBEntity = reg\Mesh
 			gad\Owner = reg\Owner
 		ElseIf tabp <> Null
 			OX = tabp\Owner\FX
@@ -6289,7 +6291,7 @@ Function FUI_Spinner( Owner, X, Y, W, H, Min#=0, Max#=100, Value#=0, Inc#=1, DTy
 			OW = reg\FW
 			OH = reg\FH
 			
-			Parent = reg\Mesh
+			Parent.BBEntity = reg\Mesh
 			gad\Owner = reg\Owner
 		ElseIf tabp <> Null
 			OX = tabp\Owner\FX
@@ -6421,7 +6423,7 @@ Function FUI_TextBox( Owner, X, Y, W, H, MaxLength=0 )
 			OW = reg\FW
 			OH = reg\FH
 			
-			Parent = reg\Mesh
+			Parent.BBEntity = reg\Mesh
 			gad\Owner = reg\Owner
 		ElseIf tabp <> Null
 			OX = tabp\Owner\FX
@@ -6523,7 +6525,7 @@ Function FUI_TreeView( Owner, X, Y, W, H )
 			OW = reg\FW
 			OH = reg\FH
 			
-			Parent = reg\Mesh
+			Parent.BBEntity = reg\Mesh
 			gad\Owner = reg\Owner
 		ElseIf tabp <> Null
 			OX = tabp\Owner\FX
@@ -6595,7 +6597,7 @@ Function FUI_TreeView( Owner, X, Y, W, H )
 	FUI_SetChildPosition gad\Mesh, OX + gad\X, OY + gad\Y
 	
 	;Scroll Bars
-	gad\VScroll				= New vScrollBar
+	gad\VScroll				= New VScrollBar
 	gad\VScroll\W			= gad\H - 2
 	gad\VScroll\H			= 14
 	gad\VScroll\SW			= gad\VScroll\W / 2
@@ -6682,7 +6684,7 @@ Function FUI_View( Owner, X, Y, W, H, R=150, G=150, B=150, Flags=CS_BORDER )
 			OW = reg\FW
 			OH = reg\FH
 			
-			Parent = reg\Mesh
+			Parent.BBEntity = reg\Mesh
 			gad\Owner = reg\Owner
 		ElseIf tabp <> Null
 			OX = tabp\Owner\FX
@@ -6802,12 +6804,12 @@ Function FUI_BuildWindow( gad.Window, Mode=0 )
 		gad\DragW = gad\W
 		gad\DragH = TITLEBAR_HEIGHT + 1
 		
-		surf = GetSurface( gad\TitleBar, 1 )
+		surf.BBSurface = GetSurface( gad\TitleBar, 1 )
 		ClearSurface surf
 		
 		FUI_SetGradientDir( DIR_VERTICAL )
 		
-		useSkin = 0
+		useSkin.BBTexture = Null
 		If SKIN_ENABLED = True
 			useSkin = FUI_SkinWindow( gad, 1 )
 		EndIf
@@ -6816,13 +6818,13 @@ Function FUI_BuildWindow( gad.Window, Mode=0 )
 		FUI_AdjustColor-40, True
 		
 		FUI_Rect WINDOW_BORDER, FY, gad\W-WINDOW_BORDER*2, TITLEBAR_HEIGHT-OffY, surf
-		If useSkin <> 0
+		If useSkin <> Null
 			EntityTexture gad\TitleBar, useSkin
 			
 			FreeTexture useSkin
 		EndIf
 		
-		If gad\Icon <> 0
+		If gad\Icon <> Null
 			iw = ImageWidth( gad\Icon )
 			ih = ImageHeight( gad\Icon )
 			
@@ -6834,7 +6836,7 @@ Function FUI_BuildWindow( gad.Window, Mode=0 )
 			FUI_SetColor SC_WHITE
 			FUI_Rect 0, 0, iw, ih, surf
 			
-			tex = FUI_CreateTexture( iw, ih, 1+2, 1 )
+			tex.BBTexture = FUI_CreateTexture( iw, ih, 1+2, 1 )
 			EntityTexture gad\IconMesh, tex
 			
 			SetBuffer TextureBuffer( tex )
@@ -6860,7 +6862,7 @@ Function FUI_BuildWindow( gad.Window, Mode=0 )
 			UnlockBuffer
 			
 			FreeTexture tex
-			tex = 0
+			tex = Null
 		EndIf
 		
 		FY = FY + (TITLEBAR_HEIGHT-OffY)
@@ -6881,12 +6883,12 @@ Function FUI_BuildWindow( gad.Window, Mode=0 )
 			Y = WINDOW_BORDER
 		EndIf
 		
-		useSkin = False
+		useSkin = Null
 		If SKIN_ENABLED = True
 			useSkin = FUI_SkinWindow( gad, 2 )
 		EndIf
 		
-		If useSkin = False
+		If useSkin = Null
 			FUI_SetColor SC_MENUBAR
 			FUI_Rect WINDOW_BORDER, Y, gad\W-WINDOW_BORDER*2, MENUBAR_HEIGHT - 1, surf
 			
@@ -6909,12 +6911,12 @@ Function FUI_BuildWindow( gad.Window, Mode=0 )
 		surf = GetSurface( gad\StatusBar, 1 )
 		ClearSurface surf
 		
-		useSkin = False
+		useSkin = Null
 		If SKIN_ENABLED = True
 			useSkin = FUI_SkinWindow( gad, 3 )
 		EndIf
 		
-		If useSkin = False
+		If useSkin = Null
 			FUI_SetGradientDir DIR_VERTICAL
 			
 			FUI_SetColor( SC_STATUSBAR )
@@ -6939,12 +6941,12 @@ Function FUI_BuildWindow( gad.Window, Mode=0 )
 	
 	FUI_SetGradientDir( DIR_VERTICAL )
 	
-	useSkin = False
+	useSkin = Null
 	If SKIN_ENABLED = True
 		useSkin = FUI_SkinWindow( gad )
 	EndIf
 	
-	If useSkin = False
+	If useSkin = Null
 		FUI_SetColor SC_FORM
 		FUI_AdjustColor-20, True
 		FUI_Rect WINDOW_BORDER, FY, gad\W-WINDOW_BORDER*2, FH, surf
@@ -6972,7 +6974,7 @@ Function FUI_BuildWindow( gad.Window, Mode=0 )
 	If Mode = 1
 		If (gad\Flags And WS_TITLEBAR) = WS_TITLEBAR
 			FUI_SetTitleBarText Handle( gad ), gad\Caption
-			tex = FUI_GadgetTexture( gad\TitleBarText )
+			tex.BBTexture = FUI_GadgetTexture( gad\TitleBarText )
 			
 			SetBuffer TextureBuffer( tex )
 ;			If gad\Icon <> 0
@@ -7012,17 +7014,17 @@ Function FUI_BuildWindow( gad.Window, Mode=0 )
 				FUI_SetColor( SC_WHITE )
 				FUI_Rect 0, 0, BW, BH, surf
 				
-				useSkin = False
+				useSkin = Null
 				If SKIN_ENABLED = True
 					tex = FUI_LoadTexture( SKIN_PATH$ + "window\close.bmp", 1, 0, 0, 3 )
-					If tex <> 0
+					If tex <> Null
 						EntityTexture gad\CloseBtn, tex
 						FreeTexture tex
 						
-						useSkin = True
+						useSkin = tex
 					EndIf
 				EndIf
-				If useSkin = False
+				If useSkin = Null
 					tex = FUI_CreateTexture( BW, BH, 1+2, 3 )
 					
 					;Up Image
@@ -7075,18 +7077,18 @@ Function FUI_BuildWindow( gad.Window, Mode=0 )
 				FUI_SetColor( SC_WHITE )
 				FUI_Rect 0, 0, BW, BH, surf
 				
-				useSkin = False
+				useSkin = Null
 				If SKIN_ENABLED = True
 					tex = FUI_LoadTexture( SKIN_PATH$ + "window\min.bmp", 1, 0, 0, 6 )
-					If tex <> 0
+					If tex <> Null
 						EntityTexture gad\MinBtn, tex
 						FreeTexture tex
 						
-						useSkin = True
+						useSkin = tex
 					EndIf
 				EndIf
 				
-				If useSkin = False
+				If useSkin = Null
 					tex = FUI_CreateTexture( BW, BH, 1+2, 6, 0 )
 					
 					;Up Image
@@ -7166,12 +7168,12 @@ Function FUI_BuildWindow( gad.Window, Mode=0 )
 		EndIf
 	EndIf
 	
-	If gad\CloseBtn <> 0
+	If gad\CloseBtn <> Null
 		FUI_SetChildPosition gad\CloseBtn, BX, BY
 		
 		BX = BX - BW - 1
 	EndIf
-	If gad\MinBtn <> 0
+	If gad\MinBtn <> Null
 		FUI_SetChildPosition gad\MinBtn, BX, BY
 	EndIf
 	
@@ -7183,13 +7185,13 @@ End Function
 
 Function FUI_BuildMenuTitle( gad.MenuTitle, Mode=0 )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	If Mode = 0
 		;Menu Title
 		SetFont app\fntMenu
 		
-		surf = GetSurface( gad\Mesh, 1 )
+		surf.BBSurface = GetSurface( gad\Mesh, 1 )
 		ClearSurface surf
 		
 		FUI_SetGradientDir DIR_VERTICAL
@@ -7200,7 +7202,7 @@ Function FUI_BuildMenuTitle( gad.MenuTitle, Mode=0 )
 		
 		FUI_Rect 0, 0, gad\W, gad\H, surf
 		
-		tex = FUI_CreateTexture( gad\W, gad\H, 1+2, 4 )
+		tex.BBTexture = FUI_CreateTexture( gad\W, gad\H, 1+2, 4 )
 		EntityTexture gad\Mesh, tex
 		
 		;Up Image
@@ -7277,7 +7279,7 @@ End Function
 
 Function FUI_BuildMenuItem( gad.MenuItem, Mode=0 )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	If gad\Checkable = True; And gad\Icon =-1; Or gad\Icon = 0
 		cnt = 8
@@ -7289,7 +7291,7 @@ Function FUI_BuildMenuItem( gad.MenuItem, Mode=0 )
 		;Menu Item
 		SetFont app\fntMenu
 		
-		surf = GetSurface( gad\Mesh, 1 )
+		surf.BBSurface = GetSurface( gad\Mesh, 1 )
 		ClearSurface surf
 		
 		If gad\Caption <> "-"
@@ -7298,7 +7300,7 @@ Function FUI_BuildMenuItem( gad.MenuItem, Mode=0 )
 			FUI_SetColor SC_WHITE
 			FUI_Rect 0, 0, gad\W, gad\H, surf
 			
-			tex = FUI_CreateTexture( gad\W, gad\H, 1+2, cnt )
+			tex.BBTexture = FUI_CreateTexture( gad\W, gad\H, 1+2, cnt )
 			EntityTexture gad\Mesh, tex
 			
 			If gad\Owner <> Null
@@ -7398,7 +7400,7 @@ Function FUI_BuildMenuItem( gad.MenuItem, Mode=0 )
 	EndIf
 	
 	;Initial Build
-	If gad\Icon <> 0 And gad\Icon <>-1
+	If gad\Icon <> Null
 		
 		tex = FUI_GadgetTexture( gad\Mesh )
 		
@@ -7492,10 +7494,10 @@ End Function
 
 Function FUI_BuildContextMenu( gad.ContextMenu, Mode=0 )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	;DropDown
-	surf = GetSurface( gad\DropDown, 1 )
+	surf.BBSurface = GetSurface( gad\DropDown, 1 )
 	ClearSurface surf
 	
 	If MENUDROPDOWN_STRIP = False
@@ -7530,13 +7532,13 @@ End Function
 
 Function FUI_BuildContextMenuItem( gad.ContextMenuItem, Mode=0 )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	If Mode = 0
 		;Menu Item
 		SetFont app\fntMenu
 		
-		surf = GetSurface( gad\Mesh, 1 )
+		surf.BBSurface = GetSurface( gad\Mesh, 1 )
 		ClearSurface surf
 		
 		If gad\Caption <> "-"
@@ -7551,7 +7553,7 @@ Function FUI_BuildContextMenuItem( gad.ContextMenuItem, Mode=0 )
 				cnt = 4
 			EndIf
 			
-			tex = FUI_CreateTexture( gad\W, gad\H, 1+2, cnt )
+			tex.BBTexture = FUI_CreateTexture( gad\W, gad\H, 1+2, cnt )
 			EntityTexture gad\Mesh, tex
 			
 			If gad\Owner <> Null
@@ -7688,7 +7690,7 @@ End Function
 
 Function FUI_BuildRegion( gad.Region )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	gad\FW = gad\W
 	gad\FH = gad\H
@@ -7699,10 +7701,10 @@ End Function
 
 Function FUI_BuildTab( gad.Tab )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	;Tab Form
-	surf = GetSurface( gad\Mesh, 1 )
+	surf.BBSurface = GetSurface( gad\Mesh, 1 )
 	ClearSurface surf
 	
 	If gad\W <= 0 Or gad\H - TABPAGE_HEIGHT - 2 <= 0
@@ -7711,12 +7713,12 @@ Function FUI_BuildTab( gad.Tab )
 	
 	FUI_SetGradientDir DIR_VERTICAL
 	
-	useSkin = 0
+	useSkin.BBTexture = Null
 	If SKIN_ENABLED = True
 		useSkin = FUI_SkinTab( gad )
 	EndIf
 	
-	If useSkin = 0
+	If useSkin = Null
 		FUI_SetColor SC_GADGET
 		FUI_AdjustColor-20, True
 		FUI_Rect 2, TABPAGE_HEIGHT, gad\W - 4, gad\H - TABPAGE_HEIGHT - 2, surf
@@ -7738,7 +7740,7 @@ Function FUI_BuildTab( gad.Tab )
 		EntityTexture gad\Mesh, useSkin
 		
 		FreeTexture useSkin
-		useSkin = 0
+		useSkin = Null
 	EndIf
 	
 	gad\FW = gad\W
@@ -7750,13 +7752,13 @@ End Function
 
 Function FUI_BuildTabPage( gad.TabPage )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	;Tab Page
 	SetFont app\fntGadget
 	gad\W = StringWidth( gad\Caption ) + 20
 	
-	surf = GetSurface( gad\Mesh, 1 )
+	surf.BBSurface = GetSurface( gad\Mesh, 1 )
 	ClearSurface surf
 	
 	FUI_SetGradientDir DIR_VERTICAL
@@ -7767,13 +7769,13 @@ Function FUI_BuildTabPage( gad.TabPage )
 	
 	FUI_Rect 0, 0, gad\W, gad\H+2, surf
 	
-	useSkin = 0
+	useSkin.BBTexture = Null
 	If SKIN_ENABLED = True
 		useSkin = FUI_SkinTabPage( gad )
 	EndIf
 	
-	If useSkin = 0
-		tex = FUI_CreateTexture( gad\W, gad\H+2, 1+2, 1 )
+	If useSkin = Null
+		tex.BBTexture = FUI_CreateTexture( gad\W, gad\H+2, 1+2, 1 )
 		EntityTexture gad\Mesh, tex
 	
 		If gad\Owner\actTabPage = gad
@@ -7876,10 +7878,10 @@ Function FUI_BuildTabPage( gad.TabPage )
 		EndIf
 		
 		FreeTexture useSkin
-		useSkin = 0
+		useSkin = Null
 	EndIf
 	
-	If gad\Icon <> 0
+	If gad\Icon <> Null
 		iw = ImageWidth( gad\Icon )
 		ih = ImageHeight( gad\Icon )
 		
@@ -7921,7 +7923,7 @@ Function FUI_BuildTabPage( gad.TabPage )
 		UnlockBuffer
 		
 		FreeTexture tex
-		tex = 0
+		tex = Null
 	EndIf
 	
 	SetBuffer pBuffer
@@ -7930,11 +7932,11 @@ End Function
 
 Function FUI_BuildPanel( gad.Panel, Mode=0 )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	If Mode = 0
 		;Drop Down
-		surf = GetSurface( gad\DropDown, 1 )
+		surf.BBSurface = GetSurface( gad\DropDown, 1 )
 		ClearSurface surf
 		
 		If gad\H <= PANEL_HEIGHT Or gad\W <= 0
@@ -7962,23 +7964,23 @@ Function FUI_BuildPanel( gad.Panel, Mode=0 )
 	FUI_Rect 0, 0, gad\W, PANEL_HEIGHT, surf
 	
 	If SKIN_ENABLED = True
-		useSkin = FUI_SkinPanel( gad )
+		useSkin.BBTexture = FUI_SkinPanel( gad )
 	EndIf
 	
-	If useSkin = 0
-		tex = FUI_CreateTexture( gad\W, PANEL_HEIGHT, 1+2, 6 )
+	If useSkin = Null
+		tex.BBTexture = FUI_CreateTexture( gad\W, PANEL_HEIGHT, 1+2, 6 )
 		EntityTexture gad\Mesh, tex, gad\Active*3
 	EndIf
 	
 	For A = 0 To 5
-		If useSkin <> 0
+		If useSkin <> Null
 			tex = useSkin
 		EndIf
 		SetBuffer TextureBuffer( tex, A )
 		
 		;Up Image
 		If A = 0 Or A = 3
-			If useSkin = 0
+			If useSkin = Null
 				FUI_SetColor SC_GADGET
 				Rect 0, 0, gad\W, gad\H
 				
@@ -7999,7 +8001,7 @@ Function FUI_BuildPanel( gad.Panel, Mode=0 )
 			FUI_Text tex, gad\W / 2, PANEL_HEIGHT / 2, gad\Caption, 1, 1
 		;Over Image
 		ElseIf A = 1 Or A = 4
-			If useSkin = 0
+			If useSkin = Null
 				FUI_SetColor SC_GADGET
 				Rect 0, 0, gad\W, gad\H
 				
@@ -8016,7 +8018,7 @@ Function FUI_BuildPanel( gad.Panel, Mode=0 )
 			FUI_Text tex, gad\W / 2, PANEL_HEIGHT / 2, gad\Caption, 1, 1
 		;Disabled Image
 		ElseIf A = 2 Or A = 5
-			If useSkin = 0
+			If useSkin = Null
 				FUI_SetColor SC_GADGET
 				Rect 0, 0, gad\W, gad\H
 				
@@ -8036,7 +8038,7 @@ Function FUI_BuildPanel( gad.Panel, Mode=0 )
 			FUI_Text tex, gad\W / 2, PANEL_HEIGHT / 2, gad\Caption, 1, 1
 		EndIf
 		
-		If useSkin = 0
+		If useSkin = Null
 			If A = 2 Or A = 5
 				FUI_SetColor SC_GADGET
 				FUI_AdjustColor-60
@@ -8051,13 +8053,13 @@ Function FUI_BuildPanel( gad.Panel, Mode=0 )
 		EndIf
 	Next
 	
-	If useSkin = 0
+	If useSkin = Null
 		FreeTexture tex
 	Else
 		EntityTexture gad\Mesh, useSkin
 		
 		FreeTexture useSkin
-		useSkin = 0
+		useSkin = Null
 	EndIf
 	
 	SetBuffer pBuffer
@@ -8066,16 +8068,16 @@ End Function
 
 Function FUI_BuildButton( gad.Button )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	If gad\W <= 0 Or gad\H <= 0
-		surf = GetSurface( gad\Mesh, 1 )
+		surf.BBSurface = GetSurface( gad\Mesh, 1 )
 		ClearSurface surf
 		
 		Return
 	EndIf
 	
-	useSkin = 0
+	useSkin.BBTexture = Null
 	If SKIN_ENABLED = True
 		useSkin = FUI_SkinButton( gad )
 	EndIf
@@ -8089,14 +8091,14 @@ Function FUI_BuildButton( gad.Button )
 	FUI_SetGradientDir DIR_VERTICAL
 	
 	FUI_SetColor SC_WHITE
-	If useSkin = 0
+	If useSkin = Null
 		FUI_AdjustColor 20
 		FUI_AdjustColor 0, True
 	EndIf
 	FUI_Rect 0, 0, gad\W, gad\H, surf
 	
-	If useSkin = 0
-		tex = FUI_CreateTexture( gad\W, gad\H, 1+2, 4 )
+	If useSkin = Null
+		tex.BBTexture = FUI_CreateTexture( gad\W, gad\H, 1+2, 4 )
 	Else
 		tex = useSkin
 	EndIf
@@ -8105,7 +8107,7 @@ Function FUI_BuildButton( gad.Button )
 	;Up Image
 	SetBuffer TextureBuffer( tex, 0 )
 	
-	If useSkin = 0
+	If useSkin = Null
 		FUI_SetColor SC_GADGET
 		Rect 0, 0, gad\W, gad\H
 		
@@ -8121,7 +8123,7 @@ Function FUI_BuildButton( gad.Button )
 		EndIf
 	EndIf
 	
-	If gad\Icon <> 0
+	If gad\Icon <> Null
 		IW = ImageWidth( gad\Icon )
 		IH = ImageHeight( gad\Icon )
 		
@@ -8152,7 +8154,7 @@ Function FUI_BuildButton( gad.Button )
 	;Over Image
 	SetBuffer TextureBuffer( tex, 1 )
 	
-	If useSkin = 0
+	If useSkin = Null
 		FUI_SetColor SC_GADGET
 		Rect 0, 0, gad\W, gad\H
 		
@@ -8168,7 +8170,7 @@ Function FUI_BuildButton( gad.Button )
 		EndIf
 	EndIf
 	
-	If gad\Icon <> 0
+	If gad\Icon <> Null
 		IW = ImageWidth( gad\Icon )
 		IH = ImageHeight( gad\Icon )
 		
@@ -8205,7 +8207,7 @@ Function FUI_BuildButton( gad.Button )
 	;Down Image
 	SetBuffer TextureBuffer( tex, 2 )
 	
-	If useSkin = 0
+	If useSkin = Null
 		FUI_SetColor SC_GADGET
 		FUI_AdjustColor 5
 		Rect 0, 0, gad\W, gad\H
@@ -8222,7 +8224,7 @@ Function FUI_BuildButton( gad.Button )
 		EndIf
 	EndIf
 	
-	If gad\Icon <> 0
+	If gad\Icon <> Null
 		IW = ImageWidth( gad\Icon )
 		IH = ImageHeight( gad\Icon )
 		
@@ -8253,7 +8255,7 @@ Function FUI_BuildButton( gad.Button )
 	;Disabled Image
 	SetBuffer TextureBuffer( tex, 3 )
 	
-	If useSkin = 0
+	If useSkin = Null
 		FUI_SetColor SC_GADGET
 		Rect 0, 0, gad\W, gad\H
 		
@@ -8263,7 +8265,7 @@ Function FUI_BuildButton( gad.Button )
 		EndIf
 	EndIf
 	
-	If gad\Icon <> 0
+	If gad\Icon <> Null
 		IW = ImageWidth( gad\Icon )
 		IH = ImageHeight( gad\Icon )
 		
@@ -8304,12 +8306,12 @@ End Function
 
 Function FUI_BuildCheckBox( gad.CheckBox )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	;Button
 	SetFont app\fntGadget
 	
-	surf = GetSurface( gad\Mesh, 1 )
+	surf.BBSurface = GetSurface( gad\Mesh, 1 )
 	ClearSurface surf
 	
 	gad\W = FontHeight() + 4 + StringWidth( gad\Caption )
@@ -8318,13 +8320,13 @@ Function FUI_BuildCheckBox( gad.CheckBox )
 	FUI_SetColor SC_WHITE
 	FUI_Rect 0, 0, gad\W, gad\H, surf
 	
-	useSkin = 0
+	useSkin.BBTexture = Null
 	If SKIN_ENABLED = True
 		useSkin = FUI_SkinCheckBox( gad )
 	EndIf
 	
-	If useSkin = 0
-		tex = FUI_CreateTexture( gad\W, gad\H, 1+2, 8 )
+	If useSkin = Null
+		tex.BBTexture = FUI_CreateTexture( gad\W, gad\H, 1+2, 8 )
 	Else
 		tex = useSkin
 	EndIf
@@ -8336,7 +8338,7 @@ Function FUI_BuildCheckBox( gad.CheckBox )
 	For A = 0 To 7
 		SetBuffer TextureBuffer( tex, A )
 		
-		If useSkin = 0
+		If useSkin = Null
 			;CheckBox
 			If A <> 3 And A <> 7
 				FUI_SetColor SC_GADGET_COLOR
@@ -8403,13 +8405,13 @@ End Function
 
 Function FUI_BuildComboBox( gad.ComboBox, Mode=0 )
 
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 
 	SetFont app\fntGadget
 
 	If Mode = 0 Or Mode = 2
 		;ComboBox
-		surf = GetSurface( gad\Mesh, 1 )
+		surf.BBSurface = GetSurface( gad\Mesh, 1 )
 		ClearSurface surf
 
 		FUI_SetGradientDir DIR_VERTICAL
@@ -8420,7 +8422,7 @@ Function FUI_BuildComboBox( gad.ComboBox, Mode=0 )
 
 		FUI_Rect 0, 0, gad\W, gad\H, surf
 
-		tex = FUI_CreateTexture( gad\W, gad\H, 1+2, 4 )
+		tex.BBTexture = FUI_CreateTexture( gad\W, gad\H, 1+2, 4 )
 		EntityTexture gad\Mesh, tex
 
 		;Button Dimensions
@@ -8578,10 +8580,10 @@ End Function
 
 Function FUI_BuildComboBoxItem( gad.ComboBoxItem )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	;ComboBox Item
-	surf = GetSurface( gad\Mesh, 1 )
+	surf.BBSurface = GetSurface( gad\Mesh, 1 )
 	ClearSurface surf
 	
 	FUI_SetGradientDir DIR_VERTICAL
@@ -8603,7 +8605,7 @@ Function FUI_BuildComboBoxItem( gad.ComboBoxItem )
 		
 		FUI_Rect 0, 0, gad\Owner\DW - COMBOBOX_PADDING*2, H, surf
 		
-		tex = FUI_CreateTexture( gad\Owner\DW - 2, H, 1+2, 4 )
+		tex.BBTexture = FUI_CreateTexture( gad\Owner\DW - 2, H, 1+2, 4 )
 		EntityTexture gad\Mesh, tex
 		
 		;Up Image
@@ -8643,7 +8645,7 @@ Function FUI_BuildComboBoxItem( gad.ComboBoxItem )
 	EndIf
 	
 	;Initial Build
-	If gad\Icon <> 0 And gad\Icon <>-1
+	If gad\Icon <> Null
 		
 		tex = FUI_GadgetTexture( gad\Mesh )
 		
@@ -8705,14 +8707,14 @@ End Function
 
 Function FUI_BuildGroupBox( gad.GroupBox )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	;Group Box
 	SetFont app\fntGadget
 	
 	FH = FontHeight() / 2
 	
-	surf = GetSurface( gad\Mesh, 1 )
+	surf.BBSurface = GetSurface( gad\Mesh, 1 )
 	ClearSurface surf
 	
 	If gad\W <= 0 Or gad\H < 0
@@ -8754,7 +8756,7 @@ Function FUI_BuildGroupBox( gad.GroupBox )
 	FUI_SetColor SC_WHITE
 	FUI_Rect 0, 0, StringWidth( gad\Caption ), FontHeight(  ), surf
 	
-	tex = FUI_CreateTexture( StringWidth( gad\Caption ), FontHeight(  ), 1+2 )
+	tex.BBTexture = FUI_CreateTexture( StringWidth( gad\Caption ), FontHeight(  ), 1+2 )
 	EntityTexture gad\MeshText, tex
 	
 	SetBuffer TextureBuffer( tex )
@@ -8773,10 +8775,10 @@ End Function
 
 Function FUI_BuildImageBox( gad.ImageBox )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	;Image Box
-	surf = GetSurface( gad\Mesh, 1 )
+	surf.BBSurface = GetSurface( gad\Mesh, 1 )
 	ClearSurface surf
 	
 	If gad\W <= 0 Or gad\H <= 0
@@ -8786,12 +8788,12 @@ Function FUI_BuildImageBox( gad.ImageBox )
 	FUI_SetColor SC_WHITE
 	FUI_Rect 0, 0, gad\W, gad\H, surf
 	
-	tex = FUI_CreateTexture( gad\W, gad\H, 1 )
+	tex.BBTexture = FUI_CreateTexture( gad\W, gad\H, 1 )
 	EntityTexture gad\Mesh, tex
 	
 	SetBuffer TextureBuffer( tex )
 	
-	If gad\Image <> 0
+	If gad\Image <> Null
 		IW = ImageWidth( gad\Image )
 		IH = ImageHeight( gad\Image )
 		
@@ -8827,12 +8829,12 @@ End Function
 
 Function FUI_BuildLabel( gad.Label )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	;Label
 	SetFont app\fntGadget
 	
-	surf = GetSurface( gad\Mesh, 1 )
+	surf.BBSurface = GetSurface( gad\Mesh, 1 )
 	ClearSurface surf
 	
 	NumLines = FUI_CountItems( gad\Caption, Chr(10) )
@@ -8855,7 +8857,7 @@ Function FUI_BuildLabel( gad.Label )
 	FUI_SetColor SC_WHITE
 	FUI_Rect 0, 0, gad\W, gad\H, surf
 	
-	tex = FUI_CreateTexture( gad\W, gad\H, 1+2 )
+	tex.BBTexture = FUI_CreateTexture( gad\W, gad\H, 1+2 )
 	EntityTexture gad\Mesh, tex
 	
 	SetBuffer TextureBuffer( tex )
@@ -8886,10 +8888,10 @@ End Function
 
 Function FUI_BuildListBox( gad.ListBox )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	;List Box
-	surf = GetSurface( gad\Mesh, 1 )
+	surf.BBSurface = GetSurface( gad\Mesh, 1 )
 	ClearSurface surf
 	
 	If gad\W <= 0 Or gad\H <= 0
@@ -8907,10 +8909,10 @@ End Function
 
 Function FUI_BuildListBoxItem( gad.ListBoxItem )
 
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	;List Box Item
-	surf = GetSurface( gad\Mesh, 1 )
+	surf.BBSurface = GetSurface( gad\Mesh, 1 )
 	ClearSurface surf
 	
 	W = gad\Owner\W - LISTBOX_PADDING*2
@@ -8919,7 +8921,7 @@ Function FUI_BuildListBoxItem( gad.ListBoxItem )
 	FUI_Rect 0, 0, W, LISTBOXITEM_HEIGHT, surf
 	
 ;	tex = FUI_CreateTexture( W, LISTBOXITEM_HEIGHT, 1+2, 8 )
-	tex = FUI_CreateTexture( W, LISTBOXITEM_HEIGHT, 1+2, 4 )
+	tex.BBTexture = FUI_CreateTexture( W, LISTBOXITEM_HEIGHT, 1+2, 4 )
 	EntityTexture gad\Mesh, tex, gad\Active*2
 	
 	;Over Image
@@ -8948,7 +8950,7 @@ Function FUI_BuildListBoxItem( gad.ListBoxItem )
 	Next
 	
 	;Initial Build
-	If gad\Icon <> 0 And gad\Icon <>-1
+	If gad\Icon <> Null
 		tex = FUI_GadgetTexture( gad\Mesh )
 		
 		IW = ImageWidth( gad\Icon )
@@ -9012,12 +9014,12 @@ End Function
 
 Function FUI_BuildProgressBar( gad.ProgressBar )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	SetFont app\fntGadget
 	
 	;Progress Bar
-	surf = GetSurface( gad\Mesh, 1 )
+	surf.BBSurface = GetSurface( gad\Mesh, 1 )
 	ClearSurface surf
 	
 	If gad\W <= 0 Or gad\H <= 0
@@ -9041,7 +9043,7 @@ Function FUI_BuildProgressBar( gad.ProgressBar )
 	FUI_SetColor SC_WHITE
 	FUI_Rect 0, 0, StringWidth( gad\Value + "%" ), FontHeight(), surf
 	
-	tex = FUI_CreateTexture( StringWidth( FUI_Interpolate( gad\Value, gad\Min, gad\Max, 0, 100 ) + "%" ), FontHeight(), 1+2 )
+	tex.BBTexture = FUI_CreateTexture( StringWidth( FUI_Interpolate( gad\Value, gad\Min, gad\Max, 0, 100 ) + "%" ), FontHeight(), 1+2 )
 	EntityTexture gad\MeshText, tex
 	
 	SetBuffer TextureBuffer( tex )
@@ -9059,12 +9061,12 @@ End Function
 
 Function FUI_BuildRadio( gad.Radio )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	;Radio
 	SetFont app\fntGadget
 	
-	surf = GetSurface( gad\Mesh, 1 )
+	surf.BBSurface = GetSurface( gad\Mesh, 1 )
 	ClearSurface surf
 	
 	gad\H = FontHeight()
@@ -9077,7 +9079,7 @@ Function FUI_BuildRadio( gad.Radio )
 	FUI_SetColor SC_WHITE
 	FUI_Rect 0, 0, gad\W, gad\H, surf
 	
-	tex = FUI_CreateTexture( gad\W, gad\H, 1+2, 8 )
+	tex.BBTexture = FUI_CreateTexture( gad\W, gad\H, 1+2, 8 )
 	EntityTexture gad\Mesh, tex
 	
 	For A = 0 To 7
@@ -9135,12 +9137,12 @@ End Function
 
 Function FUI_BuildScrollBar( gad.ScrollBar )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	;Label
 	SetFont app\fntGadget
 	
-	surf = GetSurface( gad\Mesh, 1 )
+	surf.BBSurface = GetSurface( gad\Mesh, 1 )
 	ClearSurface surf
 	
 	If gad\W <= 0 Or gad\H <= 0
@@ -9195,7 +9197,7 @@ Function FUI_BuildScrollBar( gad.ScrollBar )
 	FUI_SetColor SC_WHITE
 	FUI_Rect 0, 0, BW, BH, surf
 	
-	tex = FUI_CreateTexture( BW, BH, 1+2, 4 )
+	tex.BBTexture = FUI_CreateTexture( BW, BH, 1+2, 4 )
 	EntityTexture gad\Btn1, tex
 	
 	;Up Image
@@ -9399,12 +9401,12 @@ End Function
 
 Function FUI_BuildSlider( gad.Slider )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	;Slider
 	SetFont app\fntGadget
 	
-	surf = GetSurface( gad\Mesh, 1 )
+	surf.BBSurface = GetSurface( gad\Mesh, 1 )
 	ClearSurface surf
 	
 	If gad\W <= 0 Or gad\H <= 0
@@ -9449,7 +9451,7 @@ End Function
 
 Function FUI_BuildSpinner( gad.Spinner, Mode = 0 )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	SetFont app\fntGadget
 	
@@ -9458,7 +9460,7 @@ Function FUI_BuildSpinner( gad.Spinner, Mode = 0 )
 	
 	If Mode = 0
 		;Spinner
-		surf = GetSurface( gad\Mesh, 1 )
+		surf.BBSurface = GetSurface( gad\Mesh, 1 )
 		ClearSurface surf
 		
 		If gad\W <= 0 Or gad\H <= 0
@@ -9486,7 +9488,7 @@ Function FUI_BuildSpinner( gad.Spinner, Mode = 0 )
 	FUI_SetColor SC_WHITE
 	FUI_Rect 0, 0, gad\W - 2 - BW - 1, gad\H-2, surf
 	
-	tex = FUI_CreateTexture( gad\W - 2 - BW - 1, gad\H-2, 1+2 )
+	tex.BBTexture = FUI_CreateTexture( gad\W - 2 - BW - 1, gad\H-2, 1+2 )
 	EntityTexture gad\MeshText, tex
 	
 	SetBuffer TextureBuffer( tex )
@@ -9676,13 +9678,13 @@ End Function
 
 Function FUI_BuildTextBox( gad.TextBox, Mode = 0 )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	;TextBox
 	SetFont app\fntGadget
 	
 	If Mode = 0
-		surf = GetSurface( gad\Mesh, 1 )
+		surf.BBSurface = GetSurface( gad\Mesh, 1 )
 		ClearSurface surf
 		
 		If gad\W <= 0 Or gad\H <= 0
@@ -9709,7 +9711,7 @@ Function FUI_BuildTextBox( gad.TextBox, Mode = 0 )
 	FUI_SetColor SC_WHITE
 	FUI_Rect 1, 1, gad\W-2, gad\H-2, surf
 	
-	tex = FUI_CreateTexture( gad\W-2, gad\H-2, 1+2 )
+	tex.BBTexture = FUI_CreateTexture( gad\W-2, gad\H-2, 1+2 )
 	EntityTexture gad\MeshText, tex
 	
 	SetBuffer TextureBuffer( tex )
@@ -9725,10 +9727,10 @@ End Function
 
 Function FUI_BuildTreeView( gad.TreeView )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	;TreeView
-	surf = GetSurface( gad\Mesh, 1 )
+	surf.BBSurface = GetSurface( gad\Mesh, 1 )
 	ClearSurface surf
 	
 	If gad\W <= 0 Or gad\H <= 0
@@ -9747,18 +9749,18 @@ End Function
 
 Function FUI_BuildTreeViewNode( gad.Node, Mode = 0 )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	;Node
 	SetFont app\fntGadget
 	
-	surf = GetSurface( gad\Mesh, 1 )
+	surf.BBSurface = GetSurface( gad\Mesh, 1 )
 	ClearSurface surf
 	
 	FUI_SetColor SC_WHITE
 	FUI_Rect 0, 0, gad\Owner\W-TREEVIEW_PADDING*2, TREEVIEWITEM_HEIGHT, surf
 	
-	tex = FUI_CreateTexture( gad\Owner\W-TREEVIEW_PADDING*2, TREEVIEWITEM_HEIGHT, 1+2, 6 )
+	tex.BBTexture = FUI_CreateTexture( gad\Owner\W-TREEVIEW_PADDING*2, TREEVIEWITEM_HEIGHT, 1+2, 6 )
 	EntityTexture gad\Mesh, tex
 	
 	For A = 0 To 5
@@ -9775,7 +9777,13 @@ Function FUI_BuildTreeViewNode( gad.Node, Mode = 0 )
 		;Down Image
 		ElseIf A = 2 Or A = 5
 			FUI_SetColor SC_INPUT_COLOR
-			Rect 0, 0, gad\Owner\W-TREEVIEW_PADDING*2, TREEVIEWITEM_HEIGHT, surf
+			If surf <> Null 
+				solid = True 
+			Else 
+				solid = False
+			EndIf
+			
+			Rect 0, 0, gad\Owner\W-TREEVIEW_PADDING*2, TREEVIEWITEM_HEIGHT, solid
 			
 			FUI_SetColor SC_INPUT_COLOR_TEXT
 			FUI_Text tex, 4 + gad\Layer*TREEVIEWITEM_HEIGHT, TREEVIEWITEM_HEIGHT / 2, gad\Caption, 0, 1
@@ -9818,10 +9826,10 @@ End Function
 
 Function FUI_BuildView( gad.View )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	;View
-	surf = GetSurface( gad\Mesh, 1 )
+	surf.BBSurface = GetSurface( gad\Mesh, 1 )
 	ClearSurface surf
 	
 	If gad\W <= 2 Or gad\H <= 2
@@ -9845,10 +9853,10 @@ End Function
 
 Function FUI_BuildVScrollBar( gad.VScrollBar, Mode = 0 )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	;ScrollBar
-	surf = GetSurface( gad\Mesh, 1 )
+	surf.BBSurface = GetSurface( gad\Mesh, 1 )
 	ClearSurface surf
 	
 	If gad\H <= 0
@@ -9880,7 +9888,7 @@ Function FUI_BuildVScrollBar( gad.VScrollBar, Mode = 0 )
 		FUI_SetColor SC_WHITE
 		FUI_Rect BX, BY, BW, BH, surf
 		
-		tex = FUI_CreateTexture( BW, BH, 1+2, 4 )
+		tex.BBTexture = FUI_CreateTexture( BW, BH, 1+2, 4 )
 		EntityTexture gad\Btn1, tex
 		
 		;Up Image
@@ -10068,14 +10076,14 @@ End Function
 
 Function FUI_BuildToolTip(  )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	;Tool Tip
-	surf = GetSurface( app\ToolTipMesh, 1 )
+	surf.BBSurface = GetSurface( app\ToolTipMesh, 1 )
 	ClearSurface surf
 	
 	SetFont app\fntGadget
-	tex = FUI_CreateTexture( StringWidth( app\ToolTip ) + 12, FontHeight(  ) + 10, 1+2, 1 )
+	tex.BBTexture = FUI_CreateTexture( StringWidth( app\ToolTip ) + 12, FontHeight(  ) + 10, 1+2, 1 )
 	EntityTexture app\ToolTipMesh, tex
 	
 	SetBuffer TextureBuffer( tex )
@@ -10775,18 +10783,18 @@ Function FUI_UpdateWindow(  )
 	While gad <> Null
 		gad\Order = Count
 		EntityOrder gad\Mesh, Count
-		If gad\MinMesh <> 0
+		If gad\MinMesh <> Null
 			EntityOrder gad\MinMesh, Count
 		EndIf
-		If gad\TitleBar <> 0
+		If gad\TitleBar <> Null
 			EntityOrder gad\TitleBar, Count
 			EntityOrder gad\TitleBarText, Count-1
 			EntityOrder gad\IconMesh, Count-1
 		EndIf
-		If gad\MenuBar <> 0
+		If gad\MenuBar <> Null
 			EntityOrder gad\MenuBar, Count
 		EndIf
-		If gad\StatusBar <> 0
+		If gad\StatusBar <> Null
 			EntityOrder gad\StatusBar, Count
 			EntityOrder gad\StatusBarText, Count-1
 		EndIf
@@ -10848,7 +10856,7 @@ Function FUI_UpdateWindow(  )
 						EndIf
 					EndIf
 					
-					tex = FUI_GadgetTexture( gad\CloseBtn )
+					tex.BBTexture = FUI_GadgetTexture( gad\CloseBtn )
 					Select gad\CloseBtnState
 						Case 0
 							EntityTexture gad\CloseBtn, tex, 0;+(gad\Minimised*3)
@@ -10885,7 +10893,7 @@ Function FUI_UpdateWindow(  )
 									HideEntity gad\Mesh
 									ShowEntity gad\MinMesh
 									tex = FUI_GadgetTexture( gad\TitleBar )
-									If tex <> 0
+									If tex <> Null
 										EntityTexture gad\TitleBar, tex, 1
 										FreeTexture tex
 									EndIf
@@ -10896,7 +10904,7 @@ Function FUI_UpdateWindow(  )
 									ShowEntity gad\Mesh
 									HideEntity gad\MinMesh
 									tex = FUI_GadgetTexture( gad\TitleBar )
-									If tex <> 0
+									If tex <> Null
 										EntityTexture gad\TitleBar, tex, 0
 										FreeTexture tex
 									EndIf
@@ -11024,7 +11032,7 @@ Function FUI_UpdateWindow(  )
 				
 				For mnut.MenuTitle = Each MenuTitle
 					If mnut\Owner = gad
-						EntityParent mnut\Mesh, 0
+						EntityParent mnut\Mesh, Null
 						HideEntity mnut\Mesh
 					EndIf
 				Next
@@ -11122,7 +11130,7 @@ Function FUI_UpdateMenuTitle( win.Window )
 						ShowEntity gad\DropDown
 						EntityOrder gad\DropDown, gad\Order-1
 						If gad\Disabled = False
-							tex = FUI_GadgetTexture( gad\Mesh )
+							tex.BBTexture = FUI_GadgetTexture( gad\Mesh )
 							EntityTexture gad\Mesh, tex, 2
 							FreeTexture tex
 						EndIf
@@ -11161,7 +11169,7 @@ Function FUI_UpdateMenuItem( ID )
 		For gad.MenuItem = Each MenuItem
 			If gad\Owner = mnut And mnut <> Null And gad\Parent = Null
 				HideEntity gad\Mesh
-				If gad\DropDown <> 0 HideEntity gad\DropDown
+				If gad\DropDown <> Null HideEntity gad\DropDown
 				If app\actMenuTitle = mnut And gad\Hidden = False
 					gad\Order = mnut\Order-2
 					EntityOrder gad\Mesh, gad\Order
@@ -11225,7 +11233,7 @@ Function FUI_UpdateMenuItem( ID )
 					EndIf
 					If gad\Caption <> "-"
 						If mnut\actMenuItem = gad
-							If gad\DropDown <> 0
+							If gad\DropDown <> Null
 								ShowEntity gad\DropDown
 								EntityOrder gad\DropDown, gad\Order-1
 							EndIf
@@ -11234,11 +11242,11 @@ Function FUI_UpdateMenuItem( ID )
 							EndIf
 						Else
 							gad\actMenuItem = Null
-							If gad\DropDown <> 0
+							If gad\DropDown <> Null
 								HideEntity gad\DropDown
 							EndIf
 							If gad\Disabled = False
-								tex = FUI_GadgetTexture( gad\Mesh )
+								tex.BBTexture = FUI_GadgetTexture( gad\Mesh )
 								If FUI_MouseOver( X, Y, gad\W, gad\H ) = True And gad\Disabled = False
 									EntityTexture gad\Mesh, tex, 1 + gad\Checked*4
 								Else
@@ -11263,7 +11271,7 @@ Function FUI_UpdateMenuItem( ID )
 		win.Window = mnut\Owner
 		For gad.MenuItem = Each MenuItem
 			If gad\Parent = mnui And mnui <> Null
-				If gad\DropDown <> 0 HideEntity gad\DropDown
+				If gad\DropDown <> Null HideEntity gad\DropDown
 				HideEntity gad\Mesh
 				Valid = False
 				If mnui\Parent = Null
@@ -11338,7 +11346,7 @@ Function FUI_UpdateMenuItem( ID )
 						gad\DX = X + gad\W + MENUITEM_DROPDOWN_X
 						gad\DY = Y + MENUITEM_DROPDOWN_Y
 						If mnui\actMenuItem = gad
-							If gad\DropDown <> 0
+							If gad\DropDown <> Null
 								ShowEntity gad\DropDown
 								EntityOrder gad\DropDown, gad\Order-1
 							EndIf
@@ -11346,7 +11354,7 @@ Function FUI_UpdateMenuItem( ID )
 								FUI_SetTexture gad\Mesh, 2 + gad\Checked * 4
 							EndIf
 						Else
-							If gad\DropDown <> 0
+							If gad\DropDown <> Null
 								HideEntity gad\DropDown
 							EndIf
 							If gad\Disabled = False
@@ -11417,7 +11425,7 @@ Function FUI_UpdateContextMenuItem( ID )
 		For gad.ContextMenuItem = Each ContextMenuItem
 			If gad\Owner = mnut And mnut <> Null And gad\Parent = Null
 				HideEntity gad\Mesh
-				If gad\DropDown <> 0 HideEntity gad\DropDown
+				If gad\DropDown <> Null HideEntity gad\DropDown
 				If app\actContextMenu = mnut And gad\Hidden = False
 					gad\Order = mnut\Order-2
 					EntityOrder gad\Mesh, gad\Order
@@ -11482,7 +11490,7 @@ Function FUI_UpdateContextMenuItem( ID )
 					EndIf
 					If gad\Caption <> "-"
 						If mnut\actMenuItem = gad
-							If gad\DropDown <> 0
+							If gad\DropDown <> Null
 								ShowEntity gad\DropDown
 								EntityOrder gad\DropDown, gad\Order-1
 							EndIf
@@ -11491,11 +11499,11 @@ Function FUI_UpdateContextMenuItem( ID )
 							EndIf
 						Else
 							gad\actMenuItem = Null
-							If gad\DropDown <> 0
+							If gad\DropDown <> Null
 								HideEntity gad\DropDown
 							EndIf
 							If gad\Disabled = False
-								tex = FUI_GadgetTexture( gad\Mesh )
+								tex.BBTexture = FUI_GadgetTexture( gad\Mesh )
 								If mnut\overMenuItem = gad
 									EntityTexture gad\Mesh, tex, 1 + gad\Checked*4
 								Else
@@ -11517,7 +11525,7 @@ Function FUI_UpdateContextMenuItem( ID )
 		
 		For gad.ContextMenuItem = Each ContextMenuItem
 			If gad\Parent = mnui And mnui <> Null
-				If gad\DropDown <> 0 HideEntity gad\DropDown
+				If gad\DropDown <> Null HideEntity gad\DropDown
 				HideEntity gad\Mesh
 				Valid = False
 				If mnui\Parent = Null
@@ -11597,7 +11605,7 @@ Function FUI_UpdateContextMenuItem( ID )
 						gad\DX = X + gad\W + MENUITEM_DROPDOWN_X
 						gad\DY = Y + MENUITEM_DROPDOWN_Y
 						If mnui\actMenuItem = gad
-							If gad\DropDown <> 0
+							If gad\DropDown <> Null
 								ShowEntity gad\DropDown
 								EntityOrder gad\DropDown, gad\Order-1
 							EndIf
@@ -11605,7 +11613,7 @@ Function FUI_UpdateContextMenuItem( ID )
 								FUI_SetTexture gad\Mesh, 2 + gad\Checked * 4
 							EndIf
 						Else
-							If gad\DropDown <> 0
+							If gad\DropDown <> Null
 								HideEntity gad\DropDown
 							EndIf
 							If gad\Disabled = False
@@ -12832,7 +12840,7 @@ Function FUI_UpdateListBox( ID )
 									For lsti.ListBoxItem = Each ListBoxItem
 										If lsti\Owner = gad
 											lsti\Active = False
-											tex = FUI_GadgetTexture( lsti\Mesh )
+											tex.BBTexture = FUI_GadgetTexture( lsti\Mesh )
 											EntityTexture lsti\Mesh, tex, lsti\Active*2
 											FreeTexture tex
 										EndIf
@@ -12918,7 +12926,7 @@ Function FUI_UpdateListBoxItem( ID )
 							For lsti.ListBoxItem = Each ListBoxItem
 								If lsti\Owner = lst And lsti <> gad
 									lsti\Active = False
-									tex = FUI_GadgetTexture( lsti\Mesh )
+									tex.BBTexture = FUI_GadgetTexture( lsti\Mesh )
 									EntityTexture lsti\Mesh, tex, lsti\Active*2
 									FreeTexture tex
 								EndIf
@@ -13189,7 +13197,7 @@ Function FUI_UpdateRadio( ID )
 								If rad\ID = gad\ID And rad <> gad
 									rad\Checked = False
 									If rad\Disabled = True
-										tex = FUI_GadgetTexture( rad\Mesh )
+										tex.BBtexture = FUI_GadgetTexture( rad\Mesh )
 										EntityTexture rad\Mesh, tex, 3 + rad\Checked * 4
 										FreeTexture tex
 									EndIf
@@ -13336,7 +13344,7 @@ Function FUI_UpdateScrollBar( ID )
 				EndIf
 				
 				If gad\Disabled = False
-					tex = FUI_GadgetTexture( gad\Btn1 )
+					tex.BBtexture = FUI_GadgetTexture( gad\Btn1 )
 					EntityTexture gad\Btn1, tex, gad\B1State
 					FreeTexture tex
 				EndIf
@@ -13985,7 +13993,7 @@ Function FUI_UpdateSpinner( ID )
 				EndIf
 				
 				If gad\Disabled = False
-					tex = FUI_GadgetTexture( gad\Btn1 )
+					tex.BBTexture = FUI_GadgetTexture( gad\Btn1 )
 					EntityTexture gad\Btn1, tex, gad\B1State
 					FreeTexture tex
 				EndIf
@@ -14634,7 +14642,7 @@ Function FUI_UpdateNode( ID, PrevIndex=0 )
 				X = FUI_InternalX( gad\Mesh )
 				Y = FUI_InternalY( gad\Mesh )
 				
-				Parent = GetParent( gad\DropDown )
+				Parent.BBEntity = GetParent( gad\DropDown )
 				EntityParent gad\DropDown, gad\Mesh
 				FUI_SetChildPosition gad\DropDown, 0, TREEVIEWITEM_HEIGHT
 				EntityParent gad\DropDown, Parent
@@ -14665,7 +14673,7 @@ Function FUI_UpdateNode( ID, PrevIndex=0 )
 							If app\MB1 = 1
 								If FUI_MouseOver( X + 5, Y + 5, TREEVIEWITEM_HEIGHT - 10, TREEVIEWITEM_HEIGHT - 10 ) = True And gad\HasChildren = True
 									gad\Open = 1 - gad\Open
-									tex = FUI_GadgetTexture( gad\Mesh )
+									tex.BBTexture = FUI_GadgetTexture( gad\Mesh )
 									EntityTexture gad\Mesh, tex, gad\Active*2 + gad\Open*3
 									FreeTexture tex
 									
@@ -15018,7 +15026,7 @@ Function FUI_UpdateGadgetVScroll( gad.VScrollBar, Order )
 		EndIf
 	EndIf
 	
-	tex = FUI_GadgetTexture( gad\Btn1 )
+	tex.BBTexture = FUI_GadgetTexture( gad\Btn1 )
 	EntityTexture gad\Btn1, tex, gad\B1State
 	FreeTexture tex
 	
@@ -15091,9 +15099,9 @@ End Function
 ;#End Region
 
 ;#Region ---------- Skin Gadgets ---------------
-Function FUI_SkinWindow( gad.Window, Mode=0 )
+Function FUI_SkinWindow.BBTexture( gad.Window, Mode=0 )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	fName$ = SKIN_PATH$
 	If Right( fName$, 1 ) <> "\"
@@ -15119,13 +15127,13 @@ Function FUI_SkinWindow( gad.Window, Mode=0 )
 		
 		TH		= FUI_NextPower( H )
 		
-		img		= LoadImage( fName$ + "window\form.bmp" )
-		If img <> 0
+		img.BBImage		= LoadImage( fName$ + "window\form.bmp" )
+		If img <> Null
 			SW = ImageWidth( img ) / 3
 			SH = ImageHeight( img ) / 3
 			LockBuffer ImageBuffer( img )
 			
-			tex = FUI_CreateTexture( TW, TH, 1+2, 1 )
+			tex.BBTexture = FUI_CreateTexture( TW, TH, 1+2, 1 )
 			EntityTexture gad\Mesh, tex
 			
 			LockBuffer TextureBuffer( tex )
@@ -15372,9 +15380,9 @@ Function FUI_SkinWindow( gad.Window, Mode=0 )
 	
 	If Mode = 1
 		If (gad\Flags And WS_TITLEBAR) = WS_TITLEBAR
-			Dim dimg(2)
-			dimg(0)	= LoadImage( fName$ + "window\titlebar.bmp" )
-			dimg(1) = LoadImage( fName$ + "window\titlebar_min.bmp" )
+			Local dimg.BBImage[2]
+			dimg[0]	= LoadImage( fName$ + "window\titlebar.bmp" )
+			dimg[1] = LoadImage( fName$ + "window\titlebar_min.bmp" )
 			
 			H		= TITLEBAR_HEIGHT
 			TH		= FUI_NextPower( H )
@@ -15383,15 +15391,15 @@ Function FUI_SkinWindow( gad.Window, Mode=0 )
 			
 			Result = True
 			For LOOP = 0 To 1
-				If dimg(LOOP) <> 0 And tex <> 0
-					SW = ImageWidth( dimg(LOOP) ) / 3
-					LockBuffer ImageBuffer( dimg(LOOP) )
+				If dimg[LOOP] <> Null And tex <> Null
+					SW = ImageWidth( dimg[LOOP] ) / 3
+					LockBuffer ImageBuffer( dimg[LOOP] )
 					LockBuffer TextureBuffer( tex, LOOP )
 					
 					;Left Edge
 					For X = 0 To SW - 1
 						For Y = 0 To H - 1
-							RGB = ReadPixelFast( X, Y, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+							RGB = ReadPixelFast( X, Y, ImageBuffer( dimg[LOOP] ) ) And $FFFFFF
 							R = (RGB Shr 16) And $FF
 							G = (RGB Shr 8) And $FF
 							B = RGB And $FF
@@ -15416,7 +15424,7 @@ Function FUI_SkinWindow( gad.Window, Mode=0 )
 					For X = SW To W - SW - 1
 						For Y = 0 To H - 1
 							IX = X Mod SW
-							RGB = ReadPixelFast( IX + SW, Y, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+							RGB = ReadPixelFast( IX + SW, Y, ImageBuffer( dimg[LOOP] ) ) And $FFFFFF
 							R = (RGB Shr 16) And $FF
 							G = (RGB Shr 8) And $FF
 							B = RGB And $FF
@@ -15440,7 +15448,7 @@ Function FUI_SkinWindow( gad.Window, Mode=0 )
 					;Right Edge
 					For X = 0 To SW - 1
 						For Y = 0 To H - 1
-							RGB = ReadPixelFast( X + SW * 2, Y, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+							RGB = ReadPixelFast( X + SW * 2, Y, ImageBuffer( dimg[LOOP] ) ) And $FFFFFF
 							R = (RGB Shr 16) And $FF
 							G = (RGB Shr 8) And $FF
 							B = RGB And $FF
@@ -15462,8 +15470,8 @@ Function FUI_SkinWindow( gad.Window, Mode=0 )
 					Next
 					
 					UnlockBuffer TextureBuffer( tex, LOOP )
-					UnlockBuffer ImageBuffer( dimg(LOOP) )
-					FreeImage dimg(LOOP)
+					UnlockBuffer ImageBuffer( dimg[LOOP] )
+					FreeImage dimg[LOOP]
 				EndIf
 			Next
 			
@@ -15478,7 +15486,7 @@ Function FUI_SkinWindow( gad.Window, Mode=0 )
 			H		= MENUBAR_HEIGHT
 			TH		= FUI_NextPower( H )
 			
-			If img <> 0
+			If img <> Null
 				SW = ImageWidth( img ) / 3
 				LockBuffer ImageBuffer( img )
 				
@@ -15566,7 +15574,7 @@ Function FUI_SkinWindow( gad.Window, Mode=0 )
 				FreeTexture tex
 				FreeImage img
 				
-				Return True
+				Return tex
 			EndIf
 		EndIf
 	EndIf
@@ -15578,7 +15586,7 @@ Function FUI_SkinWindow( gad.Window, Mode=0 )
 			H		= STATUSBAR_HEIGHT
 			TH		= FUI_NextPower( H )
 			
-			If img <> 0
+			If img <> Null
 				SW = ImageWidth( img ) / 3
 				LockBuffer ImageBuffer( img )
 				
@@ -15666,20 +15674,20 @@ Function FUI_SkinWindow( gad.Window, Mode=0 )
 				FreeTexture tex
 				FreeImage img
 				
-				Return True
+				Return tex
 			EndIf
 		EndIf
 	EndIf
 	
 	SetBuffer pBuffer
 	
-	Return False
+	Return Null
 	
 End Function
 
-Function FUI_SkinTab( gad.Tab )
+Function FUI_SkinTab.BBTexture( gad.Tab )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	fName$ = SKIN_PATH$
 	If Right( fName$, 1 ) <> "\"
@@ -15693,19 +15701,19 @@ Function FUI_SkinTab( gad.Tab )
 	H		= gad\H - TABPAGE_HEIGHT
 	TH		= FUI_NextPower( H )
 	
-	Dim dimg(1)
-	dimg(0)		= LoadImage( fName$ + "tab\form.bmp" )
+	Local dimg.BBImage[1]
+	dimg[0]		= LoadImage( fName$ + "tab\form.bmp" )
 	
-	tex = FUI_CreateTexture( TW, TH, 1+2, 1 )
+	tex.BBTexture = FUI_CreateTexture( TW, TH, 1+2, 1 )
 	
-	If dimg(LOOP) <> 0
+	If dimg[LOOP] <> Null
 		SetBuffer TextureBuffer( tex, LOOP )
 		;FUI_SetColor SC_GADGET
 		;Rect 0, 0, W, H
 		
-		SW = ImageWidth( dimg(LOOP) ) / 3
-		SH = ImageHeight( dimg(LOOP) ) / 3
-		LockBuffer ImageBuffer( dimg(LOOP) )
+		SW = ImageWidth( dimg[LOOP] ) / 3
+		SH = ImageHeight( dimg[LOOP] ) / 3
+		LockBuffer ImageBuffer( dimg[LOOP] )
 		
 		LockBuffer TextureBuffer( tex, LOOP )
 		
@@ -15714,7 +15722,7 @@ Function FUI_SkinTab( gad.Tab )
 		;Top Left
 		For X = 0 To SW - 1
 			For Y = 0 To SH - 1
-				RGB = ReadPixelFast( X, Y + IY, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+				RGB = ReadPixelFast( X, Y + IY, ImageBuffer( dimg[LOOP] ) ) And $FFFFFF
 				R = (RGB Shr 16) And $FF
 				G = (RGB Shr 8) And $FF
 				B = RGB And $FF
@@ -15739,7 +15747,7 @@ Function FUI_SkinTab( gad.Tab )
 		For X = SW To W - SW - 1
 			For Y = 0 To SH - 1
 				IX = X Mod SW
-				RGB = ReadPixelFast( IX + SW, Y + IY, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+				RGB = ReadPixelFast( IX + SW, Y + IY, ImageBuffer( dimg[LOOP] ) ) And $FFFFFF
 				R = (RGB Shr 16) And $FF
 				G = (RGB Shr 8) And $FF
 				B = RGB And $FF
@@ -15763,7 +15771,7 @@ Function FUI_SkinTab( gad.Tab )
 		;Top Right
 		For X = 0 To SW - 1
 			For Y = 0 To SH - 1
-				RGB = ReadPixelFast( X + SW * 2, Y + IY, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+				RGB = ReadPixelFast( X + SW * 2, Y + IY, ImageBuffer( dimg[LOOP] ) ) And $FFFFFF
 				R = (RGB Shr 16) And $FF
 				G = (RGB Shr 8) And $FF
 				B = RGB And $FF
@@ -15789,7 +15797,7 @@ Function FUI_SkinTab( gad.Tab )
 		;Bottom Left
 		For X = 0 To SW - 1
 			For Y = 0 To SH - 1
-				RGB = ReadPixelFast( X, Y + IY, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+				RGB = ReadPixelFast( X, Y + IY, ImageBuffer( dimg[LOOP] ) ) And $FFFFFF
 				R = (RGB Shr 16) And $FF
 				G = (RGB Shr 8) And $FF
 				B = RGB And $FF
@@ -15814,7 +15822,7 @@ Function FUI_SkinTab( gad.Tab )
 		For X = SW To W - SW - 1
 			For Y = 0 To SH - 1
 				IX = X Mod SW
-				RGB = ReadPixelFast( IX + SW, Y + IY, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+				RGB = ReadPixelFast( IX + SW, Y + IY, ImageBuffer( dimg[LOOP] ) ) And $FFFFFF
 				R = (RGB Shr 16) And $FF
 				G = (RGB Shr 8) And $FF
 				B = RGB And $FF
@@ -15838,7 +15846,7 @@ Function FUI_SkinTab( gad.Tab )
 		;Bottom Right
 		For X = 0 To SW - 1
 			For Y = 0 To SH - 1
-				RGB = ReadPixelFast( X + SW * 2, Y + IY, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+				RGB = ReadPixelFast( X + SW * 2, Y + IY, ImageBuffer( dimg[LOOP] ) ) And $FFFFFF
 				R = (RGB Shr 16) And $FF
 				G = (RGB Shr 8) And $FF
 				B = RGB And $FF
@@ -15863,7 +15871,7 @@ Function FUI_SkinTab( gad.Tab )
 		For X = 0 To SW
 			For Y = SH To H - SH - 1
 				IY = Y Mod SH
-				RGB = ReadPixelFast( X, IY + SH, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+				RGB = ReadPixelFast( X, IY + SH, ImageBuffer( dimg[LOOP] ) ) And $FFFFFF
 				R = (RGB Shr 16) And $FF
 				G = (RGB Shr 8) And $FF
 				B = RGB And $FF
@@ -15889,7 +15897,7 @@ Function FUI_SkinTab( gad.Tab )
 			For Y = SH To H - SH - 1
 				IX = X Mod SW
 				IY = Y Mod SH
-				RGB = ReadPixelFast( IX + SW, IY + SH, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+				RGB = ReadPixelFast( IX + SW, IY + SH, ImageBuffer( dimg[LOOP] ) ) And $FFFFFF
 				R = (RGB Shr 16) And $FF
 				G = (RGB Shr 8) And $FF
 				B = RGB And $FF
@@ -15914,7 +15922,7 @@ Function FUI_SkinTab( gad.Tab )
 		For X = 0 To SW
 			For Y = SH To H - SH - 1
 				IY = Y Mod SH
-				RGB = ReadPixelFast( X + SW*2, IY + SH, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+				RGB = ReadPixelFast( X + SW*2, IY + SH, ImageBuffer( dimg[LOOP] ) ) And $FFFFFF
 				R = (RGB Shr 16) And $FF
 				G = (RGB Shr 8) And $FF
 				B = RGB And $FF
@@ -15936,11 +15944,11 @@ Function FUI_SkinTab( gad.Tab )
 		Next
 		
 		UnlockBuffer TextureBuffer( tex, LOOP )
-		UnlockBuffer ImageBuffer( dimg(LOOP) )
-		FreeImage dimg(LOOP)
+		UnlockBuffer ImageBuffer( dimg[LOOP] )
+		FreeImage dimg[LOOP]
 	Else
 		FreeTexture tex
-		tex = 0
+		tex = Null
 	EndIf
 	
 	SetBuffer pBuffer
@@ -15949,9 +15957,9 @@ Function FUI_SkinTab( gad.Tab )
 	
 End Function
 
-Function FUI_SkinTabPage( gad.TabPage )
+Function FUI_SkinTabPage.BBTexture( gad.TabPage )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	fName$ = SKIN_PATH$
 	If Right( fName$, 1 ) <> "\"
@@ -15965,20 +15973,20 @@ Function FUI_SkinTabPage( gad.TabPage )
 	H		= gad\H + 2
 	TH		= FUI_NextPower( H )
 	
-	Dim dimg(3)
-	dimg(0)		= LoadImage( fName$ + "tabpage\selected.bmp" )
-	dimg(1)		= LoadImage( fName$ + "tabpage\unselected.bmp" )
-	dimg(2)		= LoadImage( fName$ + "tabpage\disabled.bmp" )
+	Local dimg.BBImage[3]
+	dimg[0]		= LoadImage( fName$ + "tabpage\selected.bmp" )
+	dimg[1]		= LoadImage( fName$ + "tabpage\unselected.bmp" )
+	dimg[2]		= LoadImage( fName$ + "tabpage\disabled.bmp" )
 	
-	tex = FUI_CreateTexture( TW, TH, 1+2, 3 )
+	tex.BBTexture = FUI_CreateTexture( TW, TH, 1+2, 3 )
 	
 	For LOOP = 0 To 2
-		If dimg(LOOP) <> 0
+		If dimg[LOOP] <> Null
 			SetBuffer TextureBuffer( tex, LOOP )
 			
-			SW = ImageWidth( dimg(LOOP) ) / 3
+			SW = ImageWidth( dimg[LOOP] ) / 3
 			SH = H
-			LockBuffer ImageBuffer( dimg(LOOP) )
+			LockBuffer ImageBuffer( dimg[LOOP] )
 			
 			LockBuffer TextureBuffer( tex, LOOP )
 			
@@ -15987,7 +15995,7 @@ Function FUI_SkinTabPage( gad.TabPage )
 			;Left
 			For X = 0 To SW - 1
 				For Y = 0 To SH - 1
-					RGB = ReadPixelFast( X, Y + IY, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+					RGB = ReadPixelFast( X, Y + IY, ImageBuffer( dimg[LOOP] ) ) And $FFFFFF
 					R = (RGB Shr 16) And $FF
 					G = (RGB Shr 8) And $FF
 					B = RGB And $FF
@@ -16012,7 +16020,7 @@ Function FUI_SkinTabPage( gad.TabPage )
 			For X = SW To W - SW - 1
 				For Y = 0 To SH - 1
 					IX = X Mod SW
-					RGB = ReadPixelFast( IX + SW, Y + IY, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+					RGB = ReadPixelFast( IX + SW, Y + IY, ImageBuffer( dimg[LOOP] ) ) And $FFFFFF
 					R = (RGB Shr 16) And $FF
 					G = (RGB Shr 8) And $FF
 					B = RGB And $FF
@@ -16036,7 +16044,7 @@ Function FUI_SkinTabPage( gad.TabPage )
 			;Right
 			For X = 0 To SW - 1
 				For Y = 0 To SH - 1
-					RGB = ReadPixelFast( X + SW * 2, Y + IY, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+					RGB = ReadPixelFast( X + SW * 2, Y + IY, ImageBuffer( dimg[LOOP] ) ) And $FFFFFF
 					R = (RGB Shr 16) And $FF
 					G = (RGB Shr 8) And $FF
 					B = RGB And $FF
@@ -16058,11 +16066,11 @@ Function FUI_SkinTabPage( gad.TabPage )
 			Next
 			
 			UnlockBuffer TextureBuffer( tex, LOOP )
-			UnlockBuffer ImageBuffer( dimg(LOOP) )
-			FreeImage dimg(LOOP)
+			UnlockBuffer ImageBuffer( dimg[LOOP] )
+			FreeImage dimg[LOOP]
 		Else
 			FreeTexture tex
-			tex = 0
+			tex = Null
 		EndIf
 	Next
 	
@@ -16072,9 +16080,9 @@ Function FUI_SkinTabPage( gad.TabPage )
 	
 End Function
 
-Function FUI_SkinPanel( gad.Panel )
+Function FUI_SkinPanel.BBTexture( gad.Panel )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	fName$ = SKIN_PATH$
 	If Right( fName$, 1 ) <> "\"
@@ -16088,23 +16096,23 @@ Function FUI_SkinPanel( gad.Panel )
 	H		= PANEL_HEIGHT
 	TH		= FUI_NextPower( H )
 	
-	Dim dimg(6)
-	dimg(0)		= LoadImage( fName$ + "panel\up.bmp" )
-	dimg(1)		= LoadImage( fName$ + "panel\over.bmp" )
-	dimg(2)		= LoadImage( fName$ + "panel\disabled.bmp" )
-	dimg(3)		= LoadImage( fName$ + "panel\up_active.bmp" )
-	dimg(4)		= LoadImage( fName$ + "panel\over_active.bmp" )
-	dimg(5)		= LoadImage( fName$ + "panel\disabled_active.bmp" )
+	Local dimg.BBImage[6]
+	dimg[0]		= LoadImage( fName$ + "panel\up.bmp" )
+	dimg[1]		= LoadImage( fName$ + "panel\over.bmp" )
+	dimg[2]		= LoadImage( fName$ + "panel\disabled.bmp" )
+	dimg[3]		= LoadImage( fName$ + "panel\up_active.bmp" )
+	dimg[4]		= LoadImage( fName$ + "panel\over_active.bmp" )
+	dimg[5]		= LoadImage( fName$ + "panel\disabled_active.bmp" )
 	
-	tex = FUI_CreateTexture( TW, TH, 1+2, 6 )
+	tex.BBTexture = FUI_CreateTexture( TW, TH, 1+2, 6 )
 	
 	For LOOP = 0 To 5
-		If dimg(LOOP) <> 0
+		If dimg[LOOP] <> Null
 			SetBuffer TextureBuffer( tex, LOOP )
 			
-			SW = ImageWidth( dimg(LOOP) ) / 3
+			SW = ImageWidth( dimg[LOOP] ) / 3
 			SH = H
-			LockBuffer ImageBuffer( dimg(LOOP) )
+			LockBuffer ImageBuffer( dimg[LOOP] )
 			
 			LockBuffer TextureBuffer( tex, LOOP )
 			
@@ -16113,7 +16121,7 @@ Function FUI_SkinPanel( gad.Panel )
 			;Left
 			For X = 0 To SW - 1
 				For Y = 0 To SH - 1
-					RGB = ReadPixelFast( X, Y + IY, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+					RGB = ReadPixelFast( X, Y + IY, ImageBuffer( dimg[LOOP] ) ) And $FFFFFF
 					R = (RGB Shr 16) And $FF
 					G = (RGB Shr 8) And $FF
 					B = RGB And $FF
@@ -16138,7 +16146,7 @@ Function FUI_SkinPanel( gad.Panel )
 			For X = SW To W - SW - 1
 				For Y = 0 To SH - 1
 					IX = X Mod SW
-					RGB = ReadPixelFast( IX + SW, Y + IY, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+					RGB = ReadPixelFast( IX + SW, Y + IY, ImageBuffer( dimg[LOOP] ) ) And $FFFFFF
 					R = (RGB Shr 16) And $FF
 					G = (RGB Shr 8) And $FF
 					B = RGB And $FF
@@ -16162,7 +16170,7 @@ Function FUI_SkinPanel( gad.Panel )
 			;Right
 			For X = 0 To SW - 1
 				For Y = 0 To SH - 1
-					RGB = ReadPixelFast( X + SW * 2, Y + IY, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+					RGB = ReadPixelFast( X + SW * 2, Y + IY, ImageBuffer( dimg[LOOP] ) ) And $FFFFFF
 					R = (RGB Shr 16) And $FF
 					G = (RGB Shr 8) And $FF
 					B = RGB And $FF
@@ -16184,11 +16192,11 @@ Function FUI_SkinPanel( gad.Panel )
 			Next
 			
 			UnlockBuffer TextureBuffer( tex, LOOP )
-			UnlockBuffer ImageBuffer( dimg(LOOP) )
-			FreeImage dimg(LOOP)
+			UnlockBuffer ImageBuffer( dimg[LOOP] )
+			FreeImage dimg[LOOP]
 		Else
 			FreeTexture tex
-			tex = 0
+			tex = Null
 		EndIf
 	Next
 	
@@ -16198,9 +16206,9 @@ Function FUI_SkinPanel( gad.Panel )
 	
 End Function
 
-Function FUI_SkinButton( gad.Button )
+Function FUI_SkinButton.BBtexture( gad.Button )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	fName$ = SKIN_PATH$
 	If Right( fName$, 1 ) <> "\"
@@ -16214,21 +16222,21 @@ Function FUI_SkinButton( gad.Button )
 	H		= PANEL_HEIGHT
 	TH		= FUI_NextPower( H )
 	
-	Dim dimg(4)
-	dimg(0)		= LoadImage( fName$ + "button\up.bmp" )
-	dimg(1)		= LoadImage( fName$ + "button\over.bmp" )
-	dimg(2)		= LoadImage( fName$ + "button\down.bmp" )
-	dimg(3)		= LoadImage( fName$ + "button\disabled.bmp" )
+	Local dimg.BBImage[4]
+	dimg[0]		= LoadImage( fName$ + "button\up.bmp" )
+	dimg[1]		= LoadImage( fName$ + "button\over.bmp" )
+	dimg[2]		= LoadImage( fName$ + "button\down.bmp" )
+	dimg[3]		= LoadImage( fName$ + "button\disabled.bmp" )
 	
-	tex = FUI_CreateTexture( TW, TH, 1+2, 4 )
+	tex.BBTexture = FUI_CreateTexture( TW, TH, 1+2, 4 )
 	
 	For LOOP = 0 To 3
-		If dimg(LOOP) <> 0
+		If dimg[LOOP] <> Null
 			SetBuffer TextureBuffer( tex, LOOP )
 			
-			SW = ImageWidth( dimg(LOOP) ) / 3
-			SH = ImageHeight( dimg(LOOP) ) / 3
-			LockBuffer ImageBuffer( dimg(LOOP) )
+			SW = ImageWidth( dimg[LOOP] ) / 3
+			SH = ImageHeight( dimg[LOOP] ) / 3
+			LockBuffer ImageBuffer( dimg[LOOP] )
 			
 			LockBuffer TextureBuffer( tex, LOOP )
 			
@@ -16237,7 +16245,7 @@ Function FUI_SkinButton( gad.Button )
 			;Top Left
 			For X = 0 To SW - 1
 				For Y = 0 To SH - 1
-					RGB = ReadPixelFast( X, Y + IY, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+					RGB = ReadPixelFast( X, Y + IY, ImageBuffer( dimg[LOOP] ) ) And $FFFFFF
 					R = (RGB Shr 16) And $FF
 					G = (RGB Shr 8) And $FF
 					B = RGB And $FF
@@ -16262,7 +16270,7 @@ Function FUI_SkinButton( gad.Button )
 			For X = SW To W - SW - 1
 				For Y = 0 To SH - 1
 					IX = X Mod SW
-					RGB = ReadPixelFast( IX + SW, Y + IY, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+					RGB = ReadPixelFast( IX + SW, Y + IY, ImageBuffer( dimg[LOOP] ) ) And $FFFFFF
 					R = (RGB Shr 16) And $FF
 					G = (RGB Shr 8) And $FF
 					B = RGB And $FF
@@ -16286,7 +16294,7 @@ Function FUI_SkinButton( gad.Button )
 			;Top Right
 			For X = 0 To SW - 1
 				For Y = 0 To SH - 1
-					RGB = ReadPixelFast( X + SW * 2, Y + IY, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+					RGB = ReadPixelFast( X + SW * 2, Y + IY, ImageBuffer( dimg[LOOP] ) ) And $FFFFFF
 					R = (RGB Shr 16) And $FF
 					G = (RGB Shr 8) And $FF
 					B = RGB And $FF
@@ -16312,7 +16320,7 @@ Function FUI_SkinButton( gad.Button )
 			;Bottom Left
 			For X = 0 To SW - 1
 				For Y = 0 To SH - 1
-					RGB = ReadPixelFast( X, Y + IY, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+					RGB = ReadPixelFast( X, Y + IY, ImageBuffer( dimg[LOOP] ) ) And $FFFFFF
 					R = (RGB Shr 16) And $FF
 					G = (RGB Shr 8) And $FF
 					B = RGB And $FF
@@ -16337,7 +16345,7 @@ Function FUI_SkinButton( gad.Button )
 			For X = SW To W - SW - 1
 				For Y = 0 To SH - 1
 					IX = X Mod SW
-					RGB = ReadPixelFast( IX + SW, Y + IY, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+					RGB = ReadPixelFast( IX + SW, Y + IY, ImageBuffer( dimg[LOOP] ) ) And $FFFFFF
 					R = (RGB Shr 16) And $FF
 					G = (RGB Shr 8) And $FF
 					B = RGB And $FF
@@ -16361,7 +16369,7 @@ Function FUI_SkinButton( gad.Button )
 			;Bottom Right
 			For X = 0 To SW - 1
 				For Y = 0 To SH - 1
-					RGB = ReadPixelFast( X + SW * 2, Y + IY, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+					RGB = ReadPixelFast( X + SW * 2, Y + IY, ImageBuffer( dimg[LOOP] ) ) And $FFFFFF
 					R = (RGB Shr 16) And $FF
 					G = (RGB Shr 8) And $FF
 					B = RGB And $FF
@@ -16386,7 +16394,7 @@ Function FUI_SkinButton( gad.Button )
 			For X = 0 To SW
 				For Y = SH To H - SH - 1
 					IY = Y Mod SH
-					RGB = ReadPixelFast( X, IY + SH, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+					RGB = ReadPixelFast( X, IY + SH, ImageBuffer( dimg[LOOP] ) ) And $FFFFFF
 					R = (RGB Shr 16) And $FF
 					G = (RGB Shr 8) And $FF
 					B = RGB And $FF
@@ -16412,7 +16420,7 @@ Function FUI_SkinButton( gad.Button )
 				For Y = SH To H - SH - 1
 					IX = X Mod SW
 					IY = Y Mod SH
-					RGB = ReadPixelFast( IX + SW, IY + SH, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+					RGB = ReadPixelFast( IX + SW, IY + SH, ImageBuffer( dimg[LOOP] ) ) And $FFFFFF
 					R = (RGB Shr 16) And $FF
 					G = (RGB Shr 8) And $FF
 					B = RGB And $FF
@@ -16437,7 +16445,7 @@ Function FUI_SkinButton( gad.Button )
 			For X = 0 To SW
 				For Y = SH To H - SH - 1
 					IY = Y Mod SH
-					RGB = ReadPixelFast( X + SW*2, IY + SH, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+					RGB = ReadPixelFast( X + SW*2, IY + SH, ImageBuffer( dimg[LOOP] ) ) And $FFFFFF
 					R = (RGB Shr 16) And $FF
 					G = (RGB Shr 8) And $FF
 					B = RGB And $FF
@@ -16459,11 +16467,11 @@ Function FUI_SkinButton( gad.Button )
 			Next
 			
 			UnlockBuffer TextureBuffer( tex, LOOP )
-			UnlockBuffer ImageBuffer( dimg(LOOP) )
-			FreeImage dimg(LOOP)
+			UnlockBuffer ImageBuffer( dimg[LOOP] )
+			FreeImage dimg[LOOP]
 		Else
 			FreeTexture tex
-			tex = 0
+			tex = Null
 		EndIf
 	Next
 	
@@ -16473,9 +16481,9 @@ Function FUI_SkinButton( gad.Button )
 	
 End Function
 
-Function FUI_SkinCheckBox( gad.CheckBox )
+Function FUI_SkinCheckBox.BBTexture( gad.CheckBox )
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
 	fName$ = SKIN_PATH$
 	If Right( fName$, 1 ) <> "\"
@@ -16489,31 +16497,31 @@ Function FUI_SkinCheckBox( gad.CheckBox )
 	H		= gad\H
 	TH		= FUI_NextPower( H )
 	
-	Dim dimg(8)
-	dimg(0)		= LoadImage( fName$ + "checkbox\up.bmp" )
-	dimg(1)		= LoadImage( fName$ + "checkbox\over.bmp" )
-	dimg(2)		= LoadImage( fName$ + "checkbox\down.bmp" )
-	dimg(3)		= LoadImage( fName$ + "checkbox\disabled.bmp" )
-	dimg(4)		= LoadImage( fName$ + "checkbox\up_checked.bmp" )
-	dimg(5)		= LoadImage( fName$ + "checkbox\over_checked.bmp" )
-	dimg(6)		= LoadImage( fName$ + "checkbox\down_checked.bmp" )
-	dimg(7)		= LoadImage( fName$ + "checkbox\disabled_checked.bmp" )
+	Local dimg.BBImage[8]
+	dimg[0]		= LoadImage( fName$ + "checkbox\up.bmp" )
+	dimg[1]		= LoadImage( fName$ + "checkbox\over.bmp" )
+	dimg[2]		= LoadImage( fName$ + "checkbox\down.bmp" )
+	dimg[3]		= LoadImage( fName$ + "checkbox\disabled.bmp" )
+	dimg[4]		= LoadImage( fName$ + "checkbox\up_checked.bmp" )
+	dimg[5]		= LoadImage( fName$ + "checkbox\over_checked.bmp" )
+	dimg[6]		= LoadImage( fName$ + "checkbox\down_checked.bmp" )
+	dimg[7]		= LoadImage( fName$ + "checkbox\disabled_checked.bmp" )
 	
-	tex = FUI_CreateTexture( TW, TH, 1+2, 8 )
+	tex.BBTexture = FUI_CreateTexture( TW, TH, 1+2, 8 )
 	
 	For LOOP = 0 To 7
-		If dimg(LOOP) <> 0
+		If dimg[LOOP] <> Null
 			SetBuffer TextureBuffer( tex, LOOP )
 			
-			SW = ImageWidth( dimg(LOOP) )
-			SH = ImageHeight( dimg(LOOP) )
-			LockBuffer ImageBuffer( dimg(LOOP) )
+			SW = ImageWidth( dimg[LOOP] )
+			SH = ImageHeight( dimg[LOOP] )
+			LockBuffer ImageBuffer( dimg[LOOP] )
 			
 			LockBuffer TextureBuffer( tex, LOOP )
 			
 			For X = 0 To SW - 1
 				For Y = 0 To SH - 1
-					RGB = ReadPixelFast( X, Y, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+					RGB = ReadPixelFast( X, Y, ImageBuffer( dimg[LOOP] ) ) And $FFFFFF
 					R = (RGB Shr 16) And $FF
 					G = (RGB Shr 8) And $FF
 					B = RGB And $FF
@@ -16535,11 +16543,11 @@ Function FUI_SkinCheckBox( gad.CheckBox )
 			Next
 			
 			UnlockBuffer TextureBuffer( tex, LOOP )
-			UnlockBuffer ImageBuffer( dimg(LOOP) )
-			FreeImage dimg(LOOP)
+			UnlockBuffer ImageBuffer( dimg[LOOP] )
+			FreeImage dimg[LOOP]
 		Else
 			FreeTexture tex
-			tex = 0
+			tex = Null
 		EndIf
 	Next
 	
@@ -16598,13 +16606,13 @@ Function FUI_Initialise( W, H, D, M, Resizable=False, Border=True, Caption$="", 
 	app\Cam			= CreateCamera(  )
 	;Sharpen GUE text cysis145
 	;MoveEntity	(App\Cam, 0, 0, -100000)
-	MoveEntity	(App\Cam, 0, 0, -500)
+	MoveEntity	(app\Cam, 0, 0, -500)
 	
 	app\Pivot		= CreatePivot( app\Cam )
 	app\Aspect		= Float( H ) / W
 	app\Scale		= 2.0 / W
 	
-	app\currentFONT	= New FONT
+	app\currentFont	= New Font
 	;Fixed camera bug in zone editor cysis145
 	CameraRange app\Cam, 0.9, 10
 	
@@ -16624,11 +16632,11 @@ Function FUI_Initialise( W, H, D, M, Resizable=False, Border=True, Caption$="", 
 	;Mouse
 	FUI_SetColor( SC_WHITE )
 	app\Mouse		= FUI_CreateControl(  )
-	surf = GetSurface( app\Mouse, 1 )
+	surf.BBSurface = GetSurface( app\Mouse, 1 )
 	ClearSurface surf
 	
 	FUI_Rect 0, 0, 32, 32, surf
-	tex				= FUI_CreateTexture( 32, 32, 1+2+16+32, 1, 0 )
+	tex.BBTexture				= FUI_CreateTexture( 32, 32, 1+2+16+32, 1, 0 )
 	EntityOrder app\Mouse, ORDER_MOUSE
 
 	app\Buffer = GraphicsBuffer(  )
@@ -16715,7 +16723,7 @@ Function FUI_Update( Idle = False )
 			W = FUI_API_GetSystemMetrics( 32 )
 			H = FUI_API_GetSystemMetrics( 33 )
 			
-			bnkRECT = CreateBank( 16 )
+			bnkRECT.BBBank = CreateBank( 16 )
 			FUI_API_GetWindowRect( app\hWnd, bnkRECT )
 			winX = PeekInt( bnkRECT, 0 )
 			winY = PeekInt( bnkRECT, 4 )
@@ -16732,7 +16740,7 @@ Function FUI_Update( Idle = False )
 			EndIf
 			
 			FreeBank bnkRECT
-			bnkRECT = 0
+			bnkRECT = Null
 			
 			If FUI_AppMouseOver( winX + winW - W, winY, W, winH ) = True
 				If FUI_AppMouseOver( winX, winY + winH - H, winW, H ) = True
@@ -16764,7 +16772,7 @@ Function FUI_Update( Idle = False )
 			winCH = PeekInt( bnkRECT, 12 ) - PeekInt( bnkRECT, 4 )
 			
 			FreeBank bnkRECT
-			bnkRECT = 0
+			bnkRECT = Null
 			
 			If FUI_AppMouseOver( winX + winW - W*5, winY + winH - H*5, W*4, H*4 ) = True
 				app\Win32Mouse = IDCSizeNW
@@ -16859,9 +16867,9 @@ Function FUI_Destroy(  )
 	Delete Each ComboBoxItem
 	Delete Each GroupBox
 	For img.ImageBox = Each ImageBox
-		If img\Image <> 0
+		If img\Image <> Null
 			FreeImage img\Image
-			img\Image = 0
+			img\Image = Null
 		EndIf
 		Delete img
 	Next
@@ -16882,23 +16890,23 @@ Function FUI_Destroy(  )
 		Delete view
 	Next
 	For m.Mesh = Each Mesh
-		If m\Mesh <> 0 FreeEntity m\Mesh
-		m\Mesh = 0
+		If m\Mesh <> Null FreeEntity m\Mesh
+			m\Mesh = Null
 		
 		Delete m
 	Next
 	
-	If ICON_NEW <> 0
+	If ICON_NEW <> Null
 		FreeImage ICON_NEW
-		ICON_NEW = 0
+		ICON_NEW = Null
 	EndIf
-	If ICON_OPEN <> 0
+	If ICON_OPEN <> Null
 		FreeImage ICON_OPEN
-		ICON_OPEN = 0
+		ICON_OPEN = Null
 	EndIf
-	If ICON_SAVE <> 0
+	If ICON_SAVE <> Null
 		FreeImage ICON_SAVE
-		ICON_SAVE = 0
+		ICON_SAVE = Null
 	EndIf
 	
 	Delete Each Event
@@ -16926,46 +16934,47 @@ End Function
 ;#End Region
 
 ;#Region ---------- General F-UI Functions -----
-Function FUI_3DText( X, Y, Caption$, W=0, H=0 )
+;Function FUI_3DText( X, Y, Caption$, W=0, H=0 )
+;
+;	NumLines = FUI_CountItems( Caption$, Chr(10) )
+;	If W = 0
+;		For A = 0 To NumLines - 1
+;			If StringWidth( FUI_Parse( Caption$, A, Chr(10) ) ) > W
+;				W = StringWidth( FUI_Parse( Caption$, A, Chr(10) ) )
+;			EndIf
+;		Next
+;	EndIf
+;	If H = 0
+;		H = FontHeight(  ) * NumLines
+;	EndIf
+;	
+;	surf.BBSurface = GetSurface( app\Pivot, 1 )
+;	mesh.BBEntity = FUI_Rect( X, Y, W, H, surf )
+;	tex.BBTexture = FUI_CreateTexture( W, H, 1+2, 1 )
+;	
+;	app\Buffer = GraphicsBuffer(  )
+;	
+;	SetBuffer TextureBuffer( tex )
+;	
+;	For A = 0 To NumLines - 1
+;		FUI_Text tex, 0, A * FontHeight(), FUI_Parse( Caption$, A, Chr(10) )
+;	Next
+;	
+;	EntityTexture mesh, tex
+;	FreeTexture tex
+;	
+;	EntityFX mesh, 1
+;	EntityOrder mesh, ORDER_TEXT
+;	
+;	SetBuffer app\Buffer
+;	
+;	Return mesh
+;
+;End Function
 
-	NumLines = FUI_CountItems( Caption$, Chr(10) )
-	If W = 0
-		For A = 0 To NumLines - 1
-			If StringWidth( FUI_Parse( Caption$, A, Chr(10) ) ) > W
-				W = StringWidth( FUI_Parse( Caption$, A, Chr(10) ) )
-			EndIf
-		Next
-	EndIf
-	If H = 0
-		H = FontHeight(  ) * NumLines
-	EndIf
+Function FUI_EditText.BBEntity( mesh.BBEntity, Caption$ )
 
-	mesh = FUI_Rect( X, Y, W, H, app\Pivot )
-	tex = FUI_CreateTexture( W, H, 1+2, 1 )
-	
-	app\Buffer = GraphicsBuffer(  )
-	
-	SetBuffer TextureBuffer( tex )
-	
-	For A = 0 To NumLines - 1
-		FUI_Text tex, 0, A * FontHeight(), FUI_Parse( Caption$, A, Chr(10) )
-	Next
-	
-	EntityTexture mesh, tex
-	FreeTexture tex
-	
-	EntityFX mesh, 1
-	EntityOrder mesh, ORDER_TEXT
-	
-	SetBuffer app\Buffer
-	
-	Return mesh
-
-End Function
-
-Function FUI_EditText( mesh, Caption$ )
-
-	tex = FUI_GadgetTexture( mesh )
+	tex.BBTexture = FUI_GadgetTexture( mesh )
 	FUI_ClearTexture tex
 	
 	app\Buffer = GraphicsBuffer(  )
@@ -16984,7 +16993,7 @@ End Function
 
 Function FUI_ToolTip( Parent, Caption$="Tool Tip" )
 	
-	gad.ToolTip		= New Tooltip
+	gad.ToolTip		= New ToolTip
 
 	gad\Parent		= Parent
 	gad\Caption$	= Caption$
@@ -17065,8 +17074,8 @@ End Function
 
 Function FUI_LoadSkin( fName$ )
 	
-	file = ReadFile( fName$ )
-	If file <> 0
+	file.BBStream = ReadFile( fName$ )
+	If file <> Null
 		
 		;Colors
 		SC_FORM										= ReadInt( file )
@@ -17122,8 +17131,8 @@ End Function
 
 Function FUI_SaveSkin( fName$ )
 	
-	file = WriteFile( fName$ )
-	If file <> 0
+	file.BBStream = WriteFile( fName$ )
+	If file <> Null
 		
 		;Colors
 		WriteInt file, SC_FORM
@@ -17279,11 +17288,11 @@ Function FUI_SetTitleBarText( ID, Caption$ )
 		
 		app\Buffer = GraphicsBuffer(  )
 		
-		If win\TitleBarText <> 0 FreeEntity win\TitleBarText
-		win\TitleBarText = 0
+		If win\TitleBarText <> Null FreeEntity win\TitleBarText
+			win\TitleBarText = Null
 		
 		win\TitleBarText = FUI_CreateControl( win\TitleBar )
-		surf = GetSurface( win\TitleBarText, 1 )
+		surf.BBSurface = GetSurface( win\TitleBarText, 1 )
 		
 		SetFont app\fntWindow
 		FUI_SetColor( SC_WHITE )
@@ -17299,10 +17308,10 @@ Function FUI_SetTitleBarText( ID, Caption$ )
 			W = win\W - WINDOW_BORDER*2 - TW
 		EndIf
 		FUI_Rect WINDOW_BORDER, WINDOW_BORDER, W, TITLEBAR_HEIGHT, surf
-		tex = FUI_CreateTexture( W, TITLEBAR_HEIGHT, 1+2, 1, 0 )
+		tex.BBTexture = FUI_CreateTexture( W, TITLEBAR_HEIGHT, 1+2, 1, 0 )
 		SetBuffer TextureBuffer( tex )
 		
-		If win\Icon <> 0
+		If win\Icon <> Null
 			X = TITLEBAR_HEIGHT
 		Else
 			X = 5
@@ -17330,10 +17339,10 @@ Function FUI_SetStatusBarText( ID, Caption$ )
 	If win <> Null
 		win\StatusCaption = Caption$
 		
-		pBuffer = GraphicsBuffer(  )
+		pBuffer.BBBuffer = GraphicsBuffer(  )
 		
-		If win\StatusBarText <> 0
-			surf = GetSurface( win\StatusBarText, 1 )
+		If win\StatusBarText <> Null
+			surf.BBSurface = GetSurface( win\StatusBarText, 1 )
 			
 			FUI_SetColor( SC_WHITE )
 			SetFont app\fntWindow
@@ -17345,7 +17354,7 @@ Function FUI_SetStatusBarText( ID, Caption$ )
 			EndIf
 			
 			FUI_Rect 1+5, win\H - STATUSBAR_HEIGHT, W, STATUSBAR_HEIGHT, surf
-			tex = FUI_CreateTexture( W, STATUSBAR_HEIGHT, 1+2, 1, 0 )
+			tex.BBTexture = FUI_CreateTexture( W, STATUSBAR_HEIGHT, 1+2, 1, 0 )
 			SetBuffer TextureBuffer( tex )
 			
 			FUI_SetColor( SC_STATUSBAR_TEXT )
@@ -18091,7 +18100,7 @@ Function FUI_DeleteGadget( ID )
 		FreeEntity tree\HScroll\Mesh
 		Delete tree\HScroll
 		
-		For node.Node = Each node
+		For node.Node = Each Node
 			If node\Owner = tree
 				FUI_DeleteGadget Handle( node )
 			EndIf
@@ -18141,7 +18150,7 @@ Function FUI_DisableGadget( ID )
 	mnut.MenuTitle = Object.MenuTitle( ID )
 	If mnut <> Null
 		mnut\Disabled = True
-		tex = FUI_GadgetTexture( mnut\Mesh )
+		tex.BBTexture = FUI_GadgetTexture( mnut\Mesh )
 		EntityTexture mnut\Mesh, tex, 3
 		FreeTexture tex
 		
@@ -18361,7 +18370,7 @@ Function FUI_EnableGadget( ID )
 	pan.Panel = Object.Panel( ID )
 	If pan <> Null
 		pan\Disabled = False
-		tex = FUI_GadgetTexture( pan\Mesh )
+		tex.BBTexture = FUI_GadgetTexture( pan\Mesh )
 		EntityTexture pan\Mesh, tex, 0
 		FreeTexture tex
 		
@@ -18488,15 +18497,15 @@ Function FUI_EnableGadget( ID )
 	
 End Function
 
-Function FUI_GadgetX#( mesh, parent=0 )
+Function FUI_GadgetX#( mesh.BBEntity, parent=0 )
 	
-	Return EntityX( Mesh ) + 0.5
+	Return EntityX( mesh ) + 0.5
 	
 End Function
 
-Function FUI_GadgetY#( mesh, parent=0 )
+Function FUI_GadgetY#( mesh.BBEntity, parent=0 )
 
-	Return EntityY( Mesh ) + 0.5
+	Return EntityY( mesh ) + 0.5
 	
 End Function
 
@@ -20619,7 +20628,7 @@ Function FUI_SetGadgetColor( ID, Value, Mode=0 )
 		ElseIf Mode = 2
 			sld\RGB2 = Value
 		EndIf
-		surf = GetSurface( sld\Mesh, 1 )
+		surf.BBSurface = GetSurface( sld\Mesh, 1 )
 		If sld\GradientDir = DIR_VERTICAL
 			If Mode = 0 Or Mode = 1 Or Mode = 3
 				VertexColor surf, 0, FUI_GetRed( sld\RGB1 ), FUI_GetGreen( sld\RGB1 ), FUI_GetBlue( sld\RGB1 ), FUI_GetAlpha( sld\RGB1 )
@@ -20660,14 +20669,14 @@ Function FUI_SetGadgetAlpha( ID, Value#, AffectChildren=True )
 	If win <> Null
 		EntityAlpha win\Mesh, Value#
 		For A = 1 To CountSurfaces( win\Mesh )
-			surf = GetSurface( win\Mesh, A )
+			surf.BBSurface = GetSurface( win\Mesh, A )
 			
 			For B = 0 To CountVertices( surf ) - 1
 				VertexColor surf, B, VertexRed( surf, B ), VertexGreen( surf, B ), VertexBlue( surf, B ), Value#
 			Next
 		Next
 		
-		If win\MinMesh <> 0
+		If win\MinMesh <> Null
 			EntityAlpha win\MinMesh, Value#
 			For A = 1 To CountSurfaces( win\MinMesh )
 				surf = GetSurface( win\MinMesh, A )
@@ -20676,7 +20685,7 @@ Function FUI_SetGadgetAlpha( ID, Value#, AffectChildren=True )
 				Next
 			Next
 		EndIf
-		If win\TitleBar <> 0
+		If win\TitleBar <> Null
 			EntityAlpha win\TitleBar, Value#
 			For A = 1 To CountSurfaces( win\TitleBar )
 				surf = GetSurface( win\TitleBar, A )
@@ -20684,7 +20693,7 @@ Function FUI_SetGadgetAlpha( ID, Value#, AffectChildren=True )
 					VertexColor surf, B, VertexRed( surf, B ), VertexGreen( surf, B ), VertexBlue( surf, B ), Value#
 				Next
 			Next
-			If win\CloseBtn <> 0
+			If win\CloseBtn <> Null
 				EntityAlpha win\CloseBtn, Value#
 				For A = 1 To CountSurfaces( win\CloseBtn )
 					surf = GetSurface( win\CloseBtn, A )
@@ -20693,7 +20702,7 @@ Function FUI_SetGadgetAlpha( ID, Value#, AffectChildren=True )
 					Next
 				Next
 			EndIf
-			If win\MinBtn <> 0
+			If win\MinBtn <> Null
 				EntityAlpha win\MinBtn, Value#
 				For A = 1 To CountSurfaces( win\MinBtn )
 					surf = GetSurface( win\MinBtn, A )
@@ -20703,7 +20712,7 @@ Function FUI_SetGadgetAlpha( ID, Value#, AffectChildren=True )
 				Next
 			EndIf
 		EndIf
-		If win\MenuBar <> 0
+		If win\MenuBar <> Null
 			EntityAlpha win\MenuBar, Value#
 			For A = 1 To CountSurfaces( win\MenuBar )
 				surf = GetSurface( win\MenuBar, A )
@@ -20712,7 +20721,7 @@ Function FUI_SetGadgetAlpha( ID, Value#, AffectChildren=True )
 				Next
 			Next
 		EndIf
-		If win\StatusBar <> 0
+		If win\StatusBar <> Null
 			EntityAlpha win\StatusBar, Value#
 			For A = 1 To CountSurfaces( win\StatusBar )
 				surf = GetSurface( win\StatusBar, A )
@@ -20853,7 +20862,7 @@ Function FUI_SetGadgetAlpha( ID, Value#, AffectChildren=True )
 				VertexColor surf, B, VertexRed( surf, B ), VertexGreen( surf, B ), VertexBlue( surf, B ), Value#
 			Next
 		Next
-		If mnui\DropDown <> 0
+		If mnui\DropDown <> Null
 			EntityAlpha mnui\DropDown, Value#
 			For A = 1 To CountSurfaces( mnui\DropDown )
 				surf = GetSurface( mnui\DropDown, A )
@@ -21421,22 +21430,22 @@ Function FUI_SetGadgetBlend( ID, Value, AffectChildren=True )
 	win.Window = Object.Window( ID )
 	If win <> Null
 		EntityBlend win\Mesh, Value
-		If win\MinMesh <> 0
+		If win\MinMesh <> Null
 			EntityBlend win\MinMesh, Value
 		EndIf
-		If win\TitleBar <> 0
+		If win\TitleBar <> Null
 			EntityBlend win\TitleBar, Value
-			If win\CloseBtn <> 0
+			If win\CloseBtn <> Null
 				EntityBlend win\CloseBtn, Value
 			EndIf
-			If win\MinBtn <> 0
+			If win\MinBtn <> Null
 				EntityBlend win\MinBtn, Value
 			EndIf
 		EndIf
-		If win\MenuBar <> 0
+		If win\MenuBar <> Null
 			EntityBlend win\MenuBar, Value
 		EndIf
-		If win\StatusBar <> 0
+		If win\StatusBar <> Null
 			EntityBlend win\StatusBar, Value
 		EndIf
 		
@@ -21553,7 +21562,7 @@ Function FUI_SetGadgetBlend( ID, Value, AffectChildren=True )
 	mnui.MenuItem = Object.MenuItem( ID )
 	If mnui <> Null
 		EntityBlend mnui\Mesh, Value
-		If mnui\DropDown <> 0
+		If mnui\DropDown <> Null
 			EntityBlend mnui\DropDown, Value
 		EndIf
 		
@@ -21911,22 +21920,22 @@ Function FUI_SetGadgetFX( ID, Value, AffectChildren=True )
 	win.Window = Object.Window( ID )
 	If win <> Null
 		EntityFX win\Mesh, Value
-		If win\MinMesh <> 0
+		If win\MinMesh <> Null
 			EntityFX win\MinMesh, Value
 		EndIf
-		If win\TitleBar <> 0
+		If win\TitleBar <> Null
 			EntityFX win\TitleBar, Value
-			If win\CloseBtn <> 0
+			If win\CloseBtn <> Null
 				EntityFX win\CloseBtn, Value
 			EndIf
-			If win\MinBtn <> 0
+			If win\MinBtn <> Null
 				EntityFX win\MinBtn, Value
 			EndIf
 		EndIf
-		If win\MenuBar <> 0
+		If win\MenuBar <> Null
 			EntityFX win\MenuBar, Value
 		EndIf
-		If win\StatusBar <> 0
+		If win\StatusBar <> Null
 			EntityFX win\StatusBar, Value
 		EndIf
 		
@@ -22043,7 +22052,7 @@ Function FUI_SetGadgetFX( ID, Value, AffectChildren=True )
 	mnui.MenuItem = Object.MenuItem( ID )
 	If mnui <> Null
 		EntityFX mnui\Mesh, Value
-		If mnui\DropDown <> 0
+		If mnui\DropDown <> Null
 			EntityFX mnui\DropDown, Value
 		EndIf
 		
@@ -22394,7 +22403,7 @@ Function FUI_SetGadgetFX( ID, Value, AffectChildren=True )
 	
 End Function
 
-Function FUI_ViewPick( ID, X, Y )
+Function FUI_ViewPick.BBEntity( ID, X, Y )
 	
 	view.View = Object.View( ID )
 	If view <> Null
@@ -22402,7 +22411,7 @@ Function FUI_ViewPick( ID, X, Y )
 		
 		Return app\Picked
 	EndIf
-	Return 0
+	Return Null
 	
 End Function
 
@@ -22675,17 +22684,17 @@ Function FUI_ShortCut( Key1$, Key2$="", Hit=True )
 			Key2 = 44
 	End Select
 	
-	If KeyDown( Key1 ) = True Or Key1 = ""
+	If KeyDown( Int Key1 ) = True Or Key1 = "" 
 		If Key2 > ""
 			If Hit = False
-				If KeyDown( Key2 )
+				If KeyDown( Int Key2 )
 					app\Idle = False
 					Return True
 				Else
 					Return False
 				EndIf
 			Else
-				If KeyHit( Key2 )
+				If KeyHit( Int Key2 )
 					app\Idle = False
 					Return True
 				Else
@@ -22800,21 +22809,21 @@ End Function
 Function FUI_Parse$( Message$, Item, Sep$ = "," )
 	Local fas, count, spos, epos
 	Repeat
-		fas = Instr(message$,sep$,fas+1)
+		fas = Instr(Message$,Sep$,fas+1)
 		count = count + 1
-	Until fas = 0 Or count = item
-	If fas = 0 And item > 0;item > count
+	Until fas = 0 Or count = Item
+	If fas = 0 And Item > 0;item > count
 		Return ""
 	EndIf
 	spos = fas+1
-	epos = Instr(message$+sep$,sep$,fas+1)
-	Return Mid$(message$,spos,(epos-spos))
+	epos = Instr(Message$+Sep$,Sep$,fas+1)
+	Return Mid$(Message$,spos,(epos-spos))
 End Function
 
 Function FUI_CountItems( Message$, Sep$ )
 	Local fas, count
 	Repeat
-		fas = Instr(message$,sep$,fas+1)
+		fas = Instr(Message$,Sep$,fas+1)
 		If fas<>0 Then count = count + 1
 	Until fas = 0
 	Return count+1
@@ -22826,36 +22835,36 @@ Function FUI_Interpolate#(value#, vMin#, vMax#, retMin#, retMax#)
 	
 End Function
 
-Function FUI_SetTexture( Mesh, Frame )
+Function FUI_SetTexture( Mesh.BBEntity, Frame )
 	
-	tex = FUI_GadgetTexture( Mesh )
+	tex.BBTexture = FUI_GadgetTexture( Mesh )
 	EntityTexture Mesh, tex, Frame
 	FreeTexture tex
 	
 End Function
 
-Function FUI_SetPosition( mesh, X, Y )
+Function FUI_SetPosition( mesh.BBEntity, X, Y )
 	
 	PositionEntity mesh, X-0.5, Y-0.5, 0.0
 	
 End Function
 
-Function FUI_SetChildPosition( mesh, X, Y )
+Function FUI_SetChildPosition( mesh.BBEntity, X, Y )
 	
 	PositionEntity mesh, X,-Y, 0.0
 	
 End Function
 
-Function FUI_InternalX#( Mesh )
+Function FUI_InternalX#( Mesh.BBEntity )
 	
-	TFormPoint EntityX( Mesh, 1 ), EntityY( Mesh, 1 ), EntityZ( Mesh, 1 ), 0, app\Pivot
+	TFormPoint EntityX( Mesh, 1 ), EntityY( Mesh, 1 ), EntityZ( Mesh, 1 ), Null, app\Pivot
 	Return TFormedX(  ) + 0.5
 	
 End Function
 
-Function FUI_InternalY#( Mesh )
+Function FUI_InternalY#( Mesh.BBEntity )
 	
-	TFormPoint EntityX( Mesh, 1 ), EntityY( Mesh, 1 ), EntityZ( Mesh, 1 ), 0, app\Pivot
+	TFormPoint EntityX( Mesh, 1 ), EntityY( Mesh, 1 ), EntityZ( Mesh, 1 ), Null, app\Pivot
 	Return TFormedY(  ) + 0.5
 	
 End Function
@@ -22921,29 +22930,29 @@ Function FUI_SkinDefaults(  )
 	SC_VIEW_BORDER								= FUI_RGBToInt( 0, 0, 0 )
 	SC_VIEW_BORDER_SEL							= FUI_RGBToInt( 0, 0, 0 )
 	
-	If app\fntWindow <> 0
+	If app\fntWindow <> Null
 		FreeFont app\fntWindow
-		app\fntWindow = 0
+		app\fntWindow = Null
 	EndIf
 	app\fntWindow = LoadFont( FONT_WINDOW_FACE, FONT_WINDOW_SIZE )
 	
-	If app\fntMenu <> 0
+	If app\fntMenu <> Null
 		FreeFont app\fntMenu
-		app\fntMenu = 0
+		app\fntMenu = Null
 	EndIf
 	app\fntMenu = LoadFont( FONT_MENU_FACE, FONT_MENU_SIZE )
 	
-	If app\fntGadget <> 0
+	If app\fntGadget <> Null
 		FreeFont app\fntGadget
-		app\fntGadget = 0
+		app\fntGadget = Null
 	EndIf
 	app\fntGadget = LoadFont( FONT_GADGET_FACE, FONT_GADGET_SIZE )
 	
 End Function
 
-Function FUI_Rect( X, Y, W, H, surf, fill=True )
+Function FUI_Rect( X, Y, W, H, surf.BBSurface, fill=True )
 	
-	If W = 0 Or H = 0 Or surf = 0
+	If W = 0 Or H = 0 Or surf = Null
 		Return
 	EndIf
 	
@@ -22985,17 +22994,17 @@ Function FUI_Rect( X, Y, W, H, surf, fill=True )
 	
 End Function
 
-Function FUI_CreateControl( Parent=0 )
+Function FUI_CreateControl.BBEntity( Parent.BBEntity=Null )
 	
-	If Parent = 0
+	If Parent = Null
 		Parent = app\Pivot
 	EndIf
 	
-	Mesh = CreateMesh( Parent )
+	Mesh.BBEntity = CreateMesh( Parent )
 	EntityFX Mesh, 1+2+8
 	ScaleEntity Mesh, 1.0, 1.0, 1.0
 	
-	Surf = CreateSurface( Mesh )
+	Surf.BBSurface = CreateSurface( Mesh )
 	
 ;	Brush = CreateBrush(  )
 ;	PaintSurface Surf, Brush
@@ -23009,13 +23018,13 @@ Function FUI_CreateControl( Parent=0 )
 	
 End Function
 
-Function FUI_CreateTexture( W, H, Flags=1+2, Frames=1, Alpha=0 )
+Function FUI_CreateTexture.BBTexture( W, H, Flags=1+2, Frames=1, Alpha=0 )
 	
 	TW		= FUI_NextPower( W )
 	TH		= FUI_NextPower( H )
 	ARGB	= (0 Or (0 Shl 8) Or (0 Shl 16) Or (Alpha Shl 24))
 	
-	tex = CreateTexture( TW, TH, Flags, Frames )
+	tex.BBTexture = CreateTexture( TW, TH, Flags, Frames )
 	
 	For A = 1 To Frames
 		LockBuffer TextureBuffer( tex, A-1 )
@@ -23031,12 +23040,12 @@ Function FUI_CreateTexture( W, H, Flags=1+2, Frames=1, Alpha=0 )
 	
 End Function
 
-Function FUI_LoadTexture( fName$, flags=1, W=0, H=0, frames=3 )
+Function FUI_LoadTexture.BBTexture( fName$, flags=1, W=0, H=0, frames=3 )
 	
-	img		= LoadImage( fName$ )
+	img.BBImage		= LoadImage( fName$ )
 	
-	If img = 0
-		Return 0
+	If img = Null
+		Return Null
 	EndIf
 	
 	If W = 0 And H = 0
@@ -23048,10 +23057,10 @@ Function FUI_LoadTexture( fName$, flags=1, W=0, H=0, frames=3 )
 	TH		= FUI_NextPower( H )
 	ARGB	= (0 Or (0 Shl 8) Or (0 Shl 16) Or (Alpha Shl 24))
 	
-	tex = CreateTexture( TW, TH, Flags, Frames )
+	tex.BBTexture = CreateTexture( TW, TH, flags, frames )
 	
 	LockBuffer ImageBuffer( img )
-	For A = 0 To Frames - 1
+	For A = 0 To frames - 1
 		LockBuffer TextureBuffer( tex, A )
 		For X = 0 To W - 1
 			For Y = 0 To H - 1
@@ -23069,8 +23078,7 @@ Function FUI_LoadTexture( fName$, flags=1, W=0, H=0, frames=3 )
 	
 End Function
 
-Dim dimg( 0 )
-Function FUI_SkinTexture( id$, W=0, H=0 )
+Function FUI_SkinTexture.BBTexture( id$, W=0, H=0 )
 	
 	app\Buffer = GraphicsBuffer(  )
 	
@@ -23087,22 +23095,22 @@ Function FUI_SkinTexture( id$, W=0, H=0 )
 	id$ = Lower( id$ )
 	Select id$
 		Case "tabpage"
-			Dim dimg( 3 )
-			dimg(0)		= LoadImage( fName$ + "tabpage\selected.bmp" )
-			dimg(1)		= LoadImage( fName$ + "tabpage\unselected.bmp" )
-			dimg(2)		= LoadImage( fName$ + "tabpage\disabled.bmp" )
-			tex = CreateTexture( TW, TH, 1+2, 3 )
+			Local dimg1.BBImage[3]
+			dimg1[0]		= LoadImage( fName$ + "tabpage\selected.bmp" )
+			dimg1[1]		= LoadImage( fName$ + "tabpage\unselected.bmp" )
+			dimg1[2]		= LoadImage( fName$ + "tabpage\disabled.bmp" )
+			tex.BBTexture = CreateTexture( TW, TH, 1+2, 3 )
 			
 			For LOOP = 0 To 2
-				If dimg(LOOP) <> 0
+				If dimg1[LOOP] <> Null
 					
 					SetBuffer TextureBuffer( tex, LOOP )
 					FUI_SetColor SC_GADGET
 					Rect 0, 0, W, H
 					
-					SW = ImageWidth( dimg(LOOP) ) / 3
-					SH = ImageHeight( dimg(LOOP) ) / 3
-					LockBuffer ImageBuffer( dimg(LOOP) )
+					SW = ImageWidth( dimg1[LOOP] ) / 3
+					SH = ImageHeight( dimg1[LOOP] ) / 3
+					LockBuffer ImageBuffer( dimg1[LOOP] )
 					
 					LockBuffer TextureBuffer( tex, LOOP )
 					
@@ -23116,7 +23124,7 @@ Function FUI_SkinTexture( id$, W=0, H=0 )
 					;Top Left
 					For X = 0 To SW - 1
 						For Y = 0 To SH - 1
-							RGB = ReadPixelFast( X, Y + IY, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+							RGB = ReadPixelFast( X, Y + IY, ImageBuffer( dimg1[LOOP] ) ) And $FFFFFF
 							R = (RGB Shr 16) And $FF
 							G = (RGB Shr 8) And $FF
 							B = RGB And $FF
@@ -23141,7 +23149,7 @@ Function FUI_SkinTexture( id$, W=0, H=0 )
 					For X = SW To W - SW - 1
 						For Y = 0 To SH - 1
 							IX = X Mod SW
-							RGB = ReadPixelFast( IX + SW, Y + IY, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+							RGB = ReadPixelFast( IX + SW, Y + IY, ImageBuffer( dimg1[LOOP] ) ) And $FFFFFF
 							R = (RGB Shr 16) And $FF
 							G = (RGB Shr 8) And $FF
 							B = RGB And $FF
@@ -23165,7 +23173,7 @@ Function FUI_SkinTexture( id$, W=0, H=0 )
 					;Top Right
 					For X = 0 To SW - 1
 						For Y = 0 To SH - 1
-							RGB = ReadPixelFast( X + SW * 2, Y + IY, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+							RGB = ReadPixelFast( X + SW * 2, Y + IY, ImageBuffer( dimg1[LOOP] ) ) And $FFFFFF
 							R = (RGB Shr 16) And $FF
 							G = (RGB Shr 8) And $FF
 							B = RGB And $FF
@@ -23191,7 +23199,7 @@ Function FUI_SkinTexture( id$, W=0, H=0 )
 					;Bottom Left
 					For X = 0 To SW - 1
 						For Y = 0 To SH - 1
-							RGB = ReadPixelFast( X, Y + IY, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+							RGB = ReadPixelFast( X, Y + IY, ImageBuffer( dimg1[LOOP] ) ) And $FFFFFF
 							R = (RGB Shr 16) And $FF
 							G = (RGB Shr 8) And $FF
 							B = RGB And $FF
@@ -23216,7 +23224,7 @@ Function FUI_SkinTexture( id$, W=0, H=0 )
 					For X = SW To W - SW - 1
 						For Y = 0 To SH - 1
 							IX = X Mod SW
-							RGB = ReadPixelFast( IX + SW, Y + IY, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+							RGB = ReadPixelFast( IX + SW, Y + IY, ImageBuffer( dimg1[LOOP] ) ) And $FFFFFF
 							R = (RGB Shr 16) And $FF
 							G = (RGB Shr 8) And $FF
 							B = RGB And $FF
@@ -23240,7 +23248,7 @@ Function FUI_SkinTexture( id$, W=0, H=0 )
 					;Bottom Right
 					For X = 0 To SW - 1
 						For Y = 0 To SH - 1
-							RGB = ReadPixelFast( X + SW * 2, Y + IY, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+							RGB = ReadPixelFast( X + SW * 2, Y + IY, ImageBuffer( dimg1[LOOP] ) ) And $FFFFFF
 							R = (RGB Shr 16) And $FF
 							G = (RGB Shr 8) And $FF
 							B = RGB And $FF
@@ -23265,7 +23273,7 @@ Function FUI_SkinTexture( id$, W=0, H=0 )
 					For X = 0 To SW
 						For Y = SH To H - SH - 1
 							IY = Y Mod SH
-							RGB = ReadPixelFast( X, IY + SH, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+							RGB = ReadPixelFast( X, IY + SH, ImageBuffer( dimg1[LOOP] ) ) And $FFFFFF
 							R = (RGB Shr 16) And $FF
 							G = (RGB Shr 8) And $FF
 							B = RGB And $FF
@@ -23291,7 +23299,7 @@ Function FUI_SkinTexture( id$, W=0, H=0 )
 						For Y = SH To H - SH - 1
 							IX = X Mod SW
 							IY = Y Mod SH
-							RGB = ReadPixelFast( IX + SW, IY + SH, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+							RGB = ReadPixelFast( IX + SW, IY + SH, ImageBuffer( dimg1[LOOP] ) ) And $FFFFFF
 							R = (RGB Shr 16) And $FF
 							G = (RGB Shr 8) And $FF
 							B = RGB And $FF
@@ -23316,7 +23324,7 @@ Function FUI_SkinTexture( id$, W=0, H=0 )
 					For X = 0 To SW
 						For Y = SH To H - SH - 1
 							IY = Y Mod SH
-							RGB = ReadPixelFast( X + SW*2, IY + SH, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+							RGB = ReadPixelFast( X + SW*2, IY + SH, ImageBuffer( dimg1[LOOP] ) ) And $FFFFFF
 							R = (RGB Shr 16) And $FF
 							G = (RGB Shr 8) And $FF
 							B = RGB And $FF
@@ -23338,33 +23346,33 @@ Function FUI_SkinTexture( id$, W=0, H=0 )
 					Next
 					
 					UnlockBuffer TextureBuffer( tex, LOOP )
-					UnlockBuffer ImageBuffer( dimg(LOOP) )
-					FreeImage dimg(LOOP)
+					UnlockBuffer ImageBuffer( dimg1[LOOP] )
+					FreeImage dimg1[LOOP]
 				Else
 					FreeTexture tex
-					Return 0
+					Return Null
 				EndIf
 			Next
 			
 			SetBuffer app\Buffer
 			Return tex
 		Case "panel"
-			Dim dimg(3)
-			dimg(0)	= LoadImage( fName$ + "panel\up.bmp" )
-			dimg(1) = LoadImage( fName$ + "panel\down.bmp" )
-			dimg(2) = LoadImage( fName$ + "panel\disabled.bmp" )
+			Local dimg2.BBImage[3]
+			dimg2[0]	= LoadImage( fName$ + "panel\up.bmp" )
+			dimg2[1] = LoadImage( fName$ + "panel\down.bmp" )
+			dimg2[2] = LoadImage( fName$ + "panel\disabled.bmp" )
 			
 			tex = CreateTexture( TW, TH, 1+2, 3 )
 			For LOOP = 0 To 2
-				If dimg(LOOP) <> 0
-					SW = ImageWidth( dimg(LOOP) ) / 3
-					LockBuffer ImageBuffer( dimg(LOOP) )
+				If dimg2[LOOP] <> Null
+					SW = ImageWidth( dimg2[LOOP] ) / 3
+					LockBuffer ImageBuffer( dimg2[LOOP] )
 					LockBuffer TextureBuffer( tex, LOOP )
 					
 					;Left Edge
 					For X = 0 To SW - 1
 						For Y = 0 To H - 1
-							RGB = ReadPixelFast( X, Y, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+							RGB = ReadPixelFast( X, Y, ImageBuffer( dimg2[LOOP] ) ) And $FFFFFF
 							R = (RGB Shr 16) And $FF
 							G = (RGB Shr 8) And $FF
 							B = RGB And $FF
@@ -23389,7 +23397,7 @@ Function FUI_SkinTexture( id$, W=0, H=0 )
 					For X = SW To W - SW - 1
 						For Y = 0 To H - 1
 							IX = X Mod SW
-							RGB = ReadPixelFast( IX + SW, Y, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+							RGB = ReadPixelFast( IX + SW, Y, ImageBuffer( dimg2[LOOP] ) ) And $FFFFFF
 							R = (RGB Shr 16) And $FF
 							G = (RGB Shr 8) And $FF
 							B = RGB And $FF
@@ -23413,7 +23421,7 @@ Function FUI_SkinTexture( id$, W=0, H=0 )
 					;Right Edge
 					For X = 0 To SW - 1
 						For Y = 0 To H - 1
-							RGB = ReadPixelFast( X + SW * 2, Y, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+							RGB = ReadPixelFast( X + SW * 2, Y, ImageBuffer( dimg2[LOOP] ) ) And $FFFFFF
 							R = (RGB Shr 16) And $FF
 							G = (RGB Shr 8) And $FF
 							B = RGB And $FF
@@ -23435,34 +23443,34 @@ Function FUI_SkinTexture( id$, W=0, H=0 )
 					Next
 					
 					UnlockBuffer TextureBuffer( tex, LOOP )
-					UnlockBuffer ImageBuffer( dimg(LOOP) )
-					FreeImage dimg(LOOP)
+					UnlockBuffer ImageBuffer( dimg2[LOOP] )
+					FreeImage dimg2[LOOP]
 				Else
 					FreeTexture tex
-					Return 0
+					Return Null
 				EndIf
 			Next
 			
 			Return tex
 		Case "button"
-			Dim dimg( 4 )
-			dimg(0)		= LoadImage( fName$ + "button\up.bmp" )
-			dimg(1)		= LoadImage( fName$ + "button\over.bmp" )
-			dimg(2)		= LoadImage( fName$ + "button\down.bmp" )
-			dimg(3)		= LoadImage( fName$ + "button\disabled.bmp" )
+			Local dimg3.BBImage[4]
+			dimg3[0]		= LoadImage( fName$ + "button\up.bmp" )
+			dimg3[1]		= LoadImage( fName$ + "button\over.bmp" )
+			dimg3[2]		= LoadImage( fName$ + "button\down.bmp" )
+			dimg3[3]		= LoadImage( fName$ + "button\disabled.bmp" )
 			
 			tex = CreateTexture( TW, TH, 1+2, 4 )
 			
 			For LOOP = 0 To 3
-				If dimg(LOOP) <> 0
+				If dimg3[LOOP] <> Null
 					
 					SetBuffer TextureBuffer( tex, LOOP )
 					FUI_SetColor SC_GADGET
 					Rect 0, 0, W, H
 					
-					SW = ImageWidth( dimg(LOOP) ) / 3
-					SH = ImageHeight( dimg(LOOP) ) / 3
-					LockBuffer ImageBuffer( dimg(LOOP) )
+					SW = ImageWidth( dimg3[LOOP] ) / 3
+					SH = ImageHeight( dimg3[LOOP] ) / 3
+					LockBuffer ImageBuffer( dimg3[LOOP] )
 					
 					LockBuffer TextureBuffer( tex, LOOP )
 					
@@ -23471,7 +23479,7 @@ Function FUI_SkinTexture( id$, W=0, H=0 )
 					;Top Left
 					For X = 0 To SW - 1
 						For Y = 0 To SH - 1
-							RGB = ReadPixelFast( X, Y + IY, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+							RGB = ReadPixelFast( X, Y + IY, ImageBuffer( dimg3[LOOP] ) ) And $FFFFFF
 							R = (RGB Shr 16) And $FF
 							G = (RGB Shr 8) And $FF
 							B = RGB And $FF
@@ -23496,7 +23504,7 @@ Function FUI_SkinTexture( id$, W=0, H=0 )
 					For X = SW To W - SW - 1
 						For Y = 0 To SH - 1
 							IX = X Mod SW
-							RGB = ReadPixelFast( IX + SW, Y + IY, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+							RGB = ReadPixelFast( IX + SW, Y + IY, ImageBuffer( dimg3[LOOP] ) ) And $FFFFFF
 							R = (RGB Shr 16) And $FF
 							G = (RGB Shr 8) And $FF
 							B = RGB And $FF
@@ -23520,7 +23528,7 @@ Function FUI_SkinTexture( id$, W=0, H=0 )
 					;Top Right
 					For X = 0 To SW - 1
 						For Y = 0 To SH - 1
-							RGB = ReadPixelFast( X + SW * 2, Y + IY, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+							RGB = ReadPixelFast( X + SW * 2, Y + IY, ImageBuffer( dimg3[LOOP] ) ) And $FFFFFF
 							R = (RGB Shr 16) And $FF
 							G = (RGB Shr 8) And $FF
 							B = RGB And $FF
@@ -23546,7 +23554,7 @@ Function FUI_SkinTexture( id$, W=0, H=0 )
 					;Bottom Left
 					For X = 0 To SW - 1
 						For Y = 0 To SH - 1
-							RGB = ReadPixelFast( X, Y + IY, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+							RGB = ReadPixelFast( X, Y + IY, ImageBuffer( dimg3[LOOP] ) ) And $FFFFFF
 							R = (RGB Shr 16) And $FF
 							G = (RGB Shr 8) And $FF
 							B = RGB And $FF
@@ -23571,7 +23579,7 @@ Function FUI_SkinTexture( id$, W=0, H=0 )
 					For X = SW To W - SW - 1
 						For Y = 0 To SH - 1
 							IX = X Mod SW
-							RGB = ReadPixelFast( IX + SW, Y + IY, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+							RGB = ReadPixelFast( IX + SW, Y + IY, ImageBuffer( dimg3[LOOP] ) ) And $FFFFFF
 							R = (RGB Shr 16) And $FF
 							G = (RGB Shr 8) And $FF
 							B = RGB And $FF
@@ -23595,7 +23603,7 @@ Function FUI_SkinTexture( id$, W=0, H=0 )
 					;Bottom Right
 					For X = 0 To SW - 1
 						For Y = 0 To SH - 1
-							RGB = ReadPixelFast( X + SW * 2, Y + IY, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+							RGB = ReadPixelFast( X + SW * 2, Y + IY, ImageBuffer( dimg3[LOOP] ) ) And $FFFFFF
 							R = (RGB Shr 16) And $FF
 							G = (RGB Shr 8) And $FF
 							B = RGB And $FF
@@ -23620,7 +23628,7 @@ Function FUI_SkinTexture( id$, W=0, H=0 )
 					For X = 0 To SW
 						For Y = SH To H - SH - 1
 							IY = Y Mod SH
-							RGB = ReadPixelFast( X, IY + SH, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+							RGB = ReadPixelFast( X, IY + SH, ImageBuffer( dimg3[LOOP] ) ) And $FFFFFF
 							R = (RGB Shr 16) And $FF
 							G = (RGB Shr 8) And $FF
 							B = RGB And $FF
@@ -23646,7 +23654,7 @@ Function FUI_SkinTexture( id$, W=0, H=0 )
 						For Y = SH To H - SH - 1
 							IX = X Mod SW
 							IY = Y Mod SH
-							RGB = ReadPixelFast( IX + SW, IY + SH, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+							RGB = ReadPixelFast( IX + SW, IY + SH, ImageBuffer( dimg3[LOOP] ) ) And $FFFFFF
 							R = (RGB Shr 16) And $FF
 							G = (RGB Shr 8) And $FF
 							B = RGB And $FF
@@ -23671,7 +23679,7 @@ Function FUI_SkinTexture( id$, W=0, H=0 )
 					For X = 0 To SW
 						For Y = SH To H - SH - 1
 							IY = Y Mod SH
-							RGB = ReadPixelFast( X + SW*2, IY + SH, ImageBuffer( dimg(LOOP) ) ) And $FFFFFF
+							RGB = ReadPixelFast( X + SW*2, IY + SH, ImageBuffer( dimg3[LOOP] ) ) And $FFFFFF
 							R = (RGB Shr 16) And $FF
 							G = (RGB Shr 8) And $FF
 							B = RGB And $FF
@@ -23693,11 +23701,11 @@ Function FUI_SkinTexture( id$, W=0, H=0 )
 					Next
 					
 					UnlockBuffer TextureBuffer( tex, LOOP )
-					UnlockBuffer ImageBuffer( dimg(LOOP) )
-					FreeImage dimg(LOOP)
+					UnlockBuffer ImageBuffer( dimg3[LOOP] )
+					FreeImage dimg3[LOOP]
 				Else
 					FreeTexture tex
-					Return 0
+					Return Null
 				EndIf
 			Next
 			
@@ -23705,11 +23713,11 @@ Function FUI_SkinTexture( id$, W=0, H=0 )
 			Return tex
 	End Select
 	
-	Return 0
+	Return Null
 	
 End Function
 
-Function FUI_ClearTexture( tex, Alpha=0, W=0, H=0 )
+Function FUI_ClearTexture( tex.BBTexture, Alpha=0, W=0, H=0 )
 	
 	If W = 0
 		TW		= TextureWidth( tex )
@@ -23734,7 +23742,7 @@ Function FUI_ClearTexture( tex, Alpha=0, W=0, H=0 )
 	
 End Function
 
-Function FUI_Text( tex, X, Y, txt$, CenterX=0, CenterY=0 )
+Function FUI_Text( tex.BBTexture, X, Y, txt$, CenterX=0, CenterY=0 )
 	
 	If txt$ = ""
 		Return
@@ -23763,9 +23771,9 @@ Function FUI_Text( tex, X, Y, txt$, CenterX=0, CenterY=0 )
 		W = StringWidth( txt$ )
 	EndIf
 	
-	pBuffer = GraphicsBuffer(  )
+	pBuffer.BBBuffer = GraphicsBuffer(  )
 	
-	img = CreateImage( W, FontHeight() )
+	img.BBImage = CreateImage( W, FontHeight() )
 	LockBuffer ImageBuffer( img )
 	For PX = 0 To W - 1
 		For PY = 0 To FontHeight() - 1
@@ -23801,18 +23809,18 @@ Function FUI_Text( tex, X, Y, txt$, CenterX=0, CenterY=0 )
 	UnlockBuffer
 
 	FreeImage img
-	img = 0
+	img = Null
 	
 End Function
 
-Function FUI_GadgetTexture( mesh )
+Function FUI_GadgetTexture.BBTexture( mesh.BBEntity )
 	
-	brush = GetEntityBrush( mesh )
-	If brush <> 0
-		tex = GetBrushTexture( brush )
+	brush.BBBrush = GetEntityBrush( mesh )
+	If brush <> Null
+		tex.BBTexture = GetBrushTexture( brush )
 		FreeBrush brush
 	Else
-		tex = 0
+		tex = Null
 	EndIf
 	
 	Return tex
@@ -23862,7 +23870,7 @@ End Function
 ;#End Region
 
 ;#Region ---------- 3D Mesh Functions ----------
-Function FUI_CreateCone( Segments = 8, Solid = 1, Parent = 0 )
+Function FUI_CreateCone.BBEntity( Segments = 8, Solid = 1, Parent.BBEntity = Null )
 	
 	m.Mesh = New Mesh
 	m\ID = 2
@@ -23872,7 +23880,7 @@ Function FUI_CreateCone( Segments = 8, Solid = 1, Parent = 0 )
 	
 End Function
 
-Function FUI_CreateCube( Parent = 0 )
+Function FUI_CreateCube.BBEntity( Parent.BBEntity = Null )
 	
 	m.Mesh = New Mesh
 	m\ID = 2
@@ -23882,7 +23890,7 @@ Function FUI_CreateCube( Parent = 0 )
 	
 End Function
 
-Function FUI_CreateCylinder( Segments = 8, Solid = 1, Parent = 0 )
+Function FUI_CreateCylinder.BBEntity( Segments = 8, Solid = 1, Parent.BBEntity = Null )
 	
 	m.Mesh = New Mesh
 	m\ID = 2
@@ -23892,7 +23900,7 @@ Function FUI_CreateCylinder( Segments = 8, Solid = 1, Parent = 0 )
 	
 End Function
 
-Function FUI_CreateSphere( Segments = 8, Parent = 0 )
+Function FUI_CreateSphere.BBEntity( Segments = 8, Parent.BBEntity = Null )
 	
 	m.Mesh = New Mesh
 	m\ID = 2
@@ -23902,7 +23910,7 @@ Function FUI_CreateSphere( Segments = 8, Parent = 0 )
 	
 End Function
 
-Function FUI_LoadMesh( fName$ )
+Function FUI_LoadMesh.BBEntity( fName$ )
 	
 	m.Mesh = New Mesh
 	m\ID = 2
@@ -23913,7 +23921,7 @@ Function FUI_LoadMesh( fName$ )
 	
 End Function
 
-Function FUI_LoadAnimMesh( fName$ )
+Function FUI_LoadAnimMesh.BBEntity( fName$ )
 	
 	m.Mesh = New Mesh
 	m\ID = 2
@@ -23924,7 +23932,7 @@ Function FUI_LoadAnimMesh( fName$ )
 	
 End Function
 
-Function FUI_FreeEntity( mesh )
+Function FUI_FreeEntity( mesh.BBEntity )
 	
 	For m.Mesh = Each Mesh
 		If m\Mesh = mesh
@@ -23948,7 +23956,7 @@ Function FUI_FreeAllEntities( ID=2 )
 	
 End Function
 
-Function FUI_WireFrame( mesh, Value=True )
+Function FUI_WireFrame.BBEntity( mesh.BBEntity, Value=True )
 	
 	For m.Mesh = Each Mesh
 		If m\Mesh = mesh
@@ -23961,7 +23969,7 @@ Function FUI_WireFrame( mesh, Value=True )
 	
 End Function
 
-Function FUI_HideEntity( mesh )
+Function FUI_HideEntity.BBEntity( mesh.BBEntity )
 	
 	For m.Mesh = Each Mesh
 		If m\Mesh = mesh
@@ -23974,7 +23982,7 @@ Function FUI_HideEntity( mesh )
 	
 End Function
 
-Function FUI_ShowEntity( mesh )
+Function FUI_ShowEntity.BBEntity( mesh.BBEntity )
 	
 	For m.Mesh = Each Mesh
 		If m\Mesh = mesh
@@ -23989,7 +23997,7 @@ End Function
 ;#End Region
 
 ;#Region ---------- 3D Line Functions ----------
-Function FUI_3DLine( surf, x1#, y1#, z1#, x2#, y2#, z2#, r=255, g=255, b=255 )
+Function FUI_3DLine( surf.BBSurface, x1#, y1#, z1#, x2#, y2#, z2#, r=255, g=255, b=255 )
 	
 	v0 = AddVertex( surf,x1#,y1#,z1# )
 	v1 = AddVertex( surf,x2#,y2#,z2# )
@@ -24003,12 +24011,12 @@ Function FUI_3DLine( surf, x1#, y1#, z1#, x2#, y2#, z2#, r=255, g=255, b=255 )
 	
 End Function
 
-Function FUI_CreateGrid( Units=20, UnitSize#=1.0, Major=10, Parent=0 )
+Function FUI_CreateGrid.BBEntity( Units=20, UnitSize#=1.0, Major=10, Parent=0 )
 	
 	m.Mesh = New Mesh
 	m\ID = 1
 	m\mesh = CreateMesh(  )
-	surf = CreateSurface( m\mesh )
+	surf.BBSurface = CreateSurface( m\mesh )
 	
 	HUnits# = Float( Units ) / 2.0
 	If Major = 0 Major = 1
@@ -24051,12 +24059,12 @@ Function FUI_CreateGrid( Units=20, UnitSize#=1.0, Major=10, Parent=0 )
 	
 End Function
 
-Function FUI_CreateWireCone( Sides=8, Parent=0 )
+Function FUI_CreateWireCone.BBEntity( Sides=8, Parent=0 )
 	
 	m.Mesh = New Mesh
 	m\ID = 2
 	m\mesh = CreateMesh(  )
-	surf = CreateSurface( m\mesh )
+	surf.BBSurface = CreateSurface( m\mesh )
 	
 	Radius# = 1.0
 	MSides = 360/Sides
@@ -24073,12 +24081,12 @@ Function FUI_CreateWireCone( Sides=8, Parent=0 )
 	
 End Function
 
-Function FUI_CreateWireCube( Parent=0 )
+Function FUI_CreateWireCube.BBEntity( Parent=0 )
 	
 	m.Mesh = New Mesh
 	m\ID = 2
 	m\mesh = CreateMesh(  )
-	surf = CreateSurface( m\mesh )
+	surf.BBSurface = CreateSurface( m\mesh )
 	
 	;Sides
 	FUI_3DLine( surf,-1.0,-1.0,-1.0,-1.0, 1.0,-1.0 )
@@ -24104,12 +24112,12 @@ Function FUI_CreateWireCube( Parent=0 )
 	
 End Function
 
-Function FUI_CreateWireCylinder( Sides=8, Parent=0 )
+Function FUI_CreateWireCylinder.BBEntity( Sides=8, Parent=0 )
 	
 	m.Mesh = New Mesh
 	m\ID = 2
 	m\mesh = CreateMesh(  )
-	surf = CreateSurface( m\mesh )
+	surf.BBSurface = CreateSurface( m\mesh )
 	
 	Radius# = 1.0
 	MSides = 360/Sides
@@ -24127,12 +24135,12 @@ Function FUI_CreateWireCylinder( Sides=8, Parent=0 )
 	
 End Function
 
-Function FUI_CreateWireSphere( Sides=8, Parent=0 )
+Function FUI_CreateWireSphere.BBEntity( Sides=8, Parent=0 )
 	
 	m.Mesh = New Mesh
 	m\ID = 2
 	m\mesh = CreateMesh(  )
-	surf = CreateSurface( m\mesh )
+	surf.BBSurface = CreateSurface( m\mesh )
 	
 	Radius# = 1.0
 	MSides = 360/Sides
@@ -24154,27 +24162,27 @@ End Function
 ;#Region ---------- Multi-Lingual Functions ----
 ;(By Bot Builder)
 Function FUI_SetBaseLanguage(Language$)
-	app\baselang=ReadFile(Language$)
-	app\newlang=app\baselang
-	app\baselangs$=Language$
-	app\newlangs$=Language$
+	app\BaseLang=ReadFile(Language$)
+	app\NewLang=app\BaseLang
+	app\BaseLangs$=Language$
+	app\NewLangs$=Language$
 End Function
 
 Function FUI_SetLanguage(Language$)
-	If app\baselang=0 Then
+	If app\BaseLang=Null Then
 		RuntimeError "Call FUI_SetBaseLanguage before FUI_SetLanguage"
 	EndIf
 
-	app\oldlang=app\newlang
-	SeekFile app\oldlang,0
-	app\newlang=ReadFile(language$)
-	app\newlangs$=language$
+	app\OldLang=app\NewLang
+	SeekFile app\OldLang,0
+	app\NewLang=ReadFile(Language$)
+	app\NewLangs$=Language$
 
-	num=ReadLine$(app\newlang)
-    n2=ReadLine$(app\oldlang)
-	For a=1 To num
-		l$=Lower$(ReadLine$(app\oldlang))
-		nl$=ReadLine$(app\newlang)
+	num$=ReadLine$(app\NewLang)
+    n2$=ReadLine$(app\OldLang)
+	For a=1 To Int num
+		l$=Lower$(ReadLine$(app\OldLang))
+		nl$=ReadLine$(app\NewLang)
 		
 		If nl$ > ""
 			For mi.MenuItem=Each MenuItem
@@ -24294,7 +24302,7 @@ Function FUI_SetLanguage(Language$)
 				EndIf
 			Next
 	
-			For n.node=Each node
+			For n.node=Each Node
 				If Lower$(n\Caption$)=l$ Then
 					FUI_SendMessage Handle(n),M_SETCAPTION,nl$
 					
@@ -24302,7 +24310,7 @@ Function FUI_SetLanguage(Language$)
 				EndIf
 			Next
 	
-			For v.view=Each view
+			For v.view=Each View
 				If Lower$(v\Caption$)=l$ Then
 					FUI_SendMessage Handle(v),M_SETCAPTION,nl$
 					
@@ -24318,7 +24326,7 @@ Function FUI_SetLanguage(Language$)
 				EndIf
 			Next
 	
-			For tt.tooltip=Each tooltip
+			For tt.tooltip=Each ToolTip
 				If Lower$(tt\Caption$)=l$ Then
 					tt\Caption$=nl$
 					Exit
@@ -24332,19 +24340,19 @@ End Function
 Function FUI_UpdateLanguage( ID )
 	If app\NewLangs$ = app\BaseLangs$ Then Return
 	
-	SeekFile app\newlang, 0
-	SeekFile app\baselang, 0
+	SeekFile app\NewLang, 0
+	SeekFile app\BaseLang, 0
 
-	num		= ReadLine( app\newlang )
-    n2		= ReadLine( app\baselang )
+	num$		= ReadLine( app\NewLang )
+    n2$		= ReadLine( app\BaseLang )
 	
 	Caption$ = FUI_SendMessage( ID, M_GETTEXT )
-	For A = 1 To num
-		nl$ = ReadLine( app\newlang )
+	For A = 1 To Int num
+		nl$ = ReadLine( app\NewLang )
 		If nl$=""
-			ReadLine app\baselang
+			ReadLine app\BaseLang
 		Else
-			If Lower( Caption$ ) = Lower( ReadLine( app\baselang ) )
+			If Lower( Caption$ ) = Lower( ReadLine( app\BaseLang ) )
 				FUI_SendMessage ID, M_SETCAPTION, nl$
 				Exit
 			EndIf

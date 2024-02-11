@@ -1,3 +1,5 @@
+; This file must be compiled with BlitzRC
+
 ;##############################################################################
 ; RCCE 2 PROJECT MANAGER v3.0
 ; This piece of software was desgined and built by Zaven Boyrazian
@@ -29,9 +31,9 @@ FUI_Initialise(GUE_width, GUE_height, 0, 2, True, True, "RCCE 2 Project Manager"
 SetBuffer(BackBuffer())
 
 ;Images
-LogoTex  = LoadImage("Resources\RCCE Banner.jpg")
-LogoTex2 = LoadImage("Resources\Gajatix.jpg")
-Splash = LoadImage("Resources\Logo_Splash.bmp")
+LogoTex.BBImage  = LoadImage("Resources\RCCE Banner.jpg")
+LogoTex2.BBImage = LoadImage("Resources\Gajatix.jpg")
+Splash.BBImage = LoadImage("Resources\Logo_Splash.bmp")
 
 ;Resize Images
 ResizeImage LogoTex, 380, 112
@@ -72,8 +74,8 @@ BPS$ = Chr$(34) + "ToolKit\BlitzPlus\BlitzPlus.exe" + Chr$(34)
 RPM$ = Chr$(34) + "Project Manager.exe" + Chr$(34)
 
 ; Misc options
-F = ReadFile("Data\Game Data\Misc.dat")
-If F = 0 Then RuntimeError("Could not open Data\Game Data\Misc.dat!")
+F.BBStream = ReadFile("Data\Game Data\Misc.dat")
+If F = Null Then RuntimeError("Could not open Data\Game Data\Misc.dat!")
 	GameName$ = ReadLine$(F)
 CloseFile(F)
 
@@ -231,7 +233,7 @@ Local E.Event
 			app\Quit = True
 		Case ProName
 			F = WriteFile("Data\Game Data\Misc.dat")
-				If F = 0 Then RuntimeError("Could not open Data\Game Data\Misc.dat!")
+				If F = Null Then RuntimeError("Could not open Data\Game Data\Misc.dat!")
 					WriteLine F, FUI_SendMessage(ProName, M_GETCAPTION)
 				CloseFile(F)
 		Case M_Meshes
