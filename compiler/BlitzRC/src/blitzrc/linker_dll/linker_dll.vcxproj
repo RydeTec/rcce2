@@ -9,6 +9,10 @@
       <Configuration>Blitz3DRelease</Configuration>
       <Platform>Win32</Platform>
     </ProjectConfiguration>
+    <ProjectConfiguration Include="BlitzRCDeploy|Win32">
+      <Configuration>BlitzRCDeploy</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
       <Platform>Win32</Platform>
@@ -26,6 +30,7 @@
     <SccProjectName />
     <SccLocalPath />
     <ProjectGuid>{77D5335C-A22C-4317-853B-ED7DD1B689C4}</ProjectGuid>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Template|Win32'" Label="Configuration">
@@ -56,6 +61,12 @@
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='BlitzRCDeploy|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
@@ -78,9 +89,20 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
     <Import Project="$(VCTargetsPath)Microsoft.Cpp.UpgradeFromVC60.props" />
   </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='BlitzRCDeploy|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="$(VCTargetsPath)Microsoft.Cpp.UpgradeFromVC60.props" />
+  </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Blitz3DRelease|Win32'">
     <OutDir>../_release/bin/</OutDir>
+    <IntDir>.\linker_dll___Win32_Blitz3DRelease\</IntDir>
+    <LinkIncremental>false</LinkIncremental>
+    <LibraryPath>..\..\DX7_Sdk\DXF\lib;$(LibraryPath)</LibraryPath>
+    <TargetName>linker</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='BlitzRCDeploy|Win32'">
+    <OutDir>../../../bin/</OutDir>
     <IntDir>.\linker_dll___Win32_Blitz3DRelease\</IntDir>
     <LinkIncremental>false</LinkIncremental>
     <LibraryPath>..\..\DX7_Sdk\DXF\lib;$(LibraryPath)</LibraryPath>
@@ -138,6 +160,48 @@
       <LinkDLL>true</LinkDLL>
       <SubSystem>Console</SubSystem>
       <OutputFile>../_release/bin/linker.dll</OutputFile>
+      <ImportLibrary>.\linker_dll___Win32_Blitz3DRelease\linker.lib</ImportLibrary>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
+      <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='BlitzRCDeploy|Win32'">
+    <ClCompile>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <InlineFunctionExpansion>Default</InlineFunctionExpansion>
+      <StringPooling>true</StringPooling>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <Optimization>MinSpace</Optimization>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>_WINDOWS;_USRDLL;LINKER_DLL_EXPORTS;WIN32;NDEBUG;PRO;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AssemblerListingLocation>.\linker_dll___Win32_Blitz3DRelease\</AssemblerListingLocation>
+      <PrecompiledHeaderOutputFile>.\linker_dll___Win32_Blitz3DRelease\linker_dll.pch</PrecompiledHeaderOutputFile>
+      <ObjectFileName>.\linker_dll___Win32_Blitz3DRelease\</ObjectFileName>
+      <ProgramDataBaseFileName>.\linker_dll___Win32_Blitz3DRelease\</ProgramDataBaseFileName>
+      <CallingConvention>StdCall</CallingConvention>
+      <AdditionalIncludeDirectories>../../dxsdk/include/</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Midl>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <TypeLibraryName>.\linker_dll___Win32_Blitz3DRelease\linker_dll.tlb</TypeLibraryName>
+      <MkTypLibCompatible>true</MkTypLibCompatible>
+      <TargetEnvironment>Win32</TargetEnvironment>
+    </Midl>
+    <ResourceCompile>
+      <Culture>0x0409</Culture>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+    <Bscmake>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <OutputFile>.\linker_dll___Win32_Blitz3DRelease\linker_dll.bsc</OutputFile>
+    </Bscmake>
+    <Link>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <LinkDLL>true</LinkDLL>
+      <SubSystem>Console</SubSystem>
+      <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <ImportLibrary>.\linker_dll___Win32_Blitz3DRelease\linker.lib</ImportLibrary>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>

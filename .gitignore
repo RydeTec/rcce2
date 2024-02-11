@@ -19,3 +19,5 @@ src/Tools/Modules_old/
 src/Tools/toolsource_old/
 
 *.iws
+
+*.pdb
