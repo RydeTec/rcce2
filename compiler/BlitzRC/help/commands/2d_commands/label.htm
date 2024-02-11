@@ -1,0 +1,40 @@
+<html><head><title>Command: Gosub </title><meta http-equiv='Content-Type' content='text/html; charset=iso-8859-1'><link rel='stylesheet' href='../css/commands.css' type='text/css'></head><body><span class='Command'>&nbsp;&nbsp;.variable&nbsp;&nbsp;</span></p><span class='header'>Definition:</span> <br><br><table width='100%' border='0' cellspacing='2' cellpadding='2' align='center'><tr><td>
+  Sets a callable label within your program.</td></tr></table><span class='header'><br>Parameter Description:</span> <br><br><table width='100%' border='0' cellspacing='2' cellpadding='2' align='center'><tr><td>
+  variable = any valid existing label variable</td></tr></table><p class='header'>Command Description: <br><br><table width='100%' border='0' cellspacing='2' cellpadding='2' align='center'><tr><td>
+  A label is like a callable bookmark within your program. It basically tells 
+  Blitz where to start something; either program execution (through a 
+  <a href="Goto.htm">Goto</a> or 
+  <a href="Gosub.htm">Gosub</a> command) or where to start reading 
+  <a href="Data.htm">Data</a> (through the <a href="Read.htm">Read</a> command). 
+  While most 'professional' programmers loathe and hate the use of 'branching' 
+  commands like <a href="Goto.htm">Goto</a>/<a href="Gosub.htm">Gosub</a>, you will likely find it useful regardless. Use 
+  <a href="Return.htm">Return</a> to jump back to the original code that called the label via the
+  <a href="Gosub.htm">Gosub</a> 
+  command (you cannot <a href="Return.htm">Return</a> from a <a href="Goto.htm">Goto</a> command).<br>
+  In addition, you MUST use labels to read <a href="Data.htm">Data</a> values using the 
+  <a href="Read.htm">Read</a> command. 
+  Check out the <a href="Read.htm">Read</a> command for use of it in a 
+  <a href="Data.htm">Data</a> statement environment.</td></tr></table><p class='header'>Example: <br><br><table width='100%' border='0' cellspacing='2' cellpadding='2' align='center'><tr><td>
+  ; The program starts here, but we'll branch to other labels<br>
+  <br>
+  Gosub start<br>
+  Gosub label3<br>
+  Gosub label2<br>
+  <br>
+  ; Let's wait for ESC to be pressed before ending<br>
+  While Not KeyHit(1)<br>
+  Wend<br>
+  End<br>
+  <br>
+  .start<br>
+  Print &quot;We start here ...&quot;<br>
+  Return <br>
+  <br>
+  .label2<br>
+  Print &quot;This is label 2&quot;<br>
+  Return<br>
+  <br>
+  .label3<br>
+  Print &quot;This is label 3&quot;<br>
+  Return<br></td></tr></table><p><b><a target="_top" href="../index.htm">Index</a></b></p></body>
+</html>
