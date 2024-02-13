@@ -9,8 +9,11 @@
 // Cast an expression to a type //
 //////////////////////////////////
 ExprNode *ExprNode::castTo( Type *ty,Environ *e ){
-	if( !sem_type->canCastTo( ty ) ){
-		ex( "Illegal type conversion ("+sem_type->name()+" -> "+ty->name()+")" );
+	ty->strict = e->strict;
+	if( !sem_type->canCastTo( ty )){
+		if (!sem_type->canPointTo(ty)) {
+			ex("Illegal type conversion (" + sem_type->name() + " -> " + ty->name() + ")");
+		}
 	}
 	if (sem_type==Type::string_type && ty==Type::int_type) {
 		ex( "String-to-int conversion must be explicit" );
@@ -71,6 +74,10 @@ TNode *CastNode::translate( Codegen *g ){
 	if( expr->sem_type->structType() && sem_type==Type::string_type ){
 		//obj->str
 		return call( "__bbObjToStr",t );
+	}
+	if (expr->sem_type->isPointer() && sem_type == Type::string_type) {
+		//bbPointer->str
+		return call("__bbStrFromInt", t);
 	}
 	return t;
 }

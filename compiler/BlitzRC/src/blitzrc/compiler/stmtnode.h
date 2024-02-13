@@ -15,6 +15,7 @@ struct StmtNode : public Node{
 
 struct StmtSeqNode : public Node{
 	string file;
+	bool strictMode = false;
 	vector<StmtNode*> stmts;
 	StmtSeqNode( const string &f ):file(f){}
 	~StmtSeqNode(){ for( ;stmts.size();stmts.pop_back() ) delete stmts.back(); }
@@ -22,6 +23,8 @@ struct StmtSeqNode : public Node{
 	void translate( Codegen *g );
 	void push_back( StmtNode *s ){ stmts.push_back( s ); }
 	int  size(){ return stmts.size(); }
+	bool isStrict() { return strictMode; }
+	void setStrict() { strictMode = true; }
 
 	static void reset( const string &file,const string &lab );
 };

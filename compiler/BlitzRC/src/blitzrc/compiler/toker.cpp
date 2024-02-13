@@ -80,7 +80,8 @@ static void makeKeywords(){
 
 	alphaTokes["Null"]=NULLCONST;
 
-	alphaTokes["AllowBBPointerToInt"]=ALLOWPOINTERTOINT;
+	alphaTokes["Strict"]=USESTRICTTYPING;
+	alphaTokes["Ptr"] = BBPOINTER;
 
 	map<string,int>::const_iterator it;
 	for( it=alphaTokes.begin();it!=alphaTokes.end();++it ){

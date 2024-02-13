@@ -11,6 +11,8 @@
 ; ii) This code is property of Gajatix Studios, the user may edit it in anyway
 ;     but CANNOT redistribute without authorisation!
 ;##############################################################################
+Strict
+
 AppTitle "Project Manager"
 
 ;Include Modules
@@ -31,7 +33,7 @@ FUI_Initialise(GUE_width, GUE_height, 0, 2, True, True, "RCCE 2 Project Manager"
 SetBuffer(BackBuffer())
 
 ;Images
-LogoTex.BBImage  = LoadImage("Resources\RCCE Banner.jpg")
+LogoTex.BBImage = LoadImage("Resources\RCCE Banner.jpg")
 LogoTex2.BBImage = LoadImage("Resources\Gajatix.jpg")
 Splash.BBImage = LoadImage("Resources\Logo_Splash.bmp")
 
@@ -124,7 +126,7 @@ CloseFile(F)
 
 ;Project Tab
 	;Logo
-	FUI_ImageBox(TProject, 160, 27, 380, 112, LogoTex)
+	FUI_ImageBox(TProject, 160, 27, 380, 112, Ptr LogoTex)
 	
 	;Buttons
 	LET = FUI_GroupBox(TProject, 5, 20, 150, 120, "Engine Tools")
@@ -183,7 +185,7 @@ CloseFile(F)
 
 ;Support Tab
 	;Logo
-	FUI_ImageBox(TSupport, 440, 173, 100, 67, LogoTex2)
+	FUI_ImageBox(TSupport, 440, 173, 100, 67, Ptr LogoTex2)
 
 	;Buttons
 	LFRMS = FUI_GroupBox(TSupport, 5, 20, 150, 220, "Forum Links")

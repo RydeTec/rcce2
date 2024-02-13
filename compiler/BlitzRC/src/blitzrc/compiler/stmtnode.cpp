@@ -23,6 +23,7 @@ void StmtSeqNode::reset( const string &file,const string &lab ){
 // Statement Sequence //
 ////////////////////////
 void StmtSeqNode::semant( Environ *e ){
+	bool wasStrict = e->strict; e->strict = this->isStrict();
 	for( int k=0;k<(int)stmts.size();++k ){
 		try{ stmts[k]->semant( e ); }
 		catch( Ex &x ){ 
@@ -31,6 +32,7 @@ void StmtSeqNode::semant( Environ *e ){
 			throw; 
 		}
 	}
+	e->strict = wasStrict;
 }
 
 void StmtSeqNode::translate( Codegen *g ){

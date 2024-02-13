@@ -46,6 +46,7 @@ Type *Environ::findType( const string &s ){
 	if( s=="#" ) return Type::float_type;
 	if( s=="$" ) return Type::string_type;
 	for (int i=0; i<Type::blitzTypes.size(); i++) {
+		if (s == "@" && tolower(Type::blitzTypes[i]->ident) == "bbpointer") return Type::blitzTypes[i];
 		if (tolower(s)==tolower(Type::blitzTypes[i]->ident)) return Type::blitzTypes[i];
 	}
 	for( Environ *e=this;e;e=e->globals ){

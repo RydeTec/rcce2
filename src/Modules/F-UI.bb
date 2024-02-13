@@ -35,6 +35,8 @@
 ;filter from the open or save dialog box.
 ;#End Region
 
+Strict
+
 ;#Region ---------- Types ----------------------
 Type CHOOSEFONT
 	
@@ -1618,7 +1620,7 @@ Function FUI_CustomOpenDialog( title$ = "", initdir$ = "", filter$ = "", BackHac
 	win		= FUI_Window( 0, 0, 300, 216, title$, 0, 1, 1 )
 	lbl		= FUI_Label( win, 70, 5, "Drive letter:", ALIGN_RIGHT )
 	drive	= FUI_ComboBox( win, 75, 2, 225-4-22, 20, 5 )
-	up		= FUI_Button( win, 300-4-20, 2, 20, 20, "", ICON_OPEN )
+	up		= FUI_Button( win, 300-4-20, 2, 20, 20, "", Ptr ICON_OPEN )
 	index = 1
 	
 	driveFound = False
@@ -1788,7 +1790,7 @@ Function FUI_CustomSaveDialog( title$ = "", initdir$ = "", filter$ = "", index =
 	win		= FUI_Window( 0, 0, 300, 216, title$, 0, 1, 1 )
 	lbl		= FUI_Label( win, 70, 5, "Drive letter:", ALIGN_RIGHT )
 	drive	= FUI_ComboBox( win, 75, 2, 225-4-22, 20, 5 )
-	up		= FUI_Button( win, 300-4-20, 2, 20, 20, "", ICON_OPEN )
+	up		= FUI_Button( win, 300-4-20, 2, 20, 20, "", Ptr ICON_OPEN )
 	index = 1
 	
 	driveFound = False
@@ -1925,7 +1927,7 @@ Function FUI_GetFiles( lst, dName$ )
 			fName$ = NextFile( dir )
 			
 			If FileType( dName$ + fName$ ) = 2 And fName$ > ".."
-				FUI_ListBoxItem lst, FUI_StripPath( fName$ ), ICON_OPEN
+				FUI_ListBoxItem lst, FUI_StripPath( fName$ ), Ptr ICON_OPEN
 			EndIf
 		Until fName$ = ""
 		
@@ -1941,7 +1943,7 @@ Function FUI_GetFiles( lst, dName$ )
 			ext$ = Lower( FUI_Parse( FILTER_CURRENT, FILTER_CURRENT_INDEX, "|" ) )
 			If Lower( Right( fName$, Len( ext$ ) ) ) = ext$ Or ext$ = "."
 				If FileType( dName$ + fName$ ) = 1
-					FUI_ListBoxItem lst, FUI_StripPath( fName$ ), ICON_NEW
+					FUI_ListBoxItem lst, FUI_StripPath( fName$ ), Ptr ICON_NEW
 				EndIf
 			EndIf
 		Until fName$ = ""
@@ -2939,7 +2941,7 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 			Case M_GETIMAGE
 				;xmlspy
 				If btn\Icon <> Null Then
-					Return btn\Icon
+					Return Ptr btn\Icon
 				EndIf
 				;;;Return btn\Icon\Source
 				
@@ -4204,7 +4206,7 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 						Return view\ProjMode
 				End Select
 			Case M_GETCAMERA
-				Return view\Cam
+				Return Ptr view\Cam
 		End Select
 		
 		Return True
@@ -4407,9 +4409,9 @@ Function FUI_MenuItem( Owner, Caption$="Menu Item", ShortCut$="", Icon$=0, Check
 		gad\Icon = LoadImage( Icon$ )
 	Else
 		If Int( Icon$ ) <> 0
-			gad\Icon = Int( Icon$ )
+			gad\Icon = Ptr Int( Icon$ )
 		Else
-			gad\Icon =-1
+			gad\Icon = Null
 		EndIf
 	EndIf
 	
@@ -4566,7 +4568,7 @@ Function FUI_ContextMenuItem( Owner, Caption$="Menu Item", ShortCut$="", Icon$=0
 		gad\Icon = LoadImage( Icon$ )
 	Else
 		If Int( Icon$ ) <> 0
-			gad\Icon = Int( Icon$ )
+			gad\Icon = Ptr Int( Icon$ )
 		EndIf
 	EndIf
 	
@@ -4882,7 +4884,7 @@ Function FUI_TabPage( Owner, Caption$="Tab Page", Icon$=0 )
 		gad\Icon = LoadImage( Icon$ )
 	Else
 		If Int( Icon$ ) <> 0
-			gad\Icon = Int( Icon$ )
+			gad\Icon = Ptr Int( Icon$ )
 		EndIf
 	EndIf
 	
@@ -5015,7 +5017,7 @@ Function FUI_Panel( Owner, X, Y, W, H, Caption$="Panel" )
 	
 End Function
 
-Function FUI_Button( Owner, X, Y, W, H, Caption$="Button", Icon.BBImage=Null, ID=0, Flags=CS_BORDER )
+Function FUI_Button( Owner, X, Y, W, H, Caption$="Button", Icon$=0, ID=0, Flags=CS_BORDER )
 	
 	gad.Button				= New Button
 	
@@ -5100,7 +5102,7 @@ Function FUI_Button( Owner, X, Y, W, H, Caption$="Button", Icon.BBImage=Null, ID
 		gad\Icon = LoadImage( Icon$ )
 	Else
 		If Int( Icon$ ) <> 0
-			gad\Icon = Int( Icon$ )
+			gad\Icon = Ptr Int( Icon$ )
 		EndIf
 	EndIf
 	
@@ -5339,7 +5341,7 @@ Function FUI_ComboBoxItem( Owner, Caption$="Combo Box Item", Icon$=0)
 		gad\Icon = LoadImage( Icon$ )
 	Else
 		If Int( Icon$ ) <> 0
-			gad\Icon = Int( Icon$ )
+			gad\Icon = Ptr Int( Icon$ )
 		EndIf
 	EndIf
 
@@ -5490,7 +5492,7 @@ Function FUI_GroupBox( Owner, X, Y, W, H, Caption$="Group Box" )
 	
 End Function
 
-Function FUI_ImageBox( Owner, X, Y, W, H, Image.BBImage=Null, Flags=CS_BORDER)
+Function FUI_ImageBox( Owner, X, Y, W, H, Image$=0, Flags=CS_BORDER)
 	
 	gad.ImageBox			= New ImageBox
 	
@@ -5584,7 +5586,7 @@ Function FUI_ImageBox( Owner, X, Y, W, H, Image.BBImage=Null, Flags=CS_BORDER)
 			ResizeImage gad\Image, gad\W, gad\H
 		EndIf
 	ElseIf Image$ <> 0
-		gad\Image = Int( Image$ )
+		gad\Image = Ptr Int( Image$ )
 		
 		If (gad\Flags And CS_RESIZE) = CS_RESIZE
 			ResizeImage gad\Image, gad\W, gad\H
@@ -5797,7 +5799,7 @@ Function FUI_ListBox( Owner, X, Y, W, H, MultiSel=False, ForceSel=False )
 	
 End Function
 
-Function FUI_ListBoxItem( Owner, Caption$="List Box Item", Icon.BBImage=Null, SortAlphabetically = False)
+Function FUI_ListBoxItem( Owner, Caption$="List Box Item", Icon$=0, SortAlphabetically = False)
 	
 	gad.ListBoxItem			= New ListBoxItem
 	
@@ -5811,7 +5813,7 @@ Function FUI_ListBoxItem( Owner, Caption$="List Box Item", Icon.BBImage=Null, So
 		gad\Icon = LoadImage( Icon$ )
 	Else
 		If Int( Icon$ ) <> 0
-			gad\Icon = Int( Icon$ )
+			gad\Icon = Ptr Int( Icon$ )
 		EndIf
 	EndIf
 

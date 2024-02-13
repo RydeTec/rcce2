@@ -358,7 +358,7 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 					}
 				}
 
-				if ( tag.size()==0 || isBlitzType || tag=="%" || tag=="$" || tag=="#" ){
+				if ( tag.size()==0 || isBlitzType || tag=="%" || tag=="$" || tag=="#" || tag=="@" ) {
 					consts->push_back( node );
 				} else {
 					structConsts->push_back( node );
@@ -398,9 +398,10 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 				stmts->push_back( stmt );
 			}while( toker->curr()==',' );
 			break;
-		case ALLOWPOINTERTOINT:
-			if( scope!=STMTS_PROG ) ex( "'AllowBBPointerToInt' can only appear in main program" );
-			toker->next();BlitzType::allowCastToInt=true;
+		case USESTRICTTYPING:
+			if (stmts->isStrict()) ex("'Strict' may only appear once per file");
+			if (scope != STMTS_PROG || stmts->size() > 0) ex("'Strict' must be the first statement in the file");
+			toker->next(); stmts->setStrict();
 			break;
 		case '.':
 			{
@@ -422,6 +423,7 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 
 string Parser::parseTypeTag(){
 	switch( toker->curr() ){
+	case '@':toker->next();return "@";
 	case '%':toker->next();return "%";
 	case '#':toker->next();return "#";
 	case '$':toker->next();return "$";
@@ -697,6 +699,16 @@ ExprNode *Parser::parseUniExpr( bool opt ){
 		if( toker->next()=='$' ) toker->next();
 		result=parseUniExpr( false );
 		result=d_new CastNode( result,Type::string_type );
+		break;
+	case BBPOINTER:
+		if (toker->next() == '@') toker->next();
+		result = parseUniExpr(false);
+		for (int i = 0; i < Type::blitzTypes.size(); i++) {
+			if (tolower(Type::blitzTypes[i]->ident) == "bbpointer") {
+				result = d_new CastNode(result, Type::blitzTypes[i]);
+				break;
+			}
+		}
 		break;
 	case OBJECT:
 		if( toker->next()=='.' ) toker->next();

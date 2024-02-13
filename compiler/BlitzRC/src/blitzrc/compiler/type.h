@@ -30,11 +30,14 @@ struct Type{
 
 	//operators
 	virtual bool canCastTo( Type *t ){ return this==t; }
+	virtual bool canPointTo(Type* t) { return false; }
+	virtual bool isPointer() { return false; }
 
 	//built in types
 	static Type *void_type,*int_type,*float_type,*string_type,*null_type;
 
 	static vector<BlitzType*> blitzTypes;
+	bool strict = false;
 };
 
 struct FuncType : public Type{
@@ -66,12 +69,13 @@ struct StructType : public Type{
 };
 
 struct BlitzType : public Type{
-	static bool allowCastToInt;
 	string ident;
 	BlitzType( const string &i ):ident(i){Type::blitzTypes.push_back(this);}
 	BlitzType *blitzType(){ return this; }
 	virtual bool canCastTo( Type *t );
+	virtual bool canPointTo(Type* t);
 	string name(){ return "Blitz type \""+ident+"\""; }
+	virtual bool isPointer() { return ident == "BBPointer"; }
 };
 
 struct ConstType : public Type{

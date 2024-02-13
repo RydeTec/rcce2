@@ -15,6 +15,7 @@
 class Environ{
 public:
 	int level;
+	bool strict = false;
 	DeclSeq *decls;
 	DeclSeq *funcDecls;
 	DeclSeq *typeDecls;
