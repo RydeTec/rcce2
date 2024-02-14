@@ -1253,7 +1253,7 @@ End Function
 ; Returns how many particles are current alive in an emitter
 Function RP_EmitterActiveParticles(ID)
 
-	E.RP_Emitter = Object.RP_Emitter(EntityName$(ID))
+	E.RP_Emitter = Object.RP_Emitter(Ptr EntityName$(ID))
 	If E <> Null
 		Return E\ActiveParticles
 	Else
@@ -1265,7 +1265,7 @@ End Function
 ; Enables an emitter
 Function RP_EnableEmitter(ID)
 
-	E.RP_Emitter = Object.RP_Emitter(EntityName$(ID))
+	E.RP_Emitter = Object.RP_Emitter(Ptr EntityName$(ID))
 	If E <> Null
 		E\Enabled = True
 		ShowEntity E\MeshEN
@@ -1279,7 +1279,7 @@ End Function
 ; Disables an emitter
 Function RP_DisableEmitter(ID)
 
-	E.RP_Emitter = Object.RP_Emitter(EntityName$(ID))
+	E.RP_Emitter = Object.RP_Emitter(Ptr EntityName$(ID))
 	If E <> Null
 		E\Enabled = False
 		Return True
@@ -1292,7 +1292,7 @@ End Function
 ; Hides an emitter
 Function RP_HideEmitter(ID)
 
-	E.RP_Emitter = Object.RP_Emitter(EntityName$(ID))
+	E.RP_Emitter = Object.RP_Emitter(Ptr EntityName$(ID))
 	If E <> Null
 		HideEntity E\MeshEN
 		Return True
@@ -1305,7 +1305,7 @@ End Function
 ; Shows an emitter
 Function RP_ShowEmitter(ID)
 
-	E.RP_Emitter = Object.RP_Emitter(EntityName$(ID))
+	E.RP_Emitter = Object.RP_Emitter(Ptr EntityName$(ID))
 	If E <> Null
 		ShowEntity E\MeshEN
 		Return True
@@ -1318,7 +1318,7 @@ End Function
 ; Scales an emitter
 Function RP_ScaleEmitter(ID, Scale#)
 
-	E.RP_Emitter = Object.RP_Emitter(EntityName$(ID))
+	E.RP_Emitter = Object.RP_Emitter(Ptr EntityName$(ID))
 	If E <> Null
 		E\Scale# = Scale#
 		Return True
@@ -1331,7 +1331,7 @@ End Function
 ; Frees an emitter only after all existing particles have finished their lives
 Function RP_KillEmitter(ID, FreeConfig = False, FreeTex = False)
 
-	E.RP_Emitter = Object.RP_Emitter(EntityName$(ID))
+	E.RP_Emitter = Object.RP_Emitter(Ptr EntityName$(ID))
 	If E <> Null
 		E\KillMode = 1
 		If FreeConfig = True
@@ -1353,7 +1353,7 @@ End Function
 ; Frees an emitter
 Function RP_FreeEmitter(ID, FreeConfig = False, FreeTex = False)
 
-	E.RP_Emitter = Object.RP_Emitter(EntityName$(ID))
+	E.RP_Emitter = Object.RP_Emitter(Ptr EntityName$(ID))
 	If E <> Null
 		If FreeConfig = True
 			RP_FreeEmitterConfig(Handle(E\Config), FreeTex)

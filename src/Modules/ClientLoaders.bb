@@ -186,7 +186,7 @@ Function LoadGame()
 	TextureFilter("a_", 1 + 2)
 
 	; 3D sound
-	CreateListener(Cam, 0.1, 1.0, 1.0)
+	GetListener(Cam, 0.1, 1.0, 1.0)
 	; Gubbin joint names
 	LoadGubbinNames()
 	; My mesh/textures etc.
@@ -200,7 +200,7 @@ Function LoadGame()
 	If Bonce = 0 Then RuntimeError(Me\Actor\Race$ + " actor mesh is missing a 'Head' joint!")
 	CamHeight# = EntityDistance#(Bonce, Me\CollisionEN)
 	
-	;&&&&& Refractive water  PROBLEM affecte loading page, placé ailleurs = MAV
+	;&&&&& Refractive water  PROBLEM affecte loading page, placï¿½ ailleurs = MAV
 	CreateRefractTextures(TextureSize,TextureSize)
 	
 	; Loot bag mesh

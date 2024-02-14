@@ -454,7 +454,7 @@ Next
 		; Sun is not visible ; terrier adds Outddors = False Or
 		If Visible = False Or Outdoors = False Or CurrentWeather = W_Snow Or CurrentWeather = W_Fog
 			HideEntity(S\EN)
-			L.Light = Object.Light(EntityName$(S\LightEN))
+			L.Light = Object.Light(Ptr EntityName$(S\LightEN))
 			L\DestR = 0
 			L\DestG = 0
 			L\DestB = 0
@@ -505,7 +505,7 @@ Next
 			; Light position/direction
 			If Outdoors = True
 				If S\LightR <> 0 Or S\LightG <> 0 Or S\LightB <> 0 Then OneSunVisible = True
-				L.Light = Object.Light(EntityName$(S\LightEN))
+				L.Light = Object.Light(Ptr EntityName$(S\LightEN))
 				L\DestR = S\LightR
 				L\DestG = S\LightG
 				L\DestB = S\LightB
@@ -535,7 +535,7 @@ Function UpdateLensFlare()
 	If TotalFlares < 0 Then Return
 
 	For S.Sun = Each Sun
-		L.Light = Object.Light(EntityName$(S\LightEN))
+		L.Light = Object.Light(Ptr EntityName$(S\LightEN))
 		If S\ShowFlares
 			; Hide lens flare
 			If S\ShowFlares
@@ -652,7 +652,7 @@ End Function
 ; Removes all particles from a given emitter which are beneath a water area or a catch plane
 Function RemoveUnderwaterParticles(E)
 
-	Em.RP_Emitter = Object.RP_Emitter(EntityName$(E))
+	Em.RP_Emitter = Object.RP_Emitter(Ptr EntityName$(E))
 	If Em <> Null
 		; Collide with water
 		For W.Water = Each Water

@@ -1943,7 +1943,7 @@ EndIf
 
    use_tex$(selectedlayer)=Lower(sfilename3$)
    FreeBrush layerbrush(selectedlayer)
-   FreeTexture use_tex$(selectedlayer)
+   FreeTexture Ptr use_tex$(selectedlayer)
    assigntexture(selectedlayer,sfilename3$)
  Else
  Return

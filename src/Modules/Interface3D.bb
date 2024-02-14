@@ -333,11 +333,11 @@ End Function
 Function GetTarget$(EN)
 
 	; Is it an actor instance?
-	AI.ActorInstance = Object.ActorInstance(EntityName$(EN))
+	AI.ActorInstance = Object.ActorInstance(Ptr EntityName$(EN))
 	If AI <> Null Then Return "A"
 
 	; Is it a dropped item?
-	D.DroppedItem = Object.DroppedItem(EntityName$(EN))
+	D.DroppedItem = Object.DroppedItem(Ptr EntityName$(EN))
 	If D <> Null Then Return "D"
 
 	; Must be scenery
@@ -735,7 +735,7 @@ Function UpdateInterface()
 					If EntityDistance#(Result, Me\EN) < 25.0
 						UsedClick = True
 
-						DItem.DroppedItem = Object.DroppedItem(EntityName$(Result))
+						DItem.DroppedItem = Object.DroppedItem(Ptr EntityName$(Result))
 						FoundSlot = -1
 
 						For i = 0 To Slots_Inventory
@@ -764,7 +764,7 @@ Function UpdateInterface()
 						RCE_Send(Connection, PeerToHost, P_Dismount, "", True)
 					; Otherwise check if I can use this scenery
 					Else
-						Sc.Scenery = Object.Scenery(EntityName$(Result))
+						Sc.Scenery = Object.Scenery(Ptr EntityName$(Result))
 						If Sc <> Null
 							PositionEntity GPP, PickedX#(), PickedY#(), PickedZ#()
 							If EntityDistance#(Me\CollisionEN, GPP) < 10.0

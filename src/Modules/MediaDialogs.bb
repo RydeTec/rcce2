@@ -445,7 +445,7 @@ Function FillMeshesFolderList(List, Folder$)
 
 	FUI_SendMessage(List, M_RESET)
 	If Folder$ <> ""
-		FUI_ListBoxItem(List, "(Previous folder)", ICON_OPEN)
+		FUI_ListBoxItem(List, "(Previous folder)", Ptr ICON_OPEN)
 		Entries = 1
 	Else
 		Entries = 0
@@ -466,7 +466,7 @@ Function FillMeshesFolderList(List, Folder$)
 						If Upper$(ExistingName$) = Upper$(Name$) Then Valid = False : Exit
 					Next
 					If Valid = True
-						FUI_ListBoxItem(List, Name$, ICON_OPEN, True)
+						FUI_ListBoxItem(List, Name$, Ptr ICON_OPEN, True)
 						Entries = Entries + 1
 					EndIf
 				EndIf
@@ -519,7 +519,7 @@ Function FillTexturesFolderList(List, Folder$)
 
 	FUI_SendMessage(List, M_RESET)
 	If Folder$ <> ""
-		FUI_ListBoxItem(List, "(Previous folder)", ICON_OPEN)
+		FUI_ListBoxItem(List, "(Previous folder)", Ptr ICON_OPEN)
 		Entries = 1
 	Else
 		Entries = 0
@@ -540,7 +540,7 @@ Function FillTexturesFolderList(List, Folder$)
 						If Upper$(ExistingName$) = Upper$(Name$) Then Valid = False : Exit
 					Next
 					If Valid = True
-						FUI_ListBoxItem(List, Name$, ICON_OPEN, True)
+						FUI_ListBoxItem(List, Name$, Ptr ICON_OPEN, True)
 						Entries = Entries + 1
 					EndIf
 				EndIf
@@ -595,7 +595,7 @@ Function FillSoundsFolderList(List, Folder$)
 
 	FUI_SendMessage(List, M_RESET)
 	If Folder$ <> ""
-		FUI_ListBoxItem(List, "(Previous folder)", ICON_OPEN)
+		FUI_ListBoxItem(List, "(Previous folder)", Ptr ICON_OPEN)
 		Entries = 1
 	Else
 		Entries = 0
@@ -616,7 +616,7 @@ Function FillSoundsFolderList(List, Folder$)
 						If Upper$(ExistingName$) = Upper$(Name$) Then Valid = False : Exit
 					Next
 					If Valid = True
-						FUI_ListBoxItem(List, Name$, ICON_OPEN, True)
+						FUI_ListBoxItem(List, Name$, Ptr ICON_OPEN, True)
 						Entries = Entries + 1
 					EndIf
 				EndIf
@@ -667,7 +667,7 @@ Function FillMusicFolderList(List, Folder$)
 
 	FUI_SendMessage(List, M_RESET)
 	If Folder$ <> ""
-		FUI_ListBoxItem(List, "(Previous folder)", ICON_OPEN)
+		FUI_ListBoxItem(List, "(Previous folder)", Ptr ICON_OPEN)
 		Entries = 1
 	Else
 		Entries = 0
@@ -688,7 +688,7 @@ Function FillMusicFolderList(List, Folder$)
 						If Upper$(ExistingName$) = Upper$(Name$) Then Valid = False : Exit
 					Next
 					If Valid = True
-						FUI_ListBoxItem(List, Name$, ICON_OPEN, True)
+						FUI_ListBoxItem(List, Name$, Ptr ICON_OPEN, True)
 						Entries = Entries + 1
 					EndIf
 				EndIf

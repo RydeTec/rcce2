@@ -734,7 +734,7 @@ Function GetMesh(ID, Duplicate = False)
 		; Read in filename and other data from index file
 		If LockedMeshes = 0
 			F = OpenFile("Data\Game Data\Meshes.dat")
-			If F = 0 Then Return ""
+			If F = 0 Then Return 0
 		Else
 			F = LockedMeshes
 		EndIf
