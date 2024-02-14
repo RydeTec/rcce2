@@ -194,7 +194,7 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 		
 	; RottNet update
 	Local RNUpdateTime% = MilliSecs()
-	Local CLoadMusic%
+	Local PLoadMusic%, CLoadMusic%
 	
 	;Adding shadows to options menu Cysis145
 	F = ReadFile("Data\Options.dat")
@@ -264,7 +264,11 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 		LoadingMusicID = ReadShort(F)
 		
 		; Music
-		If LoadingMusicID < 65535 Then CLoadMusic = PlayMusic("Data\Music\" + GetMusicName$(LoadingMusicID))		
+		If LoadingMusicID < 65535 Then 
+			PLoadMusic = LoadSound("Data\Music\" + GetMusicName$(LoadingMusicID), False)
+			LoopSound PLoadMusic
+			CLoadMusic = PlaySound(PLoadMusic)
+		EndIf
 		If DisplayItems = False
 			; Progress bar
 			LoadProgressBar = GY_CreateProgressBar(0, 0.3, 0.9, 0.4, 0.035, 0, 100, 255, 255, 255, -3012)
@@ -971,6 +975,7 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 		GY_FreeGadget(LoadProgressBar)
 	EndIf
 	If ChannelPlaying(CLoadMusic) = True Then StopChannel(CLoadMusic)
+	FreeSound PLoadMusic
 	
 	Return True
 

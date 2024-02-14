@@ -11,12 +11,12 @@ End Function
 
 Function LoadSound_Safe(file$)
 	If FileType(file$)<>1 Then RuntimeError "Sound "+file$+ "not found."
-    Return LoadSound(file$)
+    Return LoadSound(file$, False)
 End Function
 
 Function Load3DSound_Safe(FILE$)
 	If FileType(file$)<>1 Then RuntimeError "3D Sound "+file$+ "not found."
-    Return Load3DSound(file$)
+    Return LoadSound(file$, True)
 End Function
 
 Function LoadMesh_safe(File$,parent=0)

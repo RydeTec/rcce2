@@ -870,11 +870,7 @@ Function GetSound(ID)
 
 		If LockedSounds = 0 Then CloseFile(F)
 
-		If Is3D = True
-			LoadedSounds(ID) = Load3DSound("Data\Sounds\" + Name$)
-		Else
-			LoadedSounds(ID) = LoadSound("Data\Sounds\" + Name$)
-		EndIf
+		LoadedSounds(ID) = LoadSound("Data\Sounds\" + Name$, Is3D)
 
 	EndIf
 	Return LoadedSounds(ID)

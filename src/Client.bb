@@ -36,7 +36,7 @@ Global RandomImages
 Global FullScreen%, VSync%, ResolutionType% ;WideScreen Ramoida Alpha
 
 ;Glow variables for FastExt
-Global GlowAlpha = 0.51 ;intensitй lumineuse mais contours flous а partir 0.51
+Global GlowAlpha = 0.51 ;intensitпїЅ lumineuse mais contours flous пїЅ partir 0.51
 Global GlowDarkPasses = 2
 Global GlowBlurPasses = 4
 Global GlowBlurRadius# = 0.35
@@ -47,11 +47,11 @@ Global GlowColorBlue = 255
 Global GlowAlphaTexture = 0
 
 ;Deep Of Field Variables For FastExt
-Global DofNear# = 1000 ;70 dйbut DOF
+Global DofNear# = 1000 ;70 dпїЅbut DOF
 Global DofFar# = 6000 ;140 fin DOF
 Global DofDirection = 1
 Global DofBlurPasses = 3
-Global DofRadius# = 0.1 ; intensitй de l'effet de profondeur
+Global DofRadius# = 0.1 ; intensitпїЅ de l'effet de profondeur
 Global DofQuality = 0
 
 ;Water refraction variables for FastExt terrier
@@ -425,11 +425,11 @@ Function CreateRefractTextures(ww,hh)
 	; ----
 	If RefractTexture Then FreeTexture RefractTexture
 	; ----
-	RefractTexture = CreateTexture ( ww, hh, 1+16+32+256 + FE_RENDER + FE_ZRENDER)	; <<<<	Создадим текстуру для 3Д рендеринга
+	RefractTexture = CreateTexture ( ww, hh, 1+16+32+256 + FE_RENDER + FE_ZRENDER)	; <<<<	пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ 3пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 																	; create texture for render refractions			
-	TextureBlend RefractTexture, FE_PROJECTSMOOTH							; <<<<	Новый бленд для наложения текстуры как проекции
+	TextureBlend RefractTexture, FE_PROJECTSMOOTH							; <<<<	пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 																	; new blend for 2D project texture
-	PositionTexture RefractTexture, 0.5, 0.5									; <<< Смещение = в центр 0.5
+	PositionTexture RefractTexture, 0.5, 0.5									; <<< пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ = пїЅ пїЅпїЅпїЅпїЅпїЅ 0.5
 																	; set texture position to center of screen = 0.5
 	ScaleTexture RefractTexture, 2, 2										; resize projection texture to full-screen
 	; ----				
@@ -973,7 +973,9 @@ Function PlaySoundZone(SZ.SoundZone)
 			SZ\Channel = PlaySound(SZ\LoadedSound)
 		EndIf
 	Else
-		SZ\Channel = PlayMusic(SZ\MusicFilename$)
+		Loaded = LoadSound(SZ\MusicFilename$, False)
+		LoopSound Loaded
+		SZ\Channel = PlaySound(Loaded)
 	EndIf
 	If SZ\Channel <> 0 Then ChannelVolume(SZ\Channel, DefaultVolume# * (Float#(SZ\Volume) / 100.0))
 

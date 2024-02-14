@@ -628,7 +628,9 @@ Function UpdateNetwork()
 			; Music
 			Case P_Music
 				Name$ = GetMusicName$(RCE_IntFromStr(Mid$(M\MessageData$, 1, 2)))
-				Channel = PlayMusic("Data\Music\" + Name$)
+				Loaded = LoadSound("Data\Music\" + Name$, False)
+				LoopSound Loaded
+				Channel = PlaySound(Loaded)
 				If Channel <> 0 Then ChannelVolume(Channel, DefaultVolume#)
 
 			; Particles effect

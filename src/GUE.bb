@@ -6679,7 +6679,9 @@ Cls
 					SoundVolume(S, FUI_SendMessage(SMediaPreviewVolume, M_GETVALUE))
 					MediaPreviewChannel = PlaySound(S)
 				ElseIf MType = 4
-					MediaPreviewChannel = PlayMusic("Data\Music\" + MusicNames$(MediaPreviewSoundID))
+					Loaded = LoadSound("Data\Music\" + MusicNames$(MediaPreviewSoundID), False)
+					LoopSound Loaded
+					MediaPreviewChannel = PlaySound(Loaded)
 					ChannelVolume(MediaPreviewChannel, FUI_SendMessage(SMediaPreviewVolume, M_GETVALUE))
 				EndIf
 			; Stop sound/music

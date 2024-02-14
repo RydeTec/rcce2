@@ -109,6 +109,7 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 
 	; RottNet update
 	RNUpdateTime = MilliSecs()
+	Local PLoadMusic%, CLoadMusic%
 
 	LockMeshes()
 	LockTextures()
@@ -172,7 +173,11 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 				EntityColor(LoadScreen, 0, 0, 0)
 			EndIf
 			; Music
-			If LoadingMusicID < 65535 Then CLoadMusic = PlayMusic(GetMusicName$(LoadingMusicID))
+			If LoadingMusicID < 65535 Then 
+				PLoadMusic = LoadSound("Data\Music\" + GetMusicName$(LoadingMusicID), False)
+				LoopSound PLoadMusic
+				CLoadMusic = PlaySound(PLoadMusic)
+			EndIf
 		EndIf
 
 		; Loading bar update
@@ -647,6 +652,7 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 		GY_FreeGadget(LoadProgressBar)
 	EndIf
 	If ChannelPlaying(CLoadMusic) = True Then StopChannel(CLoadMusic)
+	FreeSound PLoadMusic
 
 	Return True
 

@@ -156,8 +156,8 @@ bool audio_destroy(){
 }
 
 void audio_link( void(*rtSym)(const char*,void*) ){
-	rtSym( "(BBSound)LoadSound$filename%is3d=1",bbLoadSound );
-	rtSym( "(BBSound)StreamSound$filename%is3d=1",bbStreamSound );
+	rtSym( "(BBSound)LoadSound$filename%is3d=0",bbLoadSound );
+	rtSym( "(BBSound)StreamSound$filename%is3d=0",bbStreamSound );
 
 	rtSym( "FreeSound(BBSound)sound",bbFreeSound );
 	rtSym( "LoopSound(BBSound)sound%loop=1",bbLoopSound );

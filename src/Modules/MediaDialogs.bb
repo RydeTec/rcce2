@@ -346,7 +346,9 @@ Function ChooseMusicDialog(InitialFolder$ = "", XPos = -1, YPos = -1)
 					Else
 						Name$ = MusicNames$(FUI_SendMessage(FUI_SendMessage(LMusicDialog, M_GETINDEX), M_GETDATA))
 						If Len(Name$) > 0
-							Chan = PlayMusic("Data\Music\" + Name$)
+							Loaded = LoadSound("Data\Music\" + Name$, False)
+							LoopSound Loaded
+							Chan = PlaySound(Loaded)
 						EndIf
 					EndIf
 				; Selected music changed
