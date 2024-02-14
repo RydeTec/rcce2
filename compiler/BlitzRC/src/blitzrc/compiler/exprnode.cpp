@@ -15,7 +15,7 @@ ExprNode *ExprNode::castTo( Type *ty,Environ *e ){
 			ex("Illegal type conversion (" + sem_type->name() + " -> " + ty->name() + ")");
 		}
 	}
-	if (sem_type==Type::string_type && ty==Type::int_type) {
+	if (sem_type==Type::string_type && ty==Type::int_type && ty->strict) {
 		ex( "String-to-int conversion must be explicit" );
 	}
 
