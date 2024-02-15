@@ -51,12 +51,15 @@ bool gxSoundSample::loadOGG(const std::string &filename,std::vector<char> &buffe
 	OggVorbis_File oggfile;
 	ov_open(f,&oggfile,"",0);
 	pInfo = ov_info(&oggfile,-1);
-	if (pInfo->channels == 1) {
-		format = AL_FORMAT_MONO16;
-	} else {
-		format = AL_FORMAT_STEREO16;
+	if (pInfo) {
+		if (pInfo->channels == 1) {
+			format = AL_FORMAT_MONO16;
+		}
+		else {
+			format = AL_FORMAT_STEREO16;
+		}
+		freq = pInfo->rate;
 	}
-	freq = pInfo->rate;
 	int div = 1;
 	if (isPanned && format==AL_FORMAT_STEREO16) {
 		//OpenAL does not perform automatic panning or attenuation with stereo tracks
@@ -66,7 +69,7 @@ bool gxSoundSample::loadOGG(const std::string &filename,std::vector<char> &buffe
 	char* tmparry = new char[4096];
 	do {
 		bytes = ov_read(&oggfile,tmparry,4096,endian,2,1,&bitStream);
-		for (unsigned int i=0;i<bytes/(div*2);i++) {
+		for (signed int i=0;i<bytes/(div*2);i++) {
 			arry[i*2]=tmparry[i*div*2];
 			arry[(i*2)+1]=tmparry[(i*div*2)+1];
 			if (div>1) {

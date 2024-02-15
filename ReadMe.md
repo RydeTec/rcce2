@@ -37,12 +37,8 @@ Github Discussions: https://github.com/RydeTec/rcce2/discussions
 
 ## Resources
 
-### Blitz3D
-There is a compatible copy in the repository.
-
-Official Download: https://blitzresearch.itch.io/blitz3d
-
-Source: https://github.com/blitz-research/blitz3d_msvc2017
+### BlitzRC
+BlitzRC is a custom version of Blitz3D specifically tailored for RealmCrafter: Community Edition. The source for this is included in the compilers folder.
 
 ### BlitzPlus
 There is a compatible copy in the repository.
@@ -56,3 +52,6 @@ Blitz Syntax Plugin Link: https://marketplace.visualstudio.com/items?itemName=do
 
 ### IDEs
 There are other Blitz specific IDE installers included in the repository.
+
+### Convert sounds to OGG format
+We have including an audio converter called Freemake in the extras folder. This tool will allow you to bulk convert your audio files to OGG format for free.
