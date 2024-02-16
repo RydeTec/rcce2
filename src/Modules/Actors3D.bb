@@ -602,7 +602,7 @@ Function CreateEntityEmitters(E)
 				Pos = Instr(Name$, "_")
 				If Pos > 0
 					EmitterName$ = Left$(Name$, Pos - 1)
-					TextureID = Ptr Mid$(Name$, Pos + 1)
+					TextureID = Mid$(Name$, Pos + 1)
 					Texture = GetTexture(TextureID)
 					If Texture <> 0 And Len(EmitterName$) > 1
 						Config = RP_LoadEmitterConfig("Data\Emitter Configs\" + EmitterName$ + ".rpc", Texture, Cam)
@@ -629,7 +629,7 @@ Function FreeEntityEmitters(E)
 	For i = 1 To CountChildren(E)
 		CE = GetChild(E, i)
 		FreeEntityEmitters(CE)
-		If Object.RP_Emitter(Ptr EntityName$(CE)) <> Null
+		If Object.RP_Emitter(EntityName$(CE)) <> Null
 			RP_FreeEmitter(CE, True, False)
 		EndIf
 	Next
