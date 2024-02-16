@@ -36,7 +36,9 @@ BOOL DebuggerApp::InitInstance(){
 }
 
 int DebuggerApp::ExitInstance(){
-	main_frame->DestroyWindow();
+	if (main_frame) {
+		main_frame = nullptr;
+	}
 	return 0;
 }
 
@@ -47,4 +49,8 @@ MainFrame *DebuggerApp::mainFrame(){
 Debugger * _cdecl debuggerGetDebugger( void *mod,void *env ){
 	debuggerApp.mainFrame()->setRuntime( mod,env );
 	return debuggerApp.mainFrame();
+}
+
+bool _cdecl debuggerUnload() {
+	return debuggerApp.mainFrame()->DestroyWindow();
 }

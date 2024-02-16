@@ -143,6 +143,9 @@ static void demoError(){
 }
 
 int _cdecl main( int argc,char *argv[] ){
+
+	std::ifstream file("ATTACH");
+	if (file.good()) MessageBox(NULL, "Execution is paused so a debugger can be attached if necessary. When you are ready to continue press ok.", "Attach Debugger", MB_OK);
 	
 	string in_file,out_file,args;
 	
@@ -295,9 +298,16 @@ int _cdecl main( int argc,char *argv[] ){
 		
 		if( !veryquiet ) cout<<"Executing..."<<endl;
 		
-		runtimeLib->execute( (void(*)())entry,args.c_str(),debugger );
+		runtimeLib->execute((void(*)())entry, args.c_str(), debugger);
 		
-		if( dbgHandle ) FreeLibrary( dbgHandle );
+		if (dbgHandle) {
+			typedef bool(_cdecl* UnloadDebugger)();
+			UnloadDebugger ud = (UnloadDebugger)GetProcAddress(dbgHandle, "debuggerUnload");
+			if (ud) ud();
+
+			if (dbgHandle) FreeLibrary(dbgHandle);
+		}
+		
 	}
 	
 	delete module;
