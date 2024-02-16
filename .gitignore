@@ -38,3 +38,5 @@ compiler/BlitzRC/src/libvorbis/win32/VS2010/Win32/Release/vorbisenc_static.exe
 compiler/BlitzRC/src/libvorbis/win32/VS2010/Win32/Release/vorbisdec_static.exe
 
 */ATTACH
+
+compiler/Blitz3D/
