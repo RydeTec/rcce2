@@ -6,6 +6,8 @@
 
 int Toker::chars_toked;
 
+bool Toker::noTrace;
+
 static map<string,int> alphaTokes,lowerTokes;
 
 static void makeKeywords(){
@@ -81,6 +83,7 @@ static void makeKeywords(){
 	alphaTokes["Null"]=NULLCONST;
 
 	alphaTokes["Strict"]=USESTRICTTYPING;
+	alphaTokes["NoTrace"] = NOTRACE;
 	alphaTokes["Ptr"] = BBPOINTER;
 
 	map<string,int>::const_iterator it;

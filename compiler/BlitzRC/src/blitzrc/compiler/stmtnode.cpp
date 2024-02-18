@@ -5,9 +5,11 @@
 static string fileLabel;
 static map<string,string> fileMap;
 
-void StmtNode::debug( int pos,Codegen *g ){
+void StmtNode::debug( int pos, Codegen *g ){
+	if (fileLabel.size()) g->code(line(pos >> 16, global(fileLabel), g));
+	
 	if( g->debug ){
-		TNode *t=fileLabel.size() ? global( fileLabel ) : iconst(0);
+		TNode* t = fileLabel.size() ? global(fileLabel) : iconst(0);
 		g->code( call( "__bbDebugStmt",iconst( pos ),t ) );
 	}
 }
@@ -36,7 +38,6 @@ void StmtSeqNode::semant( Environ *e ){
 }
 
 void StmtSeqNode::translate( Codegen *g ){
-
 	string t=fileLabel;
 	fileLabel=file.size() ? fileMap[file] : "";
 	for( int k=0;k<(int)stmts.size();++k ){
@@ -66,7 +67,6 @@ void IncludeNode::semant( Environ *e ){
 }
 
 void IncludeNode::translate( Codegen *g ){
-
 	if( g->debug ) g->s_data( file,label );
 
 	stmts->translate( g );
@@ -423,14 +423,6 @@ void ReturnNode::semant( Environ *e ){
 		}
 		expr=expr->semant( e );
 
-		//we need to close a blocktrace because return makes us leave the function's scope
-		//trnode = d_new ExprStmtNode(d_new BlockTraceNode());
-		//trnode->semant( e );
-
-		//we need a temp var
-		//Decl *d=e->decls->insertDecl( genLabel(),expr->sem_type,DECL_LOCAL );
-		//sem_temp=d_new DeclVarNode( d );
-
 		expr=expr->castTo( e->returnType,e );
 
 		returnLabel=e->funcLabel+"_leave";
@@ -444,14 +436,6 @@ void ReturnNode::translate( Codegen *g ){
 	}
 
 	TNode* t = expr->translate(g);
-
-	//set expr's value to our temp var
-	//g->code( sem_temp->store( g,expr->translate( g ) ) );
-	//close blocktrace if no errors have occurred
-	//trnode->translate( g );
-
-	//now we can return
-	//TNode *t=sem_temp->load( g );
 
 	if( expr->sem_type==Type::float_type ){
 		g->code( d_new TNode( IR_FRETURN,t,0,returnLabel ) );

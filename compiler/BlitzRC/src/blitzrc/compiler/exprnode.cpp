@@ -174,8 +174,15 @@ TNode *CallNode::translate( Codegen *g ){
 
 	TNode *t;
 	TNode *l=global( "_f"+ident );
-	TNode *r=exprs->translate( g,f->cfunc );
+	TNode* r;
 
+	if (f->custom) {
+		r = seq(trace(ident, g), exprs->translate(g, f->cfunc));
+	}
+	else {
+		r = exprs->translate(g, f->cfunc);
+	}
+	
 	if( f->userlib ){
 		l=d_new TNode( IR_MEM,l );
 		usedfuncs.insert( ident );
@@ -192,6 +199,11 @@ TNode *CallNode::translate( Codegen *g ){
 			t=call( "__bbCStrToStr",t );
 		}
 	}
+
+	if (f->custom) {
+		return seq(t, untrace(g));
+	}
+
 	return t;
 }
 
@@ -660,52 +672,5 @@ ExprNode *ObjectHandleNode::semant( Environ *e ){
 TNode *ObjectHandleNode::translate( Codegen *g ){
 	TNode *t=expr->translate( g );
 	return call( "__bbObjToHandle",t );
-}
-
-/////////////////////////
-//    Trace push/pop   //
-/////////////////////////
-
-std::vector<BlockTraceNode::memLabel> BlockTraceNode::labels;
-
-ExprNode *BlockTraceNode::semant( Environ *e ){
-	sem_type=Type::void_type;
-	return this;
-}
-
-TNode *BlockTraceNode::translate( Codegen *g ){
-	if (push) {
-		string lab;
-		bool found = false;
-		for (int i=file.size()-1; i>0; i--) {
-			if (file[i]=='\\' || file[i]=='/') {
-				file = file.substr(i+1); break;
-			}
-		}
-		for (int i=0; i<labels.size(); i++) {
-			if (labels[i].file == file) {
-				lab = labels[i].label;
-				found = true; break;
-			}
-		}
-		if (!found) {
-			lab=genLabel();
-			g->s_data( file,lab );
-			labels.push_back(memLabel(lab,file));
-		}
-		TNode* node = global(lab);
-		return call( "__bbPushBlockTrace",node );
-	} else {
-		return call( "__bbPopBlockTrace" );
-	}
-}
-
-ExprNode *LineTraceNode::semant( Environ *e ){
-	sem_type=Type::void_type;
-	return this;
-}
-
-TNode *LineTraceNode::translate( Codegen *g ){
-	return call( "__bbPushLineTrace",iconst(line+1) );
 }
 

@@ -90,17 +90,16 @@ void  bbDebugLog( BBStr *t ){
 
 std::vector<BlockTrace> blockTraces;
 
-void _bbPushLineTrace(int line) {
+void _bbPushLineTrace(int line, const char* s) {
 	if (blockTraces.size()==0) RTEX("blockTraces.size()==0");
 	blockTraces[blockTraces.size()-1].lineTrace = line;
+	blockTraces[blockTraces.size() - 1].file = s;
 }
 
 void _bbPushBlockTrace(const char *s) {
+	if (blockTraces.size() == blockTraces.max_size()) RTEX("Stack Overflow");
 	try {
-		printf("BLOCKTRACE OPEN ");
-		printf(s);
-		printf("\n");
-		blockTraces.push_back(BlockTrace(string(s)));
+		blockTraces.push_back(BlockTrace(s));
 	} catch (std::exception e) {
 		printf(e.what()); throw e;
 	} catch (...) {
@@ -110,17 +109,14 @@ void _bbPushBlockTrace(const char *s) {
 
 void _bbPopBlockTrace() {
 	if (blockTraces.size()==0) RTEX("blockTraces.size()==0");
-	printf("BLOCKTRACE CLOSE ");
-	blockTraces[blockTraces.size()-1].file+=", line "+std::to_string(blockTraces[blockTraces.size()-1].lineTrace);
-	printf(blockTraces[blockTraces.size()-1].file.c_str());
-	printf("\n");
 	blockTraces.pop_back();
 }
 
 BBStr* bbGetLineTrace() {
+	if (blockTraces.size() == 0) return d_new BBStr("No Traces");
 	string retVal = "";
 	for (int i=0; i<blockTraces.size(); i++) {
-		retVal = blockTraces[i].file+", line "+to_string(blockTraces[i].lineTrace)+"\n"+retVal;
+		retVal = blockTraces[i].print() + "\n" + retVal;
 	}
 	return d_new BBStr(retVal);
 }

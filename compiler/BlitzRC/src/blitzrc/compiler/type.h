@@ -43,7 +43,7 @@ struct Type{
 struct FuncType : public Type{
 	Type *returnType;
 	DeclSeq *params;
-	bool userlib,cfunc;
+	bool userlib,cfunc,custom;
 	FuncType( Type *t,DeclSeq *p,bool ulib,bool cfn ):returnType(t),params(p),userlib(ulib),cfunc(cfn){}
 	~FuncType(){ delete params; }
 	FuncType *funcType(){ return this; }

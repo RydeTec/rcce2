@@ -101,6 +101,7 @@ void FuncDeclNode::proto( DeclSeq *d,Environ *e ){
 	a_ptr<DeclSeq> decls( d_new DeclSeq() );
 	params->proto( decls,e );
 	sem_type=d_new FuncType( t,decls.release(),false,false );
+	sem_type->custom = true;
 	if( !d->insertDecl( ident,sem_type,DECL_FUNC ) ){
 		delete sem_type;ex( "duplicate identifier" );
 	}

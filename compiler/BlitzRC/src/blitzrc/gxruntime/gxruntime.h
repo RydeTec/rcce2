@@ -15,9 +15,11 @@
 #include "../debugger/debugger.h"
 
 struct BlockTrace {
-    std::string file;
+	const char* ident;
+	const char* file;
     int lineTrace;
-    BlockTrace(const std::string &f):file(f){}
+	BlockTrace(const char*& i) :ident(i) {}
+	std::string print() const { return std::string(ident) + " [" + std::string(file) + "::" + std::to_string(lineTrace) + "]"; }
 };
 extern std::vector<BlockTrace> blockTraces;
 

@@ -32,16 +32,6 @@ ProgNode *Parser::parse( const string &main ){
 	try{
 		stmts=parseStmtSeq( STMTS_PROG );
 
-		//StmtNode* trnode;
-
-		//trnode = d_new ExprStmtNode(d_new BlockTraceNode(incfile)); //open block trace
-		//trnode->pos = toker->pos();
-		//stmts->stmts.insert(stmts->stmts.begin(),trnode);
-
-		//trnode = d_new ExprStmtNode(d_new BlockTraceNode());
-		//trnode->pos = toker->pos();
-		//stmts->push_back(trnode);
-
 		if( toker->curr()!=EOF ) exp( "end-of-file" );
 	}catch( Ex ){
 		delete stmts;delete datas;delete funcs;delete structs;delete structConsts;delete consts;
@@ -90,31 +80,11 @@ StmtSeqNode *Parser::parseStmtSeq( int scope ){
 
 void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 
-	//int line = toker->pos()>>16;
-	
-	//StmtNode* trnode;
-
-	/*trnode = d_new ExprStmtNode(d_new BlockTraceNode(incfile)); //open block trace
-	trnode->pos = toker->pos();
-	stmts->push_back(trnode);*/
-	
-	//trnode = d_new ExprStmtNode(d_new LineTraceNode(line));
-	//trnode->pos = toker->pos();
-	//stmts->push_back(trnode);
-
 	for(;;){
 		while( toker->curr()==':' || (scope!=STMTS_LINE && toker->curr()=='\n') ) {
 			toker->next();
 		}
 		StmtNode *result=0;
-
-		//if (line < (toker->pos()>>16)) {
-			//line = toker->pos()>>16;
-
-			//trnode = d_new ExprStmtNode(d_new LineTraceNode(line)); //open new line trace
-			//trnode->pos = toker->pos();
-			//stmts->push_back(trnode);
-		//}
 
 		int pos=toker->pos();
 
@@ -403,6 +373,9 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 			if (scope != STMTS_PROG || stmts->size() > 0) ex("'Strict' must be the first statement in the file");
 			toker->next(); stmts->setStrict();
 			break;
+		case NOTRACE:
+			toker->next(); Toker::noTrace = true;
+			break;
 		case '.':
 			{
 				toker->next();string t=parseIdent();
@@ -525,12 +498,6 @@ DeclNode *Parser::parseFuncDecl(){
 	toker->next();
 	a_ptr<StmtSeqNode> stmts( parseStmtSeq( STMTS_BLOCK ) );
 	if( toker->curr()!=ENDFUNCTION ) exp( "'End Function'" );
-
-	//StmtNode* trnode;
-
-	//trnode = d_new ExprStmtNode(d_new BlockTraceNode(incfile)); //open block trace
-	//trnode->pos = toker->pos();
-	//stmts->stmts.insert(stmts->stmts.begin(),trnode);
 
 	StmtNode *ret=d_new ReturnNode(0);ret->pos=toker->pos();
 	stmts->push_back( ret );toker->next();

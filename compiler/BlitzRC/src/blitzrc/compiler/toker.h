@@ -31,7 +31,7 @@ enum{
 	LE,GE,NE,
 	IDENT,INTCONST,BINCONST,HEXCONST,FLOATCONST,STRINGCONST,NULLCONST,
 
-	USESTRICTTYPING,
+	USESTRICTTYPING, NOTRACE,
 
 	BBPOINTER
 };
@@ -49,6 +49,8 @@ public:
 	static int chars_toked;
 
 	static map<string,int> &getKeywords();
+
+	static bool noTrace;
 
 private:
 	struct Toke{

@@ -198,28 +198,4 @@ struct ObjectHandleNode : public ExprNode{
 	ExprNode *semant( Environ *e );
 	TNode *translate( Codegen *g );
 };
-
-struct BlockTraceNode : public ExprNode{
-	struct memLabel {
-		string label; string file;
-		memLabel(const string &l,const string &f):label(l),file(f){}
-	};
-	static std::vector<memLabel> labels;
-	string file;
-	bool push;
-	BlockTraceNode( const string &f ):file(f),push(true){}
-	BlockTraceNode():file(""),push(false){}
-	~BlockTraceNode(){}
-	ExprNode *semant( Environ *e );
-	TNode *translate( Codegen *g );
-};
-
-struct LineTraceNode : public ExprNode{
-	int line;
-	LineTraceNode( int l ):line(l){}
-	~LineTraceNode(){}
-	ExprNode *semant( Environ *e );
-	TNode *translate( Codegen *g );
-};
-
 #endif

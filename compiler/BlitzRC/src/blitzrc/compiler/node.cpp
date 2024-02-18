@@ -223,6 +223,43 @@ TNode *Node::fcall( const string &func,TNode *a0,TNode *a1,TNode *a2 ){
 	return d_new TNode( IR_FCALL,l,t,size );
 }
 
+static map<string, string> blockMap;
+
+///////////////////////////////////////////////////////////
+// create a linetrace record before proceeding with call //
+///////////////////////////////////////////////////////////
+TNode *Node::line(const int& line, TNode* file, Codegen* g) {
+	if (Toker::noTrace) return iconst(0);
+	return call("__bbPushLineTrace", iconst(line + 1), file);
+}
+
+////////////////////////////////////////////////////////////
+// create a blocktrace record before proceeding with call //
+////////////////////////////////////////////////////////////
+TNode *Node::trace(const string& block, Codegen* g) {
+	if (Toker::noTrace) return iconst(0);
+	string label;
+
+	if (blockMap.find(block) != blockMap.end()) {
+		label = blockMap[block];
+	}
+	else {
+		label = genLabel();
+		g->s_data(block, label);
+		blockMap[block] = label;
+	}
+	
+	return call("__bbPushBlockTrace", global(label));
+}
+
+//////////////////////////////////////////////////////////
+// remove blocktrace record before proceeding with call //
+//////////////////////////////////////////////////////////
+TNode *Node::untrace(Codegen* g) {
+	if (Toker::noTrace) return iconst(0);
+	return call("__bbPopBlockTrace");
+}
+
 TNode *Node::seq( TNode *l,TNode *r ){
 	return d_new TNode( IR_SEQ,l,r );
 }

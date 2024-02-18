@@ -51,6 +51,10 @@ struct Node{
 	static TNode *jumpge( TNode *l,TNode *r,const string &s );
 	static TNode *call( const string &func,TNode *a0=0,TNode *a1=0,TNode *a2=0 );
 	static TNode *fcall( const string &func,TNode *a0=0,TNode *a1=0,TNode *a2=0 );
+
+	static TNode* line(const int& line, TNode* file, Codegen* g);
+	static TNode* trace(const string& block, Codegen* g);
+	static TNode* untrace(Codegen* g);
 };
 
 #endif

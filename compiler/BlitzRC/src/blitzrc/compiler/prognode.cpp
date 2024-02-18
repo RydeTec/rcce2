@@ -63,7 +63,9 @@ void ProgNode::translate( Codegen *g,const vector<UserFunc> &usrfuncs ){
 	usedfuncs.clear();
 
 	//program statements
+	g->code(trace("<main program>", g));
 	stmts->translate( g );
+	g->code(untrace(g));
 
 	//emit return
 	g->code( ret() );

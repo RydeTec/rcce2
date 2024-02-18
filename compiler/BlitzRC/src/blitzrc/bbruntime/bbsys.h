@@ -15,12 +15,14 @@ struct bbEx{
 	const char *err;
 	bbEx( const char *e ):err(e){
 		if( e ) {
+            
             string panicStr = e;
             panicStr+="\n\nStack trace:\n";
             try {
                 string tmp = "";
+                if (blockTraces.size() == 0) tmp = "No Traces";
                 for (int i=0; i<blockTraces.size(); i++) {
-                    tmp = "- "+blockTraces[i].file+", line "+to_string(blockTraces[i].lineTrace)+"\n"+tmp;
+                    tmp = "- "+ blockTraces[i].print() + "\n" + tmp;
                 }
                 panicStr+=tmp;
             } catch (exception e){
