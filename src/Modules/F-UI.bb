@@ -814,7 +814,7 @@ Global IDCVScroll					= FUI_LoadCursor( IDC_VSCROLL )
 ;     real-time. Using this method, the "border"
 ;     to use for resizing will be just inside
 ;     the actual window border.
-Global WINDOW_RESIZE_METHOD			= 1
+Global WINDOW_RESIZE_METHOD			= 0 ;TODO: Fix issue with value being 1 and running as EXE. The window will shrink on each frame.
 
 ;For use with recent file lists
 Global RECENT_COUNT					= 0

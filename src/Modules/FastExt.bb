@@ -330,7 +330,7 @@ End Function
 
 Function FreeTexture% (texture%)
 	If texture<>0 Then
-		Return 0;FreeTexture_ (texture, TextureBuffer(texture))
+		Return FreeTexture_ (texture, TextureBuffer(texture))
 	Else
 		Return 0
 	EndIf
