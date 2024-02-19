@@ -21,7 +21,7 @@ Include "..\modules\Utility.bb"
 
 
 Const testing=False
-BF_Start(5378)
+;BF_Start(5378)
     ;;;;;;;;;;;;;;;;;;;;;;;;;;; 
     ;setup for variable window;
     ;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -808,7 +808,7 @@ If FileType(fname$)<>1 Then Return -1
  Wend
  CloseFile fload
 
- BF_encrypt(Thisbank,ts)
+ ;BF_encrypt(Thisbank,ts)
  ; this is not used in rcte as the name passed into this function is already .eb3d 
  If newname=False Then
 	 newn$=fname$

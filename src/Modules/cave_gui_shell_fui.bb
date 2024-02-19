@@ -13,7 +13,7 @@ ChangeDir thispath$+"data\default project\"
 EndIf
 
  ;main top menu
-	Global GUI_TOPWIN                = FUI_Window( 0, 0, App\W, GUI_VARIABLE_TOPBAR_HEIGHT, "", 0, 2 )
+Global GUI_TOPWIN                = FUI_Window( 0, 0, App\W, GUI_VARIABLE_TOPBAR_HEIGHT, "", 0, 2 )
     Global GUI_TOPWIN_MENUFILE       = FUI_MenuTitle( GUI_TOPWIN, "File" )
 		Global GUI_MENUFILE_OPEN     = FUI_MenuItem( GUI_TOPWIN_MENUFILE, "Open", "" )
 		Global GUI_MENUFILE_SAVE     = FUI_MenuItem( GUI_TOPWIN_MENUFILE, "Save", "" )
@@ -48,35 +48,35 @@ EndIf
 		Global GUI_RIGHTWIN_LIGHTMAP    = FUI_Button( GUI_RIGHTWIN, 5, 210, GUI_VARIABLE_RIGHTBAR_WIDTH - 10, 20, "Lightmap Cave", 0, 0)
 		Global GUI_RIGHTWIN_RESETCAMERA = FUI_Button( GUI_RIGHTWIN, 5, 240, GUI_VARIABLE_RIGHTBAR_WIDTH - 10, 20, "Reset camera", 0, 0)
    		Global GUI_RIGHTWIN_TEXTURE = FUI_Button( GUI_RIGHTWIN, 6, 270, 127, 125,"",0,0)
-Dim Actionbutton(4)
+Dim Actionbutton(5)
 Dim Roombutton(6)
-Dim Tunnelbutton(4)
+Dim Tunnelbutton(6)
 Dim Objectbutton(2)
 btsize=42
 	Global GUI_SHAPEWIN=FUI_Window( 0, app\h-140, 450, 140, "", 0, 0 )
     For i=1 To 2
-     Objectbutton(i)=FUI_Button( GUI_Shapewin, 5+(i-1)*(btsize-1), 5, btsize,btsize, "", 0,0)
+     Objectbutton(i)=FUI_Button( GUI_SHAPEWIN, 5+(i-1)*(btsize-1), 5, btsize,btsize, "", 0,0)
     Next
 
     For i=1 To 6
-     Tunnelbutton(i)=FUI_Button( GUI_Shapewin, 5+(i-1)*(btsize-1), 4+(btsize*1), btsize,btsize, "", 0,0)
+     Tunnelbutton(i)=FUI_Button( GUI_SHAPEWIN, 5+(i-1)*(btsize-1), 4+(btsize*1), btsize,btsize, "", 0,0)
     Next
 
     For i=1 To 6
-     Roombutton(i)=FUI_Button( GUI_Shapewin, 5+(i-1)*(btsize-1), 3+(btsize*2), btsize,btsize, "", 0,0)
+     Roombutton(i)=FUI_Button( GUI_SHAPEWIN, 5+(i-1)*(btsize-1), 3+(btsize*2), btsize,btsize, "", 0,0)
     Next
 
     COUNT=0
     For i=1 To 3
          If I<>2 Then  
 		 COUNT=COUNT+1
-         ACTIONbutton(COUNT)=FUI_Button( GUI_Shapewin, 300+(i-1)*(btsize-1), 5, btsize,btsize, "", 0,0)
+         Actionbutton(COUNT)=FUI_Button( GUI_SHAPEWIN, 300+(i-1)*(btsize-1), 5, btsize,btsize, "", 0,0)
          EndIf
     Next
 
     I=1
     For COUNT=3 To 5
-     ACTIONbutton(COUNT)=FUI_Button( GUI_Shapewin, 300+(i-1)*(btsize-1), 3+(btsize*2), btsize,btsize, "", 0,0)
+     Actionbutton(COUNT)=FUI_Button( GUI_SHAPEWIN, 300+(i-1)*(btsize-1), 3+(btsize*2), btsize,btsize, "", 0,0)
     I=I+1
     Next
 
@@ -95,7 +95,7 @@ Global GUI_ABOUT_L0  = FUI_Label( GUI_ABOUTWIN, 5,175,"Ctrl+Left Mouse = Drop Li
 FUI_ModalWindow(GUI_ABOUTWIN )
 FUI_CenterWindow(GUI_ABOUTWIN )
 FUI_SendMessage(GUI_ABOUTWIN,M_cLOSE)
-applyimagestobuttons()
+APPLYIMAGESTOBUTTONS()
 
 Function Perc#(pv#,ofv#)
  V1#=ofv/pv

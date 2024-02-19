@@ -941,13 +941,13 @@ Function DecryptMesh(Name$)
 			Repeat
 				If Pos + 64 >= Size Then Exit
 				CopyBank(B, Pos, DecryptBank, 0, 64)
-				BF_decrypt(DecryptBank, 64)
+				;BF_decrypt(DecryptBank, 64)
 				WriteBytes(DecryptBank, Out, 0, 64)
 				Pos = Pos + 64
 			Forever
 			If Pos < Size
 				CopyBank(B, Pos, DecryptBank, 0, Size - Pos)
-				BF_decrypt(DecryptBank, 64)
+				;BF_decrypt(DecryptBank, 64)
 				WriteBytes(DecryptBank, Out, 0, Size - Pos)
 			EndIf
 
