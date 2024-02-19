@@ -47,7 +47,7 @@ release/
 
 Project Manager.exe
 
-bin/tools/
+bin/tools/*.exe
 
 bin/Client.exe
 
@@ -60,3 +60,7 @@ data/Logs/
 data/RCTE/RCTE_SAVED/
 
 compiler/BlitzPlus/src/_release/
+
+bin/tools/RC Scriptorama/projects.txt
+
+bin/tools/RC SkinCrafter/lastsettings.dat
