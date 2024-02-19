@@ -240,6 +240,9 @@ int _cdecl main( int argc,char *argv[] ){
 		//parse
 		if( !veryquiet ) cout<<"Parsing..."<<endl;
 		Toker toker( in );
+
+		if (out_file.size()) Toker::noTrace = true;
+
 		Parser parser( toker );
 		prog=parser.parse( in_file );
 		
