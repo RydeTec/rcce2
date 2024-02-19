@@ -1,4 +1,0 @@
-[12:10:53]  Loaded options from file
-[12:10:53]  Gooey loaded for menu
-[12:10:53]  Loaded animation sets
-[12:10:53]  Server chosen

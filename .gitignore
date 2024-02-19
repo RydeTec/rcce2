@@ -54,3 +54,7 @@ bin/Client.exe
 bin/GUE.exe
 
 bin/Server.exe
+
+data/Logs/
+
+data/RCTE/RCTE_SAVED/

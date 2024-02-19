@@ -34,20 +34,34 @@ static string getAppDir(){
 	return "";
 }
 
+static std::string getCurrentWorkingDirectory() {
+	char buffer[MAX_PATH];
+	DWORD dwRet = GetCurrentDirectory(MAX_PATH, buffer);
+	if (dwRet > 0) {
+		return std::string(buffer);
+	}
+	// Handle error or return empty string if the directory cannot be obtained
+	return std::string();
+}
+
 void _bbLoadLibs( char *p ){
 
+	string cwd = getCurrentWorkingDirectory();
 	string home = getAppDir();
 
 	while( *p ){
 		HMODULE mod=LoadLibrary( p );
 		if (!mod) {
-			mod = LoadLibrary(("./bin/" + string(p)).c_str());
+			mod = LoadLibrary((cwd + "/bin/" + string(p)).c_str());
 		}
 		if (!mod) {
-			mod = LoadLibrary(("../" + string(p)).c_str());
+			mod = LoadLibrary((cwd + "/../" + string(p)).c_str());
 		}
 		if (!mod) {
-			mod = LoadLibrary(("../bin/" + string(p)).c_str());
+			mod = LoadLibrary((cwd + "/../bin/" + string(p)).c_str());
+		}
+		if (!mod) {
+			mod = LoadLibrary((cwd + "/../../bin/" + string(p)).c_str());
 		}
 		if( !mod && home.size() ){
 			mod=LoadLibrary( (home+"/../userlibs/"+p).c_str() );
