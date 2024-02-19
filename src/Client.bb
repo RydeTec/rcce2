@@ -4,7 +4,7 @@ Global ClientMode = 0; 0 for login scree, 1 for character selection, 2 for main 
 ;&&&&&&&&&&	
 
 Global componentName$ = "client"
-Global RootDir$ = ".\"
+Global RootDir$ = "..\"
 Global LogMode = 1; (0 = standard logging, 1 = debug mode)
 
 ChangeDir RootDir$
@@ -196,8 +196,8 @@ Repeat
 		Time# = Time# + DeltaBuffer(i)
 	Next
 	Time# = Time# / Float#(DeltaFrames)
-	FPS# = 1000.0 / Time#
-	Delta# = BaseFramerate# / FPS#
+	fps# = 1000.0 / Time#
+	Delta# = BaseFramerate# / fps#
 	DeltaTime = MilliSecs()
 	If Delta# > 3.5 Then Delta# = 3.5 ; Don't let delta go too OTT ;3.5
 
@@ -235,7 +235,7 @@ Repeat
 	Select ShadowC
 		Case 1
 			;Shadow
-			UpdateShadows cam
+			UpdateShadows Cam
 	End Select
 		
 	RenderWorld()
@@ -244,7 +244,7 @@ Repeat
 		Case 1
 	;Custom bloom
 	; Customize the glow effect
-CustomPostprocessGlow GlowAlpha, GlowDarkpasses, GlowBlurPasses, GlowBlurRadius, GlowQuality, GlowColorRed, GlowColorGreen, GlowColorBlue, GlowAlphaTexture
+CustomPostprocessGlow GlowAlpha, GlowDarkPasses, GlowBlurPasses, GlowBlurRadius, GlowQuality, GlowColorRed, GlowColorGreen, GlowColorBlue, GlowAlphaTexture
 RenderPostprocess FE_GLOW 
 	End Select 
 	

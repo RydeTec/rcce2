@@ -40,3 +40,17 @@ compiler/BlitzRC/src/libvorbis/win32/VS2010/Win32/Release/vorbisdec_static.exe
 */ATTACH
 
 compiler/Blitz3D/
+
+compiler/Decls/Blitz3D/
+
+release/
+
+Project Manager.exe
+
+bin/tools/
+
+bin/Client.exe
+
+bin/GUE.exe
+
+bin/Server.exe

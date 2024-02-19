@@ -40,6 +40,15 @@ void _bbLoadLibs( char *p ){
 
 	while( *p ){
 		HMODULE mod=LoadLibrary( p );
+		if (!mod) {
+			mod = LoadLibrary(("./bin/" + string(p)).c_str());
+		}
+		if (!mod) {
+			mod = LoadLibrary(("../" + string(p)).c_str());
+		}
+		if (!mod) {
+			mod = LoadLibrary(("../bin/" + string(p)).c_str());
+		}
 		if( !mod && home.size() ){
 			mod=LoadLibrary( (home+"/../userlibs/"+p).c_str() );
 		}

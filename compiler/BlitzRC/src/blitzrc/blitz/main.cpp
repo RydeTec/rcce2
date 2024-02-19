@@ -147,7 +147,7 @@ int _cdecl main( int argc,char *argv[] ){
 	std::ifstream file("ATTACH");
 	if (file.good()) MessageBox(NULL, "Execution is paused so a debugger can be attached if necessary. When you are ready to continue press ok.", "Attach Debugger", MB_OK);
 	
-	string in_file,out_file,args;
+	string in_file,out_file,args,cwd;
 	
 	bool debug=false,quiet=false,veryquiet=false,compileonly=false;
 	bool dumpkeys=false,dumphelp=false,showhelp=false,dumpasm=false;
@@ -193,10 +193,22 @@ int _cdecl main( int argc,char *argv[] ){
 	}
 	
 	if( out_file.size() && !in_file.size() ) usageErr();
+
+	if (in_file[0] == '\"') {
+		if (in_file.size() < 3 || in_file[in_file.size() - 1] != '\"') usageErr();
+		in_file = in_file.substr(1, in_file.size() - 2);
+	}
+
+	int n = in_file.rfind('/');
+	if (n == string::npos) n = in_file.rfind('\\');
+	if (n != string::npos) {
+		if (!n || in_file[n - 1] == ':') ++n;
+		cwd = in_file.substr(0, n);
+	}
 	
 	if( const char *er=openLibs() ) { err( er ); }
 	
-	if( const char *er=linkLibs() ) err( er );
+	if( const char *er=linkLibs(cwd.c_str()) ) err( er );
 	
 	if( showhelp ) showHelp();
 	if( dumpkeys ) dumpKeys( true,true,dumphelp );
@@ -208,12 +220,6 @@ int _cdecl main( int argc,char *argv[] ){
 	if( !getenv( "blitzide" ) ) demoError();
 #endif
 
-	if( in_file[0]=='\"' ){
-		
-		if( in_file.size()<3 || in_file[in_file.size()-1]!='\"' ) usageErr();
-		in_file=in_file.substr( 1,in_file.size()-2 );
-	}
-
 	
 	ifstream in( in_file.c_str() );
 	if( !in ) err( "Unable to open input file" );
@@ -222,14 +228,9 @@ int _cdecl main( int argc,char *argv[] ){
 		cout<<"Compiling \""<<in_file<<"\""<<endl;
 	}
 	
-
-	int n=in_file.rfind( '/' );
-	if( n==string::npos ) n=in_file.rfind( '\\' );
-	if( n!=string::npos ){
-		if( !n || in_file[n-1]==':' ) ++n;
-		SetCurrentDirectory( in_file.substr(0,n).c_str() );
+	if (cwd.size()) {
+		SetCurrentDirectory(cwd.c_str());
 	}
-	
 
 	ProgNode *prog=0;
 	Environ *qenviron=0;

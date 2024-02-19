@@ -27,15 +27,19 @@ Global Team$ 	 = "Cysis145, Terrier, Corey 'Ryan' Dean"
 Global RootDir$ = ".\"
 Global LogMode = 1; (0 = standard logging, 1 = debug mode)
 
+If ReadDir(RootDir$ + "res") = Null
+	RootDir$ = "..\"
+End If
+
 ChangeDir RootDir$
 
 FUI_Initialise(GUE_width, GUE_height, 0, 2, True, True, "RCCE 2 Project Manager")
 SetBuffer(BackBuffer())
 
 ;Images
-LogoTex.BBImage = LoadImage("Resources\RCCE Banner.jpg")
-LogoTex2.BBImage = LoadImage("Resources\Gajatix.jpg")
-Splash.BBImage = LoadImage("Resources\Logo_Splash.bmp")
+LogoTex.BBImage = LoadImage("res\RCCE Banner.jpg")
+LogoTex2.BBImage = LoadImage("res\Gajatix.jpg")
+Splash.BBImage = LoadImage("res\Logo_Splash.bmp")
 
 ;Resize Images
 ResizeImage LogoTex, 380, 112
@@ -54,7 +58,7 @@ OPF$ = Chr$(34) + "" + Chr$(34)
 SCT$ = Chr$(34) + "Community ToolKit\Script Crafters Workshop.exe" + Chr$(34)
 RSW$ = Chr$(34) + "Community ToolKit\RC Spell Wizard\Application Files\RC Spell Wizard_1_0_0_1\RC Spell Wizard.exe" + Chr$(34)
 
-PMH$ = Chr$(34) + "Resources\Help.txt" + Chr$(34)
+PMH$ = Chr$(34) + "res\Help.txt" + Chr$(34)
 SWH$ = Chr$(34) + "Community ToolKit\RC Spell Wizard\RC Spell Wizard Documentation.pdf" + Chr$(34)
 
 GUE$ = Chr$(34) + "GUE.exe" + Chr$(34)
@@ -152,7 +156,7 @@ BB3D = FUI_Button(TProject, 410, 165, 125, 25, "Blitz3D")
 BBPS = FUI_Button(TProject, 410, 200, 125, 25, "BlitzPlus")
 
 ;Copyright Marker
-FUI_Label(TProject, 5, 242, "RealmCrafter Community Edition 2 � 2024 RydeTec, Gajatix Studios")
+FUI_Label(TProject, 5, 242, "RealmCrafter Community Edition 2 (C) 2024 RydeTec, Gajatix Studios")
 ;Version Marker
 FUI_Label(TProject, 520, 242, Version$)
 
@@ -180,7 +184,7 @@ BANO = FUI_Button(TNews, 10, 210, 130, 25, "RCCE Annoucements")
 BFANO = FUI_Button(TNews, 150, 210, 130, 25, "Forum Annoucements")
 
 ;Copyright Marker
-FUI_Label(TNews, 5, 242, "RealmCrafter Community Edition 2 � 2024 RydeTec, Gajatix Studios")
+FUI_Label(TNews, 5, 242, "RealmCrafter Community Edition 2 (C) 2024 RydeTec, Gajatix Studios")
 ;Version Marker
 FUI_Label(TNews, 520, 242, Version$)
 
@@ -210,7 +214,7 @@ FUI_Label(TSupport, 160, 60, "The Project Manager was coded by Zaven Boyrazian a
 FUI_Label(TSupport, 160, 75, "of Gajatix Studios.")
 
 ;Copyright Marker
-FUI_Label(TSupport, 5, 242, "RealmCrafter Community Edition 2 � 2024 RydeTec, Gajatix Studios")
+FUI_Label(TSupport, 5, 242, "RealmCrafter Community Edition 2 (C) 2024 RydeTec, Gajatix Studios")
 ;Version Marker
 FUI_Label(TSupport, 520, 242, Version$)
 	

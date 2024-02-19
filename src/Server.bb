@@ -1,6 +1,6 @@
 ; This application should be compiled with BlitzPlus
 Global componentName$ = "server"
-Global RootDir$ = ".\"
+Global RootDir$ = "..\"
 
 ChangeDir RootDir$
 
