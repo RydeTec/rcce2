@@ -111,24 +111,24 @@ End Type
 Global selected_model=-1
 Global cube,cube2,br2,tex2
 
-ChangeDir thispath$
+;ChangeDir thispath$
 
 Const testing=True
 If testing=False Then 
-;;;;;;; NEW ADDITIONS VIA SOLSTAR REQUESTw
-;#Region Load Modules
-;Include "Modules\rc_registry.bb"
-If FileType("Data\Selected.dat")=1 Then 
-   f=OpenFile("Data\Selected.dat")
-    selectedproject$=ReadString$(f)
-    CloseFile f
-	Else
-	RuntimeError "No project selected, please run RC Project Manager"
-    EndIf
-   If FileType ("Projects\"+selectedproject$+"\")<>2 Then 
- 	RuntimeError "Poject folder does not exist, please run RC Project Manager"
-    EndIf 
-    ChangeDir "Projects\"+selectedproject$+"\"
+	;;;;;;; NEW ADDITIONS VIA SOLSTAR REQUESTw
+	;#Region Load Modules
+	;Include "Modules\rc_registry.bb"
+	If FileType("Data\Selected.dat")=1 Then 
+		f=OpenFile("Data\Selected.dat")
+		selectedproject$=ReadString$(f)
+		CloseFile f
+		Else
+		RuntimeError "No project selected, please run RC Project Manager"
+	EndIf
+	If FileType ("Projects\"+selectedproject$+"\")<>2 Then 
+		RuntimeError "Poject folder does not exist, please run RC Project Manager"
+	EndIf 
+	ChangeDir "Projects\"+selectedproject$+"\"
 EndIf
 
 thispath$=CurrentDir()
@@ -148,7 +148,6 @@ If FileType ("DATA\RCCAVES\SHAPES")<>2 Then CreateDir ("DATA\RCCAVES\SHAPES")
 If FileType ("DATA\MESHES\RCCAVES")<>2 Then CreateDir ("DATA\MESHES\RCCAVES")
 
 ;Include "toolsourse\
-
 ;Here are the globals
 Global csgscale#=1,csgpiv ;The world scale (1- Normal, 2-2x Normal)
 Global csgmesh[2] ;Different surface holders for different opereations
@@ -1430,13 +1429,13 @@ ChangeDir thispath$
  FreeTexture image
 
  cube = CreateCube()
- ScaleMesh cube,cavesize,cavesize,cavesize
+ ScaleMesh cube,Cavesize,Cavesize,Cavesize
  For s=1 To CountSurfaces(cube)
   PaintSurface GetSurface(cube,s),brush
  Next 
- UC.UNDOCAVE=New UNDOCAVE
+ UC.UNDOCAVE=New UndoCave
  UC\ENT = CreateCube()
- ScaleMesh UC\ENT,cavesize,cavesize,cavesize
+ ScaleMesh UC\ENT,Cavesize,Cavesize,Cavesize
  For s=1 To CountSurfaces(UC\ENT)
   PaintSurface GetSurface(UC\ENT,s),brush
  Next 
@@ -1444,12 +1443,12 @@ ChangeDir thispath$
  HideEntity uc\ent
  FreeBrush brush
  FreeTexture texture
-Leftv_main#=leftvert(cube)
-Rightv_Main#=rightvert(cube)
-UpV_main#=highvert(cube)
-Downv_main#=lowvert(cube)
-frontv_main#=frontVert(cube)
-backv_main#=backvert(cube)
+Leftv_main#=LeftVert(cube)
+Rightv_Main#=RightVert(cube)
+UpV_main#=Highvert(cube)
+Downv_main#=LowVert(cube)
+frontv_main#=FrontVert(cube)
+backv_main#=BackVert(cube)
 
 
  ;---------------------------------------------------------------------------------------
@@ -1870,25 +1869,25 @@ Select bflag
         Case 101
                 setscale=setscale+.1 
                 If setscale>2 Then setscale=2
-                ScaleEntity cube2,SetScale#,SetScale#,SetScale#
+                ScaleEntity cube2,setscale#,setscale#,setscale#
 ;-----------------
         Case 100 
                 setscale=setscale-.1 
                 If setscale<.2 Then setscale=.2
-                ScaleEntity cube2,SetScale#,SetScale#,SetScale#
+                ScaleEntity cube2,setscale#,setscale#,setscale#
 
 End Select
 
- newLightrange=FUI_SendMessage(GUI_RIGHTWIN_RANGE,m_getvalue)
- If Newlightrange<>Old_lightrange Then 
-  old_lightrange=newlightrange 
+ newlightrange=FUI_SendMessage(GUI_RIGHTWIN_RANGE,m_getvalue)
+ If newlightrange<>Old_LightRange Then 
+  Old_LightRange=newlightrange 
   EndIf
  
 
-	If new_lightred<>old_lightred Or new_lightgreen<>old_lightgreen Or  new_lightblue<>old_lightblue Then 
-		old_lightred=new_lightred 
-		old_lightgreen=new_lightgreen
-		old_lightblue=new_lightblue
+	If new_lightred<>old_Lightred Or new_lightgreen<>old_Lightgreen Or  new_lightblue<>old_Lightblue Then 
+		old_Lightred=new_lightred 
+		old_Lightgreen=new_lightgreen
+		old_Lightblue=new_lightblue
 		TIMAGE = CreateImage( 50, 20 )
 		SetBuffer ImageBuffer(timage)
 		Color new_lightred,new_lightgreen,new_lightblue
@@ -1899,8 +1898,8 @@ End Select
         FreeImage timage 
 	EndIf
 
-	If new_ambientred<>old_ambientred Or new_ambientgreen<>old_ambientgreen Or  new_ambientblue<>old_ambientblue Then 
-		old_ambientred=new_ambientred
+	If new_ambientred<>old_Ambientred Or new_ambientgreen<>old_ambientgreen Or  new_ambientblue<>old_ambientblue Then 
+		old_Ambientred=new_ambientred
 		old_ambientgreen=new_ambientgreen
 		old_ambientblue=new_ambientblue
 		TIMAGE = CreateImage( 50, 20 )
@@ -1916,10 +1915,10 @@ End Select
 
 If MouseHit(2) And  (KeyDown(29) Or KeyDown(157)) Then
   Rng = FUI_SendMessage(GUI_RIGHTWIN_RANGE,m_getvalue)
-  llR = new_LIGHTRED
-  llG = new_LIGHTGREEN
-  llB = new_LIGHTBLUE
-  dropmodel(1,llr,llg,llb,rng,1)
+  llR = new_lightred
+  llG = new_lightgreen
+  llB = new_lightblue
+  DropModel(1,llr,llg,llb,rng,1)
  EndIf
 
 
@@ -2031,8 +2030,8 @@ For e.Event = Each event
                 changeshape("room_big.3ds")
 ;-----------------
 		Case GUI_RIGHTWIN_LIGHTMAP
-  			    Lightmapit()   
-                smoothvlight(cube)
+  			    lightmapit()   
+                SmoothVLIGHT(cube)
 ;-----------------
        Case ACTIONBUTTON(3),GUI_MENUSHAPE_LEVEL ;BFLAG 3
                 RotateEntity cube2,0,EntityYaw(cube2,1),EntityRoll(cube2,1)
@@ -2040,12 +2039,12 @@ For e.Event = Each event
         Case GUI_MENUALTER_SUP 
                 setscale=setscale+.1 
                 If setscale>2 Then setscale=2
-                ScaleEntity cube2,SetScale#,SetScale#,SetScale#
+                ScaleEntity cube2,setscale#,setscale#,setscale#
 ;-----------------
         Case GUI_MENUALTER_SDOWN 
                 setscale=setscale-.1 
                 If setscale<.2 Then setscale=.2
-                ScaleEntity cube2,SetScale#,SetScale#,SetScale#
+                ScaleEntity cube2,setscale#,setscale#,setscale#
 ;-----------------
         Case GUI_MENUALTER_FORWARD
                 TurnEntity cube2,22.5,0,0
@@ -2063,10 +2062,10 @@ For e.Event = Each event
                 If showcompass=1 Then ShowEntity compass Else HideEntity compass 		        
 ;-----------------
         Case actionbutton(4), GUI_MENUSHAPE_UNDO ;blfag 4  
-                For UC.UNDOCAVE=Each undocave
-                    If uc.undocave=Last undocave Then 
-                         FreeEntity Cube
-                         Cube=uc\ent
+                For UC.UNDOCAVE=Each UndoCave
+                    If uc.undocave=Last UndoCave Then 
+                         FreeEntity cube
+                         cube=uc\ent
                          ShowEntity cube
                          Delete uc
                      EndIf
@@ -2082,7 +2081,7 @@ For e.Event = Each event
 	                FreeEntity cube2
 					cube2 = LoadMesh(shape$);LoadMesh("DATA\RCCAVES\roomtool.3ds")
         	        ScaleMesh cube2,.2,.2,.2
-            	    ScaleEntity cube2,SetScale#,SetScale#,SetScale#
+            	    ScaleEntity cube2,setscale#,setscale#,setscale#
          	    	For s=1 To CountSurfaces(cube2)
 					 surf=GetSurface(cube2,s)
 					 PaintSurface surf,br2
@@ -2120,23 +2119,23 @@ For e.Event = Each event
           Case actionbutton(2),GUI_MENUSHAPE_COMBINE ;bflag2
                If EntityX(cube2,1)=0 And EntityY(cube2,1)=0 And EntityZ(cube2,1)=0 Then 
                Else 
-               For dm.dropmodel=Each dropmodel
+               For dm.dropmodel=Each DropModel
                EntityPickMode dm\ent,0
                Next
                ScaleMesh cube2,setscale,setscale,setscale
                checked.window=Null
  			   mode=1
 			   ee = MilliSecs()
-			   man = csg(cube,cube2,Mode) ;1 Add , 2 Sub , 3 Diff
+			   man = CSG(cube,cube2,Mode) ;1 Add , 2 Sub , 3 Diff
 			   ee = MilliSecs() -ee
-               uc.undocave=New undocave
+               uc.undocave=New UndoCave
                uc\ent=cube
                HideEntity uc\ent
 			   cube = man
 			   FlushKeys
 			   UpdateNormals cube
       		   AutoSmooth(cube,.25)
-               countundos() 
+               CountUndos() 
  			   EntityPickMode cube,2
 			   PositionEntity cube2,EntityX(cam,1),EntityY(cam,1),EntityZ(cam,1)   
 			   CameraPick cam,GraphicsWidth()/2,(GraphicsHeight()/2)
@@ -2145,7 +2144,7 @@ For e.Event = Each event
 			   PositionEntity cube2,PickedX(),PickedY(),PickedZ()   
 			   EntityPickMode cube,0
 			   ScaleMesh cube2,1/setscale,1/setscale,1/setscale
-               For dm.dropmodel=Each dropmodel
+               For dm.dropmodel=Each DropModel
                EntityPickMode dm\ent,2
                Next
               EndIf
@@ -2171,10 +2170,10 @@ For e.Event = Each event
        If Right$(rd$,4)<> ".b3d" Then rd$=rd$+".b3d"
        If FileType(CurrentDir()+"Data\RCCAVES\"+rd$)=1 Then 
             FCheck=Fui_Confirm("Overwrite File?","Yes","No")
-            If Fcheck=1 Then  savework(rd$) 
+            If Fcheck=1 Then  SAVEWORK(rd$) 
     	    ChangeDir thispath$
         Else
-		  savework(rd$) 
+		  SAVEWORK(rd$) 
        EndIf         
        EndIf
 ;-----------------
@@ -2197,7 +2196,7 @@ For e.Event = Each event
       EndIf
 ;-----------------
        Case GUI_MENUFILE_EXPORT
-       If CountSurfaces(CUBE)=>2 Then 
+       If CountSurfaces(cube)=>2 Then 
        oldpath$=CurrentDir()
        If FileType(Thispath$+"Data\Meshes\RCCAVES\")<>2 Then CreateDir (Thispath$+"Data\Meshes\RCCAVES\")
        rd$=""
@@ -2213,10 +2212,10 @@ For e.Event = Each event
        If Right$(rd$,4)<> ".b3d" Then rd$=rd$+".b3d"
        If FileType(CurrentDir()+"Data\Meshes\RCCAVES\"+rd$)=1 Then 
             FCheck=fui_Confirm("Overwrite File?","Yes","No")
-            If Fcheck=1 Then  Exportwork(rd$) 
+            If Fcheck=1 Then  ExportWork(rd$) 
     	    ChangeDir thispath$
         Else
-		  Exportwork(rd$) 
+		  ExportWork(rd$) 
        EndIf         
        EndIf
        Else  
@@ -2227,8 +2226,8 @@ Case GUI_RIGHTWIN_AMBCOLOR
 					tColor = FUI_ColorDialog( tRed, tGreen, tBlue )
 					If tColor = True Then
 						new_ambientred = FUI_GetRed( App\CurrentRGB )
-						new_ambientGreen = FUI_GetGreen( App\CurrentRGB )
-						new_ambientBLUE = FUI_GetBlue( App\CurrentRGB )
+						new_ambientgreen = FUI_GetGreen( App\CurrentRGB )
+						new_ambientblue = FUI_GetBlue( App\CurrentRGB )
 
 						TIMAGE = CreateImage( 50, 20 )
 						SetBuffer ImageBuffer(timage)
@@ -2244,8 +2243,8 @@ Case GUI_RIGHTWIN_LGTCOLOR
 					tColor = FUI_ColorDialog( tRed, tGreen, tBlue )
 					If tColor = True Then
 						new_lightred = FUI_GetRed( App\CurrentRGB )
-						new_lightGreen = FUI_GetGreen( App\CurrentRGB )
-						new_lightBLUE = FUI_GetBlue( App\CurrentRGB )
+						new_lightgreen = FUI_GetGreen( App\CurrentRGB )
+						new_lightblue = FUI_GetBlue( App\CurrentRGB )
 
 					TIMAGE = CreateImage( 50, 20 )
 					SetBuffer ImageBuffer(timage)
@@ -2267,7 +2266,7 @@ End Function
 
 Function retexture(texF$)
  ChangeDir thispath$
- Image=loadTEXTURE_safe(texf$)
+ Image=loadTEXTURE_safe(texF$)
 ; BrushTexture brush,texture
  Fui_applyTEXTURE(GUI_RIGHTWIN_TEXTURE,image,1)
  FreeTexture image
@@ -2277,7 +2276,7 @@ Function retexture(texF$)
  ChangeDir thispath$
  FreeBrush br2
  FreeTexture tex2 
- tex2=LoadTexture_safe(texf$);CreateTexture(64,64)
+ tex2=LoadTexture_safe(texF$);CreateTexture(64,64)
  ScaleTexture tex2,.1,.1
  SetBuffer BackBuffer()
  br2=CreateBrush()
@@ -2501,9 +2500,9 @@ Return maxvh#
 End Function
 
 Function SmoothVLIGHT(MESH)
- nums=CountSurfaces(mesh)
+ nums=CountSurfaces(MESH)
  For sc=1 To nums
-   surf=GetSurface(mesh,sc)
+   surf=GetSurface(MESH,sc)
    trinum=CountTriangles(surf)-1
    For T=1 To trinum
      r1=VertexRed(surf,TriangleVertex (surf,t,0))     
@@ -2535,7 +2534,7 @@ If Lower(Right$(fn$,3))<>"b3d" Then fn$=fn$+".b3d"
 ;thisfold$=removeextension$(fn$)+"\"
 ;savework("Data\Architect\SAVES\exported.act")
 ChangeDir thispath$
-destmesh=cave_copymesh(CUBE);CreateMesh()
+destmesh=cave_copymesh(cube);CreateMesh()
 ;For dm.dropmodel=Each dropmodel
 ;If dm\islight=0 Then 
 ;DebugLog "added item to export"
@@ -2548,7 +2547,7 @@ destmesh=cave_copymesh(CUBE);CreateMesh()
 
 UpdateNormals destmesh
 weld (destmesh)
-THISFOLD$=STRIP_PATH$(FN$)
+THISFOLD$=strip_path$(fn$)
 ;centermesh destmesh
 ScaleMesh destmesh,3,3,3
 savemultimesh (destmesh,"Data\MESHES\RCCAVES\"+thisfold$,"Data\MESHES\RCCAVES\",7)
@@ -2660,7 +2659,7 @@ Function cave_copymesh(child,startsurf=2)
 
 Function SAVEWORK(SF$)
 ChangeDir thispath$
-THISFOLD$=STRIP_PATH$(sf$)
+THISFOLD$=strip_path$(SF$)
 ;mysave=cave_copymesh(cube,1)
 savemultimesh (cube,"Data\RCCAVES\"+thisfold$,"Data\RCCAVES\",7)
 FreeEntity mysave
@@ -2671,7 +2670,7 @@ sfl=WriteFile("Data\RCCAVES\"+lightf$)
 
  
  
-For dm.dropmodel=Each dropmodel
+For dm.dropmodel=Each DropModel
 
    WriteInt sfl,dm\islight
    WriteInt sfl,dm\meshid
@@ -2705,24 +2704,24 @@ End Function
 
 Function loadwork(lf$)
 ChangeDir thispath$
-THISFOLD$=STRIP_PATH$(lf$)
+THISFOLD$=strip_path$(lf$)
 YN=fui_confirm("Load Cave ?","Yes","No")
 If yn=0 Then Return
 
 If FileType ("Data\RCCAVES\"+thisfold$)<>1 Then Return
 FreeEntity cube
 cube=LoadMesh("Data\RCCAVES\"+thisfold$)
-UpdateNormals (CUBE)
+UpdateNormals (cube)
 
 ;cube_old=CopyMesh(cube)
-For uc.undocave=Each undocave
+For uc.undocave=Each UndoCave
 HideEntity uc\ent
 Next
 
 
 lightf$=Left$(thisfold$,Len(thisfold$)-3)
 lightf$=lightf$+"LGT"
-For dm.dropmodel=Each dropmodel
+For dm.dropmodel=Each DropModel
  FreeEntity dm\ent
  Delete dm
  Next
@@ -2753,7 +2752,7 @@ ll=ReadFile("Data\RCCAVES\"+lightf$)
   range=ReadInt(ll)
 
  If islight=1 Then 
-  dm.dropmodel=New dropmodel
+  dm.dropmodel=New DropModel
   dm\ent=CreateCube():ScaleEntity dm\ent,4,4,4 
   PositionEntity dm\ent,ex,ey,ez
   dm\islight=1
@@ -2774,15 +2773,15 @@ ll=ReadFile("Data\RCCAVES\"+lightf$)
   EntityColor dm\ent,er,eg,eb
  EndIf
  Wend
- If MeshWidth(cube)>300 Then cavesize=600 Else cavesize=300
+ If MeshWidth(cube)>300 Then Cavesize=600 Else Cavesize=300
  resetcam
-Leftv_main#=leftvert(cube)
-Rightv_Main#=rightvert(cube)
-UpV_main#=highvert(cube)
-Downv_main#=lowvert(cube)
-frontv_main#=frontVert(cube)
-backv_main#=backvert(cube)
- Lightmapit()   
+Leftv_main#=LeftVert(cube)
+Rightv_Main#=RightVert(cube)
+UpV_main#=Highvert(cube)
+Downv_main#=LowVert(cube)
+frontv_main#=FrontVert(cube)
+backv_main#=BackVert(cube)
+ lightmapit()   
 
 End Function
 
@@ -2791,15 +2790,15 @@ Function newwork()
 YN=fui_confirm("New cave ?","Yes","No")
 If yn<>1 Then Return
 ms=fui_confirm("Rock Size ?","Small","Large")
-If ms=1 Then cavesize=300 Else cavesize=600
+If ms=1 Then Cavesize=300 Else Cavesize=600
 
  FreeEntity cube
- For uc.undocave=Each undocave
+ For uc.undocave=Each UndoCave
    FreeEntity uc\ent
    Delete uc
   Next
 
-For dm.dropmodel=Each dropmodel
+For dm.dropmodel=Each DropModel
  FreeEntity dm\ent
  Delete dm
  Next 
@@ -2814,13 +2813,13 @@ ChangeDir thispath$
  FreeTexture image
 
  cube = CreateCube()
- ScaleMesh cube,cavesize,cavesize,cavesize
+ ScaleMesh cube,Cavesize,Cavesize,Cavesize
  For s=1 To CountSurfaces(cube)
   PaintSurface GetSurface(cube,s),brush
  Next 
- UC.UNDOCAVE=New UNDOCAVE
+ UC.UNDOCAVE=New UndoCave
  UC\ENT = CreateCube()
- ScaleMesh UC\ENT,cavesize,cavesize,cavesize
+ ScaleMesh UC\ENT,Cavesize,Cavesize,Cavesize
  For s=1 To CountSurfaces(UC\ENT)
   PaintSurface GetSurface(UC\ENT,s),brush
  Next 
@@ -2829,12 +2828,12 @@ ChangeDir thispath$
  FreeTexture texture
  HideEntity uc\ent
 resetcam()
-Leftv_main#=leftvert(cube)
-Rightv_Main#=rightvert(cube)
-UpV_main#=highvert(cube)
-Downv_main#=lowvert(cube)
-frontv_main#=frontVert(cube)
-backv_main#=backvert(cube)
+Leftv_main#=LeftVert(cube)
+Rightv_Main#=RightVert(cube)
+UpV_main#=Highvert(cube)
+Downv_main#=LowVert(cube)
+frontv_main#=FrontVert(cube)
+backv_main#=BackVert(cube)
 
 End Function 
 
@@ -2845,7 +2844,7 @@ Function changeshape(name$)
                 FreeEntity cube2
 				cube2 = LoadMesh(shape$);LoadMesh("DATA\RCCAVES\roomtool.3ds")
                 ScaleMesh cube2,.2,.2,.2
-                ScaleEntity cube2,SetScale#,SetScale#,SetScale#
+                ScaleEntity cube2,setscale#,setscale#,setscale#
  		    For s=1 To CountSurfaces(cube2)
 				  surf=GetSurface(cube2,s)
 				  PaintSurface surf,br2
