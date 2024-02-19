@@ -48,12 +48,8 @@ Github Discussions: https://github.com/RydeTec/rcce2/discussions
 ### BlitzRC
 BlitzRC is a custom version of Blitz3D specifically tailored for RealmCrafter: Community Edition. The source for this is included in the compilers folder.
 
-### BlitzPlus
-There is a compatible copy in the repository.
-
-Official Download: https://blitzresearch.itch.io/blitzplus
-	
-Source: https://github.com/blitz-research/blitzplus_msvc2017
+### BlitzRCPlus
+BlitzRCPlus is a custom version of BlitzPlus specifically tailored for RealmCrafter: Community Edition. The source for this is included in the compilers folder.
 
 ### VSCode
 Blitz Syntax Plugin Link: https://marketplace.visualstudio.com/items?itemName=dones.blitz3d

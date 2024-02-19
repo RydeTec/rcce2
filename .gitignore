@@ -58,3 +58,5 @@ bin/Server.exe
 data/Logs/
 
 data/RCTE/RCTE_SAVED/
+
+compiler/BlitzPlus/src/_release/
