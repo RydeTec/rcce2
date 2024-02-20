@@ -64,3 +64,5 @@ compiler/BlitzPlus/src/_release/
 bin/tools/RC Scriptorama/projects.txt
 
 bin/tools/RC SkinCrafter/lastsettings.dat
+
+compiler/BlitzPlus/cfg/blitzide.prefs

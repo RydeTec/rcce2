@@ -1,9 +1,12 @@
-Debug
-Release
+*/Debug
+*/Release
 blitzide.prefs
 *.exe
 *.dll
 *.pdb
 *.ilk
 .vs
-**/*.user
+*/*.user
+freeimage/**/Debug
+freeimage/**/Release
+freeimage/**/*.user
