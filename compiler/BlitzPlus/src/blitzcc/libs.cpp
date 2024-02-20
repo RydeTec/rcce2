@@ -122,9 +122,9 @@ static const char *linkRuntime(){
 
 static set<string> _ulibkws;
 
-static const char *loadUserLib( const string &userlib ){
+static const char *loadUserLib(const string& path, const string &userlib ){
 
-	string t=home+"/userlibs/"+userlib;
+	string t = path + userlib;
 
 	string lib="";
 	ifstream in(t.c_str());
@@ -212,28 +212,43 @@ static const char *loadUserLib( const string &userlib ){
 	return 0;
 }
 
-static const char *linkUserLibs(){
+static const char *linkUserLibs(const char* cwd){
 
 	_ulibkws.clear();
 
 	WIN32_FIND_DATA fd;
 
-	HANDLE h=FindFirstFile( (home+"/userlibs/*.decls").c_str(),&fd );
-
-	if( h==INVALID_HANDLE_VALUE ) return 0;
+	string path = home + "/../userlibs/";
+	HANDLE h = FindFirstFile((path + "*.decls").c_str(), &fd);
 
 	const char *err=0;
 
+	int searchStep = 0;
 	do{
-		if( err=loadUserLib( fd.cFileName ) ){
-			static char buf[64];
-			sprintf( buf,"Error in userlib '%s' - %s",fd.cFileName,err );
-			err=buf;break;
+		if (h != INVALID_HANDLE_VALUE) {
+			if (err = loadUserLib(path, fd.cFileName)) {
+				static char buf[64];
+				sprintf(buf, "Error in userlib '%s' - %s", fd.cFileName, err);
+				err = buf; break;
+			}
 		}
 
-	}while( FindNextFile( h,&fd ) );
+		if (h == INVALID_HANDLE_VALUE || !FindNextFile(h, &fd)) {
+			FindClose(h);
+			searchStep++;
 
-	FindClose( h );
+			if (searchStep == 1) {
+				path = string(cwd) + "/userlibs/";
+				h = FindFirstFile((path + "*.decls").c_str(), &fd);
+			}
+
+			if (searchStep == 2) {
+				path = string(cwd) + "/../userlibs/";
+				h = FindFirstFile((path + "*.decls").c_str(), &fd);
+			}
+		}
+
+	}while( searchStep < 3 );
 
 	_ulibkws.clear();
 
@@ -254,11 +269,7 @@ const char *openLibs( bool debug ){
 	if( !gl ) return "Error in linker.dll";
 	linkerLib=gl();
 
-	string rt = home + "\\bin\\runtime";
-	if (debug) rt += "_dbg.dll";
-	else rt += ".dll";
-
-	runtimeHMOD=LoadLibrary( rt.c_str() );
+	runtimeHMOD=LoadLibrary((home + "/bin/runtime.dll").c_str());
 	if( !runtimeHMOD ) return "Unable to open runtime.dll";
 
 	typedef Runtime *(_cdecl*GetRuntime)();
@@ -284,11 +295,11 @@ const char *openLibs( bool debug ){
 	return 0;
 }
 
-const char *linkLibs(){
+const char *linkLibs(const char* cwd){
 
 	if( const char *p=linkRuntime() ) return p;
 
-	if( const char *p=linkUserLibs() ) return p;
+	if( const char *p=linkUserLibs(cwd) ) return p;
 
 	return 0;
 }

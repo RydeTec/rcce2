@@ -144,9 +144,9 @@ static void demoError(){
 
 int _cdecl main( int argc,char *argv[] ){
 
-	std::ifstream file("ATTACH");
-	if (file.good()) MessageBox(NULL, "Execution is paused so a debugger can be attached if necessary. When you are ready to continue press ok.", "Attach Debugger", MB_OK);
-	
+	std::ifstream file("ATTACH", std::ifstream::ate | std::ifstream::binary);
+	if (file.good() && file.tellg() > 0) MessageBox(NULL, "Execution is paused so a debugger can be attached if necessary. When you are ready to continue press ok.", "Attach Debugger", MB_OK);
+
 	string in_file,out_file,args,cwd;
 	
 	bool debug=false,quiet=false,veryquiet=false,compileonly=false;
@@ -220,7 +220,6 @@ int _cdecl main( int argc,char *argv[] ){
 	if( !getenv( "blitzide" ) ) demoError();
 #endif
 
-	
 	ifstream in( in_file.c_str() );
 	if( !in ) err( "Unable to open input file" );
 	if( !quiet ){

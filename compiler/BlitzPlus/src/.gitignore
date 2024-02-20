@@ -6,3 +6,4 @@ blitzide.prefs
 *.pdb
 *.ilk
 .vs
+**/*.user

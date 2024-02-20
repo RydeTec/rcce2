@@ -34,7 +34,7 @@ extern vector<UserFunc> userFuncs;
 
 const char *openLibs( bool debug );
 
-const char *linkLibs();
+const char *linkLibs(const char* cwd);
 
 void closeLibs();
 
