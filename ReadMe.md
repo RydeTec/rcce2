@@ -61,3 +61,6 @@ There are other Blitz specific IDE installers included in the repository.
 
 ### Convert sounds to OGG format
 We have included an audio converter called Freemake in the extras folder. This tool will allow you to bulk convert your audio files to OGG format for free.
+
+### Visual Studio
+In order to edit and compile the BlitzBasic compilers you will need to open their solutions in Visual Studio https://visualstudio.microsoft.com/
