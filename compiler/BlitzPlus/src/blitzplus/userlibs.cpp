@@ -28,10 +28,21 @@ static std::string getCurrentWorkingDirectory() {
 	return std::string();
 }
 
+static std::string getAppDir() {
+	char buff[MAX_PATH];
+	if (GetModuleFileName(0, buff, MAX_PATH)) {
+		std::string t = buff;
+		int n = t.find_last_of('\\');
+		if (n != std::string::npos) t = t.substr(0, n);
+		return t+"\\..";
+	}
+	return "";
+}
+
 void _bbLoadLibs( char *p ){
 
 	std::string cwd = getCurrentWorkingDirectory();
-	const char *home=getenv( "blitzpath" );
+	const char* home = getAppDir().c_str();
 
 	while( *p ){
 		HMODULE mod=LoadLibrary( p );

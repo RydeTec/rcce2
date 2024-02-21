@@ -54,6 +54,8 @@ BlitzRCPlus is a custom version of BlitzPlus specifically tailored for RealmCraf
 ### VSCode
 Blitz Syntax Plugin Link: https://marketplace.visualstudio.com/items?itemName=dones.blitz3d
 
+You can compile, run and publish via the VSCode launch configurations.
+
 ### IDEs
 There are other Blitz specific IDE installers included in the repository.
 

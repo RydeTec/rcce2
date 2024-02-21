@@ -8,9 +8,20 @@
 
 Prefs prefs;
 
+static string getAppDir() {
+	char buff[MAX_PATH];
+	if (GetModuleFileName(0, buff, MAX_PATH)) {
+		string t = buff;
+		int n = t.find_last_of('\\');
+		if (n != string::npos) t = t.substr(0, n);
+		return t+"\\..";
+	}
+	return "";
+}
+
 void Prefs::open(){
 
-	homeDir=getenv( "blitzpath" );
+	homeDir=getAppDir();
 
 	AddFontResource( (homeDir+"/cfg/blitz.fon").c_str() );
 	setDefault();

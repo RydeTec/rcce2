@@ -1,0 +1,75 @@
+{
+    "version": "2.0.0",
+    "inputs": [
+      {
+        "id": "compilerVersion",
+        "type": "pickString",
+        "description": "Select Compiler",
+        "options": ["BlitzRC", "BlitzPlus"],
+        "default": "BlitzRC"
+      }
+    ],
+    "tasks": [
+        {
+            "label": "compile",
+            "type": "shell",
+            "command":"${workspaceFolder}\\scripts\\compiler.bat \"${workspaceFolder}\" ${input:compilerVersion} \"${fileDirname}\" \"${file}\" -c",
+            "problemMatcher": [],
+            "options": {
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": ["/c"]
+                }
+            }
+        },
+        {
+            "label": "debug",
+            "type": "shell",
+            "command":"${workspaceFolder}\\scripts\\compiler.bat \"${workspaceFolder}\" ${input:compilerVersion} \"${fileDirname}\" \"${file}\" -d",
+            "problemMatcher": [],
+            "options": {
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": ["/c"]
+                }
+            }
+        },
+        {
+            "label": "run",
+            "type": "shell",
+            "command":"${workspaceFolder}\\scripts\\compiler.bat \"${workspaceFolder}\" ${input:compilerVersion} \"${fileDirname}\" \"${file}\"",
+            "problemMatcher": [],
+            "options": {
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": ["/c"]
+                }
+            }
+        },
+        {
+            "label": "executable",
+            "type": "shell",
+            "command":"${workspaceFolder}\\compile.bat",
+            "problemMatcher": [],
+            "options": {
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": ["/c"]
+                }
+            }
+        },
+        {
+            "label": "release",
+            "type": "shell",
+            "command":"${workspaceFolder}\\publish.bat",
+            "problemMatcher": [],
+            "options": {
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": ["/c"]
+                }
+            }
+        }
+    ]
+  }
+  

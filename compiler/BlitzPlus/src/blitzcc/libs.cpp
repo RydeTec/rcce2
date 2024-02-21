@@ -255,11 +255,20 @@ static const char *linkUserLibs(const char* cwd){
 	return err;
 }
 
+static string getAppDir() {
+	char buff[MAX_PATH];
+	if (GetModuleFileName(0, buff, MAX_PATH)) {
+		string t = buff;
+		int n = t.find_last_of('\\');
+		if (n != string::npos) t = t.substr(0, n);
+		return t + "\\..";
+	}
+	return "";
+}
+
 const char *openLibs( bool debug ){
 	
-	char *p=getenv( "blitzpath" );
-	if( !p ) return "Can't find blitzpath environment variable";
-	home=string(p);
+	home = getAppDir();
 
 	linkerHMOD=LoadLibrary( (home+"/bin/linker.dll").c_str() );
 	if( !linkerHMOD ) return "Unable to open linker.dll";
