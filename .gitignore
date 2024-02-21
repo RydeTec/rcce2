@@ -66,3 +66,7 @@ bin/tools/RC Scriptorama/projects.txt
 bin/tools/RC SkinCrafter/lastsettings.dat
 
 compiler/BlitzPlus/cfg/blitzide.prefs
+
+compiler/Mavless B3D/
+
+compiler/Decls/
