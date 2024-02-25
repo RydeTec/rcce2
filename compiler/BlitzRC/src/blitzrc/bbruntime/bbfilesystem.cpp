@@ -118,6 +118,12 @@ void bbCreateDir( BBStr *d ){
 	delete d;
 }
 
+int bbCopyDir(BBStr* s, BBStr* d) {
+	string src = *s, dest = *d;
+	delete s; delete d;
+	return gx_filesys->copyDir(src, dest);
+}
+
 void bbDeleteDir( BBStr *d ){
 	gx_filesys->deleteDir( *d );
 	delete d;
@@ -172,6 +178,7 @@ void filesystem_link( void(*rtSym)(const char*,void*) ){
 	rtSym( "$CurrentDir",bbCurrentDir );
 	rtSym( "ChangeDir$dir",bbChangeDir );
 	rtSym( "CreateDir$dir",bbCreateDir );
+	rtSym("%CopyDir$src$des", bbCopyDir);
 	rtSym( "DeleteDir$dir",bbDeleteDir );
 
 	rtSym( "%FileSize$file",bbFileSize );

@@ -81,3 +81,56 @@ gxDir *gxFileSystem::verifyDir( gxDir *d ){
 void gxFileSystem::closeDir( gxDir *d ){
 	if( dir_set.erase( d ) ) delete d;
 }
+
+bool gxFileSystem::copyDir(const std::string& src, const std::string& dest) {
+    WIN32_FIND_DATA ffd;
+    HANDLE hFind = INVALID_HANDLE_VALUE;
+    DWORD dwError = 0;
+
+    // Create the destination directory if it does not exist
+    if (!CreateDirectory(dest.c_str(), NULL)) {
+        if (GetLastError() != ERROR_ALREADY_EXISTS) {
+            return false; // Failed to create the directory and it doesn't exist already
+        }
+    }
+
+    // Add a wildcard to search for all files/directories in the source
+    std::string searchPath = src + "\\*";
+
+    hFind = FindFirstFile(searchPath.c_str(), &ffd);
+
+    if (INVALID_HANDLE_VALUE == hFind) {
+        return false; // Failed to find the first file
+    }
+
+    do {
+        if (strcmp(ffd.cFileName, ".") != 0 && strcmp(ffd.cFileName, "..") != 0) {
+            std::string srcPath = src + "\\" + ffd.cFileName;
+            std::string destPath = dest + "\\" + ffd.cFileName;
+
+            if (ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+                // If the item is a directory, recursively call copyDir
+                if (!copyDir(srcPath, destPath)) {
+                    FindClose(hFind);
+                    return false; // Failed to copy directory
+                }
+            }
+            else {
+                // If the item is a file, use CopyFile to copy it
+                if (!CopyFile(srcPath.c_str(), destPath.c_str(), FALSE)) {
+                    FindClose(hFind);
+                    return false; // Failed to copy file
+                }
+            }
+        }
+    } while (FindNextFile(hFind, &ffd) != 0);
+
+    dwError = GetLastError();
+    FindClose(hFind);
+
+    if (dwError != ERROR_NO_MORE_FILES) {
+        return false; // Encountered an error during the copy
+    }
+
+    return true; // Successfully copied all contents
+}

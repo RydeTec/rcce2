@@ -594,35 +594,73 @@ string gxRuntime::commandLine(){
 	return cmd_line;
 }
 
+static std::string getCurrentWorkingDirectory() {
+	char buffer[MAX_PATH];
+	DWORD dwRet = GetCurrentDirectory(MAX_PATH, buffer);
+	if (dwRet > 0) {
+		return std::string(buffer);
+	}
+	// Handle error or return empty string if the directory cannot be obtained
+	return std::string();
+}
+
 /////////////
 // EXECUTE //
 /////////////
-bool gxRuntime::execute( const string &cmd_line ){
-
+int gxRuntime::execute( const string &cmd_line, const string& provided_params, const string &start_dir) {
 	if( !cmd_line.size() ) return false;
 
 	//convert cmd_line to cmd and params
 	string cmd=cmd_line,params;
-	while( cmd.size() && cmd[0]==' ' ) cmd=cmd.substr( 1 );
-	if( cmd.find( '\"' )==0 ){
-		int n=cmd.find( '\"',1 );
-		if( n!=string::npos ){
-			params=cmd.substr( n+1 );
-			cmd=cmd.substr( 1,n-1 );
+	while (cmd.size() && cmd[0] == ' ') cmd = cmd.substr(1);
+
+	if (provided_params.size() == 0 && start_dir.size() == 0) {
+		if (cmd.find('\"') == 0) {
+			int n = cmd.find('\"', 1);
+			if (n != string::npos) {
+				params = cmd.substr(n + 1);
+				cmd = cmd.substr(1, n - 1);
+			}
 		}
-	}else{
-		int n=cmd.find( ' ' );
-		if( n!=string::npos ){
-			params=cmd.substr( n+1 );
-			cmd=cmd.substr( 0,n );
+		else {
+			int n = cmd.find(' ');
+			if (n != string::npos) {
+				params = cmd.substr(n + 1);
+				cmd = cmd.substr(0, n);
+			}
 		}
 	}
-	while( params.size() && params[0]==' ' ) params=params.substr( 1 );
-	while( params.size() && params[params.size()-1]==' ' ) params=params.substr( 0,params.size()-1 );
+	else {
+		if (cmd.find('\"') == 0) {
+			int n = cmd.find('\"', 1);
+			if (n != string::npos) {
+				params = cmd.substr(n + 1);
+				cmd = cmd.substr(1, n - 1);
+			}
+		}
+
+		params += " " + provided_params;
+	}
+
+	while (params.size() && params[0] == ' ') params = params.substr(1);
+	while (params.size() && params[params.size() - 1] == ' ') params = params.substr(0, params.size() - 1);
 
 	SetForegroundWindow( GetDesktopWindow() );
 
-	return (int)ShellExecute( GetDesktopWindow(),0,cmd.c_str(),params.size() ? params.c_str() : 0,0,SW_SHOW )>32;
+	SHELLEXECUTEINFO ShExecInfo = { 0 };
+	ShExecInfo.cbSize = sizeof(SHELLEXECUTEINFO);
+	ShExecInfo.fMask = SEE_MASK_NOCLOSEPROCESS;
+	ShExecInfo.hwnd = NULL;
+	ShExecInfo.lpVerb = "open"; // Use "open" to open files/applications, "runas" to elevate, etc.
+	ShExecInfo.lpFile = cmd.c_str(); // Specify the program to execute
+	ShExecInfo.lpParameters = params.size() ? params.c_str() : ""; // Any parameters if necessary
+	ShExecInfo.lpDirectory = start_dir.size() ? start_dir.c_str() : getCurrentWorkingDirectory().c_str(); // Set the working directory here
+	ShExecInfo.nShow = SW_SHOW;
+	ShExecInfo.hInstApp = NULL;
+
+	ShellExecuteEx(&ShExecInfo);
+
+	return (int)ShExecInfo.hProcess;
 }
 
 ///////////////

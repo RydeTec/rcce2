@@ -32,6 +32,7 @@ public:
 	gxDir *openDir( const std::string &name,int flags );
 	gxDir *verifyDir( gxDir *d );
 	void closeDir( gxDir *dir );
+	bool copyDir(const std::string& src, const std::string& dest);
 };
 
 #endif

@@ -98,7 +98,7 @@ public:
 	bool idle();
 	bool delay( int ms );
 
-	bool execute( const std::string &cmd );
+	int execute( const std::string &cmd, const std::string& provided_params, const std::string& start_dir);
 	void setTitle( const std::string &title,const std::string &close );
 	int  getMilliSecs();
 	void setPointerVisible( bool vis );

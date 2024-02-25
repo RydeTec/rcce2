@@ -24,9 +24,11 @@ void  bbRuntimeError( BBStr *str ){
 	RTEX( err );
 }
 
-int   bbExecFile( BBStr *f ){
+int   bbExecFile( BBStr *f, BBStr* a, BBStr *s ){
 	string t=*f;delete f;
-	int n=gx_runtime->execute( t );
+	string d = *s; delete s;
+	string p = *a; delete a;
+	int n=gx_runtime->execute( t, p, d );
 	if( !gx_runtime->idle() ) RTEX( 0 );
 	return n;
 }
@@ -183,7 +185,7 @@ void bbruntime_link( void (*rtSym)( const char *sym,void *pc ) ){
 	rtSym( "Stop",bbStop );
 	rtSym( "AppTitle$title$close_prompt=\"\"",bbAppTitle );
 	rtSym( "RuntimeError$message",bbRuntimeError );
-	rtSym( "ExecFile$command",bbExecFile );
+	rtSym( "%ExecFile$command$params=\"\"$start_in=\"\"",bbExecFile );
 	rtSym( "Delay%millisecs",bbDelay );
 	rtSym( "%MilliSecs",bbMilliSecs );
 	rtSym( "$CommandLine",bbCommandLine );
