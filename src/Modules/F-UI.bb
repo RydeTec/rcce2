@@ -52,7 +52,7 @@ Type Font
 	Field Bold
 	Field Italic
 	Field Underline
-	
+
 End Type
 
 Type RecentFile
@@ -1609,9 +1609,7 @@ Function FUI_CustomOpenDialog( title$ = "", initdir$ = "", filter$ = "", BackHac
 	
 	If title$ = "" title$ = "Select a File to Open..."
 	If filter$ = "" filter$ = "All Files (*.*)|*.*"
-	
-	If Instr(initdir$, CurrentDir$()) = 0 Then initdir$ = CurrentDir() + initdir$
-;	If initdir$ = "" initdir$ = CurrentDir()
+	If initdir$ = "" initdir$ = CurrentDir()
 	
 	If Right( initdir$, 1 ) <> "\"
 		initdir$ = initdir$ + "\"
@@ -1619,8 +1617,9 @@ Function FUI_CustomOpenDialog( title$ = "", initdir$ = "", filter$ = "", BackHac
 	
 	win		= FUI_Window( 0, 0, 300, 216, title$, 0, 1, 1 )
 	lbl		= FUI_Label( win, 70, 5, "Drive letter:", ALIGN_RIGHT )
-	drive	= FUI_ComboBox( win, 75, 2, 225-4-22, 20, 5 )
+	drive	= FUI_ComboBox( win, 75, 2, 225-4-22-31, 20, 5 )
 	up		= FUI_Button( win, 300-4-20, 2, 20, 20, "", Ptr ICON_OPEN )
+	ndir	= FUI_Button( win, 300-4-20-31, 2, 30, 20, "New", 0 )
 	index = 1
 	
 	driveFound = False
@@ -1638,6 +1637,7 @@ Function FUI_CustomOpenDialog( title$ = "", initdir$ = "", filter$ = "", BackHac
 		EndIf
 	Next
 	If BackHack = True Then FUI_DisableGadget(drive)
+	If FolderHack = False Then FUI_DisableGadget(ndir)
 
 	lst		= FUI_ListBox( win, 2, 24, 298-4, 120 )
 	lbl		= FUI_Label( win, 70, 149, "File name:", ALIGN_RIGHT )
@@ -1700,10 +1700,14 @@ Function FUI_CustomOpenDialog( title$ = "", initdir$ = "", filter$ = "", BackHac
 							; Select folder
 							If MilliSecs() - ClickedTime > 600
 								DlgFile$ = FUI_SendMessage( lst, M_GETTEXT, e\EventData )
+								If Right( DlgFile$, 1 ) <> "\"
+									DlgFile$ = DlgFile$ + "\"
+								EndIf
 								FUI_SendMessage fname, M_SETTEXT, FUI_SendMessage( lst, M_GETTEXT, e\EventData )
 								ClickedTime = MilliSecs()
 							; Enter folder
 							Else
+								DlgFile$ = ""
 								DlgDir$ = FileName$
 								If Right( DlgDir$, 1 ) <> "\"
 									DlgDir$ = DlgDir$ + "\"
@@ -1719,6 +1723,7 @@ Function FUI_CustomOpenDialog( title$ = "", initdir$ = "", filter$ = "", BackHac
 					EndIf
 				Case up
 					If Len(DlgDir$) > Len(initdir$) Or BackHack = False
+						DlgFile$ = ""
 						For A = Len( DlgDir$ ) - 1 To 1 Step -1
 							If Mid( DlgDir$, A, 1 ) = "\"
 								DlgDir$ = Left( DlgDir$, A )
@@ -1743,12 +1748,36 @@ Function FUI_CustomOpenDialog( title$ = "", initdir$ = "", filter$ = "", BackHac
 						DlgResult = True
 						DlgClose = True
 					Else
-						DlgResult = False
-						DlgClose = True
+				 		If folderHack = False
+							DlgResult = False
+							DlgClose = True
+						Else
+							app\currentFile = DlgDir$
+							DlgResult = True
+							DlgClose = True
+						EndIf
 					EndIf
 				Case cancel
 					DlgResult = False
 					DlgClose = True
+				Case ndir
+					Local dirName$ = FUI_SendMessage( fname, M_GETTEXT, e\EventData )
+					If dirName$ = ""
+						FUI_CustomMessageBox( "Please specify a folder name.", "Error", MB_OK)
+					Else
+						If Right( DlgDir$, 1 ) <> "\"
+							DlgDir$ = DlgDir$ + "\"
+						EndIf
+
+						newDir$ = DlgDir$ + dirName$
+						If FileType( newDir$ ) <> 0
+							FUI_CustomMessageBox( "That filename already exists.", "Error", MB_OK)
+						Else
+							CreateDir newDir$
+							FUI_GetFiles lst, DlgDir$
+							FUI_SendMessage fname, M_SETTEXT, ""
+						EndIf
+					EndIf
 			End Select
 			
 			;Remove event from queue

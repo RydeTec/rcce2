@@ -92,25 +92,8 @@ Const testing=True
 Const min_brush_size=1
 Const max_brush_size=80
 Dim GUI_HANDLE_TEMPORARY_IMAGE(6)
-If testing=False Then 
-	; --------------Project Manager check
-	If FileType("DATA\Selected.dat")=1 Then 
-		f=OpenFile("DATA\Selected.dat")
-		selectedproject$=ReadString$(f)
-		CloseFile f;
-	Else
-		RuntimeError "No project selected, please run RC Project Manager "
-	EndIf
-	
-	If FileType ("Projects\"+selectedproject$+"\")<>2 Then 
-		RuntimeError "Project folder does not exist, please run RC Project Manager"
-	EndIf
-	
-	ChangeDir "Projects\"+selectedproject$+"\"
-	thispath$=CurrentDir()
-	; ---------------Module Includes
+thispath$=CurrentDir()
 
-EndIf
 	;Include "modules\encrypt_b3d.bb"
 Include "..\modules\rcenet.bb"
 Include "..\modules\language.bb"

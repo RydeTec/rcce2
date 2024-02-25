@@ -1,16 +1,6 @@
-Global thispath$ = SystemProperty$("appdir")
-If Lower$(Right$(thispath$,4))="bin\"
-; Running from the IDE
-thispath$ = CurrentDir$()
-End If
+Global thispath$ = CurrentDir$()
 If Right$(thispath$,1)<>"\" Then thispath$ = thispath$+"\"
 ChangeDir thispath$
-
-If testing=True Then 
-ChangeDir thispath$
-Else
-ChangeDir thispath$+"data\default project\"
-EndIf
 
 
 	Global GUI_TOPWIN = FUI_Window( 0, 0, App\W, GUI_VARIABLE_TOPBAR_HEIGHT, "", 0, 2 )

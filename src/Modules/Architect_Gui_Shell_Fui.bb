@@ -1,15 +1,5 @@
-Global thispath$ = SystemProperty$("appdir")
-If Lower$(Right$(thispath$,4))="bin\"
-; Running from the IDE
-thispath$ = CurrentDir$()
-End If
+Global thispath$ = CurrentDir$()
 If Right$(thispath$,1)<>"\" Then thispath$ = thispath$+"\"
-
-If testing=True Then 
-ChangeDir thispath$
-Else
-ChangeDir thispath$+"data\default project\"
-EndIf
 
 
     ;main top menu

@@ -86,22 +86,9 @@ Const testing=False
 
 
 ChangeDir thispath$
-If testing=False Then 
 ;;;;;;; NEW ADDITIONS VIA SOLSTAR REQUESTw
 ;#Region Load Modules
 ;Include "Modules\rc_registry.bb"
-If FileType("Data\Selected.dat")=1 Then 
-   f=OpenFile("Data\Selected.dat")
-    selectedproject$=ReadString$(f)
-    CloseFile f
-	Else
-	RuntimeError "No project selected, please run RC Project Manager"
-    EndIf
-   If FileType ("Projects\"+selectedproject$+"\")<>2 Then 
- 	RuntimeError "Poject folder does not exist, please run RC Project Manager"
-    EndIf 
-    ChangeDir "Projects\"+selectedproject$+"\"
-EndIf
 thispath$=CurrentDir() 
 
 

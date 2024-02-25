@@ -1,15 +1,5 @@
-Global thispath$ = SystemProperty$("appdir")
-If Lower$(Right$(thispath$,4))="bin\"
-; Running from the IDE
-thispath$ = CurrentDir$()
-End If
+Global thispath$ = CurrentDir$()
 If Right$(thispath$,1)<>"\" Then thispath$ = thispath$+"\"
-
-If testing=True Then 
-ChangeDir thispath$
-Else
-ChangeDir thispath$+"data\default project\"
-EndIf
 
     ;main top menu
 	Global GUI_TOPWIN = FUI_Window( 0, 0, App\W, GUI_VARIABLE_TOPBAR_HEIGHT, "", 0, 2 )
@@ -118,7 +108,6 @@ EndIf
   	    Global GUI_TOPWIN_MOVEMENT = FUI_Button( GUI_TOPWIN, 225, 2, GUI_VARIABLE_RIGHTBAR_WIDTH - 15, 15, "Model move & scale", 0, 0 )
 	    Global GUI_MOVEWIN= FUI_Window( 24, 44, 300, 150, "Model movement and scale", 0, 1,1 )
        ;MOVEMENT IMAGES
-       ChangeDir thispath$+"data\default project\"
 	   If FileType ("Data\RCTE\Move_Left.png")<>1 Then RuntimeError ("Gui image missing : Move_left.png")
 		Global R_leftarrow=LoadTexture("Data\RCTE\Move_Left.png");ResizeImage r_leftarrow,24,24
 		If FileType ("Data\RCTE\Move_Right.png")<>1 Then RuntimeError ("Gui image missing : Move_right.png")

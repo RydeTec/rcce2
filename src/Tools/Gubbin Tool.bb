@@ -8,22 +8,7 @@ ChangeDir RootDir$
 
 Global AH_AppB$ = "RCSTD", AH_Loca$ = "..\New Game\"
 ;Include "AntiHack.bb"
-
-; Find and switch to selected project folder
-Const Testing = True; Set this to False for release compilation
-If Testing = False
-	If FileType("Data\Selected.dat") = 1
-		F = ReadFile("Data\Selected.dat")
-			ProjectName$ = ReadString$(F)
-		CloseFile(F)
-		If ProjectName$ = "" Then RuntimeError("No project selected - please run Realm Crafter.exe")
-		If FileType("New Game\" + ProjectName$) <> 2 Then RuntimeError("No project selected - please run Realm Crafter.exe")
-		ChangeDir("New Game\" + ProjectName$)
-	Else
-		RuntimeError("No project selected - please run Realm Crafter.exe")
-	EndIf
-EndIf
-
+Const testing=True
 
 ; Includes
 Include "..\Modules\Spells.bb"

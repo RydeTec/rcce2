@@ -707,7 +707,6 @@ Function LoadAreaTE(Name$)
 		dm\rcTe$ = ReadString$(F)
 		
 		If Left$(dm\rcTe$,5)<>"_TRRN"
-			ChangeDir thispath$
 			dm\ent = GetMesh(dm\id)
 			dm\ModelFileName$=getmeshname$(dm\id)
 			dm\modelfilepath$=dm\ModelFileName$
