@@ -329,6 +329,7 @@ Function Bump% (enable%=-1)
 End Function
 
 Function FreeTexture% (texture%)
+	Return 0 ; TODO: Figure out why this is causing crashes
 	If texture<>0 Then
 		Return FreeTexture_ (texture, TextureBuffer(texture))
 	Else
