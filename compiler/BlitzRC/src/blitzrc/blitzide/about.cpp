@@ -89,7 +89,7 @@ void aboutBlitz( bool delay ){
 	string t="";
 
 #ifdef PRO
-	t+="Blitz3D";
+	t+="BlitzRC";
 #else
 	t+="Blitz2D";
 #endif

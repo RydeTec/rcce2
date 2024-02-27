@@ -61,6 +61,9 @@ static void makeKeywords(){
 	alphaTokes["Float"]=BBFLOAT;
 	alphaTokes["Str"]=BBSTR;
 	alphaTokes["Include"]=INCLUDE;
+	alphaTokes["Test"] = TEST;
+	alphaTokes["EndTest"] = ENDTEST;
+	alphaTokes["End Test"] = ENDTEST;
 
 	alphaTokes["New"]=BBNEW;
 	alphaTokes["Delete"]=BBDELETE;

@@ -194,7 +194,7 @@ void MainFrame::OnDestroy(){
 
 void MainFrame::setTitle( const string &s ){
 #ifdef PRO
-	SetWindowText( ("Blitz3D - "+s ).c_str() );
+	SetWindowText( ("BlitzRC - "+s ).c_str() );
 	return;
 #else
 	SetWindowText( ("Blitz2D - "+s ).c_str() );

@@ -10,7 +10,7 @@ static const int TEXTLIMIT=1024*1024-1;
 #endif
 
 enum{
-	STMTS_PROG,STMTS_BLOCK,STMTS_LINE
+	STMTS_PROG,STMTS_BLOCK,STMTS_LINE,STMTS_BLOCK_TEST
 };
 
 static bool isTerm( int c ){ return c==':' || c=='\n'; }
@@ -18,9 +18,10 @@ static bool isTerm( int c ){ return c==':' || c=='\n'; }
 Parser::Parser( Toker &t ):toker(&t),main_toker(&t){
 }
 
-ProgNode *Parser::parse( const string &main ){
+ProgNode *Parser::parse( const string &main, bool testMode ){
 
 	incfile=main;
+	test = testMode;
 
 	consts=d_new DeclSeqNode();
 	structs=d_new DeclSeqNode();
@@ -132,6 +133,7 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 				toker->next();string tag=parseTypeTag();
 				if( arrayDecls.find(ident)==arrayDecls.end() 
 					&& toker->curr()!='=' && toker->curr()!='\\' && toker->curr()!='[' ){
+					if (test && scope == STMTS_PROG) ex("Test files cannot call functions in global scope.");
 					//must be a function
 					ExprSeqNode *exprs;
 					if( toker->curr()=='(' ){
@@ -169,6 +171,7 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 			break;
 		case WHILE:
 			{
+				if (test && scope == STMTS_PROG) ex("Test files cannot construct loops in global scope.");
 				toker->next();
 				a_ptr<ExprNode> expr( parseExpr( false ) );
 				a_ptr<StmtSeqNode> stmts( parseStmtSeq( STMTS_BLOCK ) );
@@ -180,6 +183,7 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 			break;
 		case REPEAT:
 			{
+				if (test && scope == STMTS_PROG) ex("Test files cannot construct loops in global scope.");
 				toker->next();ExprNode *expr=0;
 				a_ptr<StmtSeqNode> stmts( parseStmtSeq( STMTS_BLOCK ) );
 				int curr=toker->curr();
@@ -219,6 +223,7 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 			break;
 		case FOR:
 			{
+				if (test && scope == STMTS_PROG) ex("Test files cannot construct loops in global scope.");
 				a_ptr<VarNode> var;
 				a_ptr<StmtSeqNode> stmts;
 				toker->next();var=parseVar();
@@ -255,16 +260,19 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 			break;
 		case GOTO:
 			{
+				if (test && scope == STMTS_PROG) ex("Test files cannot use GOTO in global scope.");
 				toker->next();string t=parseIdent();result=d_new GotoNode( t );
 			}
 			break;
 		case GOSUB:
 			{
+				if (test && scope == STMTS_PROG) ex("Test files cannot use GOSUB in global scope.");
 				toker->next();string t=parseIdent();result=d_new GosubNode( t );
 			}
 			break;
 		case RETURN:
 			{
+				if (test && scope == STMTS_BLOCK_TEST) ex("Test blocks cannot return.");
 				toker->next();result=d_new ReturnNode( parseExpr( true ) );
 			}
 			break;
@@ -339,6 +347,23 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 			if( scope!=STMTS_PROG ) ex( "'Function' can only appear in main program" );
 			toker->next();funcs->push_back( parseFuncDecl() );
 			break;
+		case TEST: {
+			if (scope != STMTS_PROG) ex("'Test' can only appear in main program");
+			toker->next(); FuncDeclNode* testDecl = parseTestDecl();
+			if (test) {
+				funcs->push_back(testDecl);
+				std::string ident = testDecl->ident;
+				std::string tag = testDecl->tag;
+
+				ExprSeqNode* exprs(d_new ExprSeqNode());
+				exprs->push_back(d_new StringConstNode("Running test " + ident + "..."));
+				stmts->push_back(d_new ExprStmtNode(d_new CallNode("debuglog", "", exprs)));
+
+				CallNode* call = d_new CallNode(ident, tag, d_new ExprSeqNode());
+				result = d_new ExprStmtNode(call);
+			}
+			break;
+		}
 		case DIM:
 			do{
 				toker->next();
@@ -378,6 +403,7 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 			break;
 		case '.':
 			{
+				if (test && scope == STMTS_PROG) ex("Test files cannot set labels in global scope.");
 				toker->next();string t=parseIdent();
 				result=d_new LabelNode( t,datas->size() );
 			}
@@ -503,6 +529,24 @@ DeclNode *Parser::parseFuncDecl(){
 	stmts->push_back( ret );toker->next();
 	DeclNode *d=d_new FuncDeclNode( ident,tag,params.release(),stmts.release() );
 	d->pos=pos;d->file=incfile;
+	return d;
+}
+
+FuncDeclNode* Parser::parseTestDecl() {
+	int pos = toker->pos();
+	string ident = parseIdent();
+	string tag = parseTypeTag();
+	if (toker->curr() != '(') exp("'('");
+	if (toker->next() != ')') exp("')'");
+	a_ptr<DeclSeqNode> params(d_new DeclSeqNode()); // No params for Test blocks
+	toker->next();
+	a_ptr<StmtSeqNode> stmts(parseStmtSeq(STMTS_BLOCK_TEST));
+	if (toker->curr() != ENDTEST) exp("'End Test'");
+
+	StmtNode* ret = d_new ReturnNode(0); ret->pos = toker->pos();
+	stmts->push_back(ret); toker->next();
+	FuncDeclNode* d = d_new FuncDeclNode(ident, tag, params.release(), stmts.release());
+	d->pos = pos; d->file = incfile;
 	return d;
 }
 

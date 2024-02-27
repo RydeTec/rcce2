@@ -146,7 +146,7 @@ int _cdecl main( int argc,char *argv[] ){
 
 	string in_file,out_file,args,cwd;
 	
-	bool debug=false,quiet=false,veryquiet=false,compileonly=false;
+	bool debug=false,quiet=false,veryquiet=false,compileonly=false,test=false;
 	bool dumpkeys=false,dumphelp=false,showhelp=false,dumpasm=false;
 	bool versinfo=false;
 
@@ -168,6 +168,8 @@ int _cdecl main( int argc,char *argv[] ){
 			compileonly=true;
 		}else if( t=="-d" ){
 			debug=true;
+		}else if (t == "-t") {
+			test = true;
 		}else if( t=="-k" ){
 			dumpkeys=true;
 		}else if( t=="+k" ){
@@ -245,7 +247,7 @@ int _cdecl main( int argc,char *argv[] ){
 		if (out_file.size() || !debug) Toker::noTrace = true;
 
 		Parser parser( toker );
-		prog=parser.parse( in_file );
+		prog=parser.parse( in_file, test );
 		
 		//semant
 		if( !veryquiet ) cout<<"Generating..."<<endl;

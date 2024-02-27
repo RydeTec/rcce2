@@ -19,6 +19,13 @@
             "preLaunchTask": "debug"
         },
         {
+            "name": "Test",
+            "runtimeArgs": ["-e", "console.log('Task completed'); process.exit(0);"],
+            "request": "launch",
+            "type": "node",
+            "preLaunchTask": "test"
+        },
+        {
             "name": "Run",
             "runtimeArgs": ["-e", "console.log('Task completed'); process.exit(0);"],
             "request": "launch",

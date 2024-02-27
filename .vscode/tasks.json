@@ -35,6 +35,18 @@
             }
         },
         {
+            "label": "test",
+            "type": "shell",
+            "command":"${workspaceFolder}\\scripts\\compiler.bat \"${workspaceFolder}\" ${input:compilerVersion} \"${fileDirname}\" \"${file}\" -d -t",
+            "problemMatcher": [],
+            "options": {
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": ["/c"]
+                }
+            }
+        },
+        {
             "label": "run",
             "type": "shell",
             "command":"${workspaceFolder}\\scripts\\compiler.bat \"${workspaceFolder}\" ${input:compilerVersion} \"${fileDirname}\" \"${file}\"",

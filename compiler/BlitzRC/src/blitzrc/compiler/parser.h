@@ -16,13 +16,14 @@ public:
 
 	Parser( Toker &t );
 
-	ProgNode *parse( const string &main );
+	ProgNode *parse( const string &main, bool testMode=false );
 
 private:
 	string incfile;
 	set<string> included;
 	Toker *toker,*main_toker;
 	map<string,DimNode*> arrayDecls;
+	bool test;
 
 	DeclSeqNode *consts;
 	DeclSeqNode *structs;
@@ -48,6 +49,7 @@ private:
 	DeclNode *parseVarDecl( int kind,bool constant,string &ident,string &tag );
 	DimNode  *parseArrayDecl();
 	DeclNode *parseFuncDecl();
+	FuncDeclNode* parseTestDecl();
 	DeclNode *parseStructDecl();
 
 	ExprSeqNode *parseExprSeq();

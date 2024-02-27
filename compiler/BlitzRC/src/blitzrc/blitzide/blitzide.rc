@@ -104,7 +104,7 @@ BEGIN
         MENUITEM "&Back",                       ID_BACK
         MENUITEM "&Forward",                    ID_FORWARD
         MENUITEM "&Quick command help\tF1",     ID_QUICKHELP
-        MENUITEM "&About Blitz3D!",             ID_ABOUT
+        MENUITEM "&About BlitzRC!",             ID_ABOUT
     END
 END
 
