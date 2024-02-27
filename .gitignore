@@ -74,3 +74,5 @@ compiler/Decls/
 projects/
 
 res/Recent.dat
+
+bin/tools/RC Scriptorama/Scriptorama.config
