@@ -129,6 +129,7 @@ int		 _bbObjCompare( BBObj *o1,BBObj *o2 );
 BBStr *	 _bbObjToStr( BBObj *obj );
 int		 _bbObjToHandle( BBObj *obj );
 BBObj *	 _bbObjFromHandle( int handle,BBObjType *type );
+int		 _bbAssertTrue(int t);
 void	 _bbNullObjEx();
 
 void	 _bbRestore( BBData *data );

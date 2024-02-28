@@ -364,6 +364,11 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 			}
 			break;
 		}
+		case ASSERT: {
+			ExprNode* expr = parseExpr(false);
+			result = d_new AssNode(parseVar("", ""), expr);
+			break;
+		}
 		case DIM:
 			do{
 				toker->next();
@@ -741,6 +746,11 @@ ExprNode *Parser::parseUniExpr( bool opt ){
 		toker->next();
 		result=parseUniExpr( false );
 		result=d_new AfterNode( result );
+		break;
+	case ASSERT:
+		toker->next();
+		result = parseUniExpr(false);
+		result = d_new AssertNode(result);
 		break;
 	case '+':case '-':case '~':case ABS:case SGN:
 		toker->next();

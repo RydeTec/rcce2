@@ -198,4 +198,12 @@ struct ObjectHandleNode : public ExprNode{
 	ExprNode *semant( Environ *e );
 	TNode *translate( Codegen *g );
 };
+
+struct AssertNode : public ExprNode {
+	ExprNode* expr;
+	AssertNode(ExprNode* e) :expr(e) {}
+	~AssertNode() { delete expr; }
+	ExprNode* semant(Environ* e);
+	TNode* translate(Codegen* g);
+};
 #endif

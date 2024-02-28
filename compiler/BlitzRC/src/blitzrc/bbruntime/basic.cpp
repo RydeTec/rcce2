@@ -514,6 +514,16 @@ BBObj *_bbObjFromHandle( int handle,BBObjType *type ){
 	return obj->type==type ? obj : 0;
 }
 
+int _bbAssertTrue(int t) {
+	if (t == 0) {
+		if (debug) {
+			gx_runtime->debugLog("Failed to assert true.");
+			gx_runtime->debugError("Failed to assert true.");
+		}
+	}
+	return t > 0;
+}
+
 void _bbNullObjEx(){
 	RTEX( "Object does not exist" );
 }
@@ -656,6 +666,7 @@ void basic_link( void (*rtSym)( const char *sym,void *pc ) ){
 	rtSym( "_bbObjToStr",_bbObjToStr );
 	rtSym( "_bbObjToHandle",_bbObjToHandle );
 	rtSym( "_bbObjFromHandle",_bbObjFromHandle );
+	rtSym("_bbAssertTrue", _bbAssertTrue);
 	rtSym( "_bbNullObjEx",_bbNullObjEx );
 	rtSym( "_bbRestore",_bbRestore );
 	rtSym( "_bbReadInt",_bbReadInt );
@@ -669,4 +680,5 @@ void basic_link( void (*rtSym)( const char *sym,void *pc ) ){
 	rtSym( "_bbFMod",_bbFMod );
 	rtSym( "_bbFPow",_bbFPow );
 	rtSym( "RuntimeStats",bbRuntimeStats );
+	rtSym("%Assert%expr", _bbAssertTrue);
 }

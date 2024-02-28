@@ -674,3 +674,18 @@ TNode *ObjectHandleNode::translate( Codegen *g ){
 	return call( "__bbObjToHandle",t );
 }
 
+
+///////////////////
+// Assert Handle //
+///////////////////
+ExprNode* AssertNode::semant(Environ* e) {
+	expr = expr->semant(e);
+	if (!expr->sem_type->intType()) ex("'Assert' must be used with a boolean expression");
+	sem_type = Type::int_type;
+	return this;
+}
+
+TNode* AssertNode::translate(Codegen* g) {
+	TNode* t = expr->translate(g);
+	return call("__bbAssertTrue", t);
+}

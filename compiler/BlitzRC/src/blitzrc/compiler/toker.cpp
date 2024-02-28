@@ -74,6 +74,7 @@ static void makeKeywords(){
 	alphaTokes["After"]=AFTER;
 	alphaTokes["Object"]=OBJECT;
 	alphaTokes["Handle"]=BBHANDLE;
+	alphaTokes["Assert"] = ASSERT;
 
 	alphaTokes["And"]=AND;
 	alphaTokes["Or"]=OR;
