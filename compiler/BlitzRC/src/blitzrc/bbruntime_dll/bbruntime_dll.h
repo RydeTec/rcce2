@@ -12,6 +12,8 @@ class Debugger;
 
 class Runtime{
 public:
+	bool testFailed = false;
+
 	virtual int version();
 	virtual const char *nextSym();
 	virtual int symValue( const char *sym );
@@ -22,7 +24,7 @@ public:
 	virtual void asyncEnd();
 	virtual void checkmem( std::streambuf *buf );
 
-	virtual void execute( void (*pc)(),const char *args,Debugger *dbg );
+	virtual void execute( void (*pc)(),const char *args,Debugger *dbg, bool test );
 };
 
 extern "C" _declspec(dllexport) Runtime * _cdecl runtimeGetRuntime();

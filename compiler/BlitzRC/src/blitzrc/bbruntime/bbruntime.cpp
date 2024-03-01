@@ -235,9 +235,9 @@ bool bbruntime_create(){
 					if( sockets_create() ){
 						if( filesystem_create() ){
 							if( bank_create() ){
-								if( graphics_create() ){
-									if( input_create() ){
-										if( audio_create() ){
+								if(test || graphics_create() ){
+									if(test || input_create() ){
+										if(test || audio_create() ){
 											if( blitz3d_create() ){
 												if( userlibs_create() ){
 													return true;
@@ -282,8 +282,9 @@ bool bbruntime_destroy(){
 	return true;
 }
 
-const char *bbruntime_run( gxRuntime *rt,void (*pc)(),bool dbg ){
+const char *bbruntime_run( gxRuntime *rt,void (*pc)(),bool dbg, bool tst ){
 	debug=dbg;
+	test = tst;
 	gx_runtime=rt;
 
 	const char *t=0;

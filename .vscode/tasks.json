@@ -59,6 +59,18 @@
             }
         },
         {
+            "label": "test-all",
+            "type": "shell",
+            "command":"${workspaceFolder}\\test.bat",
+            "problemMatcher": [],
+            "options": {
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": ["/c"]
+                }
+            }
+        },
+        {
             "label": "executable",
             "type": "shell",
             "command":"${workspaceFolder}\\compile.bat",

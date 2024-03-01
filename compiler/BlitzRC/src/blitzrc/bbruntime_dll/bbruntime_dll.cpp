@@ -92,7 +92,7 @@ void Runtime::shutdown(){
 	syms.clear();
 }
 
-void Runtime::execute( void (*pc)(),const char *args,Debugger *dbg ){
+void Runtime::execute( void (*pc)(),const char *args,Debugger *dbg, bool test ){
 
 	bool debug=!!dbg;
 
@@ -110,13 +110,14 @@ void Runtime::execute( void (*pc)(),const char *args,Debugger *dbg ){
 	while( params.size() && params[0]==' ' ) params=params.substr( 1 );
 	while( params.size() && params[params.size()-1]==' ' ) params=params.substr( 0,params.size()-1 );
 
-	if( gx_runtime=gxRuntime::openRuntime( hinst,params,dbg ) ){
+	if( gx_runtime=gxRuntime::openRuntime( hinst,params,dbg,test ) ){
 
 #ifdef PRODEMO
 		shareProtCheck( killer );
 #endif
-		bbruntime_run( gx_runtime,pc,debug );
+		bbruntime_run( gx_runtime,pc,debug,test );
 
+		testFailed = gx_runtime->testFailed;
 		gxRuntime *t=gx_runtime;
 		gx_runtime=0;
 		gxRuntime::closeRuntime( t );
@@ -304,7 +305,7 @@ int __stdcall bbWinMain(){
 		}
 	}
 
-	runtime->execute( (void(*)())module_pc,params.c_str(),0 );
+	runtime->execute( (void(*)())module_pc,params.c_str(),0,false );
 	runtime->shutdown();
 
 	_DllMainCRTStartup( inst,DLL_PROCESS_DETACH,0 );

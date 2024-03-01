@@ -5,7 +5,7 @@
 #include "basic.h"
 #include "../gxruntime/gxruntime.h"
 
-extern bool debug;
+extern bool debug,test;
 extern gxRuntime *gx_runtime;
 
 extern std::vector<std::string> errorLog;

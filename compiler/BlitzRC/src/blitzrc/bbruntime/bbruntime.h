@@ -14,7 +14,7 @@ To be statically linked with an appropriate gxruntime driver.
 
 void bbruntime_link( void (*rtSym)( const char *sym,void *pc ) );
 
-const char *bbruntime_run( gxRuntime *runtime,void (*pc)(),bool debug );
+const char *bbruntime_run( gxRuntime *runtime,void (*pc)(),bool debug, bool tst );
 
 void bbruntime_panic( const char *err );
 

@@ -34,6 +34,8 @@ public:
 	gxGraphics *graphics;
 	gxFileSystem *fileSystem;
 
+	bool testFailed = false;
+
 	void flip( bool vwait );
 	void moveMouse( int x,int y );
 
@@ -81,7 +83,7 @@ private:
 
 	/***** APP INTERFACE *****/
 public:
-	static gxRuntime *openRuntime( HINSTANCE hinst,const std::string &cmd_line,Debugger *debugger );
+	static gxRuntime *openRuntime( HINSTANCE hinst,const std::string &cmd_line,Debugger *debugger, bool test );
 	static void closeRuntime( gxRuntime *runtime );
 
 	void asyncStop();

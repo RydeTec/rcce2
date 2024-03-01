@@ -149,6 +149,7 @@ int _cdecl main( int argc,char *argv[] ){
 	bool debug=false,quiet=false,veryquiet=false,compileonly=false,test=false;
 	bool dumpkeys=false,dumphelp=false,showhelp=false,dumpasm=false;
 	bool versinfo=false;
+	bool testFailed = false;
 
 	for( int k=1;k<argc;++k ){
 		
@@ -305,7 +306,9 @@ int _cdecl main( int argc,char *argv[] ){
 		
 		if( !veryquiet ) cout<<"Executing..."<<endl;
 		
-		runtimeLib->execute((void(*)())entry, args.c_str(), debugger);
+		runtimeLib->execute((void(*)())entry, args.c_str(), debugger, test);
+
+		testFailed = runtimeLib->testFailed;
 		
 		if (dbgHandle) {
 			typedef bool(_cdecl* UnloadDebugger)();
@@ -321,6 +324,6 @@ int _cdecl main( int argc,char *argv[] ){
 	delete qenviron;
 	
 	closeLibs();
-	
-	return 0;
+
+	return testFailed ? 1 : 0;
 }

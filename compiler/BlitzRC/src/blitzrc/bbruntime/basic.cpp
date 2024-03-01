@@ -516,9 +516,16 @@ BBObj *_bbObjFromHandle( int handle,BBObjType *type ){
 
 int _bbAssertTrue(int t) {
 	if (t == 0) {
-		if (debug) {
-			gx_runtime->debugLog("Failed to assert true.");
-			gx_runtime->debugError("Failed to assert true.");
+		if (test) {
+			gx_runtime->testFailed = true;
+			if (debug) {
+				gx_runtime->debugInfo("Failed assertion.");
+			}
+			else {
+				cout << "Failed assertion." << endl;
+			}
+		} else if (debug) {
+			gx_runtime->debugLog("Failed assertion.");
 		}
 	}
 	return t > 0;

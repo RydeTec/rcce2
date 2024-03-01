@@ -65,7 +65,7 @@ enum{
 ////////////////////
 // STATIC STARTUP //
 ////////////////////
-gxRuntime *gxRuntime::openRuntime( HINSTANCE hinst,const string &cmd_line,Debugger *d ){
+gxRuntime *gxRuntime::openRuntime( HINSTANCE hinst,const string &cmd_line,Debugger *d, bool test ){
 	if( runtime ) return 0;
 
 	//create debugger
@@ -90,9 +90,12 @@ gxRuntime *gxRuntime::openRuntime( HINSTANCE hinst,const string &cmd_line,Debugg
 	const char *app_t=" ";
 	int ws=WS_CAPTION,ws_ex=0;
 
-	HWND hwnd=CreateWindowEx( ws_ex,"Blitz Runtime Class",app_t,ws,0,0,0,0,0,0,0,0 );
-
-	UpdateWindow( hwnd );
+	HWND hwnd = 0;
+		
+	if (!test) {
+		hwnd = CreateWindowEx(ws_ex, "Blitz Runtime Class", app_t, ws, 0, 0, 0, 0, 0, 0, 0, 0);
+		UpdateWindow(hwnd);
+	}
 
 	runtime=d_new gxRuntime( hinst,cmd_line,hwnd );
 	return runtime;

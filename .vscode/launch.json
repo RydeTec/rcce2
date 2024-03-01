@@ -40,6 +40,13 @@
             "preLaunchTask": "executable"
         },
         {
+            "name": "Test All",
+            "runtimeArgs": ["-e", "console.log('Task completed'); process.exit(0);"],
+            "request": "launch",
+            "type": "node",
+            "preLaunchTask": "test-all"
+        },
+        {
             "name": "Release",
             "runtimeArgs": ["-e", "console.log('Task completed'); process.exit(0);"],
             "request": "launch",
