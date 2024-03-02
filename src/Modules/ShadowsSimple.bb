@@ -133,15 +133,18 @@ Function CreateShadow (quality%=1, mode%=1)
 			CameraProjMode ShadowCameraDefault, 0
 		EndIf
 	
-		SetBuffer TextureBuffer(Shadow\texture)
+		tBuffer.BBBuffer = TextureBuffer(Shadow\texture)
+		if tBuffer <> Null
+			SetBuffer tBuffer
 			Color 255, 255, 255
 			Rect 0, 0, Shadow\texSize, Shadow\texSize,1
+		EndIf
 		SetBuffer BackBuffer()
 		ScaleTexture Shadow\texture, 1.0, 1.0
 		Shadow\texBlend = FETOP_PROJECT3D1 Or (D3DTOP_MODULATE Shl 8) Or D3DTOP_MODULATE
 		TextureBlend Shadow\texture, Shadow\texBlend
 		
-		TextureIndex Shadow\texture, 0
+		;TextureIndex Shadow\texture, 0
 		ShadowLight ShadowLightDefault
 	EndIf	
 End Function
@@ -180,7 +183,7 @@ Function FreeShadows% ()
 				Rect 0, 0, Shadow\texSize, Shadow\texSize,1
 			SetBuffer BackBuffer()
 			TextureBlend Shadow\texture, Shadow\texBlend And $FFFF
-			TextureIndex Shadow\texture, 0
+			;TextureIndex Shadow\texture, 0
 			FreeTexture Shadow\texture
 		EndIf
 		If ShadowLightDefault<>0 Then
@@ -197,7 +200,7 @@ End Function
 
 
 Function UpdateShadows% (camera%, tween#=1.0)
-	Local j%, c.ShadowCaster, fog%, blend%, t#, r.ShadowReceiver, oldBuffer%, attachedCount%
+	Local j%, c.ShadowCaster, fog%, blend%, t#, r.ShadowReceiver, oldBuffer.BBBuffer, attachedCount%
 	Local Shadow.Shadow = ShadowDefault
 	Local renderFlag% = 0
 
@@ -222,14 +225,17 @@ Function UpdateShadows% (camera%, tween#=1.0)
 		TextureBlend Shadow\texture, Shadow\texBlend And $FFFF
 		
 		If Shadow\mode<>0 Then
-			oldBuffer = SetBuffer (TextureBuffer(Shadow\texture))
+			oldBuffer = TextureBuffer(Shadow\texture)
 		Else
-			oldBuffer = SetBuffer (BackBuffer())
+			oldBuffer = BackBuffer()
+		EndIf
+		if oldBuffer <> Null
+			SetBuffer oldBuffer
 		EndIf
 		
 		ShadowsOverwriteFX0 = GetOverwriteFX(0) : ShadowsOverwriteFX1 = GetOverwriteFX(1)	; save fx
 		OverwriteFX 0, $FFFFFFF7
-		ClsColor 255, 255, 255 : Cls 1, 1
+		ClsColor 255, 255, 255 : Cls
 
 		If Shadow\receiversCount>0 Then
 			;
@@ -299,14 +305,14 @@ Function UpdateShadows% (camera%, tween#=1.0)
 			
 			If Shadow\blurAlpha>0 Then
 				CustomPostprocessBlur Shadow\blurAlpha, Shadow\blurPasses, Shadow\blurRadius, Shadow\blurQuality
-				RenderPostprocess FE_Blur			
+				;RenderPostprocess FE_Blur			
 			EndIf
 
 			Color 255, 255, 255
 			Rect 0, 0, Shadow\texSize, Shadow\texSize, 0
 			If Shadow\fadeTexture<>0
 				CustomPostprocessOverlay 1, 0, 255, 255, 255, Shadow\fadeTexture
-				RenderPostprocess FE_Overlay
+				;RenderPostprocess FE_Overlay
 			EndIf
 		EndIf
 
@@ -319,11 +325,12 @@ Function UpdateShadows% (camera%, tween#=1.0)
 		;	Rect 1,1,Shadow\texSize-2,Shadow\texSize-2,0
 	
 		If Shadow\mode=0 Then  CopyRect 0, 0,  Shadow\texSize, Shadow\texSize,  0, 0,  BackBuffer(), TextureBuffer(Shadow\texture)
-		SetBuffer oldBuffer
+		If oldBuffer <> Null Then SetBuffer oldBuffer
 		TextureBlend Shadow\texture, Shadow\texBlend
 	Else
 		If Shadow\texture<>0 Then
-			oldBuffer = SetBuffer (TextureBuffer(Shadow\texture))
+			oldBuffer = TextureBuffer(Shadow\texture)
+			If oldBuffer <> Null Then SetBuffer oldBuffer
 			Color 255, 255, 255
 			Rect 0, 0, Shadow\texSize, Shadow\texSize, 1
 			SetBuffer oldBuffer

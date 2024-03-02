@@ -304,49 +304,51 @@ End Function
 ; ������ ������� ������ � ������ �������������
 ; Old functions with NEW capabilities
 
-Function SetBuffer% (buffer%)
-	Return SetBuffer_ (buffer)
-End Function
+;Function SetBuffer% (buffer%)
+;	Return SetBuffer_ (buffer)
+;End Function
 
-Function GetBuffer% ()
-	Return SetBuffer_ (-1)
-End Function
+;Function GetBuffer% ()
+;	Return SetBuffer_ (-1)
+;End Function
 
-Function ClsColor% (red%, green%, blue%, alpha%=$FF, zValue#=1.0)
-	Return ClsColor_ (red, green, blue, alpha, zValue)
-End Function
+;Function ClsColor% (red%, green%, blue%, alpha%=$FF, zValue#=1.0)
+;	Return ClsColor_ (red, green, blue, alpha, zValue)
+;End Function
 
-Function Cls% (clearColor%=1, clearZBuffer%=1)
-	Return Cls_ (clearColor, clearZBuffer)
-End Function
+;Function Cls% (clearColor%=1, clearZBuffer%=1)
+;	Return Cls_ (clearColor, clearZBuffer)
+;End Function
 
-Function WireFrame% (enable%=0)
-	Return Wireframe_ (enable)
-End Function
+;Function WireFrame% (enable%=0)
+;	Return Wireframe_ (enable)
+;End Function
 
-Function Bump% (enable%=-1)
-	Return Bump_ (enable)
-End Function
+;Function Bump% (enable%=-1)
+;	Return Bump_ (enable)
+;End Function
 
-Function FreeTexture% (texture%)
-	Return 0 ; TODO: Figure out why this is causing crashes
-	If texture<>0 Then
-		Return FreeTexture_ (texture, TextureBuffer(texture))
-	Else
-		Return 0
-	EndIf
-End Function
+;Function FreeTexture% (texture.BBTexture)
+;	;Return 0 ; TODO: Figure out why this is causing crashes
+;	If texture<>Null Then
+;		buffer.BBBuffer = TextureBuffer(texture)
+;		DebugLog Ptr texture
+;		Return FreeTexture_ (0, 0)
+;	Else
+;		Return 0
+;	EndIf
+;End Function
 
-Function ColorFilter% (red%=1, green%=1, blue%=1, alpha%=1)
-	Return ColorFilter_ (red, green, blue, alpha)
-End Function
+;Function ColorFilter% (red%=1, green%=1, blue%=1, alpha%=1)
+;	Return ColorFilter_ (red, green, blue, alpha)
+;End Function
 
 
 
 
-Function TextureBlend% (texture%, blend%)
-	TextureBlend_ texture, blend
-End Function
+;Function TextureBlend% (texture%, blend%)
+;	TextureBlend_ texture, blend
+;End Function
 
 
 
@@ -406,7 +408,8 @@ Function InitPostprocess% ()
 		FE_PostprocessTexture4 = CreateTexture ( smallWidth, smallHeight, 1 + 256 + FE_ExSIZE  + FE_RENDER )
 		FE_PostprocessTexture5 = CreateTexture ( GraphicsWidth(), GraphicsHeight(), 1 + 256 + FE_ExSIZE )		; comment this string if MotionBlur not needed (not used)
 
-		CurrentBuffer = SetBuffer (TextureBuffer(FE_PostprocessTexture3))
+		CurrentBuffer = TextureBuffer(FE_PostprocessTexture3)
+		SetBuffer (CurrentBuffer)
 		ClsColor 255,255,255 : Cls : SetBuffer BackBuffer()
 		If InitPostprocess_ (BackBuffer(), TextureBuffer(FE_PostprocessTexture1), TextureBuffer(FE_PostprocessTexture2), TextureBuffer(FE_PostprocessTexture3), TextureBuffer(FE_PostprocessTexture4), TextureBuffer(FE_PostprocessTexture5))<>0 Then
 			FE_InitPostprocessFlag = 1
@@ -433,9 +436,9 @@ Function DeInitPostprocess% ()
 	EndIf
 End Function
 
-Function RenderPostprocess% (flags%=0, x%=0, y%=0, width%=0, height%=0)
-	If InitPostprocess()<>0 Then RenderPostprocess_ flags, x, y, width, height
-End Function
+;Function RenderPostprocess% (flags%=0, x%=0, y%=0, width%=0, height%=0)
+;	If InitPostprocess()<>0 Then RenderPostprocess_ flags, x, y, width, height
+;End Function
 
 Function CustomPostprocessDOF% (near#=10.0, far#=100.0, direction%=1, level%=3, blurRadius#=0.35, quality%=1)
 	CustomPostprocessDOF_ near, far, direction, level, blurRadius, quality

@@ -84,7 +84,7 @@ Function RunMenu()
 
 
 	GY_Load(Cam)
-InitExt
+;InitExt
 ; Setfogrange Distance and colour
 	CameraRange Cam, 1, 30000
 	CameraFogMode Cam,1

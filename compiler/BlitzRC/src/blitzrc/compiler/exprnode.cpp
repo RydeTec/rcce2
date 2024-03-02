@@ -176,7 +176,7 @@ TNode *CallNode::translate( Codegen *g ){
 	TNode *l=global( "_f"+ident );
 	TNode* r;
 
-	if (f->custom) {
+	if (f->custom && !f->userlib) {
 		r = seq(trace(ident, g), exprs->translate(g, f->cfunc));
 	}
 	else {
@@ -200,7 +200,7 @@ TNode *CallNode::translate( Codegen *g ){
 		}
 	}
 
-	if (f->custom) {
+	if (f->custom && !f->userlib) {
 		return seq(t, untrace(g));
 	}
 

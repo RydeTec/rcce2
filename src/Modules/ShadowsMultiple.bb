@@ -139,7 +139,7 @@ Function CreateShadow.Shadow (quality%=1, mode%=1)
 	
 	ShadowLight Shadow, ShadowLightDefault
 	Shadow\index = ShadowIndexDefault
-	TextureIndex Shadow\texture, Shadow\index
+	;TextureIndex Shadow\texture, Shadow\index
 	ShadowIndexDefault = ShadowIndexDefault + 1
 
 	Return Shadow
@@ -179,7 +179,7 @@ Function FreeShadows% ()
 				Rect 0, 0, Shadow\texSize, Shadow\texSize,1
 			SetBuffer BackBuffer()
 			TextureBlend Shadow\texture, Shadow\texBlend And $FFFF
-			TextureIndex Shadow\texture, 0
+			;TextureIndex Shadow\texture, 0
 			FreeTexture Shadow\texture
 		EndIf
 		Delete Shadow
@@ -320,14 +320,14 @@ Function UpdateShadows% (camera%, tween#=1.0)
 	
 						If Shadow\blurAlpha>0 Then
 							CustomPostprocessBlur Shadow\blurAlpha, Shadow\blurPasses, Shadow\blurRadius, Shadow\blurQuality
-							RenderPostprocess FE_Blur			
+							;RenderPostprocess FE_Blur			
 						EndIf
 	
 						Color 255,255,255
 						Rect 0, 0, Shadow\texSize, Shadow\texSize, 0
 						If Shadow\fadeTexture<>0
 							CustomPostprocessOverlay 1, 0, 255, 255, 255, Shadow\fadeTexture
-							RenderPostprocess FE_Overlay
+							;RenderPostprocess FE_Overlay
 						EndIf
 					EndIf
 			

@@ -245,19 +245,19 @@ Repeat
 	;Custom bloom
 	; Customize the glow effect
 CustomPostprocessGlow GlowAlpha, GlowDarkPasses, GlowBlurPasses, GlowBlurRadius, GlowQuality, GlowColorRed, GlowColorGreen, GlowColorBlue, GlowAlphaTexture
-RenderPostprocess FE_GLOW 
+;RenderPostprocess FE_GLOW 
 	End Select 
 	
 	Select Rays
 		Case 1
 	;Rays
-		RenderPostprocess RaysFX
+		;RenderPostprocess RaysFX
 	End Select
 	
 	
   ; Customize DOF effect
 CustomPostprocessDOF DofNear, DofFar, DofDirection, DofBlurPasses, DofRadius, DofQuality
-RenderPostprocess FE_DOF
+;RenderPostprocess FE_DOF
 
 ;------------------------ terrier
 ;&&& Water edit 

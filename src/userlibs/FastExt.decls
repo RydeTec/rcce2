@@ -71,25 +71,3 @@ RenderGroup_% (group%, camera%, tween#, clearViewport%, pivotSys%) : "RenderGrou
 
 MatrixInverse% (out*, in*) : "MatrixInverse"
 MatrixMultiply (out*, in1*, in2*) : "MatrixMultiply"
-
-.lib " "
-InitPostprocess% ()
-MirrorCamera% (camera%, entity%)
-RestoreCamera% (camera%)
-TextureBlendCustom% (texture%, color_operation%, alpha_operation%, projection_flag%)
-EntityBlendCustom% (entity%, source_blend%, destination_blend%, alphablending_enable%)
-BrushBlendCustom% (brush%, source_blend%, destination_blend%, alphablending_enable%)
-RenderPostprocess% (flags%, x%, y%, width%, height%)
-CustomPostprocessDOF% (near#, far#, direction%, level%, blurRadius#, quality%)
-CustomPostprocessGlow% (alpha#, darkPasses%, blurPasses%, blurRadius#, quality%, red%, green%, blue%, alphaTexture%)
-CustomPostprocessBlur% (alpha#, blurPasses%, blurRadius#, quality%, red%, green%, blue%, alphaTexture%)
-CustomPostprocessInverse% (alpha#, red%, green%, blue%, alphaTexture%)
-CustomPostprocessGrayscale% (alpha#, brightness#, inverse%, alphaTexture%)
-CustomPostprocessContrast% (alpha#, method%, red%, green%, blue%, alphaTexture%)
-CustomPostprocessBlurDirectional% (angle#, alpha#, blurPasses%, blurRadius#, quality%, red%, green%, blue%, alphaTexture%)
-CustomPostprocessBlurZoom% (x#, y#, zoomFactor#, alpha#, blurPasses%, quality%, red%, green%, blue%, alphaTexture%)
-CustomPostprocessBlurSpin% (x#, y#, spinAngle#, alpha#, blurPasses%, quality%, red%, green%, blue%, alphaTexture%)
-CustomPostprocessBlurMotion% (alpha#, originX#, originY#, handleX#, handleY#, scaleX#, scaleY#, angle#, blend%, red%, green%, blue%, alphaTexture%)
-CustomPostprocessOverlay% (alpha#, blend%, red%, green%, blue%, alphaTexture%)
-RenderEntity% (entity%, camera%, clearViewport%, tween#)
-RenderGroup% (group%, camera%, clearViewport%, tween#)

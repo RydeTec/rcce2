@@ -17,7 +17,7 @@ struct bbEx{
 		if( e ) {
             
             string panicStr = e;
-            panicStr+="\n\nStack trace:\n";
+            panicStr+="\n\nStack trace [" + std::to_string(blockTraces.size()) + "]:\n";
             try {
                 string tmp = "";
                 if (blockTraces.size() == 0) tmp = "No Traces";
