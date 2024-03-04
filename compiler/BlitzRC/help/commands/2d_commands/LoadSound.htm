@@ -1,15 +1,16 @@
 <html>
 <head>
-<title>Blitz3D Docs</title>
+<title>BlitzRC Docs</title>
 <link rel=stylesheet href=../css/commands.css type=text/css>
 </head>
 <body>
-<h1>LoadSound (filename$)</h1>
+<h1>LoadSound (filename$, is3D)</h1>
 <h1>Parameters</h1>
 <table>
 <tr>
 <td>
-filename$ - name of sound file. Formats supported: raw/wav/mp3/ogg
+filename$ - name of sound file. Formats supported: ogg<br>
+is3D - 0 for 2D sound, 1 for 3D sound. Default: 0
 </td>
 </tr>
 </table>
@@ -17,7 +18,9 @@ filename$ - name of sound file. Formats supported: raw/wav/mp3/ogg
 <table>
 <tr>
 <td>
-This command loads a sound file into memory. It returns a number if successful,  or 0 if there was a problem loading the sound. You must assign the value this  returns to a variable (preferably a Global variable)  for subsequent playback using (PlaySound). Look at the example. 
+This command loads a sound file into memory. It returns a BBSound type if successful, or Null if there was a problem loading the sound. You must assign the value this returns to a variable (preferably a Global variable) for subsequent playback using (PlaySound). Look at the example. <br>
+<br>
+For better performance, use <a href=../2d_commands/StreamSound.htm>StreamSound</a> instead of LoadSound for large sound files.
 </td>
 </tr>
 </table>
@@ -25,16 +28,26 @@ This command loads a sound file into memory. It returns a number if successful, 
 <table>
 <tr>
 <td>
-; Assign a global variable for the sound<br />
-Global sndPlayerDie<br />
-<br />
-; Load the sound file into memory<br />
-<br />
-sndPlayerDie=LoadSound("sounds/die.wav")<br />
-<br />
-; Play the sound<br />
-<br />
-PlaySound sndPlayerDie<br />
+; Assign a global variable for the sound
+<br />
+Global sndPlayerDie
+<br />
+
+<br />
+; Load the sound file into memory
+<br />
+
+<br />
+sndPlayerDie=LoadSound("sounds/die.ogg")
+<br />
+
+<br />
+; Play the sound
+<br />
+
+<br />
+PlaySound sndPlayerDie
+<br />
 
 </td>
 </tr>
@@ -42,5 +55,5 @@ PlaySound sndPlayerDie<br />
 <br>
 <a target=_top href=../index.htm>Index</a><br>
 <br>
-Click <a href=http://www.blitzbasic.co.nz/b3ddocs/command.php?name=LoadSound&ref=comments target=_blank>here</a> to view the latest version of this page online</body>
+</body>
 </html>
