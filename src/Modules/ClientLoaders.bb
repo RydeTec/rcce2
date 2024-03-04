@@ -95,7 +95,7 @@ Function LoadGame()
 				;.skip1
 				;Local Thread1 = CreateThread(Pointer1, 0)
 			
-	;AntiAlias(AA)
+	AntiAlias(AA)
 
 	; Enable anisotropic filtering
 	
@@ -110,25 +110,6 @@ Function LoadGame()
 		;SetTextureStageState(16, 8, 5)
 		;SetTextureStageState(17, 8, 3)
 		;SetTextureStageState(18, 8, 3)
-		
-		F = ReadFile("Data\Options.dat")
-;	If F = 0 Then RuntimeError("Could not open Data\Options.dat!")
-		Width = ReadShort(F)
-		Height = ReadShort(F)
-		Depth = ReadByte(F)
-		AA = ReadByte(F)
-		DefaultVolume# = ReadFloat#(F)
-		GrassEnabled = ReadByte(F)
-		AnisotropyLevel = ReadByte(F)
-		FullScreen = ReadByte(F)
-		VSync = ReadByte(F)
-		Bloom = ReadByte(F)
-		Rays = ReadByte(F)
-		AWater = ReadByte(F)
-		ShadowC = ReadByte(F)
-		ShadowQ = ReadByte(F)
-		ShadowR = ReadByte(F)
-	CloseFile(F)
 	
 		anisotropyLevels = GfxDriverCapsEx\AnisotropyMax
 		;enable = 1
