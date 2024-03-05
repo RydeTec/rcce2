@@ -17,6 +17,8 @@ Once you download the repository you can compile easily by running the `compile.
 Users can help contribute to the Community Edition by submitting [ideas](https://github.com/RydeTec/rcce2/discussions/categories/ideas) 
 and [bugs](https://github.com/RydeTec/rcce2/issues).
 
+Users can also help by making improvements or changes to the [default project](data) of RealmCrafter. This will help new users getting started and testing out RealmCrafter. Any [documentation](docs) of RealmCrafter is also an area that can always use improvement.
+
 ### Developers
 
 If you would like to add to the Community Edition source please feel free to clone or fork the repo. If you would like to push a branch and open a 
@@ -28,9 +30,21 @@ There are lots of things that developers of any level can do to help contribute.
 
 Branch from `develop` and target pull request to `develop`. Releases will be a pull request from `develop` targeting `master`.
 
+#### Scripts
+
+If you are familiar with the scripting language used by RealmCrafter, improvements and additions to [scripts](data\Server Data\Scripts) in the default project are always appreciated.
+
+#### Blitz
+
+If you are familiar with the Blitz programming language you can help make improvements or changes to the RealmCrafter [engine source code](src) itself.
+
+#### C++
+
+If you are familiar with C++ you can help by making improvements or changes to the Blitz runtime [source code](compiler\BlitzRC\src).
+
 ### Documentation
 
-The source documentation can be found [here](docs/index.md). It is currently outdated and incomplete. If you would like to contribute to improving the documentation please request to join the [RCCE Contributors](https://github.com/orgs/RydeTec/teams/rcce-contributors) group.
+The RCCE documentation can be found [here](docs/index.md). It is currently outdated and incomplete. If you would like to contribute to improving the documentation please request to join the [RCCE Contributors](https://github.com/orgs/RydeTec/teams/rcce-contributors) group.
 
 RealmCrafter Wiki: https://realmcrafter.fandom.com/
 
@@ -43,20 +57,24 @@ RealmCrafter Community: https://realmcrafter.boards.net/
 
 Github Discussions: https://github.com/RydeTec/rcce2/discussions
 
+Discord: A discord invite link is available from the RCCE Project Manager.
+
 ## Resources
 
 ### BlitzRC
-BlitzRC is a custom version of Blitz3D specifically tailored for RealmCrafter: Community Edition. The source for this is included in the compilers folder.
+BlitzRC is a custom version of Blitz3D specifically tailored for RealmCrafter: Community Edition. The [source](compiler\BlitzRC\src) for this is included in the compilers folder.
 
 ### BlitzRCPlus
-BlitzRCPlus is a custom version of BlitzPlus specifically tailored for RealmCrafter: Community Edition. The source for this is included in the compilers folder.
+BlitzRCPlus is a custom version of BlitzPlus specifically tailored for RealmCrafter: Community Edition. The [source](compiler\BlitzPlus\src) for this is included in the compilers folder.
 
 ### VSCode
 Blitz Syntax Plugin Link: https://marketplace.visualstudio.com/items?itemName=dones.blitz3d
 
-You can compile, run and publish via the VSCode launch configurations.
+You can compile, debug, test, run and publish via the VSCode launch configurations.
 
 ### IDEs
+BlitzRC and BlitzRCPlus has native IDEs available in the compiler folders.
+
 There are other Blitz specific IDE installers included in the repository.
 
 ### Convert sounds to OGG format
