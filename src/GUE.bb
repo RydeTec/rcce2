@@ -6447,7 +6447,7 @@ Cls
 				; Meshes
 				;Adding .obj models to import Cysis145
 				If MType = 1
-					FileTypes$ = "Blitz3D (*.b3d)|*.b3d|Encrypted B3D (*.eb3d)|*.eb3d|DirectX (*.x)|*.x|3DS (*.3ds)|*.3ds|Wavefront (*.obj)|*.obj|"
+					FileTypes$ = "Blitz3D (*.b3d)|*.b3d|DirectX (*.x)|*.x|3DS (*.3ds)|*.3ds|Wavefront (*.obj)|*.obj|"
 					Result = FUI_CustomOpenDialog("Choose file to add...", "Data\Meshes\", FileTypes$, False, True)
 					If Result = True
 						; Get extra options
