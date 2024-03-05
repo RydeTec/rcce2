@@ -68,7 +68,7 @@ ROC$ = RootDir$ + "bin\tools\RC Rock Editor.exe"
 TER$ = RootDir$ + "bin\tools\RC Terrain Editor.exe"
 TRE$ = RootDir$ + "bin\tools\RC Tree Editor.exe"
 
-B3D$ = RootDir$ + "compiler\BlitzRC\Blitz3D.exe"
+B3D$ = RootDir$ + "compiler\BlitzRC\BlitzRC.exe"
 BPS$ = RootDir$ + "compiler\BlitzPlus\BlitzPlus.exe"
 
 ;Main Window
