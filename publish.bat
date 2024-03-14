@@ -5,7 +5,9 @@ call .\compile.bat
 
 cd %ROOTDIR%
 
-if not exist "%ROOTDIR%\release" mkdir "%ROOTDIR%\release"
+if exist "%ROOTDIR%\release" rmdir /S /Q "%ROOTDIR%\release"
+
+mkdir "%ROOTDIR%\release"
 
 xcopy /E /Y /I "%ROOTDIR%\bin" "%ROOTDIR%\release\bin"
 xcopy /Y "%ROOTDIR%\Project Manager.exe" "%ROOTDIR%\release\"
