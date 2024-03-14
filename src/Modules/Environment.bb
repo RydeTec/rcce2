@@ -33,26 +33,62 @@ Type Sun
 	Field Flares[10]
 End Type
 
+Function CreateEnvironment()
+	Year = 1
+	Day = 1
+	TimeH = 12
+	TimeM = 0
+	TimeFactor = 10
+
+	Local seasons = 4
+	Local months = 12
+	Local monthLength = 28
+	Local seasonLength = Int ((months * monthLength) / seasons)
+	Local yearLength = months * monthLength
+
+	For i = 0 To 19
+		MonthName$(i) = "Month " + (i + 1)
+		MonthStartDay(i) = monthLength * i
+	Next
+
+	For i = 0 To 11
+		SeasonName$(i) = "Season " + (i + 1)
+		SeasonStartDay(i) = seasonLength * i
+		SeasonDuskH(i) = 18
+		SeasonDawnH(i) = 6
+	Next
+
+	; Set first month to length of year
+	MonthStartDay(0) = yearLength
+
+	; Set first season to length of year
+	SeasonStartDay(0) = yearLength
+	
+	TimeUpdate = MilliSecs()
+	CurrentSeason = GetSeason()
+	Return SaveEnvironment(True)
+End Function
+
 ; Loads all environment settings
 Function LoadEnvironment()
 
 	F = ReadFile("Data\Server Data\Environment.dat")
-	If F = 0 Then Return False
-		Year = ReadInt(F)
-		Day = ReadInt(F)
-		TimeH = ReadInt(F)
-		TimeM = ReadInt(F)
-		TimeFactor = ReadInt(F)
-		For i = 0 To 11
-			SeasonName$(i) = ReadString$(F)
-			SeasonStartDay(i) = ReadInt(F)
-			SeasonDuskH(i) = ReadInt(F)
-			SeasonDawnH(i) = ReadInt(F)
-		Next
-		For i = 0 To 19
-			MonthName$(i) = ReadString$(F)
-			MonthStartDay(i) = ReadInt(F)
-		Next
+	If F = 0 Then Return CreateEnvironment()
+	Year = ReadInt(F)
+	Day = ReadInt(F)
+	TimeH = ReadInt(F)
+	TimeM = ReadInt(F)
+	TimeFactor = ReadInt(F)
+	For i = 0 To 11
+		SeasonName$(i) = ReadString$(F)
+		SeasonStartDay(i) = ReadInt(F)
+		SeasonDuskH(i) = ReadInt(F)
+		SeasonDawnH(i) = ReadInt(F)
+	Next
+	For i = 0 To 19
+		MonthName$(i) = ReadString$(F)
+		MonthStartDay(i) = ReadInt(F)
+	Next
 	CloseFile(F)
 	TimeUpdate = MilliSecs()
 	CurrentSeason = GetSeason()
