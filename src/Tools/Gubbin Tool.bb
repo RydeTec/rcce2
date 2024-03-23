@@ -817,13 +817,13 @@ Function SaveRotation()
 			While Not Eof(F)
 				SeekFile(F, fspot)
 				fspot = FilePos(F) + 1
-				Test$ = Chr$(ReadByte(F))
-				Test$ = Test$ + Chr$(ReadByte(F))
-				Test$ = Test$ + Chr$(ReadByte(F))
-				Test$ = Test$ + Chr$(ReadByte(F))
+				Testr$ = Chr$(ReadByte(F))
+				Testr$ = Testr$ + Chr$(ReadByte(F))
+				Testr$ = Testr$ + Chr$(ReadByte(F))
+				Testr$ = Testr$ + Chr$(ReadByte(F))
 
 				; Found a vertices chunk
-				If Test$ = "VRTS"
+				If Testr$ = "VRTS"
 					vertend = FilePos(F) + 4 + ReadInt(F)
 					Flags = ReadInt(F)
 					tc_sets = ReadInt(F)
