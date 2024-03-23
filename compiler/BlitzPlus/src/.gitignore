@@ -1,0 +1,12 @@
+*/Debug
+*/Release
+blitzide.prefs
+*.exe
+*.dll
+*.pdb
+*.ilk
+.vs
+*/*.user
+freeimage/**/Debug
+freeimage/**/Release
+freeimage/**/*.user

@@ -1,0 +1,57 @@
+<html>
+<head>
+<title>BLOGO User Manual</title>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<style type="text/css">
+<!--
+.unnamed1 {  font-family: Arial, Helvetica, sans-serif}
+-->
+</style>
+</head>
+
+<body bgcolor="#FFFFFF" class="unnamed1">
+<h1 align="center"><font face="Arial, Helvetica, sans-serif"><img src="blogo.jpg" width="370" height="127"></font></h1>
+<h3 align="left"><img src="introduction.jpg" width="168" height="25"></h3>
+<p>BLOGO is a simple port of the LOGO interpreter for the BBC Micro. It was a 
+  language with only a few commands that let children control an on-screen 'turtle' 
+  to draw shapes and teach them about programming (oh, and all the maths/spacial 
+  ability stuff ;) )</p>
+<p>I wrote BLOGO in a couple of hours, in a mad rush to get something done for 
+  the Blitz Basic CD mere days before the deadline (which explains the quality 
+  of the program ;) )adding in all the commands I could remember from the old 
+  BBC. This really goes to show how easy Blitz Basic is, as the code does some 
+  things that would have taken me days to work out in C++/C :)</p>
+<p>The commands for BLOGO are very simple, and all have a short version and a 
+  long version, so you can remember them easily. For instance, the <b>forwards</b> 
+  command can either be typed as <b>forwards </b>or <b>fd</b> , so people new 
+  to the program have an obvious command, and later on they can save time with 
+  the two-letter command.</p>
+<p>So, without further ado, I'll give you the commands listing:</p>
+<p><img src="commands.jpg" width="132" height="25"></p>
+<p><i>NOTE: &lt;x&gt; can be an integer or the name of a variable, &lt;p&gt; is 
+  a percentage, and &lt;screenx&gt; and &lt;screeny&gt; are positions on the screen, 
+  where 0,0 is the middle, the scale going from -100 to +100. &lt;name&gt; is 
+  a string.</i></p>
+<p><b>fd </b><i>or </i><b>forwards </b>&lt;x&gt; - move forwards &lt;x&gt;</p>
+<p><b>bk </b><i>or </i><b>backwards </b>&lt;x&gt; - move backwards &lt;x&gt;</p>
+<p><b>lt </b><i>or </i><b>left </b>&lt;x&gt; - turn left &lt;x&gt;</p>
+<p><b>rt </b><i> or </i><b>right </b>&lt;x&gt; - turn right &lt;x&gt;</p>
+<p><b>define </b>&lt;name&gt; - define a function with the name &lt;name&gt;. 
+  Enter commands as normal, then type the <b>end</b> command to finish defining 
+  the function. Functions can be called by simply typing their name and pressing 
+  <b>Return</b>.</p>
+<p><b>wipe </b><i>or </i><b>clear </b><i>or </i><b>cls </b>- clears the screen 
+  of all drawings</p>
+<p><b>move </b>&lt;screenx&gt;,&lt;screeny&gt; - positions the turtle at &lt;screenx&gt;,&lt;screeny&gt;</p>
+<p><b>red </b>&lt;p&gt; - sets the redness of the ink colour</p>
+<p><b>green </b>&lt;p&gt; - sets the greenness of the ink colour</p>
+<p><b>blue </b>&lt;p&gt;. - sets the blueness of the ink colour</p>
+<p><b>what </b><i>or </i><b>print </b><i>or </i><b>value </b>&lt;name&gt; - displays 
+  the value of variable &lt;name&gt;</p>
+<p><b>run</b> &lt;name&gt; - reads commands from file &lt;name&gt;</p>
+<p><b>quit</b> - quits BLOGO</p>
+<p><i>VARIABLES</i></p>
+<p>Variables don't need to be declared, and they can be set by using the command 
+  &lt;name&gt; <b>= </b>&lt;x&gt;</p>
+</body>
+</html>

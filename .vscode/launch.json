@@ -1,0 +1,57 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Compile",
+            "runtimeArgs": ["-e", "console.log('Task completed'); process.exit(0);"],
+            "request": "launch",
+            "type": "node",
+            "preLaunchTask": "compile"
+        },
+        {
+            "name": "Debug",
+            "runtimeArgs": ["-e", "console.log('Task completed'); process.exit(0);"],
+            "request": "launch",
+            "type": "node",
+            "preLaunchTask": "debug"
+        },
+        {
+            "name": "Test",
+            "runtimeArgs": ["-e", "console.log('Task completed'); process.exit(0);"],
+            "request": "launch",
+            "type": "node",
+            "preLaunchTask": "test"
+        },
+        {
+            "name": "Run",
+            "runtimeArgs": ["-e", "console.log('Task completed'); process.exit(0);"],
+            "request": "launch",
+            "type": "node",
+            "preLaunchTask": "run"
+        },
+        {
+            "name": "Build All",
+            "runtimeArgs": ["-e", "console.log('Task completed'); process.exit(0);"],
+            "request": "launch",
+            "type": "node",
+            "preLaunchTask": "executable"
+        },
+        {
+            "name": "Test All",
+            "runtimeArgs": ["-e", "console.log('Task completed'); process.exit(0);"],
+            "request": "launch",
+            "type": "node",
+            "preLaunchTask": "test-all"
+        },
+        {
+            "name": "Release",
+            "runtimeArgs": ["-e", "console.log('Task completed'); process.exit(0);"],
+            "request": "launch",
+            "type": "node",
+            "preLaunchTask": "release"
+        }
+    ]
+}

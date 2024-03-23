@@ -1,0 +1,274 @@
+{
+    "version": "2.0.0",
+    "inputs": [
+      {
+        "id": "compilerVersion",
+        "type": "pickString",
+        "description": "Select Compiler",
+        "options": ["BlitzRC", "BlitzPlus"],
+        "default": "BlitzRC"
+      }
+    ],
+    "tasks": [
+        {
+            "label": "compile",
+            "type": "shell",
+            "command":"${workspaceFolder}\\scripts\\compiler.bat \"${workspaceFolder}\" ${input:compilerVersion} \"${fileDirname}\" \"${file}\" -c",
+            "problemMatcher": [
+                {
+                  "pattern": [
+                    {
+                      "regexp": ".",
+                      "file": 1,
+                      "line": 1,
+                      "column": 1,
+                      "message": 1
+                    }
+                  ],
+                  "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": { "regexp": "." },
+                    "endsPattern": { "regexp": "^.*$" } // <-- right here
+                  }
+                }
+              ],
+            "options": {
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": ["/c", "start", "cmd.exe", "/k"]
+                }
+            },
+            "isBackground": true,
+            "presentation": {
+                "reveal": "never",
+                "close": true
+            },
+            "runOptions": {
+                "reevaluateOnRerun": true
+            }
+        },
+        {
+            "label": "debug",
+            "type": "shell",
+            "command":"${workspaceFolder}\\scripts\\compiler.bat \"${workspaceFolder}\" ${input:compilerVersion} \"${fileDirname}\" \"${file}\" -d",
+            "problemMatcher": [
+                {
+                  "pattern": [
+                    {
+                      "regexp": ".",
+                      "file": 1,
+                      "line": 1,
+                      "column": 1,
+                      "message": 1
+                    }
+                  ],
+                  "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": { "regexp": "." },
+                    "endsPattern": { "regexp": "^.*$" } // <-- right here
+                  }
+                }
+              ],
+            "options": {
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": ["/c", "start", "cmd.exe", "/k"]
+                }
+            },
+            "isBackground": true,
+            "presentation": {
+                "reveal": "never",
+                "close": true
+            },
+            "runOptions": {
+                "reevaluateOnRerun": true
+            }
+        },
+        {
+            "label": "test",
+            "type": "shell",
+            "command":"${workspaceFolder}\\scripts\\compiler.bat \"${workspaceFolder}\" ${input:compilerVersion} \"${fileDirname}\" \"${file}\" -d -t",
+            "problemMatcher": [
+                {
+                  "pattern": [
+                    {
+                      "regexp": ".",
+                      "file": 1,
+                      "line": 1,
+                      "column": 1,
+                      "message": 1
+                    }
+                  ],
+                  "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": { "regexp": "." },
+                    "endsPattern": { "regexp": "^.*$" } // <-- right here
+                  }
+                }
+              ],
+            "options": {
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": ["/c", "start", "cmd.exe", "/k"]
+                }
+            },
+            "isBackground": true,
+            "presentation": {
+                "reveal": "never",
+                "close": true
+            },
+            "runOptions": {
+                "reevaluateOnRerun": true
+            }
+        },
+        {
+            "label": "run",
+            "type": "shell",
+            "command":"${workspaceFolder}\\scripts\\compiler.bat \"${workspaceFolder}\" ${input:compilerVersion} \"${fileDirname}\" \"${file}\"",
+            "problemMatcher": [
+                {
+                  "pattern": [
+                    {
+                      "regexp": ".",
+                      "file": 1,
+                      "line": 1,
+                      "column": 1,
+                      "message": 1
+                    }
+                  ],
+                  "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": { "regexp": "." },
+                    "endsPattern": { "regexp": "^.*$" } // <-- right here
+                  }
+                }
+              ],
+            "options": {
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": ["/c", "start", "cmd.exe", "/k"]
+                }
+            },
+            "isBackground": true,
+            "presentation": {
+                "reveal": "never",
+                "close": true
+            },
+            "runOptions": {
+                "reevaluateOnRerun": true
+            }
+        },
+        {
+            "label": "test-all",
+            "type": "shell",
+            "command":"${workspaceFolder}\\test.bat",
+            "problemMatcher": [
+                {
+                  "pattern": [
+                    {
+                      "regexp": ".",
+                      "file": 1,
+                      "line": 1,
+                      "column": 1,
+                      "message": 1
+                    }
+                  ],
+                  "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": { "regexp": "." },
+                    "endsPattern": { "regexp": "^.*$" } // <-- right here
+                  }
+                }
+              ],
+            "options": {
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": ["/c", "start", "cmd.exe", "/k"]
+                }
+            },
+            "isBackground": true,
+            "presentation": {
+                "reveal": "never",
+                "close": true
+            },
+            "runOptions": {
+                "reevaluateOnRerun": true
+            }
+        },
+        {
+            "label": "executable",
+            "type": "shell",
+            "command":"${workspaceFolder}\\compile.bat",
+            "problemMatcher": [
+                {
+                  "pattern": [
+                    {
+                      "regexp": ".",
+                      "file": 1,
+                      "line": 1,
+                      "column": 1,
+                      "message": 1
+                    }
+                  ],
+                  "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": { "regexp": "." },
+                    "endsPattern": { "regexp": "^.*$" } // <-- right here
+                  }
+                }
+              ],
+            "options": {
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": ["/c", "start", "cmd.exe", "/k"]
+                }
+            },
+            "isBackground": true,
+            "presentation": {
+                "reveal": "never",
+                "close": true
+            },
+            "runOptions": {
+                "reevaluateOnRerun": true
+            }
+        },
+        {
+            "label": "release",
+            "type": "shell",
+            "command":"${workspaceFolder}\\publish.bat",
+            "problemMatcher": [
+                {
+                  "pattern": [
+                    {
+                      "regexp": ".",
+                      "file": 1,
+                      "line": 1,
+                      "column": 1,
+                      "message": 1
+                    }
+                  ],
+                  "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": { "regexp": "." },
+                    "endsPattern": { "regexp": "^.*$" } // <-- right here
+                  }
+                }
+              ],
+            "options": {
+                "shell": {
+                    "executable": "cmd.exe",
+                    "args": ["/c", "start", "cmd.exe", "/k"]
+                }
+            },
+            "isBackground": true,
+            "presentation": {
+                "reveal": "never",
+                "close": true
+            },
+            "runOptions": {
+                "reevaluateOnRerun": true
+            }
+        }
+    ]
+  }
+  

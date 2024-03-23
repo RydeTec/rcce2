@@ -1,0 +1,152 @@
+; ********************* This is an include file for people that are lazy like me **************
+; ********************* and don't want to look up the key codes all the time  *****************
+
+; ************************* Number Keys *************************
+Const NUM0_KEY=11
+Const NUM1_KEY=2
+Const NUM2_KEY=3
+Const NUM3_KEY=4
+Const NUM4_KEY=5
+Const NUM5_KEY=6
+Const NUM6_KEY=7
+Const NUM7_KEY=8
+Const NUM8_KEY=9
+Const NUM9_KEY=10
+; **************************** The Letter Keys ***************************
+Const A_KEY=30
+Const B_KEY=48
+Const C_KEY=46
+Const D_KEY=32
+Const E_KEY=18
+Const F_KEY=33
+Const G_KEY=34
+Const H_KEY=35
+Const I_KEY=23
+Const J_KEY=36
+Const K_KEY=37
+Const L_KEY=38
+Const M_KEY=50
+Const N_KEY=49
+Const O_KEY=24
+Const P_KEY=25
+Const Q_KEY=16
+Const R_KEY=19
+Const S_KEY=31
+Const T_KEY=20
+Const U_KEY=22
+Const V_KEY=47
+Const W_KEY=17
+Const X_KEY=45
+Const Y_KEY=21
+Const Z_KEY=44
+; ************************ MISC. *************************
+; ** 2 same **
+Const ESCAPE_KEY=1
+Const ESC_KEY=1
+
+; ** 2 same **
+Const ENTER_KEY=28
+Const RETURN_KEY=28
+
+Const LBRACKET_KEY=26
+Const RBRACKET_KEY=27
+Const LSHIFT_KEY=42
+Const RSHIFT_KEY=54
+Const LCONTROL_KEY=29
+Const RCONTROL_KEY=157
+Const BACKSPACE_KEY=14
+Const TAB_KEY=15
+
+; ** 2 same **
+Const MINUS_KEY=12
+Const SUBTRACT_KEY=12
+
+Const EQUALS_KEY=13
+Const SEMICOLON_KEY=39
+Const APOSTROPHE_KEY=40
+Const BACKSLASH_KEY=43
+Const COMMA_KEY=51
+
+; ** 2 same **
+Const DECIMAL_KEY=52
+Const PERIOD_KEY=52
+
+; ** 2 same **
+Const SLASH_KEY=53
+Const DIVIDE_KEY=53
+
+; ** 2 same **
+Const STAR_KEY=55
+Const MULTIPLY_KEY=55
+
+Const SPACEBAR_KEY=57
+Const CAPSLOCK_KEY=58
+Const LWIN_KEY=219
+Const RWIN_KEY=220
+Const NUMLOCK_KEY=69
+Const SCROLLLOCK_KEY=70
+Const SYSRQ_KEY=183
+Const LALT_KEY=56
+Const RALT_KEY=184
+Const PAUSE_KEY=197
+Const HOME_KEY=199
+Const END_KEY=207
+
+; ** primary used keys **
+Const UP_KEY=200
+Const DOWN_KEY=208
+Const LEFT_KEY=203
+Const RIGHT_KEY=205
+
+Const PAGEUP_KEY=201
+Const PAGEDOWN_KEY=209
+Const INSERT_KEY=210
+Const DELETE_KEY=211
+; ************************* 'F' Keys *************************
+Const F1_KEY=59
+Const F2_KEY=60
+Const F3_KEY=61
+Const F4_KEY=62
+Const F5_KEY=63
+Const F6_KEY=64
+Const F7_KEY=65
+Const F8_KEY=66
+Const F9_KEY=67
+Const F10_KEY=68
+Const F11_KEY=87
+Const F12_KEY=88
+; **** number pad 0-9 keys only ****
+Const NUMPAD0_KEY=82
+Const NUMPAD1_KEY=79
+Const NUMPAD2_KEY=80
+Const NUMPAD3_KEY=81
+Const NUMPAD4_KEY=75
+Const NUMPAD5_KEY=76
+Const NUMPAD6_KEY=77
+Const NUMPAD7_KEY=71
+Const NUMPAD8_KEY=72
+Const NUMPAD9_KEY=73
+
+; ** 2 same **
+Const NUMPADMINUS_KEY=74
+Const NUMPADSUBTRACT_KEY=74
+
+; ** 2 same **
+Const NUMPADADD_KEY=78
+Const NUMPADPLUS_KEY=78
+
+; ** 2 same **
+Const NUMPADPERIOD_KEY=83
+Const NUMPADDECIMAL_KEY=83
+
+Const NUMPADEQUALS_KEY=141
+
+; ** 2 same **
+Const NUMPADRETURN_KEY=156
+Const NUMPADENTER_KEY=156
+
+; ** 2 same **
+Const NUMPADSLASH_KEY=181
+Const NUMPADDIVIDE_KEY=181
+; **** Not sure ****
+Const SYSPOWER_KEY=222

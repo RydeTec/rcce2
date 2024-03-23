@@ -2,12 +2,81 @@
 *.bb_bak2
 *.bp_bak1
 *.bp_bak2
-fastextension_1_17_retail/fastextension_1_17_retail
-Client/Client.exe
-GUE/GUE Max.exe
-GUE/GUE.exe
-Project Manager/Project Manager.exe
-Project Manager/ProjectManager.exe
-Server/Server.exe
-Client/Modules/FastExt.bb
-GUE/Modules/FastExt.bb
+src/Client.exe
+src/GUE Max.exe
+src/GUE.exe
+src/Project Manager.exe
+src/ProjectManager.exe
+src/Server.exe
+src/Data/Logs/*
+
+src/Data/Logs/
+
+*.bb_bak3
+
+src/Tools/Modules_old/
+
+src/Tools/toolsource_old/
+
+*.iws
+
+*.pdb
+compiler/BlitzRC/src/libvorbis/win32/VS2010/.vs/*
+
+compiler/BlitzRC/src/libvorbis/win32/VS2010/.vs/
+
+compiler/BlitzRC/src/libvorbis/win32/VS2010/libvorbis/Win32/Release/
+
+compiler/BlitzRC/src/libvorbis/win32/VS2010/libvorbisfile/Win32/Release/
+
+compiler/BlitzRC/src/libvorbis/win32/VS2010/vorbisdec/Win32/Release/
+
+compiler/BlitzRC/src/libvorbis/win32/VS2010/vorbisenc/Win32/Release/
+
+compiler/BlitzRC/src/libvorbis/win32/VS2010/Win32/Release/vorbisenc_static.exe
+
+compiler/BlitzRC/src/libvorbis/win32/VS2010/Win32/Release/vorbisdec_static.exe
+
+ATTACH
+
+compiler/Blitz3D/
+
+compiler/Decls/Blitz3D/
+
+release/
+
+Project Manager.exe
+
+bin/tools/*.exe
+
+bin/Client.exe
+
+bin/GUE.exe
+
+bin/Server.exe
+
+data/Logs/
+
+data/RCTE/RCTE_SAVED/
+
+compiler/BlitzPlus/src/_release/
+
+bin/tools/RC Scriptorama/projects.txt
+
+bin/tools/RC SkinCrafter/lastsettings.dat
+
+compiler/BlitzPlus/cfg/blitzide.prefs
+
+compiler/Mavless B3D/
+
+compiler/Decls/
+
+projects/
+
+res/Recent.dat
+
+bin/tools/RC Scriptorama/Scriptorama.config
+
+data/Server Data/Accounts.dat
+
+data/Server Data/Environment.dat

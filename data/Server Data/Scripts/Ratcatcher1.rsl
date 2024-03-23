@@ -1,0 +1,129 @@
+Using "RC_Core.rcm"
+; Aftermath! - Rat Catcher Quest Script
+; Date/Time: 3:46:42 PM on 7/23/2006
+; By UUICEO on UUI
+Function Main()
+
+	Player = Actor()
+	PlayerName$ = Name(Player)
+	Target = ContextActor()
+	TargetName$ = Name(Target)
+	Persistent(1)
+	QuestName$ = "Rat Catcher"
+	QuestResults$ = QuestStatus(Player, QuestName)
+Output(Player, QuestResult$)
+	QuestReturn$ = "Return to " + TargetName + " to complete this quest."
+
+
+	; Objective Variables for Quest completion
+	WaitRace$ = "Rat"
+	WaitClass$ = "Critter"
+	WaitKillQuantity = 2
+	ID = ActorID(WaitRace$, WaitClass$)
+	QuestInprogress$ = "Kill " + " " + WaitKillQuantity + " "+ WaitRace$
+
+	; Variables for Rewards
+	RewardMoney = 100
+	RewardXp = 100
+	RewardItem$ = "Rat Catcher Medalion"
+	RewardItemQuantity = 1
+	RewardFaction$ = ""
+	RewardFactionValue = 0
+
+	QuestStatusText$ = QuestInprogress$
+	D = OpenDialog(Player, Target, TargetName, 65535, 0.25, 0.05, 0.42 ,0.65)
+	; Player Greeting to NPC:
+	DialogOutput(Player, D, "Hail " + TargetName + "", 255, 255, 255)
+	DoEvents(1000)
+
+	; NPC Greeting to Player:
+	DialogOutput(Player, D, "Hail " + PlayerName + "", 255, 255, 255)
+	DoEvents(1000)
+	
+	If QuestResults = ""
+		DialogOutput(Player, D, "I have a serious RAT problem. Can you help me out?", 255, 255, 255)
+		DialogOutput(Player, D, "So what say you" + CHR(44) + " will you take my quest ?", 255, 255, 255)
+		Result = DialogInput(Player, D, "Accept Quest,Refuse Quest")
+
+		If Result = 1
+
+			; Create the new quest
+			NewQuest(Player, QuestName, QuestStatusText, 106, 159, 100)
+			QuestTemp = QuestName + ": " + QuestStatusText
+			Output(Player, QuestTemp, 255, 255, 255)
+			CloseDialog(Player, D)
+			; Wait for Kills
+			Output(Player, "In quest Waitloop")
+			Output(Player, "Waiting to kill " + WaitRace + " " + WaitClass + " " + WaitKillQuantity)
+			UpdateQuest(Player, QuestName, "Kill " + " 2 "+ WaitRace$, 106, 159, 100)
+			WaitKill(Player, ID, 1)
+			UpdateQuest(Player, QuestName, "Kill " + " 1 "+ WaitRace$, 106, 159, 100)
+			WaitKill(Player, ID, 1)
+			UpdateQuest(Player, QuestName, QuestReturn, 106, 159, 100)
+			QuestTemp = QuestName + ": " + QuestReturn
+			Output(Player, QuestTemp, 255, 255, 255)
+		Else
+
+			CloseDialog(Player, D)
+
+		EndIf
+
+	ElseIf QuestResults = "Kill " + " 2 "+ WaitRace$
+		If D <> 0
+			DialogOutput(Player, D, "You still need to kill 2 more Rats.", 255, 255, 255)
+			Result = DialogInput(Player, D, "Goodbye")
+			CloseDialog(Player, D)
+		EndIf
+		WaitKill(Player, ID, 1)
+		UpdateQuest(Player, QuestName, "Kill " + " 1 "+ WaitRace$, 106, 159, 100)
+		WaitKill(Player, ID, 1)
+		UpdateQuest(Player, QuestName, QuestReturn, 106, 159, 100)
+	ElseIf QuestResults = "Kill " + " 1 "+ WaitRace$
+		If D <> 0
+			DialogOutput(Player, D, "You still need to kill 1 more Rat.", 255, 255, 255)
+			Result = DialogInput(Player, D, "Goodbye")
+			CloseDialog(Player, D)
+		EndIf
+		WaitKill(Player, ID, 1)
+		UpdateQuest(Player, QuestName, QuestReturn, 106, 159, 100)
+	ElseIf QuestResults = QuestReturn
+		; The quest has been almost completed, assign rewards
+
+		DialogOutput(Player, D, "You have completed " + QuestName + "" + CHR(44) + " great job !", 255, 255, 255)
+		DialogResult = DialogInput(Player, D, "Goodbye")
+
+		CompleteQuest(Player, QuestName)
+		; Item reward for Step/Quest
+		GiveItem(Player, RewardItem, RewardItemQuantity)
+
+		; XP reward for Step/Quest
+		GiveXp(Player, RewardXp)
+
+		; Money reward for Step/Quest
+		ChangeGold(Player, RewardMoney)
+
+		; Faction change
+;		ChangeFactionRating(Player, RewardFaction, RewardFactionValue)
+
+		Output(Player, "You take " + RewardItemQuantity + " " + RewardItem + " and " + RewardMoney + "gp and " + RewardXp + "xp you have earnt it!")
+		CloseDialog(Player, D)
+
+	ElseIf QuestComplete(Player, QuestName) = 1
+		; The quest has been completed
+		DialogOutput(Player, D, "Thanks for helping me out with " + QuestName + "" + CHR(44) + " I have no other quests for you at this time ... good day !", 255, 255, 255)
+		DialogResult = DialogInput(Player, D, "Goodbye")
+		DoEvents(1000)
+
+		CloseDialog(Player, D)
+	Else
+		;  The quest has been started but not completed
+
+		DialogOutput(Player, D, "You have not yet completed the " + QuestName + " quest for me!", 255, 255, 255)
+		DialogOutput(Player, D, "You will need to begin your last task again" + CHR(44) + " " + QuestStatusText, 255, 255, 255)
+		DialogResult = DialogInput(Player, D, "Goodbye")
+
+		CloseDialog(Player, D)
+	EndIf
+	Return
+
+End Function

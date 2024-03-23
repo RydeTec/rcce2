@@ -1,0 +1,69 @@
+Using "RC_Core.rcm"
+Using "ProcessGlobals.rcm"
+; This script contains custom /commands for the server to respond too
+; You may alter this script however you like
+
+; The entry function for this script is the name of the command
+; So a new Function must be added for each new custom command
+; You may not override built in /commands
+; The actor is the player who entered the /command, and there is no context actor
+
+
+;	Target (Targeted players Target)
+
+Function ItemPack()
+
+GiveItem(Actor(), "Sword", 1)
+GiveItem(Actor(), "Imperial Armor", 1)
+GiveItem(Actor(), "Imperial Helmet", 1)
+GiveItem(Actor(), "Scarred Shield", 1)
+			Return
+
+End Function
+
+Function Assist()
+
+	Player = Actor()
+	Assisted = ActorTarget(Player)
+	Assisting$ = Name(Assisted)
+	If Assisting$ = "" Then
+		Output(Player, "You must target the person you want to assist before you can assist them.")
+		Return
+	EndIf
+	If ActorTarget(ActorTarget(Assisted)) < 1
+		OutPut(Player, "Your Target has no target selected")
+		Return
+	EndIf
+	SetActorTarget(Player, ActorTarget(Assisted))
+	OutPut(Player, "Now assisting " + Assisting$)
+
+End Function
+
+
+; Example '/wave' command
+Function Wave()
+
+	; Animate player
+	AnimateActor(Actor(), "Wave", 0.2, 0)
+
+	; Done
+	Return
+
+End Function
+
+; Example '/heal' command for GMs
+Function Heal()
+
+	Player = Actor()
+
+	; Check player is a GM
+	If (PlayerIsGM(Player))
+		; Set health to maximum
+		Max = MaxAttribute(Player, "Health")
+		SetAttribute(Player, "Health", Max)
+	EndIf
+
+	; Done
+	Return
+
+End Function

@@ -1,0 +1,26 @@
+Using "RC_Core.rcm"
+; By Giuliani on GIULIANI-PC
+
+Function Main()
+
+	Player = Actor()
+	Target = ContextActor()
+
+	D% = OpenDialog(Player, Target, "Trainer")
+	DialogOutput(Player, D, " Welcome. You're here to learn the fireball skill")
+	result% = DialogInput(Player, D, "Fireball ")
+	If result% = 1 then
+		Learn% = AbilityKnown(Actor(), "Fireball")
+
+	If Learn% = 0 then
+		AddAbility(Actor(), "FireBall", 1)
+		Output(Actor(), "You have learned this skill, don't forget to memorize it before trying to use it")
+		CloseDialog(Player, D)
+	Else
+		Output(Actor(), "You already know this skill")
+	DoEvents(2500) 
+	CloseDialog(Player, D)
+	EndIf
+   	EndIf
+
+End Function
