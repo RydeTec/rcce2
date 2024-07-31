@@ -3,6 +3,8 @@
 #include "gxruntime.h"
 #include "zmouse.h"
 
+#include <windows.h>
+
 //#define SPI_SETMOUSESPEED	113
 
 struct gxRuntime::GfxMode{
@@ -115,6 +117,41 @@ void gxRuntime::closeRuntime( gxRuntime *r ){
 
 }
 
+bool AddToPath(const std::string& directory) {
+	// Get the current PATH
+	char buffer[32767];
+	DWORD length = GetEnvironmentVariable("PATH", buffer, 32767);
+	if (length == 0 || length >= 32767) {
+		std::cerr << "Error getting PATH variable." << std::endl;
+		return false;
+	}
+
+	// Append the new directory to the PATH
+	std::string newPath = buffer;
+	if (newPath.back() != ';') {
+		newPath += ';';
+	}
+	newPath += directory;
+
+	// Set the new PATH
+	if (!SetEnvironmentVariable("PATH", newPath.c_str())) {
+		std::cerr << "Error setting PATH variable." << std::endl;
+		return false;
+	}
+
+	return true;
+}
+
+static std::string getCurrentWorkingDirectory() {
+	char buffer[MAX_PATH];
+	DWORD dwRet = GetCurrentDirectory(MAX_PATH, buffer);
+	if (dwRet > 0) {
+		return std::string(buffer);
+	}
+	// Handle error or return empty string if the directory cannot be obtained
+	return std::string();
+}
+
 //////////////////////////
 // RUNTIME CONSTRUCTION //
 //////////////////////////
@@ -141,6 +178,8 @@ pointer_visible(true),audio(0),input(0),graphics(0),fileSystem(0),use_di(false){
 		if( SetAppCompatData ) SetAppCompatData( 12,0 );
 		FreeLibrary( ddraw );
 	}
+
+	AddToPath(getCurrentWorkingDirectory() + "/bin");
 }
 
 gxRuntime::~gxRuntime(){
@@ -595,16 +634,6 @@ void gxRuntime::debugLog( const char *t ){
 /////////////////////////
 string gxRuntime::commandLine(){
 	return cmd_line;
-}
-
-static std::string getCurrentWorkingDirectory() {
-	char buffer[MAX_PATH];
-	DWORD dwRet = GetCurrentDirectory(MAX_PATH, buffer);
-	if (dwRet > 0) {
-		return std::string(buffer);
-	}
-	// Handle error or return empty string if the directory cannot be obtained
-	return std::string();
 }
 
 /////////////

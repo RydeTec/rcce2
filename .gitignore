@@ -80,3 +80,5 @@ bin/tools/RC Scriptorama/Scriptorama.config
 data/Server Data/Accounts.dat
 
 data/Server Data/Environment.dat
+
+.vscode/settings.json
