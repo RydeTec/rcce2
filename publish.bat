@@ -1,4 +1,6 @@
 @echo off
+setlocal
+
 set ROOTDIR=%CD%
 
 call .\compile.bat
@@ -15,3 +17,5 @@ xcopy /E /Y /I "%ROOTDIR%\data" "%ROOTDIR%\release\data"
 xcopy /E /Y /I "%ROOTDIR%\res" "%ROOTDIR%\release\res"
 xcopy /E /Y /I "%ROOTDIR%\docs" "%ROOTDIR%\release\docs"
 xcopy /E /Y /I "%ROOTDIR%\extras\Freemake" "%ROOTDIR%\release\extras\Freemake"
+
+endlocal

@@ -1,4 +1,6 @@
 @echo off
+setlocal
+
 set ROOTDIR=%CD%
 
 cd %ROOTDIR%\src\tests
@@ -14,7 +16,10 @@ cd %ROOTDIR%
 
 if %FAILED% == 1 (
     echo "Tests failed"
+    endlocal
     exit /b 1
 )
 
 echo "Tests passed"
+
+endlocal

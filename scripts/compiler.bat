@@ -1,4 +1,5 @@
 @echo off
+setlocal
 
 set ROOTDIR=%1
 set BLITZPATH=%ROOTDIR%\compiler\%2
@@ -29,3 +30,5 @@ goto loop
 "%BLITZPATH%\bin\blitzcc.exe" %ARGS% %SRCFILE%
 
 cd %ROOTDIR%
+
+endlocal
