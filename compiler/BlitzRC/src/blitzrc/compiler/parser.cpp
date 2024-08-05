@@ -98,6 +98,7 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 		switch( toker->curr() ){
 		case INCLUDE:
 			{
+				if( scope!=STMTS_PROG ) ex( "'Include' can only appear in main program" );
 				if( toker->next()!=STRINGCONST ) exp( "include filename" );
 				string inc=toker->text();toker->next();
 				inc=inc.substr( 1,inc.size()-2 );
