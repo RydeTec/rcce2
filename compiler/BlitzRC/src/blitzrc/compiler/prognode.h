@@ -28,6 +28,7 @@ struct ProgNode : public Node{
 	~ProgNode(){ 
 		delete consts;
 		delete structs;
+		delete structConsts;
 		delete funcs;
 		delete datas;
 		delete stmts; 

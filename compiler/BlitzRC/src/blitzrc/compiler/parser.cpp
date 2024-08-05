@@ -64,6 +64,7 @@ void Parser::exp( const string &s ){
 string Parser::parseIdent(){
 	if( toker->curr()!=IDENT ) exp( "identifier" );
 	string t=toker->text();
+	if (t.find(":") != std::string::npos) ex( "Identifiers cannot include the : character");
 	toker->next();
 	return t;
 }
@@ -320,7 +321,7 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 			break;
 		case TYPE:
 			if( scope!=STMTS_PROG ) ex( "'Type' can only appear in main program" );
-			toker->next();structs->push_back( parseStructDecl() );
+			toker->next();structs->push_back( parseStructDecl(funcs) );
 			break;
 		case BBCONST:
 			if( scope!=STMTS_PROG ) ex( "'Const' can only appear in main program" );
@@ -475,8 +476,8 @@ VarNode *Parser::parseVar( const string &ident,const string &tag ){
 
 DeclNode *Parser::parseVarDecl( int kind,bool constant,string &ident,string &tag ){
 	int pos=toker->pos();
-	ident=parseIdent();
-	tag=parseTypeTag();
+	if(ident.empty()) ident=parseIdent();
+	if(tag.empty()) tag=parseTypeTag();
 	DeclNode *d;
 	if( toker->curr()=='[' ){
 		if( constant ) ex( "Blitz arrays may not be constant" );
@@ -555,7 +556,7 @@ FuncDeclNode* Parser::parseTestDecl() {
 	return d;
 }
 
-DeclNode *Parser::parseStructDecl(){
+DeclNode *Parser::parseStructDecl(DeclSeqNode* &funcs){
 	int pos=toker->pos();
 	string ident=parseIdent();
 	while( toker->curr()=='\n' ) toker->next();
@@ -568,9 +569,44 @@ DeclNode *Parser::parseStructDecl(){
 		}while( toker->curr()==',' );
 		while( toker->curr()=='\n' ) toker->next();
 	}
+	while( toker->curr()==METHOD ) {
+		toker->next();
+		DeclNode* node = parseMethDecl(ident);
+		funcs->push_back(node);
+		while( toker->curr()=='\n' ) toker->next();
+	}
 	if (toker->curr()!=ENDTYPE) exp( "'Field' or 'End Type'" );
 	toker->next();
 	DeclNode *d=d_new StructDeclNode( ident,fields.release() );
+	d->pos=pos;d->file=incfile;
+	return d;
+}
+
+DeclNode *Parser::parseMethDecl(string &structIdent){
+	string selfIdent = "self";
+
+	int pos=toker->pos();
+	string ident=structIdent + "::" + parseIdent();
+	string tag=parseTypeTag();
+	if( toker->curr()!='(' ) exp( "'('" );
+	a_ptr<DeclSeqNode> params( d_new DeclSeqNode() );
+	params->push_back(parseVarDecl( DECL_PARAM,false,selfIdent,structIdent ));
+	if( toker->next()!=')' ){
+		for(;;){
+			string tempident;string temptag;
+			params->push_back( parseVarDecl( DECL_PARAM,false,tempident,temptag ) );
+			if( toker->curr()!=',' ) break;
+			toker->next();
+		}
+		if( toker->curr()!=')' ) exp( "')'" );
+	}
+	toker->next();
+	a_ptr<StmtSeqNode> stmts( parseStmtSeq( STMTS_BLOCK ) );
+	if( toker->curr()!=ENDMETHOD ) exp( "'End Method'" );
+
+	StmtNode *ret=d_new ReturnNode(0);ret->pos=toker->pos();
+	stmts->push_back( ret );toker->next();
+	DeclNode *d=d_new FuncDeclNode( ident,tag,params.release(),stmts.release() );
 	d->pos=pos;d->file=incfile;
 	return d;
 }

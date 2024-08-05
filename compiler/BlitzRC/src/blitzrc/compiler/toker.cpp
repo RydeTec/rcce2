@@ -37,6 +37,8 @@ static void makeKeywords(){
 	alphaTokes["Type"]=TYPE;
 	alphaTokes["End Type"]=ENDTYPE;
 	alphaTokes["Each"]=EACH;
+	alphaTokes["Method"]=METHOD;
+	alphaTokes["End Method"] = ENDMETHOD;
 	alphaTokes["Local"]=LOCAL;
 	alphaTokes["Global"]=GLOBAL;
 	alphaTokes["Field"]=FIELD;
@@ -174,7 +176,15 @@ void Toker::nextline(){
 			continue;
 		}
 		if( isalpha( c ) ){
-			for( ++k;isalnum( line[k] ) || line[k]=='_';++k ){}
+			for( ++k;isalnum( line[k] ) || line[k]=='_' || line[k]==':';++k ){
+				if (line[k]==':') {
+					if ((k+1)<(int)line.size() && line[k+1]==':') {
+						k++;
+					} else {
+						break;
+					}
+				}
+			}
 
 			string ident=tolower(line.substr(from,k-from));
 

@@ -50,7 +50,8 @@ private:
 	DimNode  *parseArrayDecl();
 	DeclNode *parseFuncDecl();
 	FuncDeclNode* parseTestDecl();
-	DeclNode *parseStructDecl();
+	DeclNode *parseStructDecl(DeclSeqNode* &funcs);
+	DeclNode *parseMethDecl(string &structIdent);
 
 	ExprSeqNode *parseExprSeq();
 

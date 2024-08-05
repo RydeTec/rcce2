@@ -68,7 +68,15 @@ bool Operand::parseFPReg( int *reg ){
 bool Operand::parseLabel( string *label ){
 	if( !s.size() || (!isalpha( s[0] ) && s[0]!='_') ) return false;
 	int i;
-	for( i=1;i<(int)s.size() && (isalnum( s[i] ) || s[i]=='_');++i ){}
+	for( i=1;i<(int)s.size() && (isalnum( s[i] ) || s[i]=='_' || s[i]==':');++i ){
+		if (s[i]==':') {
+			if ((i+1)<(int)s.size() && s[i+1]==':') {
+				i++;
+			} else {
+				break;
+			}
+		}
+	}
 	*label=s.substr(0,i);s=s.substr( i );return true;
 }
 
