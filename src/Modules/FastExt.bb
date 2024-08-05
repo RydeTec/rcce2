@@ -460,8 +460,8 @@ Function CustomPostprocessGrayscale% (alpha#=1.0, brightness#=1.0, inverse%=0, a
 	CustomPostprocessGrayscale_ alpha, brightness, inverse, alphaTexture
 End Function
 
-Function CustomPostprocessContrast% (alpha#=1.0, method%=0, red%=255, green%=255, blue%=255, alphaTexture%=0)
-	CustomPostprocessContrast_ alpha#, method, red, green, blue, alphaTexture
+Function CustomPostprocessContrast% (alpha#=1.0, fmethod%=0, red%=255, green%=255, blue%=255, alphaTexture%=0)
+	CustomPostprocessContrast_ alpha#, fmethod, red, green, blue, alphaTexture
 End Function
 
 Function CustomPostprocessBlurDirectional% (angle#=0, alpha#=1, blurPasses%=4, blurRadius#=0.35, quality%=1, red%=255, green%=255, blue%=255, alphaTexture%=0)

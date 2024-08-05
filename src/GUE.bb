@@ -5963,12 +5963,12 @@ Cls
 					Else
 						SelectedSpell\Script$ = FUI_SendMessage(CSpellScript, M_GETCAPTION)
 					EndIf
-					Result = UpdateScriptMethodsList(CSpellMethod, SelectedSpell\Script$, SelectedSpell\Method$)
-					If Result = False Then SelectedSpell\Method$ = FUI_SendMessage(CSpellMethod, M_GETCAPTION)
+					Result = UpdateScriptMethodsList(CSpellMethod, SelectedSpell\Script$, SelectedSpell\SMethod$)
+					If Result = False Then SelectedSpell\SMethod$ = FUI_SendMessage(CSpellMethod, M_GETCAPTION)
 					SpellsSaved = False
 				EndIf
 			Case CSpellMethod
-				If SelectedSpell <> Null Then SelectedSpell\Method$ = FUI_SendMessage(CSpellMethod, M_GETCAPTION) : SpellsSaved = False
+				If SelectedSpell <> Null Then SelectedSpell\SMethod$ = FUI_SendMessage(CSpellMethod, M_GETCAPTION) : SpellsSaved = False
 
 			; Spells navigation
 			Case CSpellSelected
@@ -6169,12 +6169,12 @@ Cls
 					Else
 						SelectedItem\Script$ = FUI_SendMessage(CItemScript, M_GETCAPTION)
 					EndIf
-					Result = UpdateScriptMethodsList(CItemMethod, SelectedItem\Script$, SelectedItem\Method$)
-					If Result = False Then SelectedItem\Method$ = FUI_SendMessage(CItemMethod, M_GETCAPTION)
+					Result = UpdateScriptMethodsList(CItemMethod, SelectedItem\Script$, SelectedItem\SMethod$)
+					If Result = False Then SelectedItem\SMethod$ = FUI_SendMessage(CItemMethod, M_GETCAPTION)
 					ItemsSaved = False
 				EndIf
 			Case CItemMethod
-				If SelectedItem <> Null Then SelectedItem\Method$ = FUI_SendMessage(CItemMethod, M_GETCAPTION) : ItemsSaved = False
+				If SelectedItem <> Null Then SelectedItem\SMethod$ = FUI_SendMessage(CItemMethod, M_GETCAPTION) : ItemsSaved = False
 
 			; Item navigation
 			Case CItemSelected
@@ -7362,7 +7362,7 @@ Function UpdateInterfaceComponent(IC.InterfaceComponent, PositionOnly = False)
 End Function
 
 ; Updates list with all methods for a given script
-Function UpdateScriptMethodsList(List, Script$, Method$)
+Function UpdateScriptMethodsList(List, Script$, SMethod$)
 
 	FUI_SendMessage(List, M_RESET)
 	FUI_DisableGadget(List)
@@ -7384,7 +7384,7 @@ Function UpdateScriptMethodsList(List, Script$, Method$)
 					NewLine$ = Right$(NewLine$, Len(NewLine$) - 9)
 					FUI_ComboBoxItem(List, NewLine$)
 					Num = Num + 1
-					If Upper$(NewLine$) = Upper$(Method$)
+					If Upper$(NewLine$) = Upper$(SMethod$)
 						FUI_SendMessage(List, M_SETINDEX, Num)
 						Found = True
 					EndIf
@@ -7596,8 +7596,8 @@ Function UpdateSpellDisplay()
 				If Upper$(FUI_SendMessage(CSpellScript, M_GETCAPTION)) = Upper$(SelectedSpell\Script$) Then Exit
 			Next
 		EndIf
-		Result = UpdateScriptMethodsList(CSpellMethod, SelectedSpell\Script$, SelectedSpell\Method$)
-		If Result = False Then SelectedSpell\Method$ = FUI_SendMessage(CSpellMethod, M_GETCAPTION)
+		Result = UpdateScriptMethodsList(CSpellMethod, SelectedSpell\Script$, SelectedSpell\SMethod$)
+		If Result = False Then SelectedSpell\SMethod$ = FUI_SendMessage(CSpellMethod, M_GETCAPTION)
 	EndIf
 
 End Function
@@ -7709,8 +7709,8 @@ Function UpdateItemDisplay()
 				If Upper$(FUI_SendMessage(CItemScript, M_GETCAPTION)) = Upper$(SelectedItem\Script$) Then Exit
 			Next
 		EndIf
-		Result = UpdateScriptMethodsList(CItemMethod, SelectedItem\Script$, SelectedItem\Method$)
-		If Result = False Then SelectedItem\Method$ = FUI_SendMessage(CItemMethod, M_GETCAPTION)
+		Result = UpdateScriptMethodsList(CItemMethod, SelectedItem\Script$, SelectedItem\SMethod$)
+		If Result = False Then SelectedItem\SMethod$ = FUI_SendMessage(CItemMethod, M_GETCAPTION)
 
 		; Item type specific gadgets
 		Select SelectedItem\ItemType
