@@ -82,3 +82,7 @@ data/Server Data/Accounts.dat
 data/Server Data/Environment.dat
 
 .vscode/settings.json
+
+Game/
+
+Server/

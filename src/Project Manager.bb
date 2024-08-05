@@ -18,6 +18,8 @@ Global LogMode = 1; (0 = standard logging, 1 = debug mode)
 
 Global GameDir$ = ""
 Global GameName$ = ""
+Global UpdateGame$ = ""
+Global UpdateMusic = False
 
 If FileType(RootDir$ + "res") <> 2
 	RootDir$ = "..\"
@@ -43,6 +45,7 @@ OMF$ = "Data\Meshes"
 OTF$ = "Data\Textures"
 OSF$ = "Data\Sounds"
 OMuF$ = "Data\Music"
+OSC$ = "Data\Server Data\Scripts"
 
 ;Executables
 SCT$ = RootDir$ + "bin\tools\Script Crafters Workshop\Script Crafters Workshop.exe"
@@ -74,9 +77,6 @@ BPS$ = RootDir$ + "compiler\BlitzPlus\BlitzPlus.exe"
 ;Main Window
 WMain = FUI_Window(0, 0, GUE_width, GUE_height, "", "", 0, 0)
 
-;Game Name
-Global ProName = FUI_TextBox(WMain, 230, 1, 270, 18, 50)
-
 ;Title Menu Bar
 ;Projects Tab
 M_Projects = FUI_MenuTitle(WMain, "Projects")
@@ -105,42 +105,64 @@ M_SWH = FUI_MenuItem(M_Help, "Spell Wizard Help")
 M_HF = FUI_MenuItem(M_Help, "Help File")
 
 ;Function Buttons
-BMINI = FUI_Button(WMain, 509, 1, 18, 18, "_")
-BCLOSE = FUI_Button(WMain, 529, 1, 18, 18, "X")
+;BMINI = FUI_Button(WMain, 509, 1, 18, 18, "_")
+;BCLOSE = FUI_Button(WMain, 529, 1, 18, 18, "X")
 
-FUI_Label(WMain, 529+18, 22, Version$, ALIGN_RIGHT)
+FUI_Label(WMain, GUE_width - 7, 22, Version$, ALIGN_RIGHT)
+
+Global GDIR = FUI_Label(WMain, GUE_width - 7, GUE_height - 20, GameDir$, ALIGN_RIGHT)
 
 ;Tabs
-TabMain = FUI_Tab(WMain, 0, 20, GUE_width, GUE_height)
+TabMain = FUI_Tab(WMain, 0, 20, GUE_width, GUE_height - 20 - 20)
 Global TProject = FUI_TabPage(TabMain, "Project")
+Global TEngine = FUI_TabPage(TabMain, "Engine")
 Global TSupport = FUI_TabPage(TabMain, "Support")
 
 ;Project Tab
-;Logo
-FUI_ImageBox(TProject, 160, 27, 380, 112, Ptr LogoTex)
+
+;Global Project Properties
+;Game Name
+FUI_Label(TProject, 160 + 75, 32, "Project Name: ", ALIGN_RIGHT)
+Global ProName = FUI_TextBox(TProject, 160 + 75, 27, 380 - 75, 25)
 
 ;Buttons
-LET = FUI_GroupBox(TProject, 5, 20, 150, 120, "Engine Tools")
-BGUE = FUI_Button(TProject, 15, 40, 130, 25, "Game Unified Editor") 
-BCLI = FUI_Button(TProject, 15, 70, 62.5, 25, "Client")
-BSER = FUI_Button(TProject, 82.5, 70, 62.5, 25, "Server")
-BOPF = FUI_Button(TProject, 15, 100, 130, 25, "Project Folder")
+LET = FUI_GroupBox(TProject, 5, 20, 150, 120, "Game")
+BCLI = FUI_Button(TProject, 15, 40, 62.5, 40, "Client")
+BSER = FUI_Button(TProject, 82.5, 40, 62.5, 40, "Server")
+BOPU = FUI_Button(TProject, 15, 85, 130, 45, "Publish")
 
 LLG = FUI_GroupBox(TProject, 5, 140, 150, 100, "Logs")
 BLC = FUI_Button(TProject, 15, 165, 130, 25, "Client Log")
 BLS = FUI_Button(TProject, 15, 200, 130, 25, "Server Log")
 
-LTK = FUI_GroupBox(TProject, 160, 140, 240, 100, "Tool Kit")
-TOOL1 = FUI_Button(TProject, 170, 165, 70.5, 25, "Gubbin")
-TOOL2 = FUI_Button(TProject, 170, 200, 70.5, 25, "Architect")
-TOOL3 = FUI_Button(TProject, 170 + 75.5, 165, 70.5, 25, "Caves")
-TOOL4 = FUI_Button(TProject, 170 + 75.5, 200, 70.5, 25, "Rock")
-TOOL5 = FUI_Button(TProject, 170 + 75.5 + 75.5, 165, 70.5, 25, "Terrain")
-TOOL6 = FUI_Button(TProject, 170 + 75.5 + 75.5, 200, 70.5, 25, "Tree")
+LPF = FUI_GroupBox(TProject, 160, 140, 240, 100, "Project Folders")
+BOPF = FUI_Button(TProject, 170, 165, 70.5, 25, "Project")
+BOM = FUI_Button(TProject, 170, 200, 70.5, 25, "Meshes")
+BOT = FUI_Button(TProject, 170 + 75.5, 165, 70.5, 25, "Textures")
+BOS = FUI_Button(TProject, 170 + 75.5, 200, 70.5, 25, "Sound")
+BOSM = FUI_Button(TProject, 170 + 75.5 + 75.5, 165, 70.5, 25, "Music")
+BOSC = FUI_Button(TProject, 170 + 75.5 + 75.5, 200, 70.5, 25, "Scripts")
 
-LTK = FUI_GroupBox(TProject, 405, 140, 135, 100, "Source Tools")	
-BB3D = FUI_Button(TProject, 410, 165, 125, 25, "BlitzRC")
-BBPS = FUI_Button(TProject, 410, 200, 125, 25, "BlitzPlus")
+;Engine Tab
+;Logo
+FUI_ImageBox(TEngine, 160, 27, 380, 112, Ptr LogoTex)
+
+;Editors
+LED = FUI_GroupBox(TEngine, 5, 20, 150, 80, "Editors")
+BGUE = FUI_Button(TEngine, 15, 40, 130, 50, "Game Unified Editor") 
+
+LTK = FUI_GroupBox(TEngine, 160, 140, 240, 100, "Tool Kit")
+TOOL1 = FUI_Button(TEngine, 170, 165, 70.5, 25, "Gubbin")
+TOOL2 = FUI_Button(TEngine, 170, 200, 70.5, 25, "Architect")
+TOOL3 = FUI_Button(TEngine, 170 + 75.5, 165, 70.5, 25, "Caves")
+TOOL4 = FUI_Button(TEngine, 170 + 75.5, 200, 70.5, 25, "Rock")
+TOOL5 = FUI_Button(TEngine, 170 + 75.5 + 75.5, 165, 70.5, 25, "Terrain")
+TOOL6 = FUI_Button(TEngine, 170 + 75.5 + 75.5, 200, 70.5, 25, "Tree")
+
+;Source
+LTK = FUI_GroupBox(TEngine, 405, 140, 135, 100, "Source Tools")	
+BB3D = FUI_Button(TEngine, 410, 165, 125, 25, "BlitzRC")
+BBPS = FUI_Button(TEngine, 410, 200, 125, 25, "BlitzPlus")
 
 if FileType(B3D$) = 0
 	FUI_DisableGadget(BB3D)
@@ -149,8 +171,6 @@ EndIf
 if FileType(BPS$) = 0
 	FUI_DisableGadget(BBPS)
 EndIf
-
-Global GDIR = FUI_Label(TProject, 405+135, 242, GameDir$, ALIGN_RIGHT)
 
 ;Support Tab
 ;Logo
@@ -180,6 +200,9 @@ DISC = FUI_Button(TSupport, 170, 210, 125, 25, "RCCE Discord")
 FUI_Label(TSupport, 160, 25, "The RealmCrafter: Community Edition is a community driven project.")
 FUI_Label(TSupport, 160, 60, "You can request to become a contributor by visiting the following link:") 
 FUI_Label(TSupport, 160, 75, "https://github.com/orgs/RydeTec/teams/rcce-contributors")
+
+; Setup dynamic values
+FUI_SendMessage(ProName, M_SETCAPTION, GameName$)
 	
 ;Finish up before loop
 DeltaTime = MilliSecs()
@@ -205,6 +228,8 @@ Repeat
 			F.BBStream = WriteFile("Data\Game Data\Misc.dat")
 			If F = Null Then RuntimeError("Could not open Data\Game Data\Misc.dat!")
 			WriteLine F, FUI_SendMessage(ProName, M_GETCAPTION)
+			WriteLine F, UpdateGame$
+			WriteLine F, UpdateMusic
 			CloseFile(F)
 		Case M_Meshes
 			ExecFile(OMF$)
@@ -249,8 +274,21 @@ Repeat
 			ExecFile(CLI$, "", GameDir$ + "Data\")
 		Case BSER
 			ExecFile(SER$, "", GameDir$ + "Data\")
+		Case BOPU
+			GenerateFullInstall()
+			GenerateServer()
 		Case BOPF
 			ExecFile(dq(GameDir$))
+		Case BOM
+			ExecFile(OMF$)
+		Case BOT
+			ExecFile(OTF$)
+		Case BOS
+			ExecFile(OSF$)
+		Case BOSM
+			ExecFile(OMuF$)
+		Case BOSC
+			ExecFile(dq(OSC$))
 		Case BLC
 			ExecFile(dq(LCL$))
 		Case BLS
