@@ -53,16 +53,7 @@ Dim TriggerEN(149)
 Dim WaypointEN(1999)
 Dim WaypointALink(1999)
 Dim WaypointBLink(1999)
-; Updates system
-Dim UpdatesList$(49)
-UpdatesList$(0) = "Data\Areas"
-UpdatesList$(1) = "Data\Emitter Configs"
-UpdatesList$(2) = "Data\Game Data"
-UpdatesList$(3) = "Data\UI"
-UpdatesList$(4) = "Data\Meshes"
-UpdatesList$(5) = "Data\Music"
-UpdatesList$(6) = "Data\Sounds"
-UpdatesList$(7) = "Data\Textures"
+
 Type UpdateFile
 	Field Name$, Checksum
 End Type
@@ -227,25 +218,6 @@ TextureFilter("", 1 + 8)
 
 ; All emitter configs
 ;WriteLog(GUELog, "Loading emitter configurations")
-;Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text 350, 620, "Loaded emitter configurations", True : Flip()
-;DefaultTex = LoadTexture("Data\DefaultParticle.bmp", 4 + 16 + 32)
-;D = ReadDir("Data\Emitter Configs")
-;	File$ = NextFile$(D)
-;	While File$ <> ""
-;		If FileType("Data\Emitter Configs\" + File$) = 1
-;			ConfigID = RP_LoadEmitterConfig("Data\Emitter Configs\" + File$, DefaultTex, app\Cam)
-;			C.RP_EmitterConfig = Object.RP_EmitterConfig(ConfigID)
-;			If C\DefaultTextureID < 65535
-;				Tex = GetTexture(C\DefaultTextureID, True)
-;				UnloadTexture(C\DefaultTextureID)
-;				If Tex <> 0 Then C\Texture = Tex
-;			EndIf
-;		EndIf
-;		File$ = NextFile$(D)
-;	Wend
-;CloseDir(D)
-
-; All emitter configs
 WriteLog(GUELog, "Loading emitter configurations")
 Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2),(ImageHeight(Img)/2), "Loading emitter configurations", True : Flip()
 DefaultTex = LoadTexture("Data\DefaultParticle.bmp", 4 + 16 + 32)
@@ -369,8 +341,6 @@ TextureFilter "a_", 1 + 2
 ; Main tab strip
 WriteLog(GUELog, "Creating main window")
 
-;WMain = FUI_Window(25, 50, 974, 693, "", "", 0, 0)
-;TabMain = FUI_Tab(WMain, 0, 0, 974, 693)
 WMain = FUI_Window(0, 0, GUE_width, GUE_height, "", "", 0, 0)
 ; Top Menu Bar Edit Cysis145
 mnuFile							= FUI_MenuTitle( WMain, "File" )
@@ -462,7 +432,6 @@ WriteLog(GUELog, "Creating particles tab")
 Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Created particles tab", True : Flip()
 
 ; Preview view
-;View = FUI_View(TParticles, 20, 20, 600, 450, 0, 0, 0)
 View = FUI_View(TParticles, 20, 20, GUE_width - 424, GUE_height - 318, 0, 0, 0)
 
 Global ParticlesCam = FUI_SendMessage(View, M_GETCAMERA)
@@ -473,16 +442,6 @@ Global ParticlesCamBGB = 0
 
 ; Set camera clear color using red, green, blue values
 CameraClsColor ParticlesCam, ParticlesCamBGR, ParticlesCamBGG, ParticlesCamBGB
-
-;Old
-;Global LActiveParticles = FUI_Label(TParticles, 20, 475, "Active particles: 0")
-; Buttons
-;BParticlesNew  = FUI_Button(TParticles, 630, 170, 90, 20, "New emitter")
-;BParticlesSave = FUI_Button(TParticles, 740, 170, 90, 20, "Save emitters")
-;BParticlesDelete = FUI_Button(TParticles, 850, 170, 90, 20, "Delete emitter")
-; Configs list
-;FUI_Label(TParticles, 630, 127, "Current emitter:")
-;Global CParticleConfigs = FUI_ComboBox(TParticles, 630, 145, 290, 20, 20)
 
 ;new
 Global LActiveParticles = FUI_Label(TParticles, 20, GUE_height - 293, "Active particles: 0")
@@ -503,16 +462,6 @@ Next
 FUI_SendMessage(CParticleConfigs, M_SETINDEX, 1)
 
 ; Preview buttons
-;Old
-;BParticlesTex = FUI_Button(TParticles, 650, 20, 100, 20, "Preview texture")
-;BParticlesPreviewReset = FUI_Button(TParticles, 800, 20, 100, 20, "Reset preview")
-;BParticlesPreviewL = FUI_Button(TParticles, 650, 75, 20, 20, "", "Data\GUE\L.png")
-;BParticlesPreviewR = FUI_Button(TParticles, 710, 75, 20, 20, "", "Data\GUE\R.png")
-;BParticlesPreviewU = FUI_Button(TParticles, 680, 55, 20, 20, "", "Data\GUE\U.png")
-;BParticlesPreviewD = FUI_Button(TParticles, 680, 95, 20, 20, "", "Data\GUE\D.png")
-;BParticlesPreviewIn = FUI_Button(TParticles, 750, 55, 20, 20, "", "Data\GUE\In.png")
-;BParticlesPreviewOut = FUI_Button(TParticles, 750, 95, 20, 20, "", "Data\GUE\Out.png")
-;New
 BParticlesTex = FUI_Button(TParticles, GUE_width - 374, 20, 100, 20, "Preview texture")
 BParticlesPreviewReset = FUI_Button(TParticles, GUE_width - 224, 20, 100, 20, "Reset preview")
 BParticlesPreviewL = FUI_Button(TParticles, GUE_width - 374, 75, 20, 20, "", "Data\GUE\L.png")
@@ -577,9 +526,6 @@ FUI_Label(TParticlesColours, 10, 162, "Blue change:")
 Global SParticlesChangeB = FUI_Spinner(TParticlesColours, 210, 160, 90, 20, -50.0, 50.0, 0, 0.5, DTYPE_FLOAT)
 
 ; Texture options
-;old
-;GTexture = FUI_GroupBox(TParticles, 10, 495, 170, 170, "Animated texture options")
-;new
 GTexture = FUI_GroupBox(TParticles, 10, GUE_height - 273, 170, 190, "Animated texture options")
 
 FUI_Label(GTexture, 10, 12, "Frames across:")
@@ -591,9 +537,6 @@ Global SParticlesTexSpeed = FUI_Spinner(GTexture, 100, 70, 60, 20, 0, 100, 1, 1,
 Global BParticlesRandFrame = FUI_CheckBox(GTexture, 10, 102, "Start on random frame")
 
 ; Shape options
-;old
-;GShape = FUI_GroupBox(TParticles, 190, 495, 310, 170, "Shape options")
-;new
 GShape = FUI_GroupBox(TParticles, 190, GUE_height - 273, 310, 190, "Shape options")
 
 FUI_Label(GShape, 10, 12, "Emitter shape:")
@@ -3477,91 +3420,6 @@ Cls
 		Case mnuFileSaveAll
 
 				menuSaveAll()
-
-			
-			Case BBuildFullInstall
-			
-				GenerateFullInstall()
-
-			Case BBuildInstaller
-				; Clear \Game folder
-				DelTree("Game")
-				; Create required folders
-				CreateDir("Game")
-				CreateDir("Game\Data")
-				CreateDir("Game\Data\Textures")
-				CreateDir("Game\Data\Logs")
-				; Copy required files to \Game folder
-				SafeCopyFile(GameName$ + ".exe", "Game\" + GameName$ + ".exe")
-				SafeCopyFile("Game.exe", "Game\Game.exe")
-				SafeCopyFile("RCEnet.dll", "Game\RCEnet.dll")
-				SafeCopyFile("Language.txt", "Game\Language.txt")
-				SafeCopyFile("libbz2w.dll", "Game\libbz2w.dll")
-				SafeCopyFile("blitzsys.dll", "Game\blitzsys.dll")
-				SafeCopyFile("rc64.dll", "Game\rc64.dll")
-				SafeCopyFile("rc63.dll", "Game\rc63.dll")
-				SafeCopyFile("QuickCrypt.dll", "Game\QuickCrypt.dll")
-				If FileType("dx7test.dll") = 1 Then CopyFile("dx7test.dll", "Game\dx7test.dll")
-				SafeCopyFile("Data\Textures\Menu Logo.bmp", "Game\Data\Textures\Menu Logo.bmp")
-				SafeCopyFile("Data\Last Username.dat", "Game\Data\Last Username.dat")
-				SafeCopyFile("Data\Options.dat", "Game\Data\Options.dat")
-				SafeCopyFile("Data\Controls.dat", "Game\Data\Controls.dat")
-				SafeCopyFile("Data\Patch.exe", "Game\Data\Patch.exe")
-				CopyTree("Data\Game Data", "Game\Data\Game Data")
-				CopyTree("Data\UI", "Game\Data\UI")
-				CopyTree("Data\Textures\Menu", "Game\Data\Textures\Menu")
-				; Change to non development version
-				F = WriteFile("Game\Data\Game Data\Misc.dat")
-					WriteLine(F, GameName$)
-					WriteLine(F, "Normal")
-					WriteLine F, "1"
-				CloseFile(F)
-				; Complete
-				FUI_CustomMessageBox("Complete! Required files are in the \Game folder.", "Build Client", MB_OK)
-			Case BBuildUpdates
-					FUI_CustomMessageBox("Building game updates may take some time. Please be patient.", "Warning", MB_OK)
-					GenerateGamePatch()
-			Case BBuildServer
-				Result = FUI_CustomMessageBox("Include dynamic data (e.g. accounts)?", "Build Server", MB_YESNO)
-				; Clear \Server folder
-				DelTree("Server")
-				; Create required folders
-				CreateDir("Server")
-				CreateDir("Server\Data")
-				CreateDir("Server\Data\Logs")
-				CreateDir("Server\Data\Server Data")
-				CreateDir("Server\Data\Server Data\Areas")
-				CreateDir("Server\Data\Server Data\Script Files")
-				CreateDir("Server\Data\Server Data\Scripts")
-				SafeCopyFile("RCEnet.dll", "Server\RCEnet.dll")
-				SafeCopyFile("briskvm.dll", "Server\briskvm.dll")
-				; Copy required files to \Server folder
-				SQLResult = FUI_CustomMessageBox("Build a MySQL server?", "Build Server", MB_YESNO)
-				If SQLResult = IDNO
-	 				SafeCopyFile("Server.exe", "Server\Server.exe")
-				Else
-	 				SafeCopyFile("MySQL Server.exe", "Server\MySQL Server.exe")
-					SafeCopyFile("MySQL Configure.exe", "Server\MySQL Configure.exe")
-					SafeCopyFile("libmySQL.dll", "Server\libmySQL.dll")
-					SafeCopyFile("SQLDLL.dll", "Server\SQLDLL.dll")
-					SafeCopyFile("BlitzSQL.dll", "Server\BlitzSQL.dll")
-					SafeCopyFile("MySql.Data.dll", "Server\MySql.Data.dll")
-					SafeCopyFile("rcsql.sql", "Server\rcsql.sql")
-					SafeCopyFile("rcsql_flat.sql", "Server\rcsql_flat.sql")
-					SafeCopyFile("mini.exe", "Server\mini.exe")
-				EndIf
- 				CopyFile("ggTray.dll", "Server\ggTray.dll")
-				CopyTree("Data\Server Data", "Server\Data\Server Data")
-				; If it's only an update, delete accounts etc.
-				If Result = IDNO
-					DeleteFile("Server\Data\Server Data\Accounts.dat")
-					DeleteFile("Server\Data\Server Data\Dropped Items.dat")
-					DeleteFile("Server\Data\Server Data\Superglobals.dat")
-					DelTree("Server\Data\Server Data\Areas\Ownerships")
-					CreateDir("Server\Data\Server Data\Areas\Ownerships")
-				EndIf
-				; Complete
-				FUI_CustomMessageBox("Complete! Required files are in the \Server folder.", "Build Server", MB_OK)
 				
 			Case BRestoreLanguageFile
 				If Not RestoreLanguage("Data\Game Data\Language Restore.txt") Then RuntimeError "Language Restore could not be written"
@@ -10485,7 +10343,7 @@ Function GenerateGamePatch()
 	Result = FUI_CustomMessageBox("Realm Crafter must build a full client to generate an update. Press yes to build a new client", "Update", MB_YESNO)
 		
 	If Result = IDYES Then
-		GenerateFullInstall()
+		;GenerateFullInstall()
 	End If
 	
 	LabelBuildFullInstallCalled = False
@@ -10724,50 +10582,6 @@ Function PO()
 		U.Undo = Null
 		U\Action$ = "PO"
 	EndIf
-
-End Function
-
-
-Function GenerateFullInstall()
-
-	FUI_CustomMessageBox("Building full client may take some time. Please be patient.", "Warning", MB_OK)
-	; Clear \Game folder
-	DelTree("Game")
-	; Create required folders
-	CreateDir("Game")
-	CreateDir("Game\Data")
-	CreateDir("Game\Data\Logs")
-	For i = 0 To 49
-		If Len(UpdatesList$(i)) = 0 Then Exit
-		CreateDir("Game\" + UpdatesList$(i))
-	Next
-	; Copy required files to \Game folder
-	SafeCopyFile(GameName$ + ".exe", "Game\" + GameName$ + ".exe")
-	SafeCopyFile("Game.exe", "Game\Game.exe")
-	SafeCopyFile("RCEnet.dll", "Game\RCEnet.dll")
-	SafeCopyFile("Language.txt", "Game\Language.txt")
-	SafeCopyFile("libbz2w.dll", "Game\libbz2w.dll")
-	SafeCopyFile("blitzsys.dll", "Game\blitzsys.dll")
-	SafeCopyFile("rc64.dll", "Game\rc64.dll")
-	SafeCopyFile("rc63.dll", "Game\rc63.dll")
-	SafeCopyFile("QuickCrypt.dll", "Game\QuickCrypt.dll")
-	If FileType("dx7test.dll") = 1 Then CopyFile("dx7test.dll", "Game\dx7test.dll")
-	SafeCopyFile("Data\Last Username.dat", "Game\Data\Last Username.dat")
-	SafeCopyFile("Data\Options.dat", "Game\Data\Options.dat")
-	SafeCopyFile("Data\Controls.dat", "Game\Data\Controls.dat")
-	SafeCopyFile("Data\Patch.exe", "Game\Data\Patch.exe")
-	For i = 0 To 49
-		If Len(UpdatesList$(i)) = 0 Then Exit
-		CopyTree(UpdatesList$(i), "Game\" + UpdatesList$(i))
-	Next
-	; Change to non development version
-	F = WriteFile("Game\Data\Game Data\Misc.dat")
-		WriteLine(F, GameName$)
-		WriteLine(F, "Normal")
-		WriteLine(F, "1")
-	CloseFile(F)
-	; Complete
-	FUI_CustomMessageBox("Complete! Required files are in the \Game folder.", "Build Client", MB_OK)
 
 End Function
 

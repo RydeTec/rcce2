@@ -157,20 +157,7 @@ Function GenerateServer()
 	Filesystem::SafeCopyFile(Null, "bin\RCEnet.dll", "Server\bin\RCEnet.dll")
 	Filesystem::SafeCopyFile(Null, "bin\briskvm.dll", "Server\bin\briskvm.dll")
 	; Copy required files to \Server folder
-	;SQLResult = FUI_CustomMessageBox("Build a MySQL server?", "Build Server", MB_YESNO)
-	;If SQLResult = IDNO
-		Filesystem::SafeCopyFile(Null, "bin\Server.exe", "Server\bin\Server.exe")
-	;Else
-	;	SafeCopyFile("MySQL Server.exe", "Server\MySQL Server.exe")
-	;	SafeCopyFile("MySQL Configure.exe", "Server\MySQL Configure.exe")
-	;	SafeCopyFile("libmySQL.dll", "Server\libmySQL.dll")
-	;	SafeCopyFile("SQLDLL.dll", "Server\SQLDLL.dll")
-	;	SafeCopyFile("BlitzSQL.dll", "Server\BlitzSQL.dll")
-	;	SafeCopyFile("MySql.Data.dll", "Server\MySql.Data.dll")
-	;	SafeCopyFile("rcsql.sql", "Server\rcsql.sql")
-	;	SafeCopyFile("rcsql_flat.sql", "Server\rcsql_flat.sql")
-	;	SafeCopyFile("mini.exe", "Server\mini.exe")
-	;EndIf
+	Filesystem::SafeCopyFile(Null, "bin\Server.exe", "Server\bin\Server.exe")
 	CopyFile("bin\ggTray.dll", "Server\bin\ggTray.dll")
 	CopyFile("bin\fmod.dll", "Server\bin\fmod.dll")
 	Filesystem::CopyTree(Null, "Data\Server Data", "Server\Data\Server Data")
