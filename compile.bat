@@ -4,6 +4,7 @@ setlocal EnableDelayedExpansion
 set TOOLCHAIN=0
 set RCCETOOLS=1
 set RCCE=1
+set PLUS=0
 
 set ROOTDIR=%CD%
 
@@ -13,6 +14,10 @@ if "%1"=="-b" (
     set TOOLCHAIN=1
 ) else if "%1"=="--blitz" (
     set TOOLCHAIN=1
+) else if "%1"=="-p" (
+    set PLUS=1
+) else if "%1"=="--plus" (
+    set PLUS=1
 ) else if "%1"=="-t" (
     set RCCETOOLS=0
 ) else if "%1"=="--skip-tools" (
@@ -37,7 +42,8 @@ goto parse_args
 echo RCCE2 Compiler Script
 echo.
 echo -t ^| --skip-tools     Skip compilation of the RCCE2 tool applications in \src\tools
-echo -b ^| --blitz          Compile the full blitz toolchain
+echo -b ^| --blitz          Compile the BlitzRC toolchain
+echo -p ^| --plus           Compile the BlitzRCPlus toolchain
 echo -e ^| --skip-engine    Skip compilation of the RCCE2 engine itself in \src
 endlocal
 exit /b
@@ -45,12 +51,17 @@ exit /b
 :end_args
 
 if %TOOLCHAIN%==1 (
-    echo Compiling Blitz Toolchain...
+    echo Compiling BlitzRC Toolchain...
     call .\scripts\msbuild_init.bat
 
     cd %ROOTDIR%
 
     call .\scripts\msbuild_blitzrc.bat
+)
+
+if %PLUS%==1 (
+    echo Compiling BlitzRCPlus Toolchain...
+    call .\scripts\msbuild_init.bat
 
     cd %ROOTDIR%
 
