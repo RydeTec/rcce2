@@ -1,5 +1,5 @@
 
-Global rcceVersion$ = "v2.0"
+Global rcceVersion$ = "2.0.0"
 Global componentName$ = "gue"
 Global RootDir$ = "..\"
 Global LogMode = 1; (0 = standard logging, 1 = debug mode)
@@ -91,8 +91,8 @@ WriteLog(GUELog, "** GUE startup log begins **", True, True)
 
 ;Window or fullscreen for editor
 ;############################
-Local GUE_width = GetSystemMetrics(0)
-Local GUE_height = GetSystemMetrics(1)
+Local GUE_width# = GetSystemMetrics(0) * 0.9
+Local GUE_height# = GetSystemMetrics(1) * 0.8
 If (GUE_width < 1280 And GUE_height< 960)
 	GUE_width = 1280
 	GUE_height = 960
@@ -114,20 +114,25 @@ WriteLog(GUELog, "Initialising encryption system")
 
 ; Splash screen
 WriteLog(GUELog, "Loading splash screen")
-Img = LoadImage("Data\GUE\Loading.PNG")
-If Img = 0 Then RuntimeError("Could not open Data\GUE\Loading.PNG!")
-ResizeImage Img, GraphicsWidth(), GraphicsHeight()
+Global SplashImg = LoadImage("Data\GUE\Loading.PNG")
+If SplashImg = 0 Then RuntimeError("Could not open Data\GUE\Loading.PNG!")
+ResizeImage SplashImg, GUE_width, GUE_height
 
+Function updateSplashScreen(loadingText$)
+	WriteLog(GUELog, loadingText$)
+	Color 255, 255, 255
+	DrawImage(SplashImg, 0, 0)
+	Text (ImageWidth(SplashImg)/2), (ImageHeight(SplashImg)/1.965), loadingText$, True, False
+	Flip()
+End Function
 
 ; Media dialogs
 SetFont(app\fntWindow)
-WriteLog(GUELog, "Creating media dialogs")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Creating media dialogs", True : Flip() 
+updateSplashScreen("Creating media dialogs")
 InitMediaDialogs()
 
 ; Interface
-WriteLog(GUELog, "Loading game interface settings")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Loaded game interface settings", True : Flip()
+updateSplashScreen("Loaded game interface settings")
 ClearTextureFilters()
 Result = LoadInterfaceSettings("Data\Game Data\Interface.dat")
 If Result = False Then RuntimeError("Could not open Data\Game Data\Interface.dat!")
@@ -217,9 +222,7 @@ TextureFilter("", 1 + 8)
 ;Tex = LoadTexture("Data\Textures\Menu\BCharBoxD.PNG") : EntityTexture(LoginServerStat\Component, Tex) : FreeTexture(Tex)
 
 ; All emitter configs
-;WriteLog(GUELog, "Loading emitter configurations")
-WriteLog(GUELog, "Loading emitter configurations")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2),(ImageHeight(Img)/2), "Loading emitter configurations", True : Flip()
+updateSplashScreen("Loading emitter configurations")
 DefaultTex = LoadTexture("Data\DefaultParticle.bmp", 4 + 16 + 32)
 D = ReadDir("Data\Emitter Configs")
  File$ = NextFile$(D)
@@ -246,7 +249,7 @@ CloseFile(F)
 
 ;Title +Project name
 ;#########
-FUI_AppTitle("RCCE" + " - " + GameName$)
+FUI_AppTitle("RealmCrafter: Community Edition" + " - " + GameName$)
 ;#########
 
 F = ReadFile("Data\Game Data\Hosts.dat")
@@ -256,42 +259,33 @@ If F = 0 Then RuntimeError("Could not open Data\Game Data\Hosts.dat!")
 CloseFile(F)
 
 ; Load actors, items, etc.
-WriteLog(GUELog, "Loading damage types")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Loaded damage types", True : Flip()
+updateSplashScreen("Loading damage types")
 Result = LoadDamageTypes("Data\Server Data\Damage.dat")
 If Result = False Then RuntimeError("Could not open Data\Server Data\Damage.dat!")
-WriteLog(GUELog, "Loading attributes")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Loaded attributes", True : Flip()
+updateSplashScreen("Loading attributes")
 Result = LoadAttributes("Data\Server Data\Attributes.dat")
 If Result = False Then RuntimeError("Could not open Data\Server Data\Attributes.dat!")
-WriteLog(GUELog, "Loading factions")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Loaded factions", True : Flip()
+updateSplashScreen("Loading factions")
 Result = LoadFactions("Data\Server Data\Factions.dat")
 If Result = -1 Then RuntimeError("Could not open Data\Server Data\Factions.dat!")
-WriteLog(GUELog, "Loading animations")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Loaded animations", True : Flip()
+updateSplashScreen("Loading animations")
 Result = LoadAnimSets("Data\Game Data\Animations.dat")
 If Result = -1 Then RuntimeError("Could not open Data\Game Data\Animations.dat!")
-WriteLog(GUELog, "Loading projectiles")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Loaded projectiles", True : Flip()
+updateSplashScreen("Loading projectiles")
 Global TotalProjectiles = LoadProjectiles("Data\Server Data\Projectiles.dat")
 If TotalProjectiles = -1 Then RuntimeError("Could not open Data\Server Data\Projectiles.dat!")
-WriteLog(GUELog, "Loading items")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Loaded items", True : Flip()
+updateSplashScreen("Loading items")
 Global TotalItems = LoadItems("Data\Server Data\Items.dat")
 If TotalItems = -1 Then RuntimeError("Could not open Data\Server Data\Items.dat!")
-WriteLog(GUELog, "Loading actors")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Loaded actors", True : Flip()
+updateSplashScreen("Loading actors")
 Global TotalActors = LoadActors("Data\Server Data\Actors.dat")
 If TotalActors = -1 Then RuntimeError("Could not open Data\Server Data\Actors.dat!")
-WriteLog(GUELog, "Loading abilities")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Loaded abilities", True : Flip()
+updateSplashScreen("Loading abilities")
 Global TotalSpells = LoadSpells("Data\Server Data\Spells.dat")
 If TotalSpells = -1 Then RuntimeError("Could not open Data\Server Data\Spells.dat!")
 
 ; Load zones (just the server side bits, client side parts are loaded on request to save video memory)
-WriteLog(GUELog, "Loading server-side zones")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Loaded zones", True : Flip()
+updateSplashScreen("Loading server-side zones")
 Global TotalZones = 0
 D = ReadDir("Data\Server Data\Areas")
 File$ = NextFile$(D)
@@ -313,7 +307,7 @@ LoadSuns()
 
 ; Initialise GUI --------------------------------------------------------------------------------------------------------------------
 
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Created GUI", True : Flip()
+updateSplashScreen("Created GUI")
 
 ; Texture filters
 TextureFilter "m_", 1 + 4
@@ -372,22 +366,16 @@ Global TOther       = FUI_TabPage(TabMain, "Other")
 
 ; Project gadgets -------------------------------------------------------------------------------------------------------------------
 
-WriteLog(GUELog, "Creating project tab")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Created project tab", True : Flip()
+updateSplashScreen("Creating project tab")
 
-FUI_Label(TProject, 487, 20, "Welcome to Realm Crafter Community Edition!", ALIGN_CENTER)
-FUI_Label(TProject, 487, 60, GameName$, ALIGN_CENTER)
+FUI_Label(TProject, GUE_width/2, 20, "Welcome to Realm Crafter Community Edition!", ALIGN_CENTER)
+FUI_Label(TProject, GUE_width/2, 60, GameName$, ALIGN_CENTER)
 
-BBuildFullInstall = FUI_Button(TProject, 10, 100, 130, 25, "Build full client")
-BBuildInstaller = FUI_Button(TProject, 10, 135, 130, 25, "Build minimum client")
-BBuildUpdates = FUI_Button(TProject, 10, 170, 130, 25, "Generate client update")
-BBuildServer = FUI_Button(TProject, 10, 205, 130, 25, "Build full server")
 ;BRestoreLanguageFile = FUI_Button(TProject, 10, 240, 130, 25, "Restore Language File")
 
 ; Media gadgets ---------------------------------------------------------------------------------------------------------------------
 
-WriteLog(GUELog, "Creating media tab")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Created media tab", True : Flip()
+updateSplashScreen("Creating media tab")
 
 Global CMediaType = FUI_ComboBox(TMedia, 20, 20, 250, 20)
 FUI_ComboBoxItem(CMediaType, "View 3D Meshes")
@@ -428,8 +416,7 @@ SetMediaType(1)
 
 ; Particles gadgets -----------------------------------------------------------------------------------------------------------------
 
-WriteLog(GUELog, "Creating particles tab")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Created particles tab", True : Flip()
+updateSplashScreen("Creating particles tab")
 
 ; Preview view
 View = FUI_View(TParticles, 20, 20, GUE_width - 424, GUE_height - 318, 0, 0, 0)
@@ -616,8 +603,7 @@ If ParticlesEmitter <> 0 Then RP_HideEmitter(ParticlesEmitter)
 
 ; Combat gadgets --------------------------------------------------------------------------------------------------------------------
 
-WriteLog(GUELog, "Creating combat tab")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Created combat tab", True : Flip()
+updateSplashScreen("Creating combat tab")
 
 BDamageTypesSave = FUI_Button(TDamageTypes, 20, 20, 110, 20, "Save damage types")
 FUI_Label(TDamageTypes, 20, 70, "You may specify up to 20 damage types below:")
@@ -668,8 +654,7 @@ SCombatRatingAdjust = FUI_Spinner(G, 150, 170, 70, 20, 0, 5, CombatRatingAdjust,
 
 ; Projectiles gadgets ---------------------------------------------------------------------------------------------------------------
 
-WriteLog(GUELog, "Creating projectiles tab")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Created projectiles tab", True : Flip()
+updateSplashScreen("Creating projectiles tab")
 
 ; Main
 BProjNew    = FUI_Button(TProjectiles, 20, 20, 100, 20, "New projectile")
@@ -734,8 +719,7 @@ UpdateProjectileDisplay()
 
 ; Factions gadgets ------------------------------------------------------------------------------------------------------------------
 
-WriteLog(GUELog, "Creating factions tab")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Created factions tab", True : Flip()
+updateSplashScreen("Creating factions tab")
 
 BFactionSave = FUI_Button(TFactions, 20, 20, 100, 20, "Save factions")
 FUI_Label(TFactions, 20, 70, "You may add up to 100 factions below:")
@@ -758,8 +742,7 @@ Next
 
 ; Animation set gadgets -------------------------------------------------------------------------------------------------------------
 
-WriteLog(GUELog, "Creating animations tab")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Created animations tab", True : Flip()
+updateSplashScreen("Creating animations tab")
 
 BAnimsSave = FUI_Button(TAnimSets, 20, 20, 120, 20, "Save animation sets")
 FUI_Label(TAnimSets, 20, 70, "You may add any number of animation sets below:")
@@ -786,8 +769,7 @@ FUI_Label(TAnimSets, 640, 320, "Animation speed:")
 SAnimSpeed = FUI_Spinner(TAnimSets, 650, 340, 90, 20, 1, 1000, 0, 1, DTYPE_INTEGER, "%")
 
 ; Attributes gadgets ----------------------------------------------------------------------------------------------------------------
-WriteLog(GUELog, "Creating attributes tab")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Created attributes tab", True : Flip()
+updateSplashScreen("Creating attributes tab")
 
 BAttributeSave = FUI_Button(TAttributes, 20, 20, 100, 20, "Save attributes")
 BSetFixedAttributes = FUI_Button(TAttributes, 150, 20, 120, 20, "Set fixed attributes")
@@ -809,8 +791,7 @@ SAttributeAssignment = FUI_Spinner(TAttributes, 320, 470, 90, 20, 0, 100, Attrib
 
 ; Actors gadgets --------------------------------------------------------------------------------------------------------------------
 
-WriteLog(GUELog, "Creating actors tab")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Created actors tab", True : Flip()
+updateSplashScreen("Creating actors tab")
 
 ; Main
 BActorNew    = FUI_Button(TActors, 20, 20, 100, 20, "New actor")
@@ -1075,8 +1056,7 @@ UpdateActorDisplay()
 
 ; Items gadgets ---------------------------------------------------------------------------------------------------------------------
 
-WriteLog(GUELog, "Creating items tab")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Created items tab", True : Flip()
+updateSplashScreen("Creating items tab")
 
 ; Main
 BItemNew    = FUI_Button(TItems, 20, 20, 100, 20, "New item")
@@ -1276,8 +1256,7 @@ UpdateItemDisplay()
 
 ; Seasons gadgets -------------------------------------------------------------------------------------------------------------------
 
-WriteLog(GUELog, "Creating seasons tab")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Created seasons tab", True : Flip()
+updateSplashScreen("Creating seasons tab")
 
 BSeasonSave = FUI_Button(TSeasons, 10, 20, 100, 20, "Save settings")
 FUI_GroupBox(TSeasons, 10, 60, 480, 80, "General")
@@ -1390,8 +1369,7 @@ UpdateSunDisplay()
 
 ; Zones gadgets ---------------------------------------------------------------------------------------------------------------------
 
-WriteLog(GUELog, "Creating zones tab")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Created zones tab", True : Flip()
+updateSplashScreen("Creating zones tab")
 
 ; General
 Global CurrentArea.Area
@@ -1822,8 +1800,7 @@ Global GOtherOptions = FUI_GroupBox(TZones, GUE_width - 224, 47, 210, GUE_height
 
 ; Spells gadgets --------------------------------------------------------------------------------------------------------------------
 
-WriteLog(GUELog, "Creating abilities tab")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Created abilities tab", True : Flip()
+updateSplashScreen("Creating abilities tab")
 
 ; Main
 BSpellNew    = FUI_Button(TSpells, 20, 20, 100, 20, "New ability")
@@ -1871,8 +1848,7 @@ UpdateSpellDisplay()
 
 ; Interface gadgets -----------------------------------------------------------------------------------------------------------------
 
-WriteLog(GUELog, "Creating interface tab")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Created interface tab", True : Flip()
+updateSplashScreen("Creating interface tab")
 
 BInterfaceSave = FUI_Button(TInterface, 850, 20, 130, 20, "Save interface layout")
 VInterface = FUI_View(TInterface, 10, 20, 800, 600, 0, 0, 0)
@@ -2082,8 +2058,7 @@ TGubbin6 = FUI_TextBox(G, 110, 160, 150, 20, 40) : FUI_SendMessage(TGubbin6, M_S
 
 ; Init created gadgets --------------------------------------------------------------------------------------------------------------
 
-WriteLog(GUELog, "Initialising gadgets")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Initialising gadgets-Launching", True : Flip()
+updateSplashScreen("Initialising gadgets")
 
 ; Fill zone name lists
 For Ar.Area = Each Area
@@ -2154,8 +2129,7 @@ Global TotalRaces, TotalClasses
 UpdateRaceClassLists()
 
 ; Skysphere
-WriteLog(GUELog, "Creating skyspheres")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), 551, "Creating skysphere", True : Flip()
+updateSplashScreen("Creating skyspheres")
 SkyEN = LoadMesh("Data\Meshes\Sky Sphere.b3d")
 MMV.MeshMinMaxVertices = MeshMinMaxVertices(SkyEN)
 XScale# = 2.0 / (MMV\MaxX# - MMV\MinX#)
@@ -3415,7 +3389,7 @@ Cls
 			; Project tab events ----------------------------------------------------------------------------------------------------
 		;Runs Save All function cysis145
 		Case helpForum
-		ExecFile("http://www.realmcrafterce.com/forum")
+		ExecFile("https://realmcrafter.boards.net/")
 		
 		Case mnuFileSaveAll
 
