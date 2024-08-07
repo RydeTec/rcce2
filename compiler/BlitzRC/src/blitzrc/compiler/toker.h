@@ -46,6 +46,7 @@ public:
 	int next();
 	string text();
 	int lookAhead( int n );
+	void inject( string code );
 
 	static int chars_toked;
 
@@ -63,6 +64,11 @@ private:
 	vector<Toke> tokes;
 	void nextline();
 	int curr_row,curr_toke;
+
+	int process_injected=0;
+	vector<string> line_cache;
+	vector<vector<Toke>> tokes_cache;
+	vector<int> curr_toke_cache;
 };
 
 #endif

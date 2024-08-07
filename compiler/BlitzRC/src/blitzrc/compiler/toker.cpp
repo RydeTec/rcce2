@@ -127,16 +127,19 @@ int Toker::lookAhead( int n ){
 }
 
 void Toker::nextline(){
-	++curr_row;
 	curr_toke=0;
 	tokes.clear();
-	if( in.eof() ){
-		line.resize(1);line[0]=EOF;
-		tokes.push_back( Toke( EOF,0,1 ) );
-		return;
-	}
 
-	getline( in,line ); line+='\n';
+	if (tokes_cache.empty()) {
+		++curr_row;
+		if( in.eof() ){
+			line.resize(1);line[0]=EOF;
+			tokes.push_back( Toke( EOF,0,1 ) );
+			return;
+		}
+		getline( in,line ); line+='\n';
+	}
+	
 	chars_toked+=line.size();
 
 	for( int k=0;k<(int)line.size(); ){
@@ -229,10 +232,40 @@ void Toker::nextline(){
 		}
 		tokes.push_back( Toke( c,from,++k ) );
 	}
-	if( !tokes.size() ) exit(0);
+	if( !tokes.size() ) {
+		cout << "No tokens to parse!" << endl;
+		exit(0);
+	}
 }
 
 int Toker::next(){
-	if( ++curr_toke==tokes.size() ) nextline();
+	if (++curr_toke==tokes.size() || process_injected) {
+		if (!process_injected && !tokes_cache.empty()) {
+			tokes = tokes_cache.back();
+			tokes_cache.pop_back();
+
+			curr_toke = curr_toke_cache.back();
+			curr_toke_cache.pop_back();
+			curr_toke++;
+
+			line = line_cache.back();
+			line_cache.pop_back();
+		} else {
+			if (process_injected) {
+				process_injected--; 
+			} else nextline();
+		}
+	}
 	return curr();
+}
+
+void Toker::inject(string code) {
+	tokes_cache.push_back(tokes);
+	curr_toke_cache.push_back(curr_toke);
+	line_cache.push_back(line);
+
+	line = code;
+	nextline();
+	curr_toke = -1;
+	process_injected++;
 }

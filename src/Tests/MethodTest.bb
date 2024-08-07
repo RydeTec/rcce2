@@ -19,7 +19,6 @@ End Test
 
 ;Function m::func() ; This fails so that we don't overwrite exisiting type functions
 ;    Local test::test = "this"
-;    Assert(True)
 ;End Function
 
 Type ConstructorTest
@@ -38,4 +37,9 @@ End Type
 Test testConstructor()
     Local instance.ConstructorTest = ConstructorTest::create(Null, "value1", "value2", "value3")
     Assert(instance\value1 = "value1") : Assert(instance\value2 = "value2") : Assert(instance\value3 = "value3")
+End Test
+
+Test testNullTypeAccess()
+    Local instance.TestStruct = Null
+    ;instance\testVar = "" ; Fail
 End Test

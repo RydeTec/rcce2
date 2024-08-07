@@ -62,7 +62,7 @@ void Parser::exp( const string &s ){
 }
 
 string Parser::parseIdent(){
-	if( toker->curr()!=IDENT ) exp( "identifier" );
+	if( toker->curr()!=IDENT ) exp( "identifier near: " + toker->text() );
 	string t=toker->text();
 	if (t.find(":") != std::string::npos) ex( "Identifiers cannot include the : character");
 	toker->next();
@@ -357,10 +357,6 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 				std::string ident = testDecl->ident;
 				std::string tag = testDecl->tag;
 
-				ExprSeqNode* exprs(d_new ExprSeqNode());
-				exprs->push_back(d_new StringConstNode("Running test " + ident + "..."));
-				stmts->push_back(d_new ExprStmtNode(d_new CallNode("debuglog", "", exprs)));
-
 				CallNode* call = d_new CallNode(ident, tag, d_new ExprSeqNode());
 				result = d_new ExprStmtNode(call);
 			}
@@ -546,6 +542,7 @@ FuncDeclNode* Parser::parseTestDecl() {
 	if (toker->curr() != '(') exp("'('");
 	if (toker->next() != ')') exp("')'");
 	a_ptr<DeclSeqNode> params(d_new DeclSeqNode()); // No params for Test blocks
+	toker->inject("DebugLog(\"Running test " + ident + "...\")");
 	toker->next();
 	a_ptr<StmtSeqNode> stmts(parseStmtSeq(STMTS_BLOCK_TEST));
 	if (toker->curr() != ENDTEST) exp("'End Test'");
@@ -591,13 +588,17 @@ DeclNode *Parser::parseMethDecl(string &structIdent){
 	string tag=parseTypeTag();
 	if( toker->curr()!='(' ) exp( "'('" );
 	a_ptr<DeclSeqNode> params( d_new DeclSeqNode() );
-	params->push_back(parseVarDecl( DECL_PARAM,false,selfIdent,structIdent ));
+
+	bool processingSelf = true;
+	toker->inject(selfIdent + "." + structIdent + ",");
 	if( toker->next()!=')' ){
 		for(;;){
 			string tempident;string temptag;
 			params->push_back( parseVarDecl( DECL_PARAM,false,tempident,temptag ) );
 			if( toker->curr()!=',' ) break;
 			toker->next();
+			if (toker->curr()==')' && processingSelf) break;
+			processingSelf = false;
 		}
 		if( toker->curr()!=')' ) exp( "')'" );
 	}
