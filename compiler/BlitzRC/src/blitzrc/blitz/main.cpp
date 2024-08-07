@@ -33,7 +33,7 @@ static void showInfo(){
 }
 
 static void showUsage(){
-	cout<<"Usage: blitzcc [-h|-q|+q|-c|-d|-k|+k|-v|-o exefile] [sourcefile.bb]"<<endl;
+	cout<<"Usage: blitzcc [-h|-q|+q|-c|-d|-k|+k|-v|-t|-o exefile|-n icofile] [sourcefile.bb]"<<endl;
 }
 
 static void showHelp(){
@@ -46,7 +46,9 @@ static void showHelp(){
 	cout<<"-k         : dump keywords"<<endl;
 	cout<<"+k         : dump keywords and syntax"<<endl;
 	cout<<"-v		  : version info"<<endl;
+	cout<<"-t         : run test"<<endl;
 	cout<<"-o exefile : generate executable"<<endl;
+	cout<<"-n icofile : set the executable icon"<<endl;
 
 }
 
@@ -144,7 +146,7 @@ static void demoError(){
 
 int _cdecl main( int argc,char *argv[] ){
 
-	string in_file,out_file,args,cwd;
+	string in_file,out_file,ico_file,args,cwd;
 	
 	bool debug=false,quiet=false,veryquiet=false,compileonly=false,test=false;
 	bool dumpkeys=false,dumphelp=false,showhelp=false,dumpasm=false;
@@ -180,6 +182,9 @@ int _cdecl main( int argc,char *argv[] ){
 		}else if( t=="-o" ){
 			if( out_file.size() || k==argc-1 ) usageErr();
 			out_file=argv[++k];
+		}else if( t=="-n" ){
+			if( ico_file.size() || k==argc-1 ) usageErr();
+			ico_file=argv[++k];
 		}else{
 			if( in_file.size() || t[0]=='-' || t[0]=='+' ) usageErr();
 			in_file=argv[k];
@@ -284,7 +289,7 @@ int _cdecl main( int argc,char *argv[] ){
 
 	if( out_file.size() ){
 		if( !veryquiet ) cout<<"Creating executable \""<<out_file<<"\"..."<<endl;
-		if( !module->createExe( out_file.c_str(),(home+"\\runtime.dll").c_str() ) ){
+		if( !module->createExe( out_file.c_str(),(home+"\\runtime.dll").c_str(), ico_file.c_str() ) ){
 			err( "Error creating executable" );
 		}
 	}else if( !compileonly ){

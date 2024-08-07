@@ -10,7 +10,7 @@ public:
 	~BBModule();
 
 	void *link( Module *libs );
-	bool createExe( const char *exe_file,const char *dll_file );
+	bool createExe( const char *exe_file,const char *dll_file, const char *ico_file );
 
 	int getPC();
 
@@ -149,7 +149,34 @@ Linker *_cdecl linkerGetLinker(){
 	static Linker linker;return &linker;
 }
 
-bool BBModule::createExe( const char *exe_file,const char *dll_file ){
+char* readIcoFile(const std::string& filePath, std::size_t& fileSize) {
+    // Open the file in binary mode
+    std::ifstream file(filePath, std::ios::binary | std::ios::ate);
+
+    if (!file.is_open()) {
+        std::cerr << "Failed to open file: " << filePath << std::endl;
+        return nullptr;
+    }
+
+    // Get the file size
+    fileSize = file.tellg();
+    file.seekg(0, std::ios::beg);
+
+    // Allocate memory to hold the file data
+    char* buffer = new char[fileSize];
+
+    // Read the file data into the buffer
+    if (!file.read(buffer, fileSize)) {
+        std::cerr << "Failed to read file: " << filePath << std::endl;
+        delete[] buffer;
+        return nullptr;
+    }
+
+    file.close();
+    return buffer;
+}
+
+bool BBModule::createExe( const char *exe_file,const char *dll_file, const char *ico_file ){
 
 #ifdef DEMO
 	return false;
@@ -206,6 +233,16 @@ bool BBModule::createExe( const char *exe_file,const char *dll_file ){
 	}
 
 	replaceRsrc( 10,1111,1033,buf.data(),buf.size() );
+
+	if (ico_file != nullptr && ico_file[0] != '\0') {
+		std::size_t fileSize = 0;
+		char* icoData = readIcoFile(ico_file, fileSize);
+
+		if (icoData) {
+			replaceRsrc( 3,107,1033,icoData,fileSize );
+			delete[] icoData;
+		}
+	}
 
 	closeImage();
 

@@ -79,9 +79,9 @@ if %RCCE%==1 (
 
     set BLITZPATH=%ROOTDIR%\compiler\BlitzRC
 
-    "!BLITZPATH!\bin\blitzcc.exe" -o "%ROOTDIR%\Project Manager.exe" "%ROOTDIR%\src\Project Manager.bb"
-    "!BLITZPATH!\bin\blitzcc.exe" -o "%ROOTDIR%\bin\GUE.exe" "%ROOTDIR%\src\GUE.bb"
-    "!BLITZPATH!\bin\blitzcc.exe" -o "%ROOTDIR%\bin\Client.exe" "%ROOTDIR%\src\Client.bb"
+    "!BLITZPATH!\bin\blitzcc.exe" -o "%ROOTDIR%\Project Manager.exe" -n "%ROOTDIR%\res\Icon.ico" "%ROOTDIR%\src\Project Manager.bb"
+    "!BLITZPATH!\bin\blitzcc.exe" -o "%ROOTDIR%\bin\GUE.exe" -n "%ROOTDIR%\res\Icon.ico" "%ROOTDIR%\src\GUE.bb"
+    "!BLITZPATH!\bin\blitzcc.exe" -o "%ROOTDIR%\bin\Client.exe" -n "%ROOTDIR%\res\Icon.ico" "%ROOTDIR%\src\Client.bb"
 )
 
 if %RCCETOOLS%==1 (
@@ -96,7 +96,7 @@ if %RCCETOOLS%==1 (
     set "BLITZPATH=%ROOTDIR%\compiler\BlitzRC"
 
     for %%f in (*.bb) do (
-        "!BLITZPATH!\bin\blitzcc.exe" -o "%ROOTDIR%\bin\tools\%%~nf.exe" "%ROOTDIR%\src\tools\%%~nf.bb"
+        "!BLITZPATH!\bin\blitzcc.exe" -o "%ROOTDIR%\bin\tools\%%~nf.exe" -n "%ROOTDIR%\res\Icon.ico" "%ROOTDIR%\src\tools\%%~nf.bb"
     )
 )
 

@@ -7,7 +7,7 @@ public:
 	virtual ~Module(){}
 
 	virtual void *link( Module *libs )=0;
-	virtual bool createExe( const char *exe_file,const char *dll_file )=0;
+	virtual bool createExe( const char *exe_file,const char *dll_file, const char *ico_file )=0;
 
 	virtual int getPC()=0;
 
