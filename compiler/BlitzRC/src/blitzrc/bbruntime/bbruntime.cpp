@@ -292,7 +292,7 @@ const char *bbruntime_run( gxRuntime *rt,void (*pc)(),bool dbg, bool tst ){
 		if( !bbruntime_create() ) return "Unable to start program";
 		if( !gx_runtime->idle() ) RTEX( 0 );
 		pc();
-		gx_runtime->debugInfo( "Program has ended" );
+		if (debug) gx_runtime->debugInfo( "Program has ended" );
 	}catch( bbEx x ){
 		t=x.err;
 	}catch (exception e){

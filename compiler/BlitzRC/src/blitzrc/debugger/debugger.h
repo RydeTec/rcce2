@@ -4,6 +4,8 @@
 
 class Debugger{
 public:
+	bool test;
+
 	virtual void debugRun()=0;
 	virtual void debugStop()=0;
 	virtual void debugStmt( int srcpos,const char *file )=0;

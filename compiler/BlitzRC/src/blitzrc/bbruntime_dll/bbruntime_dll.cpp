@@ -23,8 +23,15 @@ public:
 	virtual void debugStmt( int srcpos,const char *file ){}
 	virtual void debugEnter( void *frame,void *env,const char *func ){}
 	virtual void debugLeave(){}
-	virtual void debugLog( const char *msg ){}
+	virtual void debugLog( const char *msg ){
+		if (test) cout << msg << endl;
+	}
 	virtual void debugMsg( const char *e,bool serious ){
+		if (test) {
+			if (serious) cout << "Error: ";
+			cout << e << endl;
+			if (serious) exit(1);
+		}
 		if( serious ) MessageBox( 0,e,"Error!",MB_OK|MB_TOPMOST|MB_SETFOREGROUND );
 	}
 	virtual void debugSys( void *msg ){}
@@ -99,6 +106,8 @@ void Runtime::execute( void (*pc)(),const char *args,Debugger *dbg, bool test ){
 	static DummyDebugger dummydebug;
 
 	if( !dbg ) dbg=&dummydebug;
+
+	dbg->test = test;
 
 	trackmem( true );
 
