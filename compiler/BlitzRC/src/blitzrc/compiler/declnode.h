@@ -56,9 +56,10 @@ struct FuncDeclNode : public DeclNode{
 
 struct StructDeclNode : public DeclNode{
 	string ident;
+	string tag;
 	DeclSeqNode *fields;
 	StructType *sem_type;
-	StructDeclNode( const string &i,DeclSeqNode *f ):ident(i),fields(f){}
+	StructDeclNode( const string &i,DeclSeqNode *f, const string &t ):ident(i),fields(f),tag(t){}
 	~StructDeclNode(){ delete fields; }
 	void proto( DeclSeq *d,Environ *e );
 	void semant( Environ *e );

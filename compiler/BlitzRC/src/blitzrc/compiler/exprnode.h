@@ -12,7 +12,7 @@ struct ExprNode : public Node{
 	ExprNode():sem_type(0){}
 	ExprNode( Type *t ):sem_type( t ){}
 
-	ExprNode *castTo( Type *ty,Environ *e );
+	ExprNode *castTo( Type *ty,Environ *e, bool up=false );
 	ExprNode *semant( Environ *e,Type *ty );
 
 	virtual ExprNode *semant( Environ *e )=0;
@@ -205,5 +205,14 @@ struct AssertNode : public ExprNode {
 	~AssertNode() { delete expr; }
 	ExprNode* semant(Environ* e);
 	TNode* translate(Codegen* g);
+};
+
+struct RecastNode : public ExprNode{
+	ExprNode *expr;
+	string type_ident;
+	RecastNode( ExprNode *e,const string &t ):expr(e),type_ident(t){}
+	~RecastNode(){ delete expr; }
+	ExprNode *semant( Environ *e );
+	TNode *translate( Codegen *g );
 };
 #endif

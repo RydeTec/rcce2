@@ -157,7 +157,7 @@ void FuncDeclNode::translate( Codegen *g ){
 // Type Declaration //
 //////////////////////
 void StructDeclNode::proto( DeclSeq *d,Environ *e ){
-	sem_type=d_new StructType( ident,d_new DeclSeq() );
+	sem_type=d_new StructType( ident,d_new DeclSeq(),tag );
 	if( !d->insertDecl( ident,sem_type,DECL_STRUCT ) ){
 		delete sem_type;ex( "Duplicate identifier" );
 	}

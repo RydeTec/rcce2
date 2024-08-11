@@ -557,8 +557,23 @@ FuncDeclNode* Parser::parseTestDecl() {
 DeclNode *Parser::parseStructDecl(DeclSeqNode* &funcs){
 	int pos=toker->pos();
 	string ident=parseIdent();
+	string tag=parseTypeTag();
 	while( toker->curr()=='\n' ) toker->next();
 	a_ptr<DeclSeqNode> fields( d_new DeclSeqNode() );
+
+	// Inherited Fields
+	for (int i=0;i<structs->size();++i) {
+		StructDeclNode* s = dynamic_cast<StructDeclNode*>(structs->decls.at(i));
+		if (s->ident == tag) {
+			for (int j=0;j<s->fields->size();++j) {
+				VarDeclNode* d = dynamic_cast<VarDeclNode*>(s->fields->decls.at(j));
+				fields->push_back(parseVarDecl(DECL_FIELD,false,d->ident,d->tag));
+			}
+			break;
+		}
+	}
+
+	// Declared Fields
 	while( toker->curr()==FIELD ) {
 		do{
 			string tempident;string temptag;
@@ -575,7 +590,7 @@ DeclNode *Parser::parseStructDecl(DeclSeqNode* &funcs){
 	}
 	if (toker->curr()!=ENDTYPE) exp( "'Field' or 'End Type'" );
 	toker->next();
-	DeclNode *d=d_new StructDeclNode( ident,fields.release() );
+	DeclNode *d=d_new StructDeclNode( ident,fields.release(),tag );
 	d->pos=pos;d->file=incfile;
 	return d;
 }
@@ -789,6 +804,12 @@ ExprNode *Parser::parseUniExpr( bool opt ){
 		toker->next();
 		result = parseUniExpr(false);
 		result = d_new AssertNode(result);
+		break;
+	case RECAST:
+		if( toker->next()=='.' ) toker->next();
+		t=parseIdent();
+		result=parseUniExpr( false );
+		result=d_new RecastNode( result,t );
 		break;
 	case '+':case '-':case '~':case ABS:case SGN:
 		toker->next();

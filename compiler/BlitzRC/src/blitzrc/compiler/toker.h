@@ -26,7 +26,7 @@ enum{
 	INCLUDE,TEST, ENDTEST,
 
 	BBNEW,BBDELETE,FIRST,LAST,INSERT,BEFORE,AFTER,
-	OBJECT,BBHANDLE,ASSERT,
+	OBJECT,BBHANDLE,ASSERT,RECAST,
 	AND,OR,XOR,NOT,SHL,SHR,SAR,
 
 	LE,GE,NE,
@@ -44,9 +44,14 @@ public:
 	int pos();
 	int curr();
 	int next();
+	int at(int toke);
 	string text();
+	string textAt(int toke);
+	int current_toke();
 	int lookAhead( int n );
 	void inject( string code );
+	void rollback();
+	string getLine();
 
 	static int chars_toked;
 

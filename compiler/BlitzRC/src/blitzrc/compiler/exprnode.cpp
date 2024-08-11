@@ -8,10 +8,41 @@
 //////////////////////////////////
 // Cast an expression to a type //
 //////////////////////////////////
-ExprNode *ExprNode::castTo( Type *ty,Environ *e ){
+ExprNode *ExprNode::castTo( Type *ty,Environ *e, bool up ){
 	ty->strict = e->strict;
-	if( !sem_type->canCastTo( ty )){
-		if (!sem_type->canPointTo(ty)) {
+	bool can = sem_type->canCastTo( ty ) || (up && ty->canCastTo(sem_type));
+	if( !can ){
+		if (sem_type->structType() && ty->structType()) {
+			if (up ) {
+				// UNSAFE - Casting up inheritance
+				StructType* nextType = ty->structType();
+				while (!can && !nextType->tag.empty()) {
+					Type* type = e->findType(nextType->tag);
+			
+					if (type == nullptr || type == 0 || !type->structType()) {
+						break;
+					}
+
+					nextType = type->structType();
+					can = nextType->canCastTo(sem_type);
+				}
+			} else {
+				// Casting down inheritance
+				StructType* nextType = sem_type->structType();
+				while (!can && !nextType->tag.empty()) {
+					Type* type = e->findType(nextType->tag);
+			
+					if (type == nullptr || type == 0 || !type->structType()) {
+						break;
+					}
+
+					nextType = type->structType();
+					can = nextType->canCastTo(ty);
+				}
+			}
+		}
+
+		if (!can && !sem_type->canPointTo(ty)) {
 			ex("Illegal type conversion (" + sem_type->name() + " -> " + ty->name() + ")");
 		}
 	}
@@ -688,4 +719,24 @@ ExprNode* AssertNode::semant(Environ* e) {
 TNode* AssertNode::translate(Codegen* g) {
 	TNode* t = expr->translate(g);
 	return call("__bbAssertTrue", t);
+}
+
+
+/////////////////
+//   Recast    //
+/////////////////
+ExprNode *RecastNode::semant( Environ *e ){
+	expr=expr->semant( e );
+	if (!expr->sem_type->structType()) ex( "cannot cast from " + expr->sem_type->name() );
+
+	sem_type=e->findType( type_ident );
+	if( !sem_type ) ex( "custom type name not found" );
+	if( !sem_type->structType() ) ex( "cannot cast to " + sem_type->name() );
+	expr=expr->castTo( sem_type,e,true );
+	return this;
+}
+
+TNode *RecastNode::translate( Codegen *g ){
+	TNode *t=expr->translate( g );
+	return t;
 }

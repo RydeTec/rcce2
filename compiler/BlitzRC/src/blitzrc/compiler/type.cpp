@@ -42,7 +42,7 @@ static struct s_type : public Type{
 }s;
 
 bool StructType::canCastTo( Type *t ){
-	return t==this || t==Type::null_type || (this==Type::null_type && (t->structType() || t->blitzType()));
+	return t==this || t==Type::null_type || (this==Type::null_type && (t->structType() || t->blitzType())) || (t->structType() && t->structType()->ident == tag) || t->isPointer();
 }
 
 bool BlitzType::canCastTo( Type *t ){
@@ -50,7 +50,7 @@ bool BlitzType::canCastTo( Type *t ){
 }
 
 bool BlitzType::canPointTo(Type* t) {
-	return ((t == Type::int_type && this->isPointer()) || (t == Type::string_type && this->isPointer()) || (t->blitzType() && this->isPointer()) || (t->isPointer()));
+	return ((t == Type::int_type && this->isPointer()) || (t == Type::string_type && this->isPointer()) || (t->blitzType() && this->isPointer()) || (t->isPointer()) || (t->structType() && this->isPointer()));
 }
 
 bool VectorType::canCastTo( Type *t ){

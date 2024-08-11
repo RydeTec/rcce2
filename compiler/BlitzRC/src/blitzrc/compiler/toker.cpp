@@ -77,6 +77,7 @@ static void makeKeywords(){
 	alphaTokes["Object"]=OBJECT;
 	alphaTokes["Handle"]=BBHANDLE;
 	alphaTokes["Assert"] = ASSERT;
+	alphaTokes["Recast"]=RECAST;
 
 	alphaTokes["And"]=AND;
 	alphaTokes["Or"]=OR;
@@ -114,12 +115,29 @@ int Toker::pos(){
 }
 
 int Toker::curr(){
-	return tokes[curr_toke].n;
+	return at(curr_toke);
+}
+
+int Toker::at(int toke){
+	return tokes[toke].n;
 }
 
 string Toker::text(){
-	int from=tokes[curr_toke].from,to=tokes[curr_toke].to;
+	return textAt(curr_toke);
+}
+
+string Toker::textAt(int toke) {
+	if (toke >= tokes.size()) return "";
+	int from=tokes[toke].from,to=tokes[toke].to;
 	return line.substr( from,to-from );
+}
+
+string Toker::getLine() {
+	return line;
+}
+
+int Toker::current_toke() {
+	return curr_toke;
 }
 
 int Toker::lookAhead( int n ){
@@ -268,4 +286,8 @@ void Toker::inject(string code) {
 	nextline();
 	curr_toke = -1;
 	process_injected++;
+}
+
+void Toker::rollback() {
+	curr_toke--;
 }

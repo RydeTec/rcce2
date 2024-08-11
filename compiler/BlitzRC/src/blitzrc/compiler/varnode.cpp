@@ -105,6 +105,19 @@ void FieldVarNode::semant( Environ *e ){
 	StructType *s=expr->sem_type->structType();
 	if( !s ) ex( "Variable must be a Type" );
 	sem_field=s->fields->findDecl( ident );
+
+	// If field is not declared, check via inheritance
+	while (sem_field == 0 && !s->tag.empty()) {
+		Type *t=e->findType(s->tag);
+		
+		if (t == nullptr || t == 0 || !t->structType()) {
+			ex( "Inherited type not found" );
+		}
+	
+		s = t->structType();
+		sem_field=s->fields->findDecl(ident);
+	}
+	
 	if( !sem_field ) ex( "Type field not found" );
 	sem_type=sem_field->type;
 }

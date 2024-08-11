@@ -59,9 +59,10 @@ struct ArrayType : public Type{
 
 struct StructType : public Type{
 	string ident;
+	string tag;
 	DeclSeq *fields;
 	StructType( const string &i ):ident(i),fields(0){}
-	StructType( const string &i,DeclSeq *f ):ident(i),fields( f ){}
+	StructType( const string &i,DeclSeq *f, const string &t ):ident(i),fields( f ),tag(t){}
 	~StructType(){ delete fields; }
 	StructType *structType(){ return this; }
 	virtual bool canCastTo( Type *t );
