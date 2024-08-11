@@ -205,7 +205,6 @@ void StructDeclNode::translate( Codegen *g ){
 		else if( VectorType *v=type->vectorType() ) t=v->label;
 		g->p_data( t );
 	}
-
 }
 
 //////////////////////

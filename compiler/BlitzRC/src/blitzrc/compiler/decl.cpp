@@ -32,4 +32,3 @@ Decl *DeclSeq::insertDecl( const string &s,Type *t,int kind,ConstType *d ){
 	decls.push_back( d_new Decl( s,t,kind,d ) );
 	return decls.back();
 }
-
