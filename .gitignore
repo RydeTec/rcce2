@@ -86,3 +86,5 @@ data/Server Data/Environment.dat
 Game/
 
 Server/
+
+.vscode/c_cpp_properties.json
