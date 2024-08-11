@@ -6,6 +6,12 @@ set BLITZPATH=%ROOTDIR%\compiler\%2
 set SRCPATH=%3
 set SRCFILE=%4
 
+IF NOT EXIST "%ROOTDIR%\compiler\BlitzForge\bin\blitzcc.exe" (
+    echo "%ROOTDIR%\compiler\BlitzForge\bin\blitzcc.exe not found!"
+    echo "Compile source or download binaries from https://github.com/RydeTec/blitz-forge/releases"
+    exit 1;
+)
+
 cd %SRCPATH%
 
 :: Shift the arguments so %1 now refers to what %2 was originally, etc.

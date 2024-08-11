@@ -3,9 +3,15 @@ setlocal
 
 set ROOTDIR=%CD%
 
+IF NOT EXIST "%ROOTDIR%\compiler\BlitzForge\bin\blitzcc.exe" (
+    echo "%ROOTDIR%\compiler\BlitzForge\bin\blitzcc.exe not found!"
+    echo "Compile source or download binaries from https://github.com/RydeTec/blitz-forge/releases"
+    exit 1;
+)
+
 cd %ROOTDIR%\src\tests
 
-set BLITZPATH=%ROOTDIR%\compiler\BlitzRC
+set BLITZPATH=%ROOTDIR%\compiler\BlitzForge
 set FAILED=0
 
 for /R %%f in (*.bb) do (

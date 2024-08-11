@@ -42,7 +42,7 @@ goto parse_args
 echo RCCE2 Compiler Script
 echo.
 echo -t ^| --skip-tools     Skip compilation of the RCCE2 tool applications in \src\tools
-echo -b ^| --blitz          Compile the BlitzRC toolchain
+echo -b ^| --blitz          Compile the BlitzForge toolchain
 echo -p ^| --plus           Compile the BlitzRCPlus toolchain
 echo -e ^| --skip-engine    Skip compilation of the RCCE2 engine itself in \src
 endlocal
@@ -51,24 +51,31 @@ exit /b
 :end_args
 
 if %TOOLCHAIN%==1 (
-    echo Compiling BlitzRC Toolchain...
-    call .\scripts\msbuild_init.bat
+    echo Compiling BlitzForge Toolchain...
+    call %ROOTDIR%\scripts\submodules_init.bat
+    call %ROOTDIR%\compiler\BlitzForge\scripts\msbuild_init.bat
 
     cd %ROOTDIR%
 
-    call .\scripts\msbuild_blitzrc.bat
+    call %ROOTDIR%\compiler\BlitzForge\scripts\msbuild_blitzforge.bat
 )
 
 if %PLUS%==1 (
     echo Compiling BlitzRCPlus Toolchain...
-    call .\scripts\msbuild_init.bat
+    call %ROOTDIR%\scripts\msbuild_init.bat
 
     cd %ROOTDIR%
 
-    call .\scripts\msbuild_blitzrcplus.bat
+    call %ROOTDIR%\scripts\msbuild_blitzrcplus.bat
 )
 
 if %RCCE%==1 (
+    IF NOT EXIST "%ROOTDIR%\compiler\BlitzForge\bin\blitzcc.exe" (
+        echo "%ROOTDIR%\compiler\BlitzForge\bin\blitzcc.exe not found!"
+        echo "Compile source or download binaries from https://github.com/RydeTec/blitz-forge/releases"
+        exit 1;
+    )
+
     echo Compiling RealmCrafter CE Engine...
 
     cd %ROOTDIR%\src
@@ -77,7 +84,7 @@ if %RCCE%==1 (
 
     "!BLITZPATH!\bin\blitzcc.exe" -o "%ROOTDIR%\bin\Server.exe" "%ROOTDIR%\src\Server.bb"
 
-    set BLITZPATH=%ROOTDIR%\compiler\BlitzRC
+    set BLITZPATH=%ROOTDIR%\compiler\BlitzForge
 
     "!BLITZPATH!\bin\blitzcc.exe" -o "%ROOTDIR%\Project Manager.exe" -n "%ROOTDIR%\res\Icon.ico" "%ROOTDIR%\src\Project Manager.bb"
     "!BLITZPATH!\bin\blitzcc.exe" -o "%ROOTDIR%\bin\GUE.exe" -n "%ROOTDIR%\res\Icon.ico" "%ROOTDIR%\src\GUE.bb"
@@ -85,6 +92,12 @@ if %RCCE%==1 (
 )
 
 if %RCCETOOLS%==1 (
+    IF NOT EXIST "%ROOTDIR%\compiler\BlitzForge\bin\blitzcc.exe" (
+        echo "%ROOTDIR%\compiler\BlitzForge\bin\blitzcc.exe not found!"
+        echo "Compile source or download binaries from https://github.com/RydeTec/blitz-forge/releases"
+        exit 1;
+    )
+    
     echo Compiling RealmCrafter CE Tools...
 
     if not exist "%ROOTDIR%\bin\tools" (
@@ -93,7 +106,7 @@ if %RCCETOOLS%==1 (
 
     cd %ROOTDIR%\src\tools
 
-    set "BLITZPATH=%ROOTDIR%\compiler\BlitzRC"
+    set "BLITZPATH=%ROOTDIR%\compiler\BlitzForge"
 
     for %%f in (*.bb) do (
         "!BLITZPATH!\bin\blitzcc.exe" -o "%ROOTDIR%\bin\tools\%%~nf.exe" -n "%ROOTDIR%\res\Icon.ico" "%ROOTDIR%\src\tools\%%~nf.bb"
