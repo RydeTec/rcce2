@@ -122,6 +122,15 @@ int Toker::at(int toke){
 	return tokes[toke].n;
 }
 
+int Toker::findNext( int toke, int offset ) {
+	for (int i=offset; i<tokes.size()-curr_toke; ++i) {
+		if (lookAhead(i) == toke) {
+			return i+curr_toke;
+		}
+	}
+	return 0;
+}
+
 string Toker::text(){
 	return textAt(curr_toke);
 }

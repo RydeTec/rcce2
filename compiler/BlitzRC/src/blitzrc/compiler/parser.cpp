@@ -58,7 +58,7 @@ void Parser::exp( const string &s ){
 	case CASE:ex( "'Case' without 'Select'" );
 	case ENDSELECT:ex( "'End Select' without 'Select'" );
 	}
-	ex( "Expecting "+s );
+	ex( "Expecting "+s + " Got: " + toker->text());
 }
 
 string Parser::parseIdent(){
@@ -81,7 +81,6 @@ StmtSeqNode *Parser::parseStmtSeq( int scope ){
 }
 
 void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
-
 	for(;;){
 		while( toker->curr()==':' || (scope!=STMTS_LINE && toker->curr()=='\n') ) {
 			toker->next();
@@ -95,6 +94,45 @@ void Parser::parseStmtSeq( StmtSeqNode *stmts,int scope ){
 			ex( "Demo version source limit exceeded" );
 		}
 #endif
+
+		// If Asserts, log the asserts before calculating
+		int nextAssert = toker->findNext(ASSERT);
+		if ((nextAssert > 0 || toker->curr() == ASSERT) && assertText == "") {
+			nextAssert++;
+			while (nextAssert > 0) {
+				if (assertText != "") assertText += "AND ";
+
+				int tokeCount = nextAssert;
+				while (!isTerm(toker->at(tokeCount))) {
+					if (toker->at(tokeCount) == ASSERT || toker->at(tokeCount) == '(') {
+						tokeCount++;
+						continue;
+					}
+					if (toker->at(tokeCount) == ')') break;
+					assertText += toker->textAt(tokeCount) + " ";
+					tokeCount++;
+				}
+				int nextTerm = toker->findNext(':', tokeCount);
+				nextAssert = toker->findNext(ASSERT, tokeCount);
+				if (nextTerm > 0 && nextTerm < nextAssert) break;
+			}
+
+			if (assertText != "") {
+				assertText = replaceAll(assertText, '"', "'");
+				assertText = replaceAll(assertText, '(', "");
+				assertText = replaceAll(assertText, ')', "");
+				assertText = trim(assertText);
+				
+				string fullText = "DebugLog(\"Assert: " + assertText + "\"):";
+
+				toker->rollback();
+				toker->inject(fullText);
+				toker->next();
+			}
+		} else {
+			assertText = "";
+		}
+
 		switch( toker->curr() ){
 		case INCLUDE:
 			{
@@ -542,7 +580,7 @@ FuncDeclNode* Parser::parseTestDecl() {
 	if (toker->curr() != '(') exp("'('");
 	if (toker->next() != ')') exp("')'");
 	a_ptr<DeclSeqNode> params(d_new DeclSeqNode()); // No params for Test blocks
-	toker->inject("DebugLog(\"Running test " + ident + "...\")");
+	toker->inject("DebugLog(\"\"):DebugLog(\"Running test " + ident + "...\")");
 	toker->next();
 	a_ptr<StmtSeqNode> stmts(parseStmtSeq(STMTS_BLOCK_TEST));
 	if (toker->curr() != ENDTEST) exp("'End Test'");
@@ -802,6 +840,7 @@ ExprNode *Parser::parseUniExpr( bool opt ){
 		break;
 	case ASSERT:
 		toker->next();
+		if (toker->curr() != '(') exp("'('");
 		result = parseUniExpr(false);
 		result = d_new AssertNode(result);
 		break;

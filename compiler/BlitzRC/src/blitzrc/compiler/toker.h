@@ -45,6 +45,7 @@ public:
 	int curr();
 	int next();
 	int at(int toke);
+	int findNext( int toke, int offset=0 );
 	string text();
 	string textAt(int toke);
 	int current_toke();

@@ -3,10 +3,8 @@
 
 Test test1()
     ;Assert(0) ; Fail
-    DebugLog "Assert: " + Assert(True)
-    assert2 = Assert("this" = "this")
-    DebugLog "Assert2: " + assert2
-    ;assert3 = Assert("this" = "that") ; Fail
-    ;DebugLog assert3
-    DebugLog "Test 1 ran"
+    ;Assert(False) ; Fail
+    DebugLog "You can inline asserts " + Assert(True) + " and false asserts " + Assert(NOT False)
+    assert2 = Assert("this" = "this") ; Assert returns True if pass and False if fail.
+    assert3 = Assert(NOT "this" = "that")
 End Test

@@ -64,6 +64,8 @@ private:
 	ExprNode *parseExpr6( bool opt );	//^
 	ExprNode *parseUniExpr( bool opt );	//+,-,Not,~
 	ExprNode *parsePrimary( bool opt );
+
+	string assertText="";
 };
 
 #endif

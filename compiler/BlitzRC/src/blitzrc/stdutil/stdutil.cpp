@@ -324,6 +324,29 @@ string filenamefile( const string &t ){
 	return string( p );
 }
 
+std::string ltrim(const std::string &s) {
+    size_t start = s.find_first_not_of(" \t\n\r\f\v");
+    return (start == std::string::npos) ? "" : s.substr(start);
+}
+
+std::string rtrim(const std::string &s) {
+    size_t end = s.find_last_not_of(" \t\n\r\f\v");
+    return (end == std::string::npos) ? "" : s.substr(0, end + 1);
+}
+
+std::string trim(const std::string &s) {
+    return rtrim(ltrim(s));
+}
+
+std::string replaceAll(std::string &s, char f, std::string r) {
+	size_t apos = s.find(f);
+	while (apos != std::string::npos) {
+		s.replace(apos, 1, r);
+		apos = s.find(f, apos + r.length());
+	}
+	return s;
+}
+
 const int MIN_SIZE=256;
 
 qstreambuf::qstreambuf(){

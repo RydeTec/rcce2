@@ -40,6 +40,10 @@ std::string toupper( const std::string &s );
 std::string fullfilename( const std::string &t );
 std::string filenamepath( const std::string &t );
 std::string filenamefile( const std::string &t );
+std::string ltrim(const std::string &s);
+std::string rtrim(const std::string &s);
+std::string trim(const std::string &s);
+std::string replaceAll(std::string &s, char f, std::string r);
 
 //lazy version of auto_ptr
 template<class T>
