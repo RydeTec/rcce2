@@ -109,7 +109,7 @@ if %RCCETOOLS%==1 (
     set "BLITZPATH=%ROOTDIR%\compiler\BlitzForge"
 
     for %%f in (*.bb) do (
-        "!BLITZPATH!\bin\blitzcc.exe" -o "%ROOTDIR%\bin\tools\%%~nf.exe" -n "%ROOTDIR%\res\Icon.ico" "%ROOTDIR%\src\tools\%%~nf.bb"
+        "!BLITZPATH!\bin\blitzcc.exe" -o "%ROOTDIR%\bin\tools\%%~nf.exe" -n "%ROOTDIR%\res\Icon.ico" -w "%ROOTDIR%\src" "%ROOTDIR%\src\tools\%%~nf.bb"
     )
 )
 

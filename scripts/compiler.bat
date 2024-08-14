@@ -33,7 +33,7 @@ goto loop
 :endloop
 
 :: Now ARGS contains all the arguments except for the first one
-"%BLITZPATH%\bin\blitzcc.exe" %ARGS% %SRCFILE%
+"%BLITZPATH%\bin\blitzcc.exe" %ARGS% -w "%ROOTDIR%\src" %SRCFILE%
 
 cd %ROOTDIR%
 
