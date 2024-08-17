@@ -5,8 +5,8 @@
         "id": "compilerVersion",
         "type": "pickString",
         "description": "Select Compiler",
-        "options": ["BlitzRC", "BlitzPlus"],
-        "default": "BlitzRC"
+        "options": ["BlitzForge", "BlitzPlus"],
+        "default": "BlitzForge"
       }
     ],
     "tasks": [
