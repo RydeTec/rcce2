@@ -1,44 +1,269 @@
 Strict
 
-AppTitle "RealmCrafter: Community Edition"
-
 ;Include Modules
+Include "Modules\Framework\RCCEApp.bb"
 Include "Modules\F-UI.bb"
 Include "Modules\Project Manager\Variables.bb"
 Include "Modules\Project Manager\Types.bb"
 Include "Modules\Project Manager\Functions.bb"
+Include "Modules\Helpers\List\List.bb"
+Include "Modules\IO\Image.bb"
+Include "Modules\IO\File.bb"
+Include "Modules\Graphics\UI\Components\Component.bb"
+Include "Modules\Graphics\UI\Components\ImageComponent.bb"
+Include "Modules\Graphics\UI\Components\TextComponent.bb"
+Include "Modules\Graphics\UI\Components\MenuItemComponent.bb"
+Include "Modules\Graphics\RCCEGraphics.bb"
+Include "Modules\Framework\Project\Project.bb"
 
-Global GUE_width  = 560
-Global GUE_height = 310
+Type ProjectManager.RCCEApp
+	Field window%
+	Field assetList.List
+	Field componentList.List
+	Field splashComponent.ImageComponent
+	Field gfx.RCCEGraphics
+	Field prj.Project
+	Field recentProjectFile.File
+	Field recentProjectList.List
 
-Global Version$   = "2.0.0"
+	; Need to be able to combine all components into a single list
+	Field menuItemList.List
 
-Global RootDir$ = ".\"
-Global LogMode = 1; (0 = standard logging, 1 = debug mode)
+	Method create.ProjectManager()
+		self = Recast.ProjectManager(RCCEApp::create(self, "RealmCrafter: Community Edition", ".\"))
 
-Global GameDir$ = ""
-Global GameName$ = ""
-Global UpdateGame$ = ""
-Global UpdateMusic = False
+		return self
+	End Method
 
-If FileType(RootDir$ + "res") <> 2
-	RootDir$ = "..\"
-End If
+	Method init()
+		If FileType(self\rootDir + "res") <> 2
+			self\rootDir = "..\"
+		End If
 
-ChangeDir RootDir$
-RootDir$ = CurrentDir()
-GameDir$ = RootDir$
+		RCCEApp::init(self, 560, 310)
 
-FUI_Initialise(GUE_width, GUE_height, 0, 2, False, True, "RealmCrafter: Community Edition", Version$)
-SetBuffer(BackBuffer())
+		self\gfx = new RCCEGraphics(self\width, self\height, 0, 2)
+
+		RCCEGraphics::init(self\gfx)
+
+		ProjectManager::showSplash(self)
+
+		ProjectManager::loadRecentProjects(self)
+		ProjectManager::loadProject(self)
+
+		FUI_Initialise(self\width, self\height, 0, 2, False, True, self\title, RCCEApp::version(self))
+		
+		RCCEGraphics::resetBuffer(self\gfx)
+
+		self\window = FUI_Window(0, 0, self\width, self\height, "", "", 0, 0)
+
+		
+
+		ProjectManager::loadAssets(self)
+		ProjectManager::loadComponents(self)
+	End Method
+
+	Method showSplash()
+		if (self\splashComponent = Null)
+			Local img.Image = new Image(self\rootDir + "res\Logo_Splash.bmp")
+
+			self\splashComponent = new ImageComponent(img)
+		end if
+
+		ImageComponent::resize(self\splashComponent, self\width, self\height)
+		ImageComponent::place(self\splashComponent, 0, 0)
+		ImageComponent::draw(self\splashComponent)
+
+		Local loadingText.TextComponent = new TextComponent("Loading default project", True)
+		TextComponent::place(loadingText, (self\splashComponent\scale\x / 2), 200)
+		TextComponent::setColor(loadingText, 255,255,255)
+		TextComponent::draw(loadingText)
+
+		RCCEGraphics::push(self\gfx)
+
+		Image::unload(self\splashComponent\img)
+	End Method
+
+	Method loadAssets()
+		self\assetList = new List()
+
+		List::push(self\assetList, new Image(self\rootDir + "res\RCCE Banner.jpg"))
+		List::push(self\assetList, new Image(self\rootDir + "res\Gajatix.jpg"))
+	End Method
+
+	Method getImage.BBImage(index%)
+		img.Image = List::get(self\assetList, index)
+		return img\img
+	End Method
+
+	Method loadComponents()
+		ProjectManager::addComponent(self, new ImageComponent(List::get(self\assetList, 0)))
+		ProjectManager::addComponent(self, new ImageComponent(List::get(self\assetList, 1)))
+
+		;Resize Images
+		ImageComponent::resize(Recast.ImageComponent(ProjectManager::getComponent(self, 0)), 380, 112)
+		ImageComponent::resize(Recast.ImageComponent(ProjectManager::getComponent(self, 1)), 100, 67)
+	End Method
+
+	Method addComponent(comp.Component)
+		if self\componentList = Null
+			self\componentList = new List()
+		end if
+
+		List::push(self\componentList, comp)
+	End Method
+
+	Method getComponent.Component(index%)
+		comp.Component = List::get(self\componentList, index)
+		return comp
+	End Method
+
+	Method getProject.Project(dir$)
+		Local count = List::getSize(self\recentProjectList) - 1
+		for i = 0 to count
+			Local prj.Project = List::get(self\recentProjectList, i)
+			if (prj\rootDir = dir)
+				return prj
+			end if
+		next
+		return new Project(dir)
+	End Method
+
+	Method loadProject(prj.Project=Null)
+		ProjectManager::showSplash(self)
+
+		if (prj = Null)
+			if ((NOT self\recentProjectList = Null) AND List::getSize(self\recentProjectList) > 0)
+				prj = List::get(self\recentProjectList, 0)
+			else
+				prj = new Project(self\rootDir)
+			end if
+		end if
+
+		if (NOT Project::verify(prj))
+			if (NOT self\window = 0)
+				FUI_CustomMessageBox("The selected directory does not contain a valid project.", "Error", MB_OK)
+			else
+				RuntimeError("Unable to start Project Manager. No valid project directories in recent.dat")
+			end if
+			return
+		end if
+
+		if (NOT self\prj = null)
+			if(NOT self\recentProjectList = Null)
+				self\recentProjectList = new List()
+			end if
+
+			if (List::getSize(self\recentProjectList) > 0)
+				List::set(self\recentProjectList, 0, self\prj)
+			else
+				List::push(self\recentProjectList, self\prj)
+			end if
+		end if
+
+		Project::load(prj)
+		self\prj = prj
+		
+		if(NOT self\recentProjectList = Null)
+			if (List::contains(self\recentProjectList, self\prj))
+				List::remove(self\recentProjectList, self\prj)
+			end if
+		end if
+
+		ProjectManager::saveRecentProjects(self)
+
+		; Backwards compatibility
+		if (NOT M_ProjectsRecent = 0) ProjectManager::buildRecentProjectMenu(self)
+		if (NOT ProName = 0) FUI_SendMessage(ProName, M_SETCAPTION, self\prj\name)
+		if (NOT GDIR = 0) FUI_SendMessage(GDIR, M_SETTEXT, self\prj\rootDir)
+	End Method
+
+	Method loadRecentProjects()
+		if (self\recentProjectList = Null)
+			self\recentProjectList = new List()
+		else
+			List::clear(self\recentProjectList)
+		end if
+
+		if (self\recentProjectFile = Null)
+			self\recentProjectFile = FileSystem::safeGetFile(Null, self\rootDir + "res\Recent.dat")
+		end if
+
+		for i = 0 to 9
+			Local dir$ = File::readLine(self\recentProjectFile)
+			if (dir = "") Then Exit
+			Local prj.Project = new Project(dir$)
+			if (NOT Project::verify(prj)) 
+				delete prj
+			else
+				List::push(self\recentProjectList, prj)
+			end if
+			if (File::isEnd(self\recentProjectFile)) Then Exit
+		next
+
+		File::close(self\recentProjectFile)
+	End Method
+
+	Method saveRecentProjects()
+		if (self\recentProjectFile = Null)
+			self\recentProjectFile = FileSystem::safeGetFile(Null, self\rootDir + "res\Recent.dat")
+		end if
+
+		File::writeLine(self\recentProjectFile, self\prj\rootDir)
+		
+		Local count = List::getSize(self\recentProjectList) - 1
+		for i = 0 to count
+			Local prj.Project = List::get(self\recentProjectList, i)
+			File::writeLine(self\recentProjectFile, prj\rootDir)
+		next
+
+		File::close(self\recentProjectFile)
+	End Method
+
+	; Needs to be redone properly
+	; Builds the old menu with the new list
+	Method buildRecentProjectMenu()
+		if (self\menuItemList = Null)
+			self\menuItemList = new List()
+		end if
+
+		Local listCount = List::getSize(self\recentProjectList) - 1
+
+		for i = 0 to listCount
+			Local prj.Project = List::get(self\recentProjectList, i)
+
+			if (i < List::getSize(self\menuItemList))
+				Local comp.MenuItemComponent = List::get(self\menuItemList, i)
+				MenuItemComponent::setText(comp, prj\rootDir)
+			else
+				List::push(self\menuItemList, new MenuItemComponent(M_ProjectsRecent, prj\rootDir))
+			end if
+		next
+	End Method
+End Type
+
+pm.ProjectManager = new ProjectManager()
+
+ProjectManager::init(pm)
+
+
+; Backwards compatibility
+
+Global Version$   = RCCEApp::version(pm)
+
+Global LogMode = pm\debug
+
+
+
+Global GUE_width  = pm\width
+Global GUE_height = pm\height
+
+Global RootDir$ = pm\rootDir
+
 
 ;Images
-LogoTex.BBImage = LoadImage(RootDir$ + "res\RCCE Banner.jpg")
-LogoTex2.BBImage = LoadImage(RootDir$ + "res\Gajatix.jpg")
-
-;Resize Images
-ResizeImage LogoTex, 380, 112
-ResizeImage LogoTex2, 100, 67
+LogoTex.BBImage = ProjectManager::getImage(pm, 0)
+LogoTex2.BBImage = ProjectManager::getImage(pm, 1)
 
 ;Folders
 OMF$ = "Data\Meshes"
@@ -71,11 +296,11 @@ ROC$ = RootDir$ + "bin\tools\RC Rock Editor.exe"
 TER$ = RootDir$ + "bin\tools\RC Terrain Editor.exe"
 TRE$ = RootDir$ + "bin\tools\RC Tree Editor.exe"
 
-B3D$ = RootDir$ + "compiler\BlitzRC\BlitzRC.exe"
+B3D$ = RootDir$ + "compiler\BlitzForge\BlitzRC.exe"
 BPS$ = RootDir$ + "compiler\BlitzPlus\BlitzPlus.exe"
 
 ;Main Window
-WMain = FUI_Window(0, 0, GUE_width, GUE_height, "", "", 0, 0)
+WMain = pm\window
 
 ;Title Menu Bar
 ;Projects Tab
@@ -84,8 +309,10 @@ M_ProjectsNew = FUI_MenuItem(M_Projects, "New Project")
 M_ProjectsOpen = FUI_MenuItem(M_Projects, "Open Project")
 Global M_ProjectsRecent = FUI_MenuItem(M_Projects, "Recent Projects")
 
+ProjectManager::buildRecentProjectMenu(pm)
+
 ;Set Project
-setProject(GameDir$)
+;setProject(GameDir$)
 
 ;Folders Tab
 M_PFol = FUI_MenuTitle(WMain, "Project Folders")
@@ -161,7 +388,7 @@ TOOL6 = FUI_Button(TEngine, 170 + 75.5 + 75.5, 200, 70.5, 25, "Tree")
 
 ;Source
 LTK = FUI_GroupBox(TEngine, 405, 140, 135, 100, "Source Tools")	
-BB3D = FUI_Button(TEngine, 410, 165, 125, 25, "BlitzRC")
+BB3D = FUI_Button(TEngine, 410, 165, 125, 25, "BlitzForge")
 BBPS = FUI_Button(TEngine, 410, 200, 125, 25, "BlitzPlus")
 
 if FileType(B3D$) = 0
@@ -257,7 +484,8 @@ Repeat
 
 			If FUI_CustomOpenDialog("Project Directory", RootDir$ + "projects", "Project Folder|\\", False, True)
 				CopyDir(RootDir$ + "Data", app\currentFile + "Data")
-				setProject(app\currentFile)
+				ProjectManager::loadProject(pm, ProjectManager::getProject(pm, app\currentFile))
+				;setProject(app\currentFile)
 			EndIf
 		case M_ProjectsOpen
 			If FileType(RootDir$ + "projects") <> 2
@@ -265,7 +493,8 @@ Repeat
 			EndIf
 
 			If FUI_CustomOpenDialog("Project Directory", RootDir$ + "projects", "Project Folder|\\", False, True)
-				setProject(app\currentFile)
+				ProjectManager::loadProject(pm, ProjectManager::getProject(pm, app\currentFile))
+				;setProject(app\currentFile)
 			EndIf
 	;Project Tab
 		Case BGUE
@@ -350,7 +579,8 @@ Repeat
 			mi.MenuItem = Object.MenuItem(E\EventID)
 			if mi <> Null
 				if Handle( mi\Parent ) = M_ProjectsRecent
-					setProject(mi\caption$)
+					ProjectManager::loadProject(pm, ProjectManager::getProject(pm, mi\caption$))
+					;setProject(mi\caption$)
 				EndIf
 			EndIf
 		EndIf

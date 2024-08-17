@@ -51,14 +51,16 @@ Const testing=True
     ;#End Region
 
     ;initialize fui
-    Include "..\Modules\f-ui.bb"
+    Include "Modules\f-ui.bb"
 	AppTitle( GFX_WINDOW_CAPTION$, "Really quit?" )
     SetBuffer BackBuffer()
 
     If GetSystemMetrics(0)=>1024 Then 
+		Graphics3D(1024, 768, 0, 2)
 	 	FUI_Initialise(1024, 768, 0, 2, False, True, "Realm Crafter Terrain Editor")
     	w=1024:h=768                                                                               ;  
     Else 
+		Graphics3D(1024, 768, 0, 2)
 	 	FUI_Initialise(1024, 768, 0, 2, False, True, "Realm Crafter Terrain Editor")
     	w=800:h=600                                                                               ;  
     EndIf
@@ -84,7 +86,7 @@ Const testing=True
     CameraRange Cam,1,MAXCAMRANGE#
     CameraClsMode Cam,True,True
     AmbientLight 255,255,255
-	Include "..\modules\rcte_gui_shell_FUI.bb"
+	Include "modules\rcte_gui_shell_FUI.bb"
     ChangeDir thispath$
 
 
@@ -95,24 +97,24 @@ Dim GUI_HANDLE_TEMPORARY_IMAGE(6)
 thispath$=CurrentDir()
 
 	;Include "modules\encrypt_b3d.bb"
-Include "..\modules\rcenet.bb"
-Include "..\modules\language.bb"
-Include "..\modules\safeloads.bb"
-Include "..\modules\spells.bb"
-Include "..\Modules\environment.bb"
-Include "..\Modules\rctrees.bb"
-Include "..\Modules\Logging.bb"
-Include "..\Modules\Items.bb"
-Include "..\Modules\Inventories.bb"
-Include "..\Modules\Actors.bb"
-Include "..\Modules\ServerAreas.bb"
-Include "..\Modules\ClientAreasTE.bb"
-Include "..\Modules\RottParticles.bb"
-Include "..\Modules\media.bb"
-Include "..\Modules\MediaDialogs.bb"
-Include "..\modules\weld.bb"
+Include "modules\rcenet.bb"
+Include "modules\language.bb"
+Include "modules\safeloads.bb"
+Include "modules\spells.bb"
+Include "Modules\environment.bb"
+Include "Modules\rctrees.bb"
+Include "Modules\Logging.bb"
+Include "Modules\Items.bb"
+Include "Modules\Inventories.bb"
+Include "Modules\Actors.bb"
+Include "Modules\ServerAreas.bb"
+Include "Modules\ClientAreasTE.bb"
+Include "Modules\RottParticles.bb"
+Include "Modules\media.bb"
+Include "Modules\MediaDialogs.bb"
+Include "modules\weld.bb"
 	
-Include "..\modules\Utility.bb"
+Include "modules\Utility.bb"
 
 If FileType("Data\rcte\rcte_loading.jpg")=1 Then 
 templogo=loadimage_safe("Data\rcte\rcte_loading.jpg")
@@ -324,11 +326,11 @@ Type opvert
 	 Field v
 End Type
 Global opvert.opvert
-Include "..\modules\removetri.bb"
+Include "modules\removetri.bb"
 SeedRnd MilliSecs() 
 Dim opsurf(10);optimise surface array.. used to hold surface info
 
-Include "..\modules\b3dfile.bb"  ;used for B3D Saving
+Include "modules\b3dfile.bb"  ;used for B3D Saving
 
 Global c_surfs
 mamax=100
@@ -492,7 +494,7 @@ Global Holebrush=0
 Global OldSeason
 OldSeason=currentseason-1
 PositionEntity Cam,0,50,-100
-Include "..\modules\hmapgen.bb"
+Include "modules\hmapgen.bb"
 
 ;#Region Main Loop
 Global totaldrops

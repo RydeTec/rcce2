@@ -11,20 +11,20 @@ Global AH_AppB$ = "RCSTD", AH_Loca$ = "..\New Game\"
 Const testing=True
 
 ; Includes
-Include "..\Modules\Spells.bb"
-Include "..\Modules\Language.bb"
-Include "..\Modules\Items.bb"
-Include "..\Modules\Inventories.bb"
-Include "..\Modules\Media.bb"
-Include "..\Modules\MediaDialogs.bb"
-Include "..\Modules\Animations.bb"
-Include "..\Modules\RottParticles.bb"
-Include "..\Modules\Actors.bb"
-Include "..\Modules\CharacterEditorLoader.bb" ; RifRaf's character editor loading function
-Include "..\Modules\Actors3D.bb"
-Include "..\Modules\F-UI.bb"
-Include "..\Modules\RCEnet.bb"
-Include "..\Modules\Logging.bb"
+Include "Modules\Spells.bb"
+Include "Modules\Language.bb"
+Include "Modules\Items.bb"
+Include "Modules\Inventories.bb"
+Include "Modules\Media.bb"
+Include "Modules\MediaDialogs.bb"
+Include "Modules\Animations.bb"
+Include "Modules\RottParticles.bb"
+Include "Modules\Actors.bb"
+Include "Modules\CharacterEditorLoader.bb" ; RifRaf's character editor loading function
+Include "Modules\Actors3D.bb"
+Include "Modules\F-UI.bb"
+Include "Modules\RCEnet.bb"
+Include "Modules\Logging.bb"
 
 ; Load data
 LoadAnimSets("Data\Game Data\Animations.dat")
@@ -35,8 +35,10 @@ LoadGubbinNames()
 
 ; Graphics mode
 If GetSystemMetrics(0) > 800 And GetSystemMetrics(1) > 600
+	Graphics3D(800, 600, 0, 2)
 	FUI_Initialise(800, 600, 0, 2, False, True, "Realm Crafter Gubbin Tool")
 Else
+	Graphics3D(800, 600, 0, 0)
 	FUI_Initialise(800, 600, 0, 0, False, True, "Realm Crafter Gubbin Tool")
 EndIf
 AppTitle("Realm Crafter Gubbin Tool")

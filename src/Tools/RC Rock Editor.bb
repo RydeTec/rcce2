@@ -9,14 +9,14 @@ Global AH_Appb$ = "RCSTD"
 ; Loads Antihack module :)
 
 
-Include "..\modules\safeloads.bb"
-Include "..\Modules\f-ui.bb"
-Include "..\Modules\media.bb"
-Include "..\modules\B3dfile.bb"
+Include "modules\safeloads.bb"
+Include "Modules\f-ui.bb"
+Include "Modules\media.bb"
+Include "modules\B3dfile.bb"
 
-Include "..\modules\rock_Export.bb"
+Include "modules\rock_Export.bb"
 
-Include "..\modules\Utility.bb"
+Include "modules\Utility.bb"
 
 
 
@@ -53,9 +53,11 @@ Const testing=False
     SetBuffer BackBuffer()
 
     If GetSystemMetrics(0)=>1024 Then 
+		Graphics3D(1024, 768, 0, 2)
 	 	FUI_Initialise(1024, 768, 0, 2, False, True, "Realm Crafter rock editor")
     	w=1024:h=768                                                                               ;  
     Else 
+		Graphics3D(1024, 768, 0, 2)
 	 	FUI_Initialise(1024, 768, 0, 2, False, True, "Realm Crafter rock editor")
     	w=800:h=600                                                                               ;  
     EndIf
@@ -78,7 +80,7 @@ Const testing=False
     CameraRange Cam,1,20000
     CameraClsColor Cam,40,40,40
     CameraClsMode Cam,True,True
-	Include "..\modules\rcrocks_gui_shell_FUI.bb"
+	Include "modules\rcrocks_gui_shell_FUI.bb"
     ChangeDir thispath$
     positionwindows()
 

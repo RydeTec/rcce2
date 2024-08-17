@@ -98,6 +98,7 @@ If (GUE_width < 1280 And GUE_height< 960)
 	GUE_height = 960
 EndIf
 WriteLog(GUELog, "Initialising windowed graphics mode")
+Graphics3D(GUE_width, GUE_height, 0, 2)
 FUI_Initialise(GUE_width, GUE_height, 0, 2, True, True, "Realm Crafter Community Edition -" + rcceVersion)
 SetBuffer(BackBuffer())
 
