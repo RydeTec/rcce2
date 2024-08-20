@@ -69,7 +69,6 @@ Function GenerateServer()
 	; Copy required files to \Server folder
 	Filesystem::SafeCopyFile(Null, "bin\Server.exe", "Server\bin\Server.exe")
 	CopyFile("bin\ggTray.dll", "Server\bin\ggTray.dll")
-	CopyFile("bin\fmod.dll", "Server\bin\fmod.dll")
 	Filesystem::CopyTree(Null, "Data\Server Data", "Server\Data\Server Data")
 	; If it's only an update, delete accounts etc.
 	If Result = IDNO
