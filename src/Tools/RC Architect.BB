@@ -1001,15 +1001,15 @@ Case GUI_RIGHTWIN_SELECTMODEL
 Case GUI_MENUFILE_EXPORT
     Exportmap$=""
     ChangeDir thispath$
-	tFile = FUI_SaveDialog( "Export map To RC area", "Data\Meshes\Architect\", "RC Model (*.eb3d)|*.eb3d")
+	tFile = FUI_SaveDialog( "Export map To RC area", "Data\Meshes\Architect\", "RC Model (*.b3d)|*.b3d")
 	If tFile = True Then
     exportmap$=app\currentfile
        If exportmap$<>""
- 	   If Instr( exportmap$, ".eb3d", 1 ) > 1 Then
+ 	   If Instr( exportmap$, ".b3d", 1 ) > 1 Then
        DebugLog "exporting : "+exportmap$
 	   exportwork (exportmap$)
 	   Else
-	   exportmap$ = exportmap$ + ".eb3d"
+	   exportmap$ = exportmap$ + ".b3d"
        DebugLog "exporting : "+exportmap$
 	   exportwork (exportmap$)
 	   EndIf
@@ -1232,7 +1232,7 @@ End Function
 
 
 Function ExportWork(fn$)
-If Lower(Right$(fn$,4))<>"eb3d" Then fn$=fn$+".eb3d"
+If Lower(Right$(fn$,4))<>".b3d" Then fn$=fn$+".b3d"
 ChangeDir THISPATH$
 ;thisfold$=removeextension$(fn$)+"\"
 savework("Data\Architect\SAVES\exported.act")
@@ -1261,8 +1261,8 @@ newscene()
 ChangeDir thispath$
 loadwork("data\architect\saves\exported.act")
 ChangeDir thispath$
-encrypt_b3d("Data\MESHES\Architect\"+thisfold$)
-ChangeDir thispath$
+;encrypt_b3d("Data\MESHES\Architect\"+thisfold$)
+;ChangeDir thispath$
 
 thisid=addmeshtodatabase ("Architect\"+thisfold$,False)
 ;If thisid=-1 Then  Encrypt_B3D(thispath$+"Data\Meshes\Architect\" +thisfold$)
