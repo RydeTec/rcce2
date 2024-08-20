@@ -1564,7 +1564,7 @@ Function CharSelect()
 				PreviewA\Beard = CharBeard(i)
 				PreviewA\BodyTex = CharBodyTex(i)
 				
-				Result = LoadActorInstance3D(PreviewA, 1, False, True)
+				Result = LoadActorInstance3D(PreviewA, 1, False, False)
 				If Result = False Then RuntimeError("Could not load actor mesh for " + A\Race$ + "!")
 				;If PreviewA\ShadowEN <> 0 Then HideEntity(PreviewA\ShadowEN) [###]
 				;If PreviewA\NametagEN <> 0 Then HideEntity(PreviewA\NametagEN)
@@ -2059,7 +2059,7 @@ Function CreateChar()
 		If A = Null Then RuntimeError("No playable actors in project!")
 	Wend
 	Preview.ActorInstance = CreateActorInstance(A)
-	Result = LoadActorInstance3D(Preview)
+	Result = LoadActorInstance3D(Preview, 1.0, False, False)
 	If Result = False Then RuntimeError("Could not load actor mesh for " + A\Race$ + "!")
 	PlayAnimation(Preview, 1, 0.003, Anim_Idle)
 	PositionEntity Preview\CollisionEN, 30, -(35.0 + EntityY#(Preview\EN, True)), 100
@@ -2263,7 +2263,7 @@ Function CreateChar()
 				If Upper$(A\Race$) = ChosenRace$ Then Chosen.Actor = A : Exit
 			Next
 			Preview.ActorInstance = CreateActorInstance(Chosen)
-			Result = LoadActorInstance3D(Preview)
+			Result = LoadActorInstance3D(Preview, 1.0, False, False)
 			If Result = False Then RuntimeError("Could not load actor mesh for " + Chosen\Race$ + "!")
 			;PlayAnimation(Preview, 1, 0.003, Anim_Idle)
 			PositionEntity Preview\CollisionEN, 30, -(35.0 + EntityY#(Preview\EN, True)), 100
@@ -2290,7 +2290,7 @@ Function CreateChar()
 					If (Gender = 0 And A\Genders <> 2) Or (Gender = 1 And A\Genders <> 1 And A\Genders <> 3)
 						Preview\Gender = Gender
 					EndIf
-					Result = LoadActorInstance3D(Preview)
+					Result = LoadActorInstance3D(Preview, 1.0, False, False)
 					If Result = False Then RuntimeError("Could not load actor mesh for " + A\Race$ + "!")
 					PlayAnimation(Preview, 1, 0.003, Anim_Idle)
 					PositionEntity Preview\CollisionEN, 30, -(35.0 + EntityY#(Preview\EN, True)), 100
@@ -2322,7 +2322,7 @@ Function CreateChar()
 					If (Gender = 0 And A\Genders <> 2) Or (Gender = 1 And A\Genders <> 1 And A\Genders <> 3)
 						Preview\Gender = Gender
 					EndIf
-					Result = LoadActorInstance3D(Preview)
+					Result = LoadActorInstance3D(Preview, 1.0, False, False)
 					If Result = False Then RuntimeError("Could not load actor mesh for " + A\Race$ + "!")
 					PlayAnimation(Preview, 1, 0.003, Anim_Idle)
 					PositionEntity Preview\CollisionEN, 30, -(35.0 + EntityY#(Preview\EN, True)), 100
@@ -2350,7 +2350,7 @@ Function CreateChar()
 				Preview\Gender = Not Preview\Gender
 				Preview\BodyTex = 0
 				FreeActorInstance3D(Preview)
-				LoadActorInstance3D(Preview)
+				LoadActorInstance3D(Preview, 1.0, False, False)
 				PlayAnimation(Preview, 1, 0.003, Anim_Idle)
 				PositionEntity Preview\CollisionEN, 30, -(35.0 + EntityY#(Preview\EN, True)), 100
 				;If Preview\ShadowEN <> 0 Then HideEntity(Preview\ShadowEN) [###]
@@ -2369,7 +2369,7 @@ Function CreateChar()
 				NextMesh = Preview\Actor\BeardIDs[Preview\Beard]
 			Until NextMesh <> 65535
 			FreeActorInstance3D(Preview)
-			LoadActorInstance3D(Preview)
+			LoadActorInstance3D(Preview, 1.0, False, False)
 			PlayAnimation(Preview, 1, 0.003, Anim_Idle)
 			PositionEntity Preview\CollisionEN, 30, -(35.0 + EntityY#(Preview\EN, True)), 100
 			;If Preview\ShadowEN <> 0 Then HideEntity(Preview\ShadowEN) [###]
@@ -2385,7 +2385,7 @@ Function CreateChar()
 				NextMesh = Preview\Actor\BeardIDs[Preview\Beard]
 			Until NextMesh <> 65535
 			FreeActorInstance3D(Preview)
-			LoadActorInstance3D(Preview)
+			LoadActorInstance3D(Preview, 1.0, False, False)
 			PlayAnimation(Preview, 1, 0.003, Anim_Idle)
 			PositionEntity Preview\CollisionEN, 30, -(35.0 + EntityY#(Preview\EN, True)), 100
 			;If Preview\ShadowEN <> 0 Then HideEntity(Preview\ShadowEN) [###]
@@ -2407,7 +2407,7 @@ Function CreateChar()
 				EndIf
 			Until NextMesh <> 65535
 			FreeActorInstance3D(Preview)
-			LoadActorInstance3D(Preview)
+			LoadActorInstance3D(Preview, 1.0, False, False)
 			PlayAnimation(Preview, 1, 0.003, Anim_Idle)
 			PositionEntity Preview\CollisionEN, 30, -(35.0 + EntityY#(Preview\EN, True)), 100
 			;If Preview\ShadowEN <> 0 Then HideEntity(Preview\ShadowEN) [###]
@@ -2427,7 +2427,7 @@ Function CreateChar()
 				EndIf
 			Until NextMesh <> 65535
 			FreeActorInstance3D(Preview)
-			LoadActorInstance3D(Preview)
+			LoadActorInstance3D(Preview, 1.0, False, False)
 			PlayAnimation(Preview, 1, 0.003, Anim_Idle)
 			PositionEntity Preview\CollisionEN, 30, -(35.0 + EntityY#(Preview\EN, True)), 100
 			;If Preview\ShadowEN <> 0 Then HideEntity(Preview\ShadowEN) [###]
@@ -2446,7 +2446,7 @@ Function CreateChar()
 				EndIf
 			Until NextTex <> 65535
 			FreeActorInstance3D(Preview)
-			LoadActorInstance3D(Preview)
+			LoadActorInstance3D(Preview, 1.0, False, False)
 			PlayAnimation(Preview, 1, 0.003, Anim_Idle)
 			PositionEntity Preview\CollisionEN, 30, -(35.0 + EntityY#(Preview\EN, True)), 100
 			;If Preview\ShadowEN <> 0 Then HideEntity(Preview\ShadowEN) [###]
@@ -2462,7 +2462,7 @@ Function CreateChar()
 				EndIf
 			Until NextTex <> 65535
 			FreeActorInstance3D(Preview)
-			LoadActorInstance3D(Preview)
+			LoadActorInstance3D(Preview, 1.0, False, False)
 			PlayAnimation(Preview, 1, 0.003, Anim_Idle)
 			PositionEntity Preview\CollisionEN, 30, -(35.0 + EntityY#(Preview\EN, True)), 100
 			;If Preview\ShadowEN <> 0 Then HideEntity(Preview\ShadowEN) [###]
@@ -2481,7 +2481,7 @@ Function CreateChar()
 				EndIf
 			Until NextTex <> 65535
 			FreeActorInstance3D(Preview)
-			LoadActorInstance3D(Preview)
+			LoadActorInstance3D(Preview, 1.0, False, False)
 			PlayAnimation(Preview, 1, 0.003, Anim_Idle)
 			PositionEntity Preview\CollisionEN, 30, -(35.0 + EntityY#(Preview\EN, True)), 100
 			;If Preview\ShadowEN <> 0 Then HideEntity(Preview\ShadowEN) [###]
@@ -2497,7 +2497,7 @@ Function CreateChar()
 				EndIf
 			Until NextTex <> 65535
 			FreeActorInstance3D(Preview)
-			LoadActorInstance3D(Preview)
+			LoadActorInstance3D(Preview, 1.0, False, False)
 			PlayAnimation(Preview, 1, 0.003, Anim_Idle)
 			PositionEntity Preview\CollisionEN, 30, -(35.0 + EntityY#(Preview\EN, True)), 100
 			;If Preview\ShadowEN <> 0 Then HideEntity(Preview\ShadowEN) [###]

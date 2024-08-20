@@ -697,7 +697,7 @@ Function SetActor()
 	Else
 		If SelectedActor\Genders = 2 Then ActorPreview\Gender = 1
 	EndIf
-	Result = LoadActorInstance3D(ActorPreview, 0.5 / SelectedActor\Scale#, True)
+	Result = LoadActorInstance3D(ActorPreview, 0.5 / SelectedActor\Scale#, True, False)
 	If Result = False
 		Delete ActorPreview
 		Idx = FUI_SendMessageI(CActorSelected, M_GETINDEX)

@@ -7862,7 +7862,7 @@ Function UpdateActorPreview()
 		ActorPreview = CreateActorInstance(SelectedActor)
 		Temp = HideNametags
 		HideNametags = True
-		Result = LoadActorInstance3D(ActorPreview, 0.5 / SelectedActor\Scale#)
+		Result = LoadActorInstance3D(ActorPreview, 0.5 / SelectedActor\Scale#, False, False)
 		HideNametags = Temp
 		If Result = False Then Delete ActorPreview : Return
 		If ActorPreview\ShadowEN <> 0 Then FreeEntity ActorPreview\ShadowEN : ActorPreview\ShadowEN = 0
