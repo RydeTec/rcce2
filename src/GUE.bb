@@ -6363,7 +6363,7 @@ Cls
 					EndIf
 				; Sounds
 				ElseIf MType = 3
-					FileTypes$ = "Wave (*.wav)|*.wav|Raw (*.raw)|*.raw|MP3 (*.mp3)|*.mp3|OGG (*.ogg)|*.ogg|"
+					FileTypes$ = "OGG (*.ogg)|*.ogg|"
 					Result = FUI_CustomOpenDialog("Choose file to add...", "Data\Sounds\", FileTypes$, False, True)
 					If Result = True
 						; Get extra options
@@ -6404,8 +6404,8 @@ Cls
 					EndIf
 				; Music
 				ElseIf MType = 4
-					FileTypes$ = "MP3 (*.mp3)|*.mp3|OGG (*.ogg)|*.ogg|MIDI (*.mid)|*.mid|Wave (*.wav)|*.wav|Mod (*.mod)|*.mod|"
-					FileTypes$ = FileTypes$ + "S3M (*.s3m)|*.s3m|XM (*.xm)|*.xm|IT (*.it)|*.it|"
+					FileTypes$ = "OGG (*.ogg)|*.ogg|"
+					;FileTypes$ = FileTypes$ + "S3M (*.s3m)|*.s3m|XM (*.xm)|*.xm|IT (*.it)|*.it|"
 					Result = FUI_CustomOpenDialog("Choose file to add...", "Data\Music\", FileTypes$, False, True)
 					If Result = True
 
@@ -10170,7 +10170,7 @@ Function AddSoundFolderToManager(Filename$, Is3D, SubFolders = True)
 		While Name$ <> ""
 			If Name$ <> "." And Name$ <> ".."
 				If FileType("Data\Sounds\" + Filename$ + "\" + Name$) = 1
-					If Instr(Upper$(Name$), ".WAV") Or Instr(Upper$(Name$), ".RAW") Or Instr(Upper$(Name$), ".MP3") Or Instr(Upper$(Name$), ".OGG")
+					If Instr(Upper$(Name$), ".OGG")
 						ID = AddSoundToDatabase(Filename$ + "\" + Name$, Is3D)
 						If ID > -1 Then SoundNames$(ID) = GetSoundName$(ID)
 					EndIf
@@ -10194,10 +10194,7 @@ Function AddMusicFolderToManager(Filename$, SubFolders = True)
 			If Name$ <> "." And Name$ <> ".."
 				If FileType("Data\Music\" + Filename$ + "\" + Name$) = 1
 					UN$ = Upper$(Name$)
-					If Instr(UN$, ".MP3") Or Instr(UN$, ".OGG") Or Instr(UN$, ".MID") Or Instr(UN$, ".WAV")
-						ID = AddMusicToDatabase(Filename$ + "\" + Name$)
-						If ID > -1 Then MusicNames$(ID) = GetMusicName$(ID)
-					ElseIf Instr(UN$, ".MOD") Or Instr(UN$, ".S3M") Or Instr(UN$, ".XM") Or Instr(UN$, ".IT")
+					If Instr(UN$, ".OGG")
 						ID = AddMusicToDatabase(Filename$ + "\" + Name$)
 						If ID > -1 Then MusicNames$(ID) = GetMusicName$(ID)
 					EndIf

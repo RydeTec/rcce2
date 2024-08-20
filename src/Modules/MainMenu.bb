@@ -96,10 +96,7 @@ Function RunMenu()
 ;	;CameraFogColor Cam, 128, 255, 0
 ;	;CameraFogRange Cam,1,100
 	;-----
-    Snd_Music = LoadSound("Data\Music\Menu.mp3")
-	If Snd_Music = 0 Then Snd_Music = LoadSound("Data\Music\Menu.ogg")
-	If Snd_Music = 0 Then Snd_Music = LoadSound("Data\Music\Menu.mid")
-	If Snd_Music = 0 Then Snd_Music = LoadSound("Data\Music\Menu.mod")
+    Snd_Music = LoadSound("Data\Music\Menu.ogg")
 	If Snd_Music
 		LoopSound Snd_Music
 		SndC_Music = PlaySound(Snd_Music)

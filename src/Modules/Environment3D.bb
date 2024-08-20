@@ -141,15 +141,15 @@ Function LoadWeather3D()
 	RP_DisableEmitter(SnowEmitter)
 
 	; Sounds
-	Snd_Rain = LoadSound("Data\Sounds\Weather\Rain.wav")
+	Snd_Rain = LoadSound("Data\Sounds\Weather\Rain.ogg")
 	If Snd_Rain = 0 Then Snd_Rain = LoadSound("Data\Sounds\Weather\Rain.ogg")
 	SoundVolume(Snd_Rain, DefaultVolume#) : LoopSound(Snd_Rain)
-	Snd_Wind = LoadSound("Data\Sounds\Weather\Wind.wav")
+	Snd_Wind = LoadSound("Data\Sounds\Weather\Wind.ogg")
 	If Snd_Wind = 0 Then Snd_Wind = LoadSound("Data\Sounds\Weather\Wind.ogg")
 	SoundVolume(Snd_Wind, DefaultVolume#) : LoopSound(Snd_Wind)
-	Snd_Thunder(0) = LoadSound("Data\Sounds\Weather\Thunder1.wav") : SoundVolume(Snd_Thunder(0), DefaultVolume#)
-	Snd_Thunder(1) = LoadSound("Data\Sounds\Weather\Thunder2.wav") : SoundVolume(Snd_Thunder(1), DefaultVolume#)
-	Snd_Thunder(2) = LoadSound("Data\Sounds\Weather\Thunder3.wav") : SoundVolume(Snd_Thunder(2), DefaultVolume#)
+	Snd_Thunder(0) = LoadSound("Data\Sounds\Weather\Thunder1.ogg") : SoundVolume(Snd_Thunder(0), DefaultVolume#)
+	Snd_Thunder(1) = LoadSound("Data\Sounds\Weather\Thunder2.ogg") : SoundVolume(Snd_Thunder(1), DefaultVolume#)
+	Snd_Thunder(2) = LoadSound("Data\Sounds\Weather\Thunder3.ogg") : SoundVolume(Snd_Thunder(2), DefaultVolume#)
 
 End Function
 
