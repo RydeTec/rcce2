@@ -1,4 +1,4 @@
-; This file must be compiled with BlitzRC
+; This file must be compiled with BlitzForge
 
 ;#Region ---------- Notes ----------------------
 ;The minimum value for the camera range of [app\Cam] should be

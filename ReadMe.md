@@ -44,7 +44,7 @@ You could also help writing tests in blitz as well. All tests should live under 
 
 #### C++
 
-If you are familiar with C++ you can help by making improvements or changes to the Blitz runtime [source code](compiler\BlitzRC\src).
+If you are familiar with C++ you can help by making improvements or changes to the Blitz runtime [source code](compiler\BlitzForge\src).
 
 ### Documentation
 
@@ -65,8 +65,8 @@ Discord: A discord invite link is available from the RCCE Project Manager.
 
 ## Resources
 
-### BlitzRC
-BlitzRC is a custom version of Blitz3D specifically tailored for RealmCrafter: Community Edition. The [source](compiler\BlitzRC\src) for this is included in the compilers folder.
+### BlitzForge (previously BlitzRC)
+BlitzForge is a custom version of Blitz3D specifically tailored for RealmCrafter: Community Edition. The [source](compiler\BlitzForge\src) for this is included in the compilers folder.
 
 ### BlitzRCPlus
 BlitzRCPlus is a custom version of BlitzPlus specifically tailored for RealmCrafter: Community Edition. The [source](compiler\BlitzPlus\src) for this is included in the compilers folder.
@@ -77,7 +77,7 @@ Blitz Syntax Plugin Link: https://marketplace.visualstudio.com/items?itemName=do
 You can compile, debug, test, run and publish via the VSCode launch configurations.
 
 ### IDEs
-BlitzRC and BlitzRCPlus has native IDEs available in the compiler folders.
+BlitzForge and BlitzRCPlus have native IDEs available in the compiler folders.
 
 There are other Blitz specific IDE installers included in the repository.
 
