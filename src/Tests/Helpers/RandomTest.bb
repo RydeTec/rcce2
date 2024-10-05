@@ -3,9 +3,9 @@ Strict
 Include "Modules\Helpers\Random.bb"
 
 Test testRandom()
-    r.Random = New Random(MilliSecs())
+    local r.Random = New Random(MilliSecs())
 
-    seed% = r\seed
+    local seed% = r\seed
     Assert(seed%)
     Assert(NOT Random::i(r) = Random::i(r))
     Assert(seed = r\seed)

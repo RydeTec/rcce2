@@ -3,7 +3,7 @@ Strict
 Include "Modules\Framework\RCCEApp.bb"
 
 Test testVersion()
-    Local app.RCCEApp = new RCCEApp
+    Local app.RCCEApp = new RCCEApp("test", ".")
 
     app\semMajor = 2
     app\semMinor = 12

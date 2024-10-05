@@ -4,17 +4,17 @@ Include "Modules\Graphics\UI\Components\Component.bb"
 Include "Modules\Traits\IdentifierTrait.bb"
 
 Test testId()
-    comp.Component = new Component("test")
+    local comp.Component = new Component("test")
 
     Assert(NOT comp\id = Null)
     Assert(comp\componentType = "test")
 
-    comp2.Component = new Component("test")
+    local comp2.Component = new Component("test")
 
     Assert(NOT IdentifierTrait::equals(comp\id, comp2\id))
     Assert(comp\componentType = comp2\componentType)
 
-    comp3.Component = new Component("test2", "anid")
+    local comp3.Component = new Component("test2", "anid")
 
     Assert(comp3\id\id = "anid")
     Assert(comp3\componentType = "test2")
@@ -26,7 +26,7 @@ Test testId()
 End Test
 
 Test testPos()
-    comp.Component = new Component("test")
+    local comp.Component = new Component("test")
     Component::setPosition(comp, 1,2)
     Assert(comp\pos\x = 1)
     Assert(comp\pos\y = 2)

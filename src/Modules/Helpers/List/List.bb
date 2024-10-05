@@ -14,27 +14,27 @@ Type List
     End Method
 
     Method push(item@)
-        itemWrapper.ListItem = new ListItem(self\id, item)
+        local itemWrapper.ListItem = new ListItem(self\id, item)
         self\size = self\size + 1
     End Method
 
     Method pop@()
-        itemWrapper.ListItem = List::getListItem(self, self\size - 1)
-        item@ = itemWrapper\itemPointer
+        local itemWrapper.ListItem = List::getListItem(self, self\size - 1)
+        local item@ = itemWrapper\itemPointer
         Delete itemWrapper
         self\size = self\size - 1
         return item
     End Method
 
     Method get@(index%)
-        itemWrapper.ListItem = List::getListItem(self, index)
-        item@ = itemWrapper\itemPointer
+        local itemWrapper.ListItem = List::getListItem(self, index)
+        local item@ = itemWrapper\itemPointer
         return item
     End Method
 
     Method set(index%, item@)
-        current.ListItem = List::getListItem(self, index)
-        itemWrapper.ListItem = new ListItem(self\id, item)
+        local current.ListItem = List::getListItem(self, index)
+        local itemWrapper.ListItem = new ListItem(self\id, item)
         Insert itemWrapper After current
         Delete current
     End Method
@@ -44,15 +44,15 @@ Type List
     End Method
 
     Method removeAt(index%)
-        current.ListItem = List::getListItem(self, index)
+        local current.ListItem = List::getListItem(self, index)
         Delete current
         self\size = self\size - 1
     End Method
 
     Method getIndex(item@)
-        listCount = self\size - 1
+        local listCount = self\size - 1
         for i = 0 to listCount
-            wrappedItem@ = List::get(self, i)
+            local wrappedItem@ = List::get(self, i)
             if (wrappedItem = item)
                 return i
             end if
@@ -61,7 +61,7 @@ Type List
     End Method
 
     Method clear()
-        listCount = self\size - 1
+        local listCount = self\size - 1
         for i = 0 to listCount
             List::removeAt(self, listCount - i)
         next
@@ -84,8 +84,8 @@ Type List
         if self\id = Null Then RuntimeError("List has not been initialised")
         if self\size = 0 Then RuntimeError("List " + self\id\id + " has no members")
         if self\size <= index Then RuntimeError("Can't access " + index + " on List " + self\id\id + " with size " + self\size)
-        itemWrapper.ListItem = First ListItem
-        cursor = 0
+        local itemWrapper.ListItem = First ListItem
+        local cursor = 0
         while(cursor <= index)
             if IdentifierTrait::equals(self\id, itemWrapper\listId)
                 cursor = cursor + 1

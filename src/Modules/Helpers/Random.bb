@@ -11,7 +11,7 @@ Type Random
 
     Method setSeed(seed%=0)
         If (self = Null)
-            self = New Random
+            self = new Random()
         End If
 
         If (NOT seed)
