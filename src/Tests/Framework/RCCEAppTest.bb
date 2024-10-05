@@ -1,4 +1,5 @@
 Strict
+EnableGC
 
 Include "Modules\Framework\RCCEApp.bb"
 

@@ -1,4 +1,5 @@
 Strict
+EnableGC
 
 Include "Modules\Helpers\Random.bb"
 

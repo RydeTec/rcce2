@@ -1,4 +1,5 @@
 Strict
+EnableGC
 
 Type TestType
     Field var$

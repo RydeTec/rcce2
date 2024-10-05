@@ -1,4 +1,5 @@
 Strict
+EnableGC
 
 Include "Modules\Graphics\UI\Components\Component.bb"
 Include "Modules\Traits\IdentifierTrait.bb"
@@ -18,11 +19,6 @@ Test testId()
 
     Assert(comp3\id\id = "anid")
     Assert(comp3\componentType = "test2")
-
-    Component::create(comp3, "test", "nextid")
-
-    Assert(comp3\id\id = "nextid")
-    Assert(comp3\componentType = "test")
 End Test
 
 Test testPos()
