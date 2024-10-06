@@ -18,8 +18,8 @@ Type Filesystem
 
 		If FileType(Dir$) <> 2 Then Return
 
-		D = ReadDir(Dir$)
-		Path$ = NextFile$(D)
+		local D.BBDir = ReadDir(Dir$)
+		local Path$ = NextFile$(D)
 		While Len(Path$) > 0
 			If Path$ <> "." And Path$ <> ".."
 				If FileType(Dir$ + "\" + Path$) = 2
@@ -40,9 +40,9 @@ Type Filesystem
 
 		If FileType(DestinationDir$) = 0 Then CreateDir(DestinationDir$)
 
-		D = ReadDir(Dir$)
-		If D = 0 Then Return
-		Path$ = NextFile$(D)
+		local D.BBDir = ReadDir(Dir$)
+		If D = Null Then Return
+		local Path$ = NextFile$(D)
 		While Len(Path$) > 0
 			If Path$ <> "." And Path$ <> ".."
 				If FileType(Dir$ + "\" + Path$) = 2
@@ -67,7 +67,7 @@ Type Filesystem
 	End Method
 
 	Method safeGetFile.File(uri$)
-		f.File = new File(uri$)
+		local f.File = new File(uri$)
 
 		if (not FileSystem::fileExists(self, uri$))
 			File::writeLine(f, "")

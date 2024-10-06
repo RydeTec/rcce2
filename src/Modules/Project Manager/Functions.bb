@@ -41,7 +41,7 @@ Function GenerateFullInstall()
 		Filesystem::CopyTree(Null, UpdatesList$(i), "Game\" + UpdatesList$(i))
 	Next
 	; Change to non development version
-	F = WriteFile("Game\Data\Game Data\Misc.dat")
+	local F.BBStream = WriteFile("Game\Data\Game Data\Misc.dat")
 		WriteLine(F, GameName$)
 		WriteLine(F, "Normal")
 		WriteLine(F, "1")
@@ -52,7 +52,7 @@ Function GenerateFullInstall()
 End Function
 
 Function GenerateServer()
-	Result = FUI_CustomMessageBox("Include dynamic data (e.g. accounts)?", "Build Server", MB_YESNO)
+	local Result = FUI_CustomMessageBox("Include dynamic data (e.g. accounts)?", "Build Server", MB_YESNO)
 	; Clear \Server folder
 	Filesystem::DelTree(Null, "Server")
 	; Create required folders

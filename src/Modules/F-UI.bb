@@ -35,7 +35,7 @@
 ;filter from the open or save dialog box.
 ;#End Region
 
-Strict
+;Strict
 
 ;#Region ---------- Types ----------------------
 Type CHOOSEFONT

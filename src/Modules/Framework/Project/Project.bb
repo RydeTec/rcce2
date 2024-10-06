@@ -37,8 +37,8 @@ Type Project
         end if
 
         self\name = File::readLine(self\projectSettings)
-        self\updateGame = File::readLine(self\projectSettings)
-        self\updateMusic = File::readLine(self\projectSettings)
+        self\updateGame = Int(File::readLine(self\projectSettings))
+        self\updateMusic = Int(File::readLine(self\projectSettings))
 
         File::close(self\projectSettings)
 

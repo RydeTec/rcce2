@@ -6,7 +6,6 @@ Include "Modules\F-UI.bb"
 Include "Modules\Project Manager\Variables.bb"
 Include "Modules\Project Manager\Types.bb"
 Include "Modules\Project Manager\Functions.bb"
-Include "Modules\Helpers\List\List.bb"
 Include "Modules\IO\Image.bb"
 Include "Modules\IO\File.bb"
 Include "Modules\Graphics\UI\Components\Component.bb"
@@ -18,16 +17,16 @@ Include "Modules\Framework\Project\Project.bb"
 
 Type ProjectManager.RCCEApp
 	Field window%
-	Field assetList.List
-	Field componentList.List
+	Field assetList.BBList
+	Field componentList.BBList
 	Field splashComponent.ImageComponent
 	Field gfx.RCCEGraphics
 	Field prj.Project
 	Field recentProjectFile.File
-	Field recentProjectList.List
+	Field recentProjectList.BBList
 
 	; Need to be able to combine all components into a single list
-	Field menuItemList.List
+	Field menuItemList.BBList
 
 	Method create.ProjectManager()
 		self = Recast.ProjectManager(RCCEApp::create(self, "RealmCrafter: Community Edition", ".\"))
@@ -85,20 +84,20 @@ Type ProjectManager.RCCEApp
 	End Method
 
 	Method loadAssets()
-		self\assetList = new List()
+		self\assetList = CreateList()
 
-		List::push(self\assetList, new Image(self\rootDir + "res\RCCE Banner.jpg"))
-		List::push(self\assetList, new Image(self\rootDir + "res\Gajatix.jpg"))
+		ListAdd(self\assetList, new Image(self\rootDir + "res\RCCE Banner.jpg"))
+		ListAdd(self\assetList, new Image(self\rootDir + "res\Gajatix.jpg"))
 	End Method
 
 	Method getImage.BBImage(index%)
-		img.Image = List::get(self\assetList, index)
+		local img.Image = ListAt(self\assetList, index)
 		return img\img
 	End Method
 
 	Method loadComponents()
-		ProjectManager::addComponent(self, new ImageComponent(List::get(self\assetList, 0)))
-		ProjectManager::addComponent(self, new ImageComponent(List::get(self\assetList, 1)))
+		ProjectManager::addComponent(self, new ImageComponent(ListAt(self\assetList, 0)))
+		ProjectManager::addComponent(self, new ImageComponent(ListAt(self\assetList, 1)))
 
 		;Resize Images
 		ImageComponent::resize(Recast.ImageComponent(ProjectManager::getComponent(self, 0)), 380, 112)
@@ -107,21 +106,21 @@ Type ProjectManager.RCCEApp
 
 	Method addComponent(comp.Component)
 		if self\componentList = Null
-			self\componentList = new List()
+			self\componentList = CreateList()
 		end if
 
-		List::push(self\componentList, comp)
+		ListAdd(self\componentList, comp)
 	End Method
 
 	Method getComponent.Component(index%)
-		comp.Component = List::get(self\componentList, index)
+		local comp.Component = ListAt(self\componentList, index)
 		return comp
 	End Method
 
 	Method getProject.Project(dir$)
-		Local count = List::getSize(self\recentProjectList) - 1
+		Local count = ListSize(self\recentProjectList) - 1
 		for i = 0 to count
-			Local prj.Project = List::get(self\recentProjectList, i)
+			Local prj.Project = ListAt(self\recentProjectList, i)
 			if (prj\rootDir = dir)
 				return prj
 			end if
@@ -133,8 +132,8 @@ Type ProjectManager.RCCEApp
 		ProjectManager::showSplash(self)
 
 		if (prj = Null)
-			if ((NOT self\recentProjectList = Null) AND List::getSize(self\recentProjectList) > 0)
-				prj = List::get(self\recentProjectList, 0)
+			if ((NOT self\recentProjectList = Null) AND ListSize(self\recentProjectList) > 0)
+				prj = ListAt(self\recentProjectList, 0)
 			else
 				prj = new Project(self\rootDir)
 			end if
@@ -151,13 +150,13 @@ Type ProjectManager.RCCEApp
 
 		if (NOT self\prj = null)
 			if(NOT self\recentProjectList = Null)
-				self\recentProjectList = new List()
+				self\recentProjectList = CreateList()
 			end if
 
-			if (List::getSize(self\recentProjectList) > 0)
-				List::set(self\recentProjectList, 0, self\prj)
+			if (ListSize(self\recentProjectList) > 0)
+				ListReplace(self\recentProjectList, 0, self\prj)
 			else
-				List::push(self\recentProjectList, self\prj)
+				ListAdd(self\recentProjectList, self\prj)
 			end if
 		end if
 
@@ -165,8 +164,8 @@ Type ProjectManager.RCCEApp
 		self\prj = prj
 		
 		if(NOT self\recentProjectList = Null)
-			if (List::contains(self\recentProjectList, self\prj))
-				List::remove(self\recentProjectList, self\prj)
+			if (ListFind(self\recentProjectList, self\prj) <> -1)
+				ListRemove(self\recentProjectList, ListFind(self\recentProjectList, self\prj))
 			end if
 		end if
 
@@ -180,9 +179,9 @@ Type ProjectManager.RCCEApp
 
 	Method loadRecentProjects()
 		if (self\recentProjectList = Null)
-			self\recentProjectList = new List()
+			self\recentProjectList = CreateList()
 		else
-			List::clear(self\recentProjectList)
+			ListClear(self\recentProjectList)
 		end if
 
 		if (self\recentProjectFile = Null)
@@ -196,7 +195,7 @@ Type ProjectManager.RCCEApp
 			if (NOT Project::verify(prj)) 
 				delete prj
 			else
-				List::push(self\recentProjectList, prj)
+				ListAdd(self\recentProjectList, prj)
 			end if
 			if (File::isEnd(self\recentProjectFile)) Then Exit
 		next
@@ -211,9 +210,9 @@ Type ProjectManager.RCCEApp
 
 		File::writeLine(self\recentProjectFile, self\prj\rootDir)
 		
-		Local count = List::getSize(self\recentProjectList) - 1
+		Local count = ListSize(self\recentProjectList) - 1
 		for i = 0 to count
-			Local prj.Project = List::get(self\recentProjectList, i)
+			Local prj.Project = ListAt(self\recentProjectList, i)
 			File::writeLine(self\recentProjectFile, prj\rootDir)
 		next
 
@@ -224,25 +223,25 @@ Type ProjectManager.RCCEApp
 	; Builds the old menu with the new list
 	Method buildRecentProjectMenu()
 		if (self\menuItemList = Null)
-			self\menuItemList = new List()
+			self\menuItemList = CreateList()
 		end if
 
-		Local listCount = List::getSize(self\recentProjectList) - 1
+		Local listCount = ListSize(self\recentProjectList) - 1
 
 		for i = 0 to listCount
-			Local prj.Project = List::get(self\recentProjectList, i)
+			Local prj.Project = ListAt(self\recentProjectList, i)
 
-			if (i < List::getSize(self\menuItemList))
-				Local comp.MenuItemComponent = List::get(self\menuItemList, i)
+			if (i < ListSize(self\menuItemList))
+				Local comp.MenuItemComponent = ListAt(self\menuItemList, i)
 				MenuItemComponent::setText(comp, prj\rootDir)
 			else
-				List::push(self\menuItemList, new MenuItemComponent(M_ProjectsRecent, prj\rootDir))
+				ListAdd(self\menuItemList, new MenuItemComponent(M_ProjectsRecent, prj\rootDir))
 			end if
 		next
 	End Method
 End Type
 
-pm.ProjectManager = new ProjectManager()
+local pm.ProjectManager = new ProjectManager()
 
 ProjectManager::init(pm)
 
@@ -262,51 +261,51 @@ Global RootDir$ = pm\rootDir
 
 
 ;Images
-LogoTex.BBImage = ProjectManager::getImage(pm, 0)
-LogoTex2.BBImage = ProjectManager::getImage(pm, 1)
+local LogoTex.BBImage = ProjectManager::getImage(pm, 0)
+local LogoTex2.BBImage = ProjectManager::getImage(pm, 1)
 
 ;Folders
-OMF$ = "Data\Meshes"
-OTF$ = "Data\Textures"
-OSF$ = "Data\Sounds"
-OMuF$ = "Data\Music"
-OSC$ = "Data\Server Data\Scripts"
+local OMF$ = "Data\Meshes"
+local OTF$ = "Data\Textures"
+local OSF$ = "Data\Sounds"
+local OMuF$ = "Data\Music"
+local OSC$ = "Data\Server Data\Scripts"
 
 ;Executables
-SCT$ = RootDir$ + "bin\tools\Script Crafters Workshop\Script Crafters Workshop.exe"
-RSW$ = RootDir$ + "bin\tools\RC Spell Wizard\RC Spell Wizard.exe"
+local SCT$ = RootDir$ + "bin\tools\Script Crafters Workshop\Script Crafters Workshop.exe"
+local RSW$ = RootDir$ + "bin\tools\RC Spell Wizard\RC Spell Wizard.exe"
 
-PMH$ = RootDir$ + "res\Help.txt"
-SWH$ = RootDir$ + "bin\tools\RC Spell Wizard\RC Spell Wizard Documentation.pdf"
+local PMH$ = RootDir$ + "res\Help.txt"
+local SWH$ = RootDir$ + "bin\tools\RC Spell Wizard\RC Spell Wizard Documentation.pdf"
 
-GUE$ = RootDir$ + "bin\GUE.exe"
-CLI$ = RootDir$ + "bin\Client.exe"
-SER$ = RootDir$ + "bin\Server.exe"
+local GUE$ = RootDir$ + "bin\GUE.exe"
+local CLI$ = RootDir$ + "bin\Client.exe"
+local SER$ = RootDir$ + "bin\Server.exe"
 
-LCL$ = "Data\Logs\Client Log.txt"
-LSL$ = "Data\Logs\Server Log.txt"
+local LCL$ = "Data\Logs\Client Log.txt"
+local LSL$ = "Data\Logs\Server Log.txt"
 
-SRP$ = RootDir$ + "bin\tools\RC Scriptorama\RC Scriptorama.exe"
-FNT$ = RootDir$ + "bin\tools\FontGen\Font Generator.exe"
+local SRP$ = RootDir$ + "bin\tools\RC Scriptorama\RC Scriptorama.exe"
+local FNT$ = RootDir$ + "bin\tools\FontGen\Font Generator.exe"
 
-GUB$ = RootDir$ + "bin\tools\Gubbin Tool.exe"
-ARC$ = RootDir$ + "bin\tools\RC Architect.exe"
-CAV$ = RootDir$ + "bin\tools\RC Caves Editor.exe"
-ROC$ = RootDir$ + "bin\tools\RC Rock Editor.exe"
-TER$ = RootDir$ + "bin\tools\RC Terrain Editor.exe"
-TRE$ = RootDir$ + "bin\tools\RC Tree Editor.exe"
+local GUB$ = RootDir$ + "bin\tools\Gubbin Tool.exe"
+local ARC$ = RootDir$ + "bin\tools\RC Architect.exe"
+local CAV$ = RootDir$ + "bin\tools\RC Caves Editor.exe"
+local ROC$ = RootDir$ + "bin\tools\RC Rock Editor.exe"
+local TER$ = RootDir$ + "bin\tools\RC Terrain Editor.exe"
+local TRE$ = RootDir$ + "bin\tools\RC Tree Editor.exe"
 
-B3D$ = RootDir$ + "compiler\BlitzForge\BlitzRC.exe"
-BPS$ = RootDir$ + "compiler\BlitzPlus\BlitzPlus.exe"
+local B3D$ = RootDir$ + "compiler\BlitzForge\BlitzRC.exe"
+local BPS$ = RootDir$ + "compiler\BlitzPlus\BlitzPlus.exe"
 
 ;Main Window
-WMain = pm\window
+local WMain = pm\window
 
 ;Title Menu Bar
 ;Projects Tab
-M_Projects = FUI_MenuTitle(WMain, "Projects")
-M_ProjectsNew = FUI_MenuItem(M_Projects, "New Project")
-M_ProjectsOpen = FUI_MenuItem(M_Projects, "Open Project")
+local M_Projects = FUI_MenuTitle(WMain, "Projects")
+local M_ProjectsNew = FUI_MenuItem(M_Projects, "New Project")
+local M_ProjectsOpen = FUI_MenuItem(M_Projects, "Open Project")
 Global M_ProjectsRecent = FUI_MenuItem(M_Projects, "Recent Projects")
 
 ProjectManager::buildRecentProjectMenu(pm)
@@ -315,21 +314,21 @@ ProjectManager::buildRecentProjectMenu(pm)
 ;setProject(GameDir$)
 
 ;Folders Tab
-M_PFol = FUI_MenuTitle(WMain, "Project Folders")
-M_Meshes = FUI_MenuItem(M_PFol, "Meshes")
-M_textures = FUI_MenuItem(M_PFol, "Textures")
-M_Sounds = FUI_MenuItem(M_PFol, "Sound")
-M_Music = FUI_MenuItem(M_PFol, "Music")
+local M_PFol = FUI_MenuTitle(WMain, "Project Folders")
+local M_Meshes = FUI_MenuItem(M_PFol, "Meshes")
+local M_textures = FUI_MenuItem(M_PFol, "Textures")
+local M_Sounds = FUI_MenuItem(M_PFol, "Sound")
+local M_Music = FUI_MenuItem(M_PFol, "Music")
 
 ;Wizards Tab
-M_CTol = FUI_MenuTitle(WMain, "3rd Party") 
-M_SC = FUI_MenuItem(M_CTol, "Script Crafter")
-M_SW = FUI_MenuItem(M_CTol, "Spell Wizard")
+local M_CTol = FUI_MenuTitle(WMain, "3rd Party") 
+local M_SC = FUI_MenuItem(M_CTol, "Script Crafter")
+local M_SW = FUI_MenuItem(M_CTol, "Spell Wizard")
 
 ;Help Tab
-M_Help = FUI_MenuTitle(WMain, "Help")
-M_SWH = FUI_MenuItem(M_Help, "Spell Wizard Help")
-M_HF = FUI_MenuItem(M_Help, "Help File")
+local M_Help = FUI_MenuTitle(WMain, "Help")
+local M_SWH = FUI_MenuItem(M_Help, "Spell Wizard Help")
+local M_HF = FUI_MenuItem(M_Help, "Help File")
 
 ;Function Buttons
 ;BMINI = FUI_Button(WMain, 509, 1, 18, 18, "_")
@@ -340,7 +339,7 @@ FUI_Label(WMain, GUE_width - 7, 22, Version$, ALIGN_RIGHT)
 Global GDIR = FUI_Label(WMain, GUE_width - 7, GUE_height - 20, GameDir$, ALIGN_RIGHT)
 
 ;Tabs
-TabMain = FUI_Tab(WMain, 0, 20, GUE_width, GUE_height - 20 - 20)
+local TabMain = FUI_Tab(WMain, 0, 20, GUE_width, GUE_height - 20 - 20)
 Global TProject = FUI_TabPage(TabMain, "Project")
 Global TEngine = FUI_TabPage(TabMain, "Engine")
 Global TSupport = FUI_TabPage(TabMain, "Support")
@@ -353,43 +352,43 @@ FUI_Label(TProject, 160 + 75, 32, "Project Name: ", ALIGN_RIGHT)
 Global ProName = FUI_TextBox(TProject, 160 + 75, 27, 380 - 75, 25)
 
 ;Buttons
-LET = FUI_GroupBox(TProject, 5, 20, 150, 120, "Game")
-BCLI = FUI_Button(TProject, 15, 40, 62.5, 40, "Client")
-BSER = FUI_Button(TProject, 82.5, 40, 62.5, 40, "Server")
-BOPU = FUI_Button(TProject, 15, 85, 130, 45, "Publish")
+local LET = FUI_GroupBox(TProject, 5, 20, 150, 120, "Game")
+local BCLI = FUI_Button(TProject, 15, 40, 62.5, 40, "Client")
+local BSER = FUI_Button(TProject, 82.5, 40, 62.5, 40, "Server")
+local BOPU = FUI_Button(TProject, 15, 85, 130, 45, "Publish")
 
-LLG = FUI_GroupBox(TProject, 5, 140, 150, 100, "Logs")
-BLC = FUI_Button(TProject, 15, 165, 130, 25, "Client Log")
-BLS = FUI_Button(TProject, 15, 200, 130, 25, "Server Log")
+local LLG = FUI_GroupBox(TProject, 5, 140, 150, 100, "Logs")
+local BLC = FUI_Button(TProject, 15, 165, 130, 25, "Client Log")
+local BLS = FUI_Button(TProject, 15, 200, 130, 25, "Server Log")
 
-LPF = FUI_GroupBox(TProject, 160, 140, 240, 100, "Project Folders")
-BOPF = FUI_Button(TProject, 170, 165, 70.5, 25, "Project")
-BOM = FUI_Button(TProject, 170, 200, 70.5, 25, "Meshes")
-BOT = FUI_Button(TProject, 170 + 75.5, 165, 70.5, 25, "Textures")
-BOS = FUI_Button(TProject, 170 + 75.5, 200, 70.5, 25, "Sound")
-BOSM = FUI_Button(TProject, 170 + 75.5 + 75.5, 165, 70.5, 25, "Music")
-BOSC = FUI_Button(TProject, 170 + 75.5 + 75.5, 200, 70.5, 25, "Scripts")
+local LPF = FUI_GroupBox(TProject, 160, 140, 240, 100, "Project Folders")
+local BOPF = FUI_Button(TProject, 170, 165, 70.5, 25, "Project")
+local BOM = FUI_Button(TProject, 170, 200, 70.5, 25, "Meshes")
+local BOT = FUI_Button(TProject, 170 + 75.5, 165, 70.5, 25, "Textures")
+local BOS = FUI_Button(TProject, 170 + 75.5, 200, 70.5, 25, "Sound")
+local BOSM = FUI_Button(TProject, 170 + 75.5 + 75.5, 165, 70.5, 25, "Music")
+local BOSC = FUI_Button(TProject, 170 + 75.5 + 75.5, 200, 70.5, 25, "Scripts")
 
 ;Engine Tab
 ;Logo
 FUI_ImageBox(TEngine, 160, 27, 380, 112, Ptr LogoTex)
 
 ;Editors
-LED = FUI_GroupBox(TEngine, 5, 20, 150, 80, "Editors")
-BGUE = FUI_Button(TEngine, 15, 40, 130, 50, "Game Unified Editor") 
+local LED = FUI_GroupBox(TEngine, 5, 20, 150, 80, "Editors")
+local BGUE = FUI_Button(TEngine, 15, 40, 130, 50, "Game Unified Editor") 
 
-LTK = FUI_GroupBox(TEngine, 160, 140, 240, 100, "Tool Kit")
-TOOL1 = FUI_Button(TEngine, 170, 165, 70.5, 25, "Gubbin")
-TOOL2 = FUI_Button(TEngine, 170, 200, 70.5, 25, "Architect")
-TOOL3 = FUI_Button(TEngine, 170 + 75.5, 165, 70.5, 25, "Caves")
-TOOL4 = FUI_Button(TEngine, 170 + 75.5, 200, 70.5, 25, "Rock")
-TOOL5 = FUI_Button(TEngine, 170 + 75.5 + 75.5, 165, 70.5, 25, "Terrain")
-TOOL6 = FUI_Button(TEngine, 170 + 75.5 + 75.5, 200, 70.5, 25, "Tree")
+local LTK = FUI_GroupBox(TEngine, 160, 140, 240, 100, "Tool Kit")
+local TOOL1 = FUI_Button(TEngine, 170, 165, 70.5, 25, "Gubbin")
+local TOOL2 = FUI_Button(TEngine, 170, 200, 70.5, 25, "Architect")
+local TOOL3 = FUI_Button(TEngine, 170 + 75.5, 165, 70.5, 25, "Caves")
+local TOOL4 = FUI_Button(TEngine, 170 + 75.5, 200, 70.5, 25, "Rock")
+local TOOL5 = FUI_Button(TEngine, 170 + 75.5 + 75.5, 165, 70.5, 25, "Terrain")
+local TOOL6 = FUI_Button(TEngine, 170 + 75.5 + 75.5, 200, 70.5, 25, "Tree")
 
 ;Source
-LTK = FUI_GroupBox(TEngine, 405, 140, 135, 100, "Source Tools")	
-BB3D = FUI_Button(TEngine, 410, 165, 125, 25, "BlitzForge")
-BBPS = FUI_Button(TEngine, 410, 200, 125, 25, "BlitzPlus")
+local ST = FUI_GroupBox(TEngine, 405, 140, 135, 100, "Source Tools")	
+local BB3D = FUI_Button(TEngine, 410, 165, 125, 25, "BlitzForge")
+local BBPS = FUI_Button(TEngine, 410, 200, 125, 25, "BlitzPlus")
 
 if FileType(B3D$) = 0
 	FUI_DisableGadget(BB3D)
@@ -404,25 +403,25 @@ EndIf
 FUI_ImageBox(TSupport, 440, 173, 100, 67, Ptr LogoTex2)
 
 ;Buttons
-LFRMS = FUI_GroupBox(TSupport, 5, 20, 150, 220, "Forum Links")
-OBEC = FUI_Button(TSupport, 15, 40, 130, 25, "General")
-ODIS = FUI_Button(TSupport, 15, 73, 130, 25, "Discussion & Help")
-OSCR = FUI_Button(TSupport, 15, 106, 130, 25, "Scripting Discussion")
-OTUT = FUI_Button(TSupport, 15, 139, 130, 25, "Tutorials")
-OSRD = FUI_Button(TSupport, 15, 172, 130, 25, "Source Discussion")
-OSTU = FUI_Button(TSupport, 15, 205, 130, 25, "Showcase")
+local LFRMS = FUI_GroupBox(TSupport, 5, 20, 150, 220, "Forum Links")
+local OBEC = FUI_Button(TSupport, 15, 40, 130, 25, "General")
+local ODIS = FUI_Button(TSupport, 15, 73, 130, 25, "Discussion & Help")
+local OSCR = FUI_Button(TSupport, 15, 106, 130, 25, "Scripting Discussion")
+local OTUT = FUI_Button(TSupport, 15, 139, 130, 25, "Tutorials")
+local OSRD = FUI_Button(TSupport, 15, 172, 130, 25, "Source Discussion")
+local OSTU = FUI_Button(TSupport, 15, 205, 130, 25, "Showcase")
 
-LFRM = FUI_GroupBox(TSupport, 160, 110, 380, 55, "RCCE Websites")
-ORYD = FUI_Button(TSupport, 175, 130, 110, 25, "RCCE Source")
-OFRM = FUI_Button(TSupport, 295, 130, 110, 25, "RCCE Forum")
-OWIK = FUI_Button(TSupport, 415, 130, 110, 25, "RCCE Wiki")
+local LFRM = FUI_GroupBox(TSupport, 160, 110, 380, 55, "RCCE Websites")
+local ORYD = FUI_Button(TSupport, 175, 130, 110, 25, "RCCE Source")
+local OFRM = FUI_Button(TSupport, 295, 130, 110, 25, "RCCE Forum")
+local OWIK = FUI_Button(TSupport, 415, 130, 110, 25, "RCCE Wiki")
 
-LADD = FUI_GroupBox(TSupport, 160, 166, 275, 74, "Addtional Support")
+local LADD = FUI_GroupBox(TSupport, 160, 166, 275, 74, "Addtional Support")
 
 ;Buttons
-BANO = FUI_Button(TSupport, 170, 180, 125, 25, "RCCE Updates")
-BFANO = FUI_Button(TSupport, 170 + 130, 180, 125, 25, "Forum Annoucements")
-DISC = FUI_Button(TSupport, 170, 210, 125, 25, "RCCE Discord")
+local BANO = FUI_Button(TSupport, 170, 180, 125, 25, "RCCE Updates")
+local BFANO = FUI_Button(TSupport, 170 + 130, 180, 125, 25, "Forum Annoucements")
+local DISC = FUI_Button(TSupport, 170, 210, 125, 25, "RCCE Discord")
 
 FUI_Label(TSupport, 160, 25, "The RealmCrafter: Community Edition is a community driven project.")
 FUI_Label(TSupport, 160, 60, "You can request to become a contributor by visiting the following link:") 
@@ -432,7 +431,7 @@ FUI_Label(TSupport, 160, 75, "https://github.com/orgs/RydeTec/teams/rcce-contrib
 FUI_SendMessage(ProName, M_SETCAPTION, GameName$)
 	
 ;Finish up before loop
-DeltaTime = MilliSecs()
+local DeltaTime = MilliSecs()
 FUI_HideMouse()
 
 ;Start Loop
@@ -452,7 +451,7 @@ Repeat
 		Case BCLOSE
 			app\Quit = True
 		Case ProName
-			F.BBStream = WriteFile("Data\Game Data\Misc.dat")
+			local F.BBStream = WriteFile("Data\Game Data\Misc.dat")
 			If F = Null Then RuntimeError("Could not open Data\Game Data\Misc.dat!")
 			WriteLine F, FUI_SendMessage(ProName, M_GETCAPTION)
 			WriteLine F, UpdateGame$
@@ -576,7 +575,7 @@ Repeat
 		End Select
 
 		if E <> Null
-			mi.MenuItem = Object.MenuItem(E\EventID)
+			local mi.MenuItem = Object.MenuItem(E\EventID)
 			if mi <> Null
 				if Handle( mi\Parent ) = M_ProjectsRecent
 					ProjectManager::loadProject(pm, ProjectManager::getProject(pm, mi\caption$))
