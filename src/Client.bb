@@ -7,6 +7,10 @@ Global componentName$ = "client"
 Global RootDir$ = "..\"
 Global LogMode = 1; (0 = standard logging, 1 = debug mode)
 
+if FileType("bin") = 2
+    RootDir$ = CurrentDir()
+EndIf
+
 ChangeDir RootDir$
 
 ; Variables -------------------------------

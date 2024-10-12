@@ -2,6 +2,10 @@
 Global componentName$ = "server"
 Global RootDir$ = "..\"
 
+if FileType("bin") = 2
+    RootDir$ = CurrentDir()
+EndIf
+
 ChangeDir RootDir$
 
 ; Debug log mode
