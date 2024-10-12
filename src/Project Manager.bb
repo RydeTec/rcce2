@@ -482,7 +482,7 @@ Repeat
 			EndIf
 
 			If FUI_CustomOpenDialog("Project Directory", RootDir$ + "projects", "Project Folder|\\", False, True)
-				CopyDir(RootDir$ + "Data", app\currentFile + "Data")
+				Filesystem::copyTree(Null, RootDir$ + "Data", app\currentFile + "Data")
 				ProjectManager::loadProject(pm, ProjectManager::getProject(pm, app\currentFile))
 				;setProject(app\currentFile)
 			EndIf
