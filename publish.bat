@@ -18,4 +18,6 @@ xcopy /E /Y /I "%ROOTDIR%\res" "%ROOTDIR%\release\res"
 xcopy /E /Y /I "%ROOTDIR%\docs" "%ROOTDIR%\release\docs"
 xcopy /E /Y /I "%ROOTDIR%\extras\Freemake" "%ROOTDIR%\release\extras\Freemake"
 
+if exist "%ROOTDIR%\release\res\Recent.dat" del "%ROOTDIR%\release\res\Recent.dat"
+
 endlocal
