@@ -132,7 +132,7 @@ This function sets the hat mesh attached to an actor instance. If the MeshID par
   
   
 
-**LoadActorInstance3D(A.ActorInstance, Scale#, SkipAttachments)**  
+**LoadActorInstance3D(A.ActorInstance, Scale#, SkipAttachments, AutoFade)**  
   
 Return value: Success flag  
   
@@ -141,6 +141,7 @@ Parameters:
 *   _A.ActorInstance_ - The actor instance to set the hat mesh for
 *   _Scale#_ - The scaling factor for the actor instance, default 1.0 (100%)
 *   _SkipAttachments_ - Flag to skip loading of emitters, hair, shadow, etc., default False
+*   _AutoFade_ - Flad to auto fade actors when they are too far or too close to the camera, default True
 
   
 This function loads all meshes etc. for an existing actor instance. The first level is the character's pivot point, stored in the ActorInstance type's CollisionEN field. Next the main body mesh is loaded (based on the character's gender), and stored in the EN field. Scaling is applied, as are the face and body textures. If the gender is male, the beard mesh is also loaded and attached if required. Next the approximate radius of the character is calculated and stored. This marks the end of gender specific loading. The final sections extract all animation sequences from the main mesh, create any emitters on joints, load the hair using [SetActorHat](#FSetActorHat), create the shadow, set the collision ellipsoid and box, load any items the character has equipped, and create the nametag if required. Finally the pivot point and main enities are named with the handle of the actor instance. Note that this function should not be called twice in succession since any meshes already present are not freed.

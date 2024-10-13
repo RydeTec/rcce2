@@ -10,7 +10,7 @@ Type Spell
 	Field ThumbnailTexID                  ; Icon displayed in the spellbook
 	Field ExclusiveRace$, ExclusiveClass$ ; If this spell can only be used by a certain race and/or class
 	Field RechargeTime                    ; Time taken to recharge after casting in milliseconds
-	Field Script$, Method$                ; Script to run when cast
+	Field Script$, SMethod$                ; Script to run when cast
 End Type
 
 ; A spell which is waiting for memorisation (server side)
@@ -56,7 +56,7 @@ Function LoadSpells(Filename$)
 			S\ExclusiveClass$ = ReadString$(F)
 			S\RechargeTime = ReadInt(F)
 			S\Script$ = ReadString$(F)
-			S\Method$ = ReadString$(F)
+			S\SMethod$ = ReadString$(F)
 			Number = Number + 1
 		Wend
 
@@ -80,7 +80,7 @@ Function SaveSpells(Filename$)
 			WriteString F, S\ExclusiveClass$
 			WriteInt F, S\RechargeTime
 			WriteString F, S\Script$
-			WriteString F, S\Method$
+			WriteString F, S\SMethod$
 		Next
 
 	CloseFile(F)

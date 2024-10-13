@@ -1,4 +1,4 @@
-; This file must be compiled with BlitzRC
+; This file must be compiled with BlitzForge
 
 ;#Region ---------- Notes ----------------------
 ;The minimum value for the camera range of [app\Cam] should be
@@ -35,7 +35,7 @@
 ;filter from the open or save dialog box.
 ;#End Region
 
-Strict
+;Strict
 
 ;#Region ---------- Types ----------------------
 Type CHOOSEFONT
@@ -16600,15 +16600,15 @@ Function FUI_Initialise( W, H, D, M, Resizable=False, Border=True, Caption$="", 
 	app\OH = H
 	
 	;Resizable
-	If Resizable = True
-		W = FUI_API_GetSystemMetrics( 0 )
-		H = FUI_API_GetSystemMetrics( 1 )
-	EndIf
+	;If Resizable = True
+	;	W = FUI_API_GetSystemMetrics( 0 )
+	;	H = FUI_API_GetSystemMetrics( 1 )
+	;EndIf
 	
 	app\dirStart = CurrentDir()
 	
 	;Graphics
-	Graphics3D W, H, D, M
+	;Graphics3D W, H, D, M
 	app\W = TW
 	app\H = TH
 	app\D = D

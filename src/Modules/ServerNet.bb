@@ -934,7 +934,7 @@ Function UpdateNetwork()
 										If AI\MemorisedSpells[i] = Num
 											Sp.Spell = SpellsList(AI\KnownSpells[Num])
 											If AI\SpellCharge[i] <= 0
-												ThreadScript(Sp\Script$, Sp\Method$, Handle(AI), Handle(Context), AI\SpellLevels[Num])
+												ThreadScript(Sp\Script$, Sp\SMethod$, Handle(AI), Handle(Context), AI\SpellLevels[Num])
 												AI\SpellCharge[i] = Sp\RechargeTime
 											Else
 												ml = Len(Chr$(253) + LanguageString$(LS_AbilityNotRecharged))
@@ -947,7 +947,7 @@ Function UpdateNetwork()
 								Else
 									Sp.Spell = SpellsList(AI\KnownSpells[Num])
 									If AI\SpellCharge[Num] <= 0
-										ThreadScript(Sp\Script$, Sp\Method$, Handle(AI), Handle(Context), AI\SpellLevels[Num])
+										ThreadScript(Sp\Script$, Sp\SMethod$, Handle(AI), Handle(Context), AI\SpellLevels[Num])
 										AI\SpellCharge[Num] = Sp\RechargeTime
 									Else
 										RCE_Send(Host, AI\RNID, P_ChatMessage, Chr$(253) + LanguageString$(LS_AbilityNotRecharged), True)
@@ -1040,10 +1040,10 @@ Function UpdateNetwork()
 										; Execute Item Script
 										If AI\Inventory\Items[Slot]\Item\Script$ <> ""
 											If AI\Inventory\Amounts[Slot] > 0
-												If AI\Inventory\Items[Slot]\Item\Method$ = ""
+												If AI\Inventory\Items[Slot]\Item\SMethod$ = ""
 													ThreadScript(AI\Inventory\Items[Slot]\Item\Script$, "Main", Handle(AI), Handle(Null))
 												Else
-													ThreadScript(AI\Inventory\Items[Slot]\Item\Script$, AI\Inventory\Items[Slot]\Item\Method$, Handle(AI), Handle(Null))
+													ThreadScript(AI\Inventory\Items[Slot]\Item\Script$, AI\Inventory\Items[Slot]\Item\SMethod$, Handle(AI), Handle(Null))
 												EndIf
 											EndIf
 										EndIf
@@ -1074,10 +1074,10 @@ Function UpdateNetwork()
 								If AI\Inventory\Items[SlotIndex]\Item\ExclusiveRace$ = "" Or Upper$(AI\Actor\Race$) = Upper$(AI\Inventory\Items[SlotIndex]\Item\ExclusiveRace$)
 									If AI\Inventory\Items[SlotIndex]\Item\Script$ <> ""
 										If AI\Inventory\Amounts[SlotIndex] > 0
-											If AI\Inventory\Items[SlotIndex]\Item\Method$ = ""
+											If AI\Inventory\Items[SlotIndex]\Item\SMethod$ = ""
 												ThreadScript(AI\Inventory\Items[SlotIndex]\Item\Script$, "Main", Handle(AI), Handle(A2))
 											Else
-												ThreadScript(AI\Inventory\Items[SlotIndex]\Item\Script$, AI\Inventory\Items[SlotIndex]\Item\Method$, Handle(AI), Handle(A2))
+												ThreadScript(AI\Inventory\Items[SlotIndex]\Item\Script$, AI\Inventory\Items[SlotIndex]\Item\SMethod$, Handle(AI), Handle(A2))
 											EndIf
 										EndIf
 									EndIf

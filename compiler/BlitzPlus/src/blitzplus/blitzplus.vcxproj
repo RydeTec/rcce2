@@ -450,7 +450,6 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <Library Include="..\audio\fmod375\lib\fmodvc.lib" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

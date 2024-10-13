@@ -27,7 +27,7 @@ Type Item
 	Field ID
 	Field Name$
 	Field ExclusiveRace$, ExclusiveClass$ ; If this item can only be used by a certain race and/or class
-	Field Script$, Method$      ; Called when the item is right clicked
+	Field Script$, SMethod$      ; Called when the item is right clicked
 	Field ItemType              ; Should be one of the constants above
 	Field Value, Mass           ; Average monetary value, and item weight
 	Field ThumbnailTexID        ; The texture ID for the image seen in the inventory system
@@ -255,7 +255,7 @@ Function LoadItems(Filename$)
 			I\ExclusiveRace$   = ReadString$(F)
 			I\ExclusiveClass$  = ReadString$(F)
 			I\Script$          = ReadString$(F)
-			I\Method$          = ReadString$(F)
+			I\SMethod$          = ReadString$(F)
 			I\ItemType         = ReadByte(F)
 			I\Value            = ReadInt(F)
 			I\Mass             = ReadShort(F)
@@ -304,7 +304,7 @@ Function SaveItems(Filename$)
 			WriteString F, I\ExclusiveRace$
 			WriteString F, I\ExclusiveClass$
 			WriteString F, I\Script$
-			WriteString F, I\Method$
+			WriteString F, I\SMethod$
 			WriteByte F, I\ItemType
 			WriteInt F, I\Value
 			WriteShort F, I\Mass

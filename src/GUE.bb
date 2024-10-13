@@ -1,5 +1,5 @@
 
-Global rcceVersion$ = "v2.0"
+Global rcceVersion$ = "2.0.0"
 Global componentName$ = "gue"
 Global RootDir$ = "..\"
 Global LogMode = 1; (0 = standard logging, 1 = debug mode)
@@ -53,16 +53,7 @@ Dim TriggerEN(149)
 Dim WaypointEN(1999)
 Dim WaypointALink(1999)
 Dim WaypointBLink(1999)
-; Updates system
-Dim UpdatesList$(49)
-UpdatesList$(0) = "Data\Areas"
-UpdatesList$(1) = "Data\Emitter Configs"
-UpdatesList$(2) = "Data\Game Data"
-UpdatesList$(3) = "Data\UI"
-UpdatesList$(4) = "Data\Meshes"
-UpdatesList$(5) = "Data\Music"
-UpdatesList$(6) = "Data\Sounds"
-UpdatesList$(7) = "Data\Textures"
+
 Type UpdateFile
 	Field Name$, Checksum
 End Type
@@ -100,13 +91,14 @@ WriteLog(GUELog, "** GUE startup log begins **", True, True)
 
 ;Window or fullscreen for editor
 ;############################
-Local GUE_width = GetSystemMetrics(0)
-Local GUE_height = GetSystemMetrics(1)
+Local GUE_width# = GetSystemMetrics(0) * 0.9
+Local GUE_height# = GetSystemMetrics(1) * 0.8
 If (GUE_width < 1280 And GUE_height< 960)
 	GUE_width = 1280
 	GUE_height = 960
 EndIf
 WriteLog(GUELog, "Initialising windowed graphics mode")
+Graphics3D(GUE_width, GUE_height, 0, 2)
 FUI_Initialise(GUE_width, GUE_height, 0, 2, True, True, "Realm Crafter Community Edition -" + rcceVersion)
 SetBuffer(BackBuffer())
 
@@ -123,20 +115,25 @@ WriteLog(GUELog, "Initialising encryption system")
 
 ; Splash screen
 WriteLog(GUELog, "Loading splash screen")
-Img = LoadImage("Data\GUE\Loading.PNG")
-If Img = 0 Then RuntimeError("Could not open Data\GUE\Loading.PNG!")
-ResizeImage Img, GraphicsWidth(), GraphicsHeight()
+Global SplashImg = LoadImage("Data\GUE\Loading.PNG")
+If SplashImg = 0 Then RuntimeError("Could not open Data\GUE\Loading.PNG!")
+ResizeImage SplashImg, GUE_width, GUE_height
 
+Function updateSplashScreen(loadingText$)
+	WriteLog(GUELog, loadingText$)
+	Color 255, 255, 255
+	DrawImage(SplashImg, 0, 0)
+	Text (ImageWidth(SplashImg)/2), (ImageHeight(SplashImg)/1.965), loadingText$, True, False
+	Flip()
+End Function
 
 ; Media dialogs
 SetFont(app\fntWindow)
-WriteLog(GUELog, "Creating media dialogs")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Creating media dialogs", True : Flip() 
+updateSplashScreen("Creating media dialogs")
 InitMediaDialogs()
 
 ; Interface
-WriteLog(GUELog, "Loading game interface settings")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Loaded game interface settings", True : Flip()
+updateSplashScreen("Loaded game interface settings")
 ClearTextureFilters()
 Result = LoadInterfaceSettings("Data\Game Data\Interface.dat")
 If Result = False Then RuntimeError("Could not open Data\Game Data\Interface.dat!")
@@ -226,28 +223,7 @@ TextureFilter("", 1 + 8)
 ;Tex = LoadTexture("Data\Textures\Menu\BCharBoxD.PNG") : EntityTexture(LoginServerStat\Component, Tex) : FreeTexture(Tex)
 
 ; All emitter configs
-;WriteLog(GUELog, "Loading emitter configurations")
-;Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text 350, 620, "Loaded emitter configurations", True : Flip()
-;DefaultTex = LoadTexture("Data\DefaultParticle.bmp", 4 + 16 + 32)
-;D = ReadDir("Data\Emitter Configs")
-;	File$ = NextFile$(D)
-;	While File$ <> ""
-;		If FileType("Data\Emitter Configs\" + File$) = 1
-;			ConfigID = RP_LoadEmitterConfig("Data\Emitter Configs\" + File$, DefaultTex, app\Cam)
-;			C.RP_EmitterConfig = Object.RP_EmitterConfig(ConfigID)
-;			If C\DefaultTextureID < 65535
-;				Tex = GetTexture(C\DefaultTextureID, True)
-;				UnloadTexture(C\DefaultTextureID)
-;				If Tex <> 0 Then C\Texture = Tex
-;			EndIf
-;		EndIf
-;		File$ = NextFile$(D)
-;	Wend
-;CloseDir(D)
-
-; All emitter configs
-WriteLog(GUELog, "Loading emitter configurations")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2),(ImageHeight(Img)/2), "Loading emitter configurations", True : Flip()
+updateSplashScreen("Loading emitter configurations")
 DefaultTex = LoadTexture("Data\DefaultParticle.bmp", 4 + 16 + 32)
 D = ReadDir("Data\Emitter Configs")
  File$ = NextFile$(D)
@@ -274,7 +250,7 @@ CloseFile(F)
 
 ;Title +Project name
 ;#########
-FUI_AppTitle("RCCE" + " - " + GameName$)
+FUI_AppTitle("RealmCrafter: Community Edition" + " - " + GameName$)
 ;#########
 
 F = ReadFile("Data\Game Data\Hosts.dat")
@@ -284,42 +260,33 @@ If F = 0 Then RuntimeError("Could not open Data\Game Data\Hosts.dat!")
 CloseFile(F)
 
 ; Load actors, items, etc.
-WriteLog(GUELog, "Loading damage types")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Loaded damage types", True : Flip()
+updateSplashScreen("Loading damage types")
 Result = LoadDamageTypes("Data\Server Data\Damage.dat")
 If Result = False Then RuntimeError("Could not open Data\Server Data\Damage.dat!")
-WriteLog(GUELog, "Loading attributes")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Loaded attributes", True : Flip()
+updateSplashScreen("Loading attributes")
 Result = LoadAttributes("Data\Server Data\Attributes.dat")
 If Result = False Then RuntimeError("Could not open Data\Server Data\Attributes.dat!")
-WriteLog(GUELog, "Loading factions")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Loaded factions", True : Flip()
+updateSplashScreen("Loading factions")
 Result = LoadFactions("Data\Server Data\Factions.dat")
 If Result = -1 Then RuntimeError("Could not open Data\Server Data\Factions.dat!")
-WriteLog(GUELog, "Loading animations")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Loaded animations", True : Flip()
+updateSplashScreen("Loading animations")
 Result = LoadAnimSets("Data\Game Data\Animations.dat")
 If Result = -1 Then RuntimeError("Could not open Data\Game Data\Animations.dat!")
-WriteLog(GUELog, "Loading projectiles")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Loaded projectiles", True : Flip()
+updateSplashScreen("Loading projectiles")
 Global TotalProjectiles = LoadProjectiles("Data\Server Data\Projectiles.dat")
 If TotalProjectiles = -1 Then RuntimeError("Could not open Data\Server Data\Projectiles.dat!")
-WriteLog(GUELog, "Loading items")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Loaded items", True : Flip()
+updateSplashScreen("Loading items")
 Global TotalItems = LoadItems("Data\Server Data\Items.dat")
 If TotalItems = -1 Then RuntimeError("Could not open Data\Server Data\Items.dat!")
-WriteLog(GUELog, "Loading actors")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Loaded actors", True : Flip()
+updateSplashScreen("Loading actors")
 Global TotalActors = LoadActors("Data\Server Data\Actors.dat")
 If TotalActors = -1 Then RuntimeError("Could not open Data\Server Data\Actors.dat!")
-WriteLog(GUELog, "Loading abilities")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Loaded abilities", True : Flip()
+updateSplashScreen("Loading abilities")
 Global TotalSpells = LoadSpells("Data\Server Data\Spells.dat")
 If TotalSpells = -1 Then RuntimeError("Could not open Data\Server Data\Spells.dat!")
 
 ; Load zones (just the server side bits, client side parts are loaded on request to save video memory)
-WriteLog(GUELog, "Loading server-side zones")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Loaded zones", True : Flip()
+updateSplashScreen("Loading server-side zones")
 Global TotalZones = 0
 D = ReadDir("Data\Server Data\Areas")
 File$ = NextFile$(D)
@@ -341,7 +308,7 @@ LoadSuns()
 
 ; Initialise GUI --------------------------------------------------------------------------------------------------------------------
 
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Created GUI", True : Flip()
+updateSplashScreen("Created GUI")
 
 ; Texture filters
 TextureFilter "m_", 1 + 4
@@ -369,8 +336,6 @@ TextureFilter "a_", 1 + 2
 ; Main tab strip
 WriteLog(GUELog, "Creating main window")
 
-;WMain = FUI_Window(25, 50, 974, 693, "", "", 0, 0)
-;TabMain = FUI_Tab(WMain, 0, 0, 974, 693)
 WMain = FUI_Window(0, 0, GUE_width, GUE_height, "", "", 0, 0)
 ; Top Menu Bar Edit Cysis145
 mnuFile							= FUI_MenuTitle( WMain, "File" )
@@ -402,22 +367,16 @@ Global TOther       = FUI_TabPage(TabMain, "Other")
 
 ; Project gadgets -------------------------------------------------------------------------------------------------------------------
 
-WriteLog(GUELog, "Creating project tab")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Created project tab", True : Flip()
+updateSplashScreen("Creating project tab")
 
-FUI_Label(TProject, 487, 20, "Welcome to Realm Crafter Community Edition!", ALIGN_CENTER)
-FUI_Label(TProject, 487, 60, GameName$, ALIGN_CENTER)
+FUI_Label(TProject, GUE_width/2, 20, "Welcome to Realm Crafter Community Edition!", ALIGN_CENTER)
+FUI_Label(TProject, GUE_width/2, 60, GameName$, ALIGN_CENTER)
 
-BBuildFullInstall = FUI_Button(TProject, 10, 100, 130, 25, "Build full client")
-BBuildInstaller = FUI_Button(TProject, 10, 135, 130, 25, "Build minimum client")
-BBuildUpdates = FUI_Button(TProject, 10, 170, 130, 25, "Generate client update")
-BBuildServer = FUI_Button(TProject, 10, 205, 130, 25, "Build full server")
 ;BRestoreLanguageFile = FUI_Button(TProject, 10, 240, 130, 25, "Restore Language File")
 
 ; Media gadgets ---------------------------------------------------------------------------------------------------------------------
 
-WriteLog(GUELog, "Creating media tab")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Created media tab", True : Flip()
+updateSplashScreen("Creating media tab")
 
 Global CMediaType = FUI_ComboBox(TMedia, 20, 20, 250, 20)
 FUI_ComboBoxItem(CMediaType, "View 3D Meshes")
@@ -458,11 +417,9 @@ SetMediaType(1)
 
 ; Particles gadgets -----------------------------------------------------------------------------------------------------------------
 
-WriteLog(GUELog, "Creating particles tab")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Created particles tab", True : Flip()
+updateSplashScreen("Creating particles tab")
 
 ; Preview view
-;View = FUI_View(TParticles, 20, 20, 600, 450, 0, 0, 0)
 View = FUI_View(TParticles, 20, 20, GUE_width - 424, GUE_height - 318, 0, 0, 0)
 
 Global ParticlesCam = FUI_SendMessage(View, M_GETCAMERA)
@@ -473,16 +430,6 @@ Global ParticlesCamBGB = 0
 
 ; Set camera clear color using red, green, blue values
 CameraClsColor ParticlesCam, ParticlesCamBGR, ParticlesCamBGG, ParticlesCamBGB
-
-;Old
-;Global LActiveParticles = FUI_Label(TParticles, 20, 475, "Active particles: 0")
-; Buttons
-;BParticlesNew  = FUI_Button(TParticles, 630, 170, 90, 20, "New emitter")
-;BParticlesSave = FUI_Button(TParticles, 740, 170, 90, 20, "Save emitters")
-;BParticlesDelete = FUI_Button(TParticles, 850, 170, 90, 20, "Delete emitter")
-; Configs list
-;FUI_Label(TParticles, 630, 127, "Current emitter:")
-;Global CParticleConfigs = FUI_ComboBox(TParticles, 630, 145, 290, 20, 20)
 
 ;new
 Global LActiveParticles = FUI_Label(TParticles, 20, GUE_height - 293, "Active particles: 0")
@@ -503,16 +450,6 @@ Next
 FUI_SendMessage(CParticleConfigs, M_SETINDEX, 1)
 
 ; Preview buttons
-;Old
-;BParticlesTex = FUI_Button(TParticles, 650, 20, 100, 20, "Preview texture")
-;BParticlesPreviewReset = FUI_Button(TParticles, 800, 20, 100, 20, "Reset preview")
-;BParticlesPreviewL = FUI_Button(TParticles, 650, 75, 20, 20, "", "Data\GUE\L.png")
-;BParticlesPreviewR = FUI_Button(TParticles, 710, 75, 20, 20, "", "Data\GUE\R.png")
-;BParticlesPreviewU = FUI_Button(TParticles, 680, 55, 20, 20, "", "Data\GUE\U.png")
-;BParticlesPreviewD = FUI_Button(TParticles, 680, 95, 20, 20, "", "Data\GUE\D.png")
-;BParticlesPreviewIn = FUI_Button(TParticles, 750, 55, 20, 20, "", "Data\GUE\In.png")
-;BParticlesPreviewOut = FUI_Button(TParticles, 750, 95, 20, 20, "", "Data\GUE\Out.png")
-;New
 BParticlesTex = FUI_Button(TParticles, GUE_width - 374, 20, 100, 20, "Preview texture")
 BParticlesPreviewReset = FUI_Button(TParticles, GUE_width - 224, 20, 100, 20, "Reset preview")
 BParticlesPreviewL = FUI_Button(TParticles, GUE_width - 374, 75, 20, 20, "", "Data\GUE\L.png")
@@ -577,9 +514,6 @@ FUI_Label(TParticlesColours, 10, 162, "Blue change:")
 Global SParticlesChangeB = FUI_Spinner(TParticlesColours, 210, 160, 90, 20, -50.0, 50.0, 0, 0.5, DTYPE_FLOAT)
 
 ; Texture options
-;old
-;GTexture = FUI_GroupBox(TParticles, 10, 495, 170, 170, "Animated texture options")
-;new
 GTexture = FUI_GroupBox(TParticles, 10, GUE_height - 273, 170, 190, "Animated texture options")
 
 FUI_Label(GTexture, 10, 12, "Frames across:")
@@ -591,9 +525,6 @@ Global SParticlesTexSpeed = FUI_Spinner(GTexture, 100, 70, 60, 20, 0, 100, 1, 1,
 Global BParticlesRandFrame = FUI_CheckBox(GTexture, 10, 102, "Start on random frame")
 
 ; Shape options
-;old
-;GShape = FUI_GroupBox(TParticles, 190, 495, 310, 170, "Shape options")
-;new
 GShape = FUI_GroupBox(TParticles, 190, GUE_height - 273, 310, 190, "Shape options")
 
 FUI_Label(GShape, 10, 12, "Emitter shape:")
@@ -673,8 +604,7 @@ If ParticlesEmitter <> 0 Then RP_HideEmitter(ParticlesEmitter)
 
 ; Combat gadgets --------------------------------------------------------------------------------------------------------------------
 
-WriteLog(GUELog, "Creating combat tab")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Created combat tab", True : Flip()
+updateSplashScreen("Creating combat tab")
 
 BDamageTypesSave = FUI_Button(TDamageTypes, 20, 20, 110, 20, "Save damage types")
 FUI_Label(TDamageTypes, 20, 70, "You may specify up to 20 damage types below:")
@@ -725,8 +655,7 @@ SCombatRatingAdjust = FUI_Spinner(G, 150, 170, 70, 20, 0, 5, CombatRatingAdjust,
 
 ; Projectiles gadgets ---------------------------------------------------------------------------------------------------------------
 
-WriteLog(GUELog, "Creating projectiles tab")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Created projectiles tab", True : Flip()
+updateSplashScreen("Creating projectiles tab")
 
 ; Main
 BProjNew    = FUI_Button(TProjectiles, 20, 20, 100, 20, "New projectile")
@@ -791,8 +720,7 @@ UpdateProjectileDisplay()
 
 ; Factions gadgets ------------------------------------------------------------------------------------------------------------------
 
-WriteLog(GUELog, "Creating factions tab")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Created factions tab", True : Flip()
+updateSplashScreen("Creating factions tab")
 
 BFactionSave = FUI_Button(TFactions, 20, 20, 100, 20, "Save factions")
 FUI_Label(TFactions, 20, 70, "You may add up to 100 factions below:")
@@ -815,8 +743,7 @@ Next
 
 ; Animation set gadgets -------------------------------------------------------------------------------------------------------------
 
-WriteLog(GUELog, "Creating animations tab")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Created animations tab", True : Flip()
+updateSplashScreen("Creating animations tab")
 
 BAnimsSave = FUI_Button(TAnimSets, 20, 20, 120, 20, "Save animation sets")
 FUI_Label(TAnimSets, 20, 70, "You may add any number of animation sets below:")
@@ -843,8 +770,7 @@ FUI_Label(TAnimSets, 640, 320, "Animation speed:")
 SAnimSpeed = FUI_Spinner(TAnimSets, 650, 340, 90, 20, 1, 1000, 0, 1, DTYPE_INTEGER, "%")
 
 ; Attributes gadgets ----------------------------------------------------------------------------------------------------------------
-WriteLog(GUELog, "Creating attributes tab")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Created attributes tab", True : Flip()
+updateSplashScreen("Creating attributes tab")
 
 BAttributeSave = FUI_Button(TAttributes, 20, 20, 100, 20, "Save attributes")
 BSetFixedAttributes = FUI_Button(TAttributes, 150, 20, 120, 20, "Set fixed attributes")
@@ -866,8 +792,7 @@ SAttributeAssignment = FUI_Spinner(TAttributes, 320, 470, 90, 20, 0, 100, Attrib
 
 ; Actors gadgets --------------------------------------------------------------------------------------------------------------------
 
-WriteLog(GUELog, "Creating actors tab")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Created actors tab", True : Flip()
+updateSplashScreen("Creating actors tab")
 
 ; Main
 BActorNew    = FUI_Button(TActors, 20, 20, 100, 20, "New actor")
@@ -1132,8 +1057,7 @@ UpdateActorDisplay()
 
 ; Items gadgets ---------------------------------------------------------------------------------------------------------------------
 
-WriteLog(GUELog, "Creating items tab")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Created items tab", True : Flip()
+updateSplashScreen("Creating items tab")
 
 ; Main
 BItemNew    = FUI_Button(TItems, 20, 20, 100, 20, "New item")
@@ -1333,8 +1257,7 @@ UpdateItemDisplay()
 
 ; Seasons gadgets -------------------------------------------------------------------------------------------------------------------
 
-WriteLog(GUELog, "Creating seasons tab")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Created seasons tab", True : Flip()
+updateSplashScreen("Creating seasons tab")
 
 BSeasonSave = FUI_Button(TSeasons, 10, 20, 100, 20, "Save settings")
 FUI_GroupBox(TSeasons, 10, 60, 480, 80, "General")
@@ -1447,8 +1370,7 @@ UpdateSunDisplay()
 
 ; Zones gadgets ---------------------------------------------------------------------------------------------------------------------
 
-WriteLog(GUELog, "Creating zones tab")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Created zones tab", True : Flip()
+updateSplashScreen("Creating zones tab")
 
 ; General
 Global CurrentArea.Area
@@ -1879,8 +1801,7 @@ Global GOtherOptions = FUI_GroupBox(TZones, GUE_width - 224, 47, 210, GUE_height
 
 ; Spells gadgets --------------------------------------------------------------------------------------------------------------------
 
-WriteLog(GUELog, "Creating abilities tab")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Created abilities tab", True : Flip()
+updateSplashScreen("Creating abilities tab")
 
 ; Main
 BSpellNew    = FUI_Button(TSpells, 20, 20, 100, 20, "New ability")
@@ -1928,8 +1849,7 @@ UpdateSpellDisplay()
 
 ; Interface gadgets -----------------------------------------------------------------------------------------------------------------
 
-WriteLog(GUELog, "Creating interface tab")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Created interface tab", True : Flip()
+updateSplashScreen("Creating interface tab")
 
 BInterfaceSave = FUI_Button(TInterface, 850, 20, 130, 20, "Save interface layout")
 VInterface = FUI_View(TInterface, 10, 20, 800, 600, 0, 0, 0)
@@ -2139,8 +2059,7 @@ TGubbin6 = FUI_TextBox(G, 110, 160, 150, 20, 40) : FUI_SendMessage(TGubbin6, M_S
 
 ; Init created gadgets --------------------------------------------------------------------------------------------------------------
 
-WriteLog(GUELog, "Initialising gadgets")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), (ImageHeight(Img)/2), "Initialising gadgets-Launching", True : Flip()
+updateSplashScreen("Initialising gadgets")
 
 ; Fill zone name lists
 For Ar.Area = Each Area
@@ -2211,8 +2130,7 @@ Global TotalRaces, TotalClasses
 UpdateRaceClassLists()
 
 ; Skysphere
-WriteLog(GUELog, "Creating skyspheres")
-Color 255, 255, 255 : DrawImage(Img, 0, 0) : Text (ImageWidth(Img)/2), 551, "Creating skysphere", True : Flip()
+updateSplashScreen("Creating skyspheres")
 SkyEN = LoadMesh("Data\Meshes\Sky Sphere.b3d")
 MMV.MeshMinMaxVertices = MeshMinMaxVertices(SkyEN)
 XScale# = 2.0 / (MMV\MaxX# - MMV\MinX#)
@@ -3472,96 +3390,11 @@ Cls
 			; Project tab events ----------------------------------------------------------------------------------------------------
 		;Runs Save All function cysis145
 		Case helpForum
-		ExecFile("http://www.realmcrafterce.com/forum")
+		ExecFile("https://realmcrafter.boards.net/")
 		
 		Case mnuFileSaveAll
 
 				menuSaveAll()
-
-			
-			Case BBuildFullInstall
-			
-				GenerateFullInstall()
-
-			Case BBuildInstaller
-				; Clear \Game folder
-				DelTree("Game")
-				; Create required folders
-				CreateDir("Game")
-				CreateDir("Game\Data")
-				CreateDir("Game\Data\Textures")
-				CreateDir("Game\Data\Logs")
-				; Copy required files to \Game folder
-				SafeCopyFile(GameName$ + ".exe", "Game\" + GameName$ + ".exe")
-				SafeCopyFile("Game.exe", "Game\Game.exe")
-				SafeCopyFile("RCEnet.dll", "Game\RCEnet.dll")
-				SafeCopyFile("Language.txt", "Game\Language.txt")
-				SafeCopyFile("libbz2w.dll", "Game\libbz2w.dll")
-				SafeCopyFile("blitzsys.dll", "Game\blitzsys.dll")
-				SafeCopyFile("rc64.dll", "Game\rc64.dll")
-				SafeCopyFile("rc63.dll", "Game\rc63.dll")
-				SafeCopyFile("QuickCrypt.dll", "Game\QuickCrypt.dll")
-				If FileType("dx7test.dll") = 1 Then CopyFile("dx7test.dll", "Game\dx7test.dll")
-				SafeCopyFile("Data\Textures\Menu Logo.bmp", "Game\Data\Textures\Menu Logo.bmp")
-				SafeCopyFile("Data\Last Username.dat", "Game\Data\Last Username.dat")
-				SafeCopyFile("Data\Options.dat", "Game\Data\Options.dat")
-				SafeCopyFile("Data\Controls.dat", "Game\Data\Controls.dat")
-				SafeCopyFile("Data\Patch.exe", "Game\Data\Patch.exe")
-				CopyTree("Data\Game Data", "Game\Data\Game Data")
-				CopyTree("Data\UI", "Game\Data\UI")
-				CopyTree("Data\Textures\Menu", "Game\Data\Textures\Menu")
-				; Change to non development version
-				F = WriteFile("Game\Data\Game Data\Misc.dat")
-					WriteLine(F, GameName$)
-					WriteLine(F, "Normal")
-					WriteLine F, "1"
-				CloseFile(F)
-				; Complete
-				FUI_CustomMessageBox("Complete! Required files are in the \Game folder.", "Build Client", MB_OK)
-			Case BBuildUpdates
-					FUI_CustomMessageBox("Building game updates may take some time. Please be patient.", "Warning", MB_OK)
-					GenerateGamePatch()
-			Case BBuildServer
-				Result = FUI_CustomMessageBox("Include dynamic data (e.g. accounts)?", "Build Server", MB_YESNO)
-				; Clear \Server folder
-				DelTree("Server")
-				; Create required folders
-				CreateDir("Server")
-				CreateDir("Server\Data")
-				CreateDir("Server\Data\Logs")
-				CreateDir("Server\Data\Server Data")
-				CreateDir("Server\Data\Server Data\Areas")
-				CreateDir("Server\Data\Server Data\Script Files")
-				CreateDir("Server\Data\Server Data\Scripts")
-				SafeCopyFile("RCEnet.dll", "Server\RCEnet.dll")
-				SafeCopyFile("briskvm.dll", "Server\briskvm.dll")
-				; Copy required files to \Server folder
-				SQLResult = FUI_CustomMessageBox("Build a MySQL server?", "Build Server", MB_YESNO)
-				If SQLResult = IDNO
-	 				SafeCopyFile("Server.exe", "Server\Server.exe")
-				Else
-	 				SafeCopyFile("MySQL Server.exe", "Server\MySQL Server.exe")
-					SafeCopyFile("MySQL Configure.exe", "Server\MySQL Configure.exe")
-					SafeCopyFile("libmySQL.dll", "Server\libmySQL.dll")
-					SafeCopyFile("SQLDLL.dll", "Server\SQLDLL.dll")
-					SafeCopyFile("BlitzSQL.dll", "Server\BlitzSQL.dll")
-					SafeCopyFile("MySql.Data.dll", "Server\MySql.Data.dll")
-					SafeCopyFile("rcsql.sql", "Server\rcsql.sql")
-					SafeCopyFile("rcsql_flat.sql", "Server\rcsql_flat.sql")
-					SafeCopyFile("mini.exe", "Server\mini.exe")
-				EndIf
- 				CopyFile("ggTray.dll", "Server\ggTray.dll")
-				CopyTree("Data\Server Data", "Server\Data\Server Data")
-				; If it's only an update, delete accounts etc.
-				If Result = IDNO
-					DeleteFile("Server\Data\Server Data\Accounts.dat")
-					DeleteFile("Server\Data\Server Data\Dropped Items.dat")
-					DeleteFile("Server\Data\Server Data\Superglobals.dat")
-					DelTree("Server\Data\Server Data\Areas\Ownerships")
-					CreateDir("Server\Data\Server Data\Areas\Ownerships")
-				EndIf
-				; Complete
-				FUI_CustomMessageBox("Complete! Required files are in the \Server folder.", "Build Server", MB_OK)
 				
 			Case BRestoreLanguageFile
 				If Not RestoreLanguage("Data\Game Data\Language Restore.txt") Then RuntimeError "Language Restore could not be written"
@@ -5963,12 +5796,12 @@ Cls
 					Else
 						SelectedSpell\Script$ = FUI_SendMessage(CSpellScript, M_GETCAPTION)
 					EndIf
-					Result = UpdateScriptMethodsList(CSpellMethod, SelectedSpell\Script$, SelectedSpell\Method$)
-					If Result = False Then SelectedSpell\Method$ = FUI_SendMessage(CSpellMethod, M_GETCAPTION)
+					Result = UpdateScriptMethodsList(CSpellMethod, SelectedSpell\Script$, SelectedSpell\SMethod$)
+					If Result = False Then SelectedSpell\SMethod$ = FUI_SendMessage(CSpellMethod, M_GETCAPTION)
 					SpellsSaved = False
 				EndIf
 			Case CSpellMethod
-				If SelectedSpell <> Null Then SelectedSpell\Method$ = FUI_SendMessage(CSpellMethod, M_GETCAPTION) : SpellsSaved = False
+				If SelectedSpell <> Null Then SelectedSpell\SMethod$ = FUI_SendMessage(CSpellMethod, M_GETCAPTION) : SpellsSaved = False
 
 			; Spells navigation
 			Case CSpellSelected
@@ -6169,12 +6002,12 @@ Cls
 					Else
 						SelectedItem\Script$ = FUI_SendMessage(CItemScript, M_GETCAPTION)
 					EndIf
-					Result = UpdateScriptMethodsList(CItemMethod, SelectedItem\Script$, SelectedItem\Method$)
-					If Result = False Then SelectedItem\Method$ = FUI_SendMessage(CItemMethod, M_GETCAPTION)
+					Result = UpdateScriptMethodsList(CItemMethod, SelectedItem\Script$, SelectedItem\SMethod$)
+					If Result = False Then SelectedItem\SMethod$ = FUI_SendMessage(CItemMethod, M_GETCAPTION)
 					ItemsSaved = False
 				EndIf
 			Case CItemMethod
-				If SelectedItem <> Null Then SelectedItem\Method$ = FUI_SendMessage(CItemMethod, M_GETCAPTION) : ItemsSaved = False
+				If SelectedItem <> Null Then SelectedItem\SMethod$ = FUI_SendMessage(CItemMethod, M_GETCAPTION) : ItemsSaved = False
 
 			; Item navigation
 			Case CItemSelected
@@ -6530,7 +6363,7 @@ Cls
 					EndIf
 				; Sounds
 				ElseIf MType = 3
-					FileTypes$ = "Wave (*.wav)|*.wav|Raw (*.raw)|*.raw|MP3 (*.mp3)|*.mp3|OGG (*.ogg)|*.ogg|"
+					FileTypes$ = "OGG (*.ogg)|*.ogg|"
 					Result = FUI_CustomOpenDialog("Choose file to add...", "Data\Sounds\", FileTypes$, False, True)
 					If Result = True
 						; Get extra options
@@ -6571,8 +6404,8 @@ Cls
 					EndIf
 				; Music
 				ElseIf MType = 4
-					FileTypes$ = "MP3 (*.mp3)|*.mp3|OGG (*.ogg)|*.ogg|MIDI (*.mid)|*.mid|Wave (*.wav)|*.wav|Mod (*.mod)|*.mod|"
-					FileTypes$ = FileTypes$ + "S3M (*.s3m)|*.s3m|XM (*.xm)|*.xm|IT (*.it)|*.it|"
+					FileTypes$ = "OGG (*.ogg)|*.ogg|"
+					;FileTypes$ = FileTypes$ + "S3M (*.s3m)|*.s3m|XM (*.xm)|*.xm|IT (*.it)|*.it|"
 					Result = FUI_CustomOpenDialog("Choose file to add...", "Data\Music\", FileTypes$, False, True)
 					If Result = True
 
@@ -7362,7 +7195,7 @@ Function UpdateInterfaceComponent(IC.InterfaceComponent, PositionOnly = False)
 End Function
 
 ; Updates list with all methods for a given script
-Function UpdateScriptMethodsList(List, Script$, Method$)
+Function UpdateScriptMethodsList(List, Script$, SMethod$)
 
 	FUI_SendMessage(List, M_RESET)
 	FUI_DisableGadget(List)
@@ -7384,7 +7217,7 @@ Function UpdateScriptMethodsList(List, Script$, Method$)
 					NewLine$ = Right$(NewLine$, Len(NewLine$) - 9)
 					FUI_ComboBoxItem(List, NewLine$)
 					Num = Num + 1
-					If Upper$(NewLine$) = Upper$(Method$)
+					If Upper$(NewLine$) = Upper$(SMethod$)
 						FUI_SendMessage(List, M_SETINDEX, Num)
 						Found = True
 					EndIf
@@ -7596,8 +7429,8 @@ Function UpdateSpellDisplay()
 				If Upper$(FUI_SendMessage(CSpellScript, M_GETCAPTION)) = Upper$(SelectedSpell\Script$) Then Exit
 			Next
 		EndIf
-		Result = UpdateScriptMethodsList(CSpellMethod, SelectedSpell\Script$, SelectedSpell\Method$)
-		If Result = False Then SelectedSpell\Method$ = FUI_SendMessage(CSpellMethod, M_GETCAPTION)
+		Result = UpdateScriptMethodsList(CSpellMethod, SelectedSpell\Script$, SelectedSpell\SMethod$)
+		If Result = False Then SelectedSpell\SMethod$ = FUI_SendMessage(CSpellMethod, M_GETCAPTION)
 	EndIf
 
 End Function
@@ -7709,8 +7542,8 @@ Function UpdateItemDisplay()
 				If Upper$(FUI_SendMessage(CItemScript, M_GETCAPTION)) = Upper$(SelectedItem\Script$) Then Exit
 			Next
 		EndIf
-		Result = UpdateScriptMethodsList(CItemMethod, SelectedItem\Script$, SelectedItem\Method$)
-		If Result = False Then SelectedItem\Method$ = FUI_SendMessage(CItemMethod, M_GETCAPTION)
+		Result = UpdateScriptMethodsList(CItemMethod, SelectedItem\Script$, SelectedItem\SMethod$)
+		If Result = False Then SelectedItem\SMethod$ = FUI_SendMessage(CItemMethod, M_GETCAPTION)
 
 		; Item type specific gadgets
 		Select SelectedItem\ItemType
@@ -8029,7 +7862,7 @@ Function UpdateActorPreview()
 		ActorPreview = CreateActorInstance(SelectedActor)
 		Temp = HideNametags
 		HideNametags = True
-		Result = LoadActorInstance3D(ActorPreview, 0.5 / SelectedActor\Scale#)
+		Result = LoadActorInstance3D(ActorPreview, 0.5 / SelectedActor\Scale#, False, False)
 		HideNametags = Temp
 		If Result = False Then Delete ActorPreview : Return
 		If ActorPreview\ShadowEN <> 0 Then FreeEntity ActorPreview\ShadowEN : ActorPreview\ShadowEN = 0
@@ -10337,7 +10170,7 @@ Function AddSoundFolderToManager(Filename$, Is3D, SubFolders = True)
 		While Name$ <> ""
 			If Name$ <> "." And Name$ <> ".."
 				If FileType("Data\Sounds\" + Filename$ + "\" + Name$) = 1
-					If Instr(Upper$(Name$), ".WAV") Or Instr(Upper$(Name$), ".RAW") Or Instr(Upper$(Name$), ".MP3") Or Instr(Upper$(Name$), ".OGG")
+					If Instr(Upper$(Name$), ".OGG")
 						ID = AddSoundToDatabase(Filename$ + "\" + Name$, Is3D)
 						If ID > -1 Then SoundNames$(ID) = GetSoundName$(ID)
 					EndIf
@@ -10361,10 +10194,7 @@ Function AddMusicFolderToManager(Filename$, SubFolders = True)
 			If Name$ <> "." And Name$ <> ".."
 				If FileType("Data\Music\" + Filename$ + "\" + Name$) = 1
 					UN$ = Upper$(Name$)
-					If Instr(UN$, ".MP3") Or Instr(UN$, ".OGG") Or Instr(UN$, ".MID") Or Instr(UN$, ".WAV")
-						ID = AddMusicToDatabase(Filename$ + "\" + Name$)
-						If ID > -1 Then MusicNames$(ID) = GetMusicName$(ID)
-					ElseIf Instr(UN$, ".MOD") Or Instr(UN$, ".S3M") Or Instr(UN$, ".XM") Or Instr(UN$, ".IT")
+					If Instr(UN$, ".OGG")
 						ID = AddMusicToDatabase(Filename$ + "\" + Name$)
 						If ID > -1 Then MusicNames$(ID) = GetMusicName$(ID)
 					EndIf
@@ -10485,7 +10315,7 @@ Function GenerateGamePatch()
 	Result = FUI_CustomMessageBox("Realm Crafter must build a full client to generate an update. Press yes to build a new client", "Update", MB_YESNO)
 		
 	If Result = IDYES Then
-		GenerateFullInstall()
+		;GenerateFullInstall()
 	End If
 	
 	LabelBuildFullInstallCalled = False
@@ -10724,50 +10554,6 @@ Function PO()
 		U.Undo = Null
 		U\Action$ = "PO"
 	EndIf
-
-End Function
-
-
-Function GenerateFullInstall()
-
-	FUI_CustomMessageBox("Building full client may take some time. Please be patient.", "Warning", MB_OK)
-	; Clear \Game folder
-	DelTree("Game")
-	; Create required folders
-	CreateDir("Game")
-	CreateDir("Game\Data")
-	CreateDir("Game\Data\Logs")
-	For i = 0 To 49
-		If Len(UpdatesList$(i)) = 0 Then Exit
-		CreateDir("Game\" + UpdatesList$(i))
-	Next
-	; Copy required files to \Game folder
-	SafeCopyFile(GameName$ + ".exe", "Game\" + GameName$ + ".exe")
-	SafeCopyFile("Game.exe", "Game\Game.exe")
-	SafeCopyFile("RCEnet.dll", "Game\RCEnet.dll")
-	SafeCopyFile("Language.txt", "Game\Language.txt")
-	SafeCopyFile("libbz2w.dll", "Game\libbz2w.dll")
-	SafeCopyFile("blitzsys.dll", "Game\blitzsys.dll")
-	SafeCopyFile("rc64.dll", "Game\rc64.dll")
-	SafeCopyFile("rc63.dll", "Game\rc63.dll")
-	SafeCopyFile("QuickCrypt.dll", "Game\QuickCrypt.dll")
-	If FileType("dx7test.dll") = 1 Then CopyFile("dx7test.dll", "Game\dx7test.dll")
-	SafeCopyFile("Data\Last Username.dat", "Game\Data\Last Username.dat")
-	SafeCopyFile("Data\Options.dat", "Game\Data\Options.dat")
-	SafeCopyFile("Data\Controls.dat", "Game\Data\Controls.dat")
-	SafeCopyFile("Data\Patch.exe", "Game\Data\Patch.exe")
-	For i = 0 To 49
-		If Len(UpdatesList$(i)) = 0 Then Exit
-		CopyTree(UpdatesList$(i), "Game\" + UpdatesList$(i))
-	Next
-	; Change to non development version
-	F = WriteFile("Game\Data\Game Data\Misc.dat")
-		WriteLine(F, GameName$)
-		WriteLine(F, "Normal")
-		WriteLine(F, "1")
-	CloseFile(F)
-	; Complete
-	FUI_CustomMessageBox("Complete! Required files are in the \Game folder.", "Build Client", MB_OK)
 
 End Function
 

@@ -21,21 +21,6 @@ src/Tools/toolsource_old/
 *.iws
 
 *.pdb
-compiler/BlitzRC/src/libvorbis/win32/VS2010/.vs/*
-
-compiler/BlitzRC/src/libvorbis/win32/VS2010/.vs/
-
-compiler/BlitzRC/src/libvorbis/win32/VS2010/libvorbis/Win32/Release/
-
-compiler/BlitzRC/src/libvorbis/win32/VS2010/libvorbisfile/Win32/Release/
-
-compiler/BlitzRC/src/libvorbis/win32/VS2010/vorbisdec/Win32/Release/
-
-compiler/BlitzRC/src/libvorbis/win32/VS2010/vorbisenc/Win32/Release/
-
-compiler/BlitzRC/src/libvorbis/win32/VS2010/Win32/Release/vorbisenc_static.exe
-
-compiler/BlitzRC/src/libvorbis/win32/VS2010/Win32/Release/vorbisdec_static.exe
 
 ATTACH
 
@@ -82,3 +67,11 @@ data/Server Data/Accounts.dat
 data/Server Data/Environment.dat
 
 .vscode/settings.json
+
+Game/
+
+Server/
+
+.vscode/c_cpp_properties.json
+
+.DS_Store

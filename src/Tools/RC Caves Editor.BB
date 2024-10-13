@@ -43,17 +43,19 @@ ChangeDir RootDir$
     ;#End Region
 
     ;initialize fui
-    Include "..\Modules\f-ui.bb"
+    Include "Modules\f-ui.bb"
 	AppTitle( GFX_WINDOW_CAPTION$, "Really quit?" )
     SetBuffer BackBuffer()
 
     If GetSystemMetrics(0)=>1024 Then 
-	 	FUI_Initialise(1024, 768, 0, 2, False, True, "Realm Crafter Cave Editor")
+      Graphics3D(1024, 768, 0, 2)
+	 	  FUI_Initialise(1024, 768, 0, 2, False, True, "Realm Crafter Cave Editor")
     	w=1024:h=768                                                                               ;  
-	    Else
-	 	FUI_Initialise(1024, 768, 0, 2, False, True, "Realm Crafter Cave Editor")
+    Else
+      Graphics3D(1024, 768, 0, 2)
+	 	  FUI_Initialise(1024, 768, 0, 2, False, True, "Realm Crafter Cave Editor")
     	w=800:h=600                                                                               ;  
-       EndIf
+    EndIf
 
     ;this next bit is the only way to use fui fullscreen, and still use the windows os dialogs ; 
     w=1024:h=768                                                                               ;  
@@ -68,7 +70,7 @@ ChangeDir RootDir$
 
 Global cam=CreateCamera()
 TextureFilter "M_",1+4
-Include "..\modules\CAVE_gui_shell_FUI.bb"
+Include "modules\CAVE_gui_shell_FUI.bb"
 Global gui_leftmouse,gui_rightmouse
 
 
@@ -121,13 +123,13 @@ Const testing=True
 thispath$=CurrentDir()
 Global DEBUGMODE=False
 
-Include "..\modules\safeloads.bb"
-Include "..\modules\weld.bb"
-Include "..\modules\VertexLight_cave.bb"
-Include "..\modules\smoothuv.bb"
-Include "..\modules\Media.bb"
-Include "..\modules\B3dFILE.bb"
-Include "..\modules\Scene_Export.bb"
+Include "modules\safeloads.bb"
+Include "modules\weld.bb"
+Include "modules\VertexLight_cave.bb"
+Include "modules\smoothuv.bb"
+Include "modules\Media.bb"
+Include "modules\B3dFILE.bb"
+Include "modules\Scene_Export.bb"
 
 If FileType ("DATA\RCCAVES")<>2 Then CreateDir ("DATA\RCCAVES")
 If FileType ("DATA\RCCAVES\TEXTURES")<>2 Then CreateDir ("DATA\RCCAVES\TEXTURES")

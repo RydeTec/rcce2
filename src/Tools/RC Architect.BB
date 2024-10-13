@@ -37,15 +37,17 @@ Const testing=False
     ;#End Region
 
     ;initialize fui
-    Include "..\modules\safeloads.bb"
-    Include "..\Modules\f-ui.bb"
+    Include "modules\safeloads.bb"
+    Include "Modules\f-ui.bb"
 	AppTitle( GFX_WINDOW_CAPTION$, "Really quit?" )
     SetBuffer BackBuffer()
 
     If GetSystemMetrics(0)=>1024 Then 
+		Graphics3D(1024, 768, 0, 2)
 	 	FUI_Initialise(1024, 768, 0, 2, False, True, "Realm Crafter Architect")
     	w=1024:h=768                                                                               ;  
     Else 
+		Graphics3D(1024, 768, 0, 2)
 	 	FUI_Initialise(1024, 768, 0, 2, False, True, "Realm Crafter Architect")
     	w=800:h=600                                                                               ;  
     EndIf
@@ -71,7 +73,7 @@ Const testing=False
     CameraRange Cam,1,20000
     CameraClsColor Cam,40,40,40
     CameraClsMode Cam,True,True
-	Include "..\modules\architect_gui_shell_FUI.bb"
+	Include "modules\architect_gui_shell_FUI.bb"
     ChangeDir thispath$
 
 Global NEWLIGHTRANGE
@@ -106,7 +108,7 @@ Global datadir$="DATA\ARCHITECT\"
 Global meshdir$="DATA\MESHES\"
 Global texdir$="DATA\TEXTURES\"
 Global SAVEPATH$="Data\ARCHITECT\SAVES\"
-Include "..\modules\inc_csg.bb"
+Include "modules\inc_csg.bb"
 
 If FileType("Data\Meshes\Architect")<>2 Then CreateDir("Data\Meshes\Architect")
 If FileType("Data\Architect")<>2 Then CreateDir("Data\Architect")
@@ -116,13 +118,13 @@ If FileType(SAVEPATH$)<>2 Then CreateDir(SAVEPATH$)
 
 
 
-Include "..\Modules\media.bb"
-Include "..\modules\B3dFILE.bb"
-Include "..\modules\Scene_Export.bb"
-Include "..\modules\Fix_Sandwichtris.bb"
-Include "..\modules\VertexLight.bb"
-Include "..\Modules\MediaDialogs.bb"
-Include "..\modules\wiremesh.bb"
+Include "Modules\media.bb"
+Include "modules\B3dFILE.bb"
+Include "modules\Scene_Export.bb"
+Include "modules\Fix_Sandwichtris.bb"
+Include "modules\VertexLight.bb"
+Include "Modules\MediaDialogs.bb"
+Include "modules\wiremesh.bb"
 Global old_Ambientred,old_ambientgreen,old_ambientblue
 Global old_Lightred,old_Lightgreen,old_Lightblue
 Global Old_LightRange
@@ -999,15 +1001,15 @@ Case GUI_RIGHTWIN_SELECTMODEL
 Case GUI_MENUFILE_EXPORT
     Exportmap$=""
     ChangeDir thispath$
-	tFile = FUI_SaveDialog( "Export map To RC area", "Data\Meshes\Architect\", "RC Model (*.eb3d)|*.eb3d")
+	tFile = FUI_SaveDialog( "Export map To RC area", "Data\Meshes\Architect\", "RC Model (*.b3d)|*.b3d")
 	If tFile = True Then
     exportmap$=app\currentfile
        If exportmap$<>""
- 	   If Instr( exportmap$, ".eb3d", 1 ) > 1 Then
+ 	   If Instr( exportmap$, ".b3d", 1 ) > 1 Then
        DebugLog "exporting : "+exportmap$
 	   exportwork (exportmap$)
 	   Else
-	   exportmap$ = exportmap$ + ".eb3d"
+	   exportmap$ = exportmap$ + ".b3d"
        DebugLog "exporting : "+exportmap$
 	   exportwork (exportmap$)
 	   EndIf
@@ -1230,7 +1232,7 @@ End Function
 
 
 Function ExportWork(fn$)
-If Lower(Right$(fn$,4))<>"eb3d" Then fn$=fn$+".eb3d"
+If Lower(Right$(fn$,4))<>".b3d" Then fn$=fn$+".b3d"
 ChangeDir THISPATH$
 ;thisfold$=removeextension$(fn$)+"\"
 savework("Data\Architect\SAVES\exported.act")
@@ -1259,8 +1261,8 @@ newscene()
 ChangeDir thispath$
 loadwork("data\architect\saves\exported.act")
 ChangeDir thispath$
-encrypt_b3d("Data\MESHES\Architect\"+thisfold$)
-ChangeDir thispath$
+;encrypt_b3d("Data\MESHES\Architect\"+thisfold$)
+;ChangeDir thispath$
 
 thisid=addmeshtodatabase ("Architect\"+thisfold$,False)
 ;If thisid=-1 Then  Encrypt_B3D(thispath$+"Data\Meshes\Architect\" +thisfold$)

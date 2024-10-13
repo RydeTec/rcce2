@@ -150,7 +150,7 @@ Function SetActorHat(AI.ActorInstance, MeshID)
 End Function
 
 ; Loads the 3D stuff for an actor instance
-Function LoadActorInstance3D(A.ActorInstance, Scale# = 1.0, SkipAttachments = False, charSelection = False)
+Function LoadActorInstance3D(A.ActorInstance, Scale# = 1.0, SkipAttachments = False, autoFade = True)
 
 	A\Actor\Radius# = 0.0
 	A\CollisionEN = CreatePivot()
@@ -421,7 +421,7 @@ Function LoadActorInstance3D(A.ActorInstance, Scale# = 1.0, SkipAttachments = Fa
 	EndIf
 
 	;- Enable AutoFade when not in CharSelection Screen
-	If Not charSelection
+	If autoFade
 		EntityAutoFade(A\EN, nearFadeModifier * CameraViewRange, farFadeModifier * CameraViewRange)
 		If BeardEN <> 0 Then EntityAutoFade(BeardEN, nearFadeModifier * CameraViewRange, farFadeModifier * CameraViewRange)
 		;If A\ShadowEN <> 0 Then EntityAutoFade(A\ShadowEN, nearFadeModifier * CameraViewRange, farFadeModifier * CameraViewRange)

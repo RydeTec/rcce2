@@ -4014,8 +4014,8 @@ Function GY_Load(Camera)
 	GY_TitleFont = GY_LoadFont(GY_Path$ + "\Fonts\Title")
 
 	; Sounds
-	GY_SClick = LoadSound(GY_Path$ + "\Click.wav")
-	GY_SBeep = LoadSound(GY_Path$ + "\Beep.wav")
+	GY_SClick = LoadSound(GY_Path$ + "\Click.ogg")
+	GY_SBeep = LoadSound(GY_Path$ + "\Beep.ogg")
 	SoundVolume( GY_SBeep, DefaultVolume )
 	SoundVolume( GY_SClick, DefaultVolume )
 
@@ -4577,7 +4577,7 @@ If KeyHit(79) > 0
 							EndIf
 							If B\Toggle = False Then B\State = True
 						ElseIf GY_HeldGadget = G
-							PlaySound(GY_SBeep)
+							PlaySound(GY_SClick)
 
 							; If it's toggling, change the down state
 							If B\Toggle = True Then B\State = Not B\State Else B\State = False
@@ -4641,7 +4641,7 @@ If KeyHit(79) > 0
 							EntityTexture(G\EN, CB\UpTex)
 							If CB\Toggle = False Then CB\State = True
 						ElseIf GY_HeldGadget = G
-							PlaySound(GY_SBeep)
+							PlaySound(GY_SClick)
 
 							; If it's toggling, change the down state
 							If CB\Toggle = True Then CB\State = Not CB\State Else CB\State = False

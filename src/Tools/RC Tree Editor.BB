@@ -5,7 +5,7 @@ ChangeDir RootDir$
 
 Global AH_Loca$ = "..\Realm Crafter 1\"
 Global AH_Appb$ = "RCSTD"
-Include "..\modules\Utility.bb"
+Include "modules\Utility.bb"
 ;Include "antihack.bb"
 ; Loads Antihack module :)
 
@@ -46,12 +46,13 @@ Const testing=False
 	Global lastWKey
 
     ;initialize fui
-    Include "..\modules\safeloads.bb"
-    Include "..\Modules\f-ui.bb"
+    Include "modules\safeloads.bb"
+    Include "Modules\f-ui.bb"
 	AppTitle( GFX_WINDOW_CAPTION$, "Really quit?" )
     SetBuffer BackBuffer()
 
     If GetSystemMetrics(0)=>1024 Then 
+		Graphics3D(1024, 768, 0, 2)
 	 	FUI_Initialise(1024, 768, 0, 2, False, True, "Realm Crafter tER")
     	w=1024:h=768                                                                               ;  
     Else 
@@ -78,10 +79,10 @@ Const testing=False
 	TextureFilter "_A",1+2
     CameraRange Cam,1,2000
     CameraClsMode Cam,True,True
-	Include "..\modules\RCTREE_gui_shell_FUI.bb"
+	Include "modules\RCTREE_gui_shell_FUI.bb"
     ChangeDir thispath$    
 ;#Region Load Modules
-	Include "..\Modules\media.bb"
+	Include "Modules\media.bb"
     
 ChangeDir thispath$
 ;;;;;;; NEW ADDITIONS VIA SOLSTAR REQUESTw
@@ -117,8 +118,8 @@ Global maxtrunks=1
 Dim trunk(3)
 Global selectcycle=0
 
-Include "..\modules\b3dfile.bb"
-Include "..\modules\rcsavemesh.bb"
+Include "modules\b3dfile.bb"
+Include "modules\rcsavemesh.bb"
 
 
 Type leaf

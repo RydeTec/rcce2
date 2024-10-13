@@ -2,11 +2,9 @@
 ; This is a test of the Test block
 
 Test test1()
-    DebugLog "Test 1 ran"
     ;Assert(0) ; Fail
-    DebugLog Assert(True)
-    assert2 = Assert("this" = "this")
-    DebugLog assert2
-    ;assert3 = Assert("this" = "that") ; Fail
-    ;DebugLog assert3
+    ;Assert(False) ; Fail
+    DebugLog "You can inline asserts " + Assert(True) + " and false asserts " + Assert(NOT False)
+    assert2 = Assert("this" = "this") ; Assert returns True if pass and False if fail.
+    assert3 = Assert(NOT "this" = "that")
 End Test

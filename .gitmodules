@@ -1,0 +1,3 @@
+[submodule "compiler/BlitzForge"]
+	path = compiler/BlitzForge
+	url = https://github.com/RydeTec/blitz-forge.git
