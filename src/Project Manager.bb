@@ -47,10 +47,17 @@ Type ProjectManager.RCCEApp
 
 		ProjectManager::showSplash(self)
 
-		ProjectManager::loadRecentProjects(self)
-		ProjectManager::loadProject(self)
-
 		FUI_Initialise(self\width, self\height, 0, 2, False, True, self\title, RCCEApp::version(self))
+
+		ProjectManager::loadRecentProjects(self)
+
+		if (NOT ProjectManager::loadProject(self))
+			if (NOT ProjectManager::loadProject(self, ProjectManager::getProject(self, self\rootDir)))
+				RuntimeError("Unable to start Project Manager. Could not load default project.")
+			end if
+		end if
+
+		ProjectManager::showSplash(self)
 		
 		RCCEGraphics::resetBuffer(self\gfx)
 
@@ -145,7 +152,7 @@ Type ProjectManager.RCCEApp
 			else
 				RuntimeError("Unable to start Project Manager. No valid project directories in recent.dat")
 			end if
-			return
+			return false
 		end if
 
 		if (NOT self\prj = null)
@@ -161,6 +168,18 @@ Type ProjectManager.RCCEApp
 		end if
 
 		Project::load(prj)
+
+		if (Project::needsMigrations(prj))
+			if (ProjectManager::showMigrationDialog(self, prj))
+				Project::migrate(prj)
+			end if
+		end if
+
+		if (Project::isFutureVersion(prj))
+			FUI_CustomMessageBox("The selected project " + prj\name + " is from a future version of RealmCrafter. Please update your engine.", "Error", MB_OK)
+			return false
+		endif
+
 		self\prj = prj
 		
 		if(NOT self\recentProjectList = Null)
@@ -175,6 +194,17 @@ Type ProjectManager.RCCEApp
 		if (NOT M_ProjectsRecent = 0) ProjectManager::buildRecentProjectMenu(self)
 		if (NOT ProName = 0) FUI_SendMessage(ProName, M_SETCAPTION, self\prj\name)
 		if (NOT GDIR = 0) FUI_SendMessage(GDIR, M_SETTEXT, self\prj\rootDir)
+
+		return true
+	End Method
+
+	Method showMigrationDialog(prj.Project)
+		Local option = FUI_CustomMessageBox("The selected project " + prj\name + " is outdated. Would you like to update it?", "Migration Required", MB_YESNO)
+		if (option = IDYES)
+			return True
+		end if
+
+		return False
 	End Method
 
 	Method loadRecentProjects()
@@ -334,7 +364,7 @@ local M_HF = FUI_MenuItem(M_Help, "Help File")
 ;BMINI = FUI_Button(WMain, 509, 1, 18, 18, "_")
 ;BCLOSE = FUI_Button(WMain, 529, 1, 18, 18, "X")
 
-FUI_Label(WMain, GUE_width - 7, 22, Version$, ALIGN_RIGHT)
+FUI_Label(WMain, GUE_width - 7, 22, Version$ + ":" + pm\prj\version, ALIGN_RIGHT)
 
 Global GDIR = FUI_Label(WMain, GUE_width - 7, GUE_height - 20, GameDir$, ALIGN_RIGHT)
 
@@ -456,6 +486,7 @@ Repeat
 			WriteLine F, FUI_SendMessage(ProName, M_GETCAPTION)
 			WriteLine F, UpdateGame$
 			WriteLine F, UpdateMusic
+			WriteLine F, pm\prj\version
 			CloseFile(F)
 		Case M_Meshes
 			ExecFile(OMF$)

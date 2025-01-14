@@ -9,9 +9,12 @@ Global GameName$ = ""
 Global UpdateGame$ = ""
 Global UpdateMusic = False
 
+Const PROJECT_VERSION% = 20240114
+
 Type Project
     Field rootDir$
     Field name$
+    Field version$
     Field projectSettings.File
 
     ; Options
@@ -39,6 +42,7 @@ Type Project
         self\name = File::readLine(self\projectSettings)
         self\updateGame = Int(File::readLine(self\projectSettings))
         self\updateMusic = Int(File::readLine(self\projectSettings))
+        self\version = Int(File::readLine(self\projectSettings))
 
         File::close(self\projectSettings)
 
@@ -47,5 +51,48 @@ Type Project
         GameName = self\name
         UpdateGame = self\updateGame
         UpdateMusic = self\updateMusic
+    End Method
+
+    Method save()
+        if (self\projectSettings = Null)
+            self\projectSettings = new File("Data\Game Data\Misc.dat")
+        end if
+
+        File::writeLine(self\projectSettings, self\name)
+        File::writeLine(self\projectSettings, self\updateGame)
+        File::writeLine(self\projectSettings, self\updateMusic)
+        File::writeLine(self\projectSettings, self\version)
+
+        File::close(self\projectSettings)
+    End Method
+
+    Method needsMigrations()
+        if (self\version < PROJECT_VERSION)
+            return true
+        end if
+
+        return false
+    End Method
+
+    Method isFutureVersion()
+        if (self\version > PROJECT_VERSION)
+            return true
+        end if
+
+        return false
+    End Method
+
+    Method migrate()
+        while (Project::needsMigrations(self))
+            select self\version
+                case 20240114
+                    DebugLog "Current version is up to date."
+                default
+                    DebugLog "Initial migration..."
+                    self\version = 20240114
+            end select
+        wend
+
+        Project::save(self)
     End Method
 End Type
