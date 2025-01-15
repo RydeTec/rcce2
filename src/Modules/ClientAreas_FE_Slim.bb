@@ -1,3 +1,5 @@
+Include "Modules\IO\Managers\OptionsDataManager.bb"
+
 ;LOD Ramoida (Set view distances here)
 Const BuildingMinViewDistance# = 230.0 ; If distance < this value will be Visible, else will autofade slowly
 Const BuildingMaxViewDistance# = 250.0 ; If distance > this value will be 100% invisible
@@ -71,23 +73,23 @@ End Function
 
 Function LoadShadowOptions()
     ;Adding shadows to options menu Cysis145
-	F = ReadFile("Data\Options.dat")
-		Width = ReadShort(F)
-		Height = ReadShort(F)
-		Depth = ReadByte(F)
-		AA = ReadByte(F)
-		DefaultVolume# = ReadFloat#(F)
-		GrassEnabled = ReadByte(F)
-		AnisotropyLevel = ReadByte(F)
-		FullScreen = ReadByte(F)
-		VSync = ReadByte(F)
-		Bloom = ReadByte(F)
-		Rays = ReadByte(F)
-		AWater = ReadByte(F)
-		ShadowC = ReadByte(F)
-		ShadowQ = ReadByte(F)
-		ShadowR = ReadByte(F)
-	CloseFile(F)
+	Local options.OptionsDataManager = new OptionsDataManager()
+	OptionsDataManager::Load(options)
+		Width = options\Width
+		Height = options\Height
+		Depth = options\Depth
+		AA = options\AA
+		DefaultVolume# = options\DefaultVolume
+		GrassEnabled = options\GrassEnabled
+		AnisotropyLevel = options\AnisotropyLevel
+		FullScreen = options\FullScreen
+		VSync = options\VSync
+		Bloom = options\Bloom
+		Rays = options\Rays
+		AWater = options\AWater
+		ShadowC = options\ShadowC
+		ShadowQ = options\ShadowQ
+		ShadowR = options\ShadowR
 	Select ShadowQ
 		Case 0
 			CreateShadow 0

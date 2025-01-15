@@ -2,6 +2,7 @@ Strict
 
 Include "Modules\IO\Filesystem.bb"
 Include "Modules\IO\File.bb"
+Include "Modules\IO\Managers\OptionsDataManager.bb"
 
 ; Should eventually remove globals
 Global GameDir$
@@ -9,7 +10,7 @@ Global GameName$ = ""
 Global UpdateGame$ = ""
 Global UpdateMusic = False
 
-Const PROJECT_VERSION% = 20240114
+Const PROJECT_VERSION% = 20240115
 
 Type Project
     Field rootDir$
@@ -85,11 +86,34 @@ Type Project
     Method migrate()
         while (Project::needsMigrations(self))
             select self\version
-                case 20240114
+                case 20240115
                     DebugLog "Current version is up to date."
                 default
-                    DebugLog "Initial migration..."
-                    self\version = 20240114
+                    DebugLog "Migrating options.dat..."
+
+                    local options.OptionsDataManager = new OptionsDataManager()
+                    OptionsDataManager::Load(options, True)
+                    OptionsDataManager::Save(options)
+
+
+                    // Convert options.dat
+                    // Convert all Areas/*.dat
+                    // What are the .rdr files?
+                    // Convert Emitter Configs/*.rpc files
+                    // Convert Game Data/*.dat
+                        // Hosts.dat is fine
+                        // Misc.dat is fine
+                        // patchversion.dat is fine
+                        // web.dat is fine
+                    // Server Data/Areas/Ownerships?
+                    // Server Data/Areas/*.dat
+                    // Server Data/*.dat
+                    // controls.dat
+                    // Last Username.dat is probably fine
+                    // Version.dat can probably be deleted
+
+
+                    self\version = 20240115
             end select
         wend
 

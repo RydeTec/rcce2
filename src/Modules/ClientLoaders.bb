@@ -1,3 +1,5 @@
+Include "Modules\IO\Managers\OptionsDataManager.bb"
+
 ; General game options (host name, etc. - NOT stuff set by player)
 Function LoadOptions()
 
@@ -48,24 +50,23 @@ End Function
 Function LoadGame()
 
 	; Game options
-	F = ReadFile("Data\Options.dat")
-	If F = 0 Then RuntimeError("Could not open Data\Options.dat!")
-		Width = ReadShort(F)
-		Height = ReadShort(F)
-		Depth = ReadByte(F)
-		AA = ReadByte(F)
-		DefaultVolume# = ReadFloat#(F)
-		GrassEnabled = ReadByte(F)
-		AnisotropyLevel = ReadByte(F)
-		FullScreen = ReadByte(F)
-		VSync = ReadByte(F)
-		Bloom = ReadByte(F)
-		Rays = ReadByte(F)
-		AWater = ReadByte(F)
-		ShadowC = ReadByte(F)
-		ShadowQ = ReadByte(F)
-		ShadowR = ReadByte(F)
-	CloseFile(F)
+	Local options.OptionsDataManager = new OptionsDataManager()
+	OptionsDataManager::Load(options)
+		Width = options\Width
+		Height = options\Height
+		Depth = options\Depth
+		AA = options\AA
+		DefaultVolume# = options\DefaultVolume
+		GrassEnabled = options\GrassEnabled
+		AnisotropyLevel = options\AnisotropyLevel
+		FullScreen = options\FullScreen
+		VSync = options\VSync
+		Bloom = options\Bloom
+		Rays = options\Rays
+		AWater = options\AWater
+		ShadowC = options\ShadowC
+		ShadowQ = options\ShadowQ
+		ShadowR = options\ShadowR
 
 	; Money settings
 	F = ReadFile("Data\Game Data\Money.dat")

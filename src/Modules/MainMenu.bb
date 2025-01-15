@@ -1,3 +1,5 @@
+Include "Modules\IO\Managers\OptionsDataManager.bb"
+
 ; Character data storage
 Dim CharButtons(9)
 Dim CharNames$(9)
@@ -22,24 +24,23 @@ End Type
 ; Loads, runs and unloads the main game startup menu
 Function RunMenu()
 
-	F = ReadFile("Data\Options.dat")
-	If F = 0 Then RuntimeError("Could not open Data\Options.dat!")
-		Width = ReadShort(F)
-		Height = ReadShort(F)
-		Depth = ReadByte(F)
-		AA = ReadByte(F)
-		DefaultVolume# = ReadFloat#(F)
-		GrassEnabled = ReadByte(F)
-		AnisotropyLevel = ReadByte(F)
-		FullScreen = ReadByte(F)
-		VSync = ReadByte(F)
-		Bloom = ReadByte(F)
-		Rays = ReadByte(F)
-		AWater = ReadByte(F)
-		ShadowC = ReadByte(F)
-		ShadowQ = ReadByte(F)
-		ShadowR = ReadByte(F)
-	CloseFile(F)
+	Local options.OptionsDataManager = new OptionsDataManager()
+	OptionsDataManager::Load(options)
+		Width = options\Width
+		Height = options\Height
+		Depth = options\Depth
+		AA = options\AA
+		DefaultVolume# = options\DefaultVolume
+		GrassEnabled = options\GrassEnabled
+		AnisotropyLevel = options\AnisotropyLevel
+		FullScreen = options\FullScreen
+		VSync = options\VSync
+		Bloom = options\Bloom
+		Rays = options\Rays
+		AWater = options\AWater
+		ShadowC = options\ShadowC
+		ShadowQ = options\ShadowQ
+		ShadowR = options\ShadowR
 
 	ResolutionType = 0 ; !WideScreen Ratio 4:3 Ramoida 
 	If GfxMode3DExists(Width, Height, 16) Or GfxMode3DExists(Width, Height, 32) 
@@ -523,25 +524,23 @@ Function LogIn()
 	BGFXDone = GY_CreateCustomButton(WGraphics, 0.7, 0.866, 0.258, 0.108, LoadButtonU("MenuDone"), LoadButtonD("MenuDone"), LoadButtonH("MenuDone")) ;X = 0.696
 
 	; Set up initial graphics options
-	F = ReadFile("Data\Options.dat")
-	If F = 0 Then RuntimeError("Could not open Data\Options.dat!")
-		Width = ReadShort(F)
-		Height = ReadShort(F)
-		Depth = ReadByte(F)
-		AA = ReadByte(F)
-		DefaultVolume# = ReadFloat#(F)
-		GrassEnabled = ReadByte(F)
-		Anisotropy = ReadByte(F)
-		FullScreen = ReadByte(F)
-		VSync = ReadByte(F)
-		;FastExt Settings Cysis145
-		Bloom = ReadByte(F)
-		Rays = ReadByte(F)
-		AWater = ReadByte(F)
-		ShadowC = ReadByte(F)
-		ShadowQ = ReadByte(F)
-		ShadowR = ReadByte(F)
-	CloseFile(F)
+	Local options.OptionsDataManager = new OptionsDataManager()
+	OptionsDataManager::Load(options)
+		Width = options\Width
+		Height = options\Height
+		Depth = options\Depth
+		AA = options\AA
+		DefaultVolume# = options\DefaultVolume
+		GrassEnabled = options\GrassEnabled
+		AnisotropyLevel = options\AnisotropyLevel
+		FullScreen = options\FullScreen
+		VSync = options\VSync
+		Bloom = options\Bloom
+		Rays = options\Rays
+		AWater = options\AWater
+		ShadowC = options\ShadowC
+		ShadowQ = options\ShadowQ
+		ShadowR = options\ShadowR
 	GY_UpdateListBox(LResolution, "640 x 480")
 	GY_UpdateListBox(LResolution, Str$(Width) + " x " + Str$(Height))
 	If Depth = 0
@@ -1178,66 +1177,65 @@ Function LogIn()
 				CurrentShadowQ$ = GY_ComboBoxItem(CShadowQual)
 				CurrentShadowR$ = GY_ComboBoxItem(CShadowRan)
 				; Update file
-				F = OpenFile("Data\Options.dat")
-				If F = 0 Then RuntimeError("Could not open Data\Options.dat!")
+				options.OptionsDataManager = new OptionsDataManager()
+				OptionsDataManager::Load(options)
+				
 					Divider = Instr(CurrentRes$, "x")
 					If Divider = 0 Then RuntimeError("Invalid resolution format!")
 					Width = Trim$(Left$(CurrentRes$, Divider - 1))
 					Height = Trim$(Mid$(CurrentRes$, Divider + 1))
-					WriteShort(F, Width)
-					WriteShort(F, Height)
+					options\Width = Width
+					options\Height = Height
 					If CurrentDepth$ = "16 bit"
-						WriteByte(F, 16)
+						options\Depth = 16
 					ElseIf CurrentDepth$ = "32 bit"
-						WriteByte(F, 32)
+						options\Depth = 32
 					ElseIf CurrentDepth$ = "Best"
-						WriteByte(F, 0)
+						options\Depth = 0
 					EndIf
-					WriteByte(F, GY_CheckBoxDown(BAntiAlias))
-					SeekFile(F, 10)
-					WriteByte(F, GY_CheckBoxDown(BEnableGrass))
+					options\AA = GY_CheckBoxDown(BAntiAlias)
+					options\GrassEnabled = GY_CheckBoxDown(BEnableGrass)
 					
 					If CurrentAnisotropy$ = LanguageString$(LS_Disabled)
-						WriteByte(F, 0)
+						options\AnisotropyLevel = 0
 					ElseIf CurrentAnisotropy$ = "x4"
-						WriteByte(F, 4)
+						options\AnisotropyLevel = 4
 					ElseIf CurrentAnisotropy$ = "x8"
-						WriteByte(F, 8)
+						options\AnisotropyLevel = 8
 					ElseIf CurrentAnisotropy$ = "x16"
-						WriteByte(F, 16)
+						options\AnisotropyLevel = 16
 					EndIf
 
-					WriteByte(F,GY_CheckBoxDown(BFullScreen))
-					WriteByte(F,GY_CheckBoxDown(BVSyncOption))
-					;FastExt Settings Cysis145
-					WriteByte(F,GY_CheckBoxDown(BBloom))
-					WriteByte(F,GY_CheckBoxDown(BRays))
-					WriteByte(F,GY_CheckBoxDown(BWater))
+					options\FullScreen = GY_CheckBoxDown(BFullScreen)
+					options\VSync = GY_CheckBoxDown(BVSyncOption)
+					options\Bloom = GY_CheckBoxDown(BBloom)
+					options\Rays = GY_CheckBoxDown(BRays)
+					options\AWater = GY_CheckBoxDown(BWater)
 					;Add shadow complexity to the options menu Cysis145
 					If CurrentShadowC$ = "Off"
-						WriteByte(F, 0)
+						options\ShadowC = 0
 					ElseIf CurrentShadowC$ = "On"
-						WriteByte(F, 1)
+						options\ShadowC = 1
 					EndIf
 					;Add shadow quality to the options menu Cysis145
 					If CurrentShadowQ$ = "Low"
-						WriteByte(F, 0)
+						options\ShadowQ = 0
 					ElseIf CurrentShadowQ$ = "Medium"
-						WriteByte(F, 1)
+						options\ShadowQ = 1
 					ElseIf CurrentShadowQ$ = "High"
-						WriteByte(F, 2)
+						options\ShadowQ = 2
 					EndIf
 					;Add shadow Range to the options menu Cysis145
 					If CurrentShadowR$ = "Short"
-						WriteByte(F, 0)
+						options\ShadowR = 0
 					ElseIf CurrentShadowR$ = "Medium"
-						WriteByte(F, 1)
+						options\ShadowR = 1
 					ElseIf CurrentShadowR$ = "Far"
-						WriteByte(F, 2)
+						options\ShadowR = 2
 					ElseIf CurrentShadowR$ = "Very Far"
-						WriteByte(F, 3)					
+						options\ShadowR = 3
 					EndIf
-				CloseFile(F)
+				OptionsDataManager::Save(options)
 			EndIf
 		EndIf
 
@@ -1378,11 +1376,9 @@ Function LogIn()
 				CurrentVolume = Int(GY_GetSliderValue#(SVolume))
 				DefaultVolume# = CurrentVolume / 100.0
 				; Update file
-				F = OpenFile("Data\Options.dat")
-				If F = 0 Then RuntimeError("Could not open Data\Options.dat!")
-					SeekFile F, 6
-					WriteFloat F, DefaultVolume#
-				CloseFile(F)
+				options.OptionsDataManager = New OptionsDataManager()
+				options\DefaultVolume = DefaultVolume#
+				OptionsDataManager::Save(options)
 			EndIf
 			; Music update
 			If GY_CheckBoxDown(BUpdateMusic) <> 1 - UpdateMusic
@@ -2877,24 +2873,23 @@ Function GameOptionsMenu()
 	;	End edit
 	;###############################################################################################################
 	; Set up initial graphics options
-	F = ReadFile("Data\Options.dat")
-	If F = 0 Then RuntimeError("Could not open Data\Options.dat!")
-		Width = ReadShort(F)
-		Height = ReadShort(F)
-		Depth = ReadByte(F)
-		AA = ReadByte(F)
-		DefaultVolume# = ReadFloat#(F)
-		GrassEnabled = ReadByte(F)
-		Anisotropy = ReadByte(F)
-		FullScreen = ReadByte(F)
-		VSync = ReadByte(F)
-		;Adding Fastext to options window Cysis145
-		Bloom =  ReadByte(F)
-		Rays = ReadByte(F)
-		AWater = ReadByte(F)
-		DOF = ReadByte(F)
-		
-	CloseFile(F)
+	Local options.OptionsDataManager = new OptionsDataManager()
+	OptionsDataManager::Load(options)
+		Width = options\Width
+		Height = options\Height
+		Depth = options\Depth
+		AA = options\AA
+		DefaultVolume# = options\DefaultVolume
+		GrassEnabled = options\GrassEnabled
+		AnisotropyLevel = options\AnisotropyLevel
+		FullScreen = options\FullScreen
+		VSync = options\VSync
+		Bloom = options\Bloom
+		Rays = options\Rays
+		AWater = options\AWater
+		ShadowC = options\ShadowC
+		ShadowQ = options\ShadowQ
+		ShadowR = options\ShadowR
 	GY_UpdateListBox(LResolution, "640 x 480")
 	GY_UpdateListBox(LResolution, Str$(Width) + " x " + Str$(Height))
 	If Depth = 0
@@ -3259,41 +3254,41 @@ Function GameOptionsMenu()
 				CurrentDepth$ = GY_ComboBoxItem(CDepth)
 				CurrentAnisotropy$ = GY_ComboBoxItem(CAnisotropy)
 				; Update file
-				F = OpenFile("Data\Options.dat")
-				If F = 0 Then RuntimeError("Could not open Data\Options.dat!")
+				options.OptionsDataManager = New OptionsDataManager()
+				OptionsDataManager::Load(options)
+				
 					Divider = Instr(CurrentRes$, "x")
 					If Divider = 0 Then RuntimeError("Invalid resolution format!")
 					Width = Trim$(Left$(CurrentRes$, Divider - 1))
 					Height = Trim$(Mid$(CurrentRes$, Divider + 1))
-					WriteShort(F, Width)
-					WriteShort(F, Height)
+					options\Width = Width
+					options\Height = Height
 					If CurrentDepth$ = "16 bit"
-						WriteByte(F, 16)
+						options\Depth = 16
 					ElseIf CurrentDepth$ = "32 bit"
-						WriteByte(F, 32)
+						options\Depth = 32
 					ElseIf CurrentDepth$ = LanguageString$(LS_BestAvailable)
-						WriteByte(F, 0)
+						options\Depth = 0
 					EndIf
-					WriteByte(F, GY_CheckBoxDown(BAntiAlias))
-					SeekFile(F, 10)
-					WriteByte(F, GY_CheckBoxDown(BEnableGrass))
+					options\AA = GY_CheckBoxDown(BAntiAlias)
+					options\GrassEnabled = GY_CheckBoxDown(BEnableGrass)
 					If CurrentAnisotropy$ = LanguageString$(LS_Disabled)
-						WriteByte(F, 0)
+						options\AnisotropyLevel = 0
 					ElseIf CurrentAnisotropy$ = "x4"
-						WriteByte(F, 4)
+						options\AnisotropyLevel = 4
 					ElseIf CurrentAnisotropy$ = "x8"
-						WriteByte(F, 8)
+						options\AnisotropyLevel = 8
 					ElseIf CurrentAnisotropy$ = "x16"
-						WriteByte(F, 16)
+						options\AnisotropyLevel = 16
 					EndIf
-					WriteByte(F,GY_CheckBoxDown(BFullScreen))
-					WriteByte(F,GY_CheckBoxDown(BVSyncOption))
+					options\FullScreen = GY_CheckBoxDown(BFullScreen)
+					options\VSync = GY_CheckBoxDown(BVSyncOption)
 					;Adding fastext to the options window Cysis145
-					WriteByte(F,GY_CheckBoxDown(BBloom))
-					WriteByte(F,GY_CheckBoxDown(BRays))
-					WriteByte(F,GY_CheckBoxDown(BWater))
-					WriteByte(F,GY_CheckBoxDown(BDOF))
-				CloseFile(F)
+					options\Bloom = GY_CheckBoxDown(BBloom)
+					options\Rays = GY_CheckBoxDown(BRays)
+					options\AWater = GY_CheckBoxDown(BWater)
+					options\DOF = GY_CheckBoxDown(BDOF)
+				OptionsDataManager::Save(options)
 			EndIf
 		EndIf
 		
@@ -3444,11 +3439,10 @@ Function GameOptionsMenu()
 				CurrentVolume = Int(GY_GetSliderValue#(SVolume))
 				DefaultVolume# = CurrentVolume / 100.0
 				; Update file
-				F = OpenFile("Data\Options.dat")
-				If F = 0 Then RuntimeError("Could not open Data\Options.dat!")
-					SeekFile F, 6
-					WriteFloat F, DefaultVolume#
-				CloseFile(F)
+				options.OptionsDataManager = New OptionsDataManager()
+				OptionsDataManager::Load(options)
+				options\DefaultVolume = DefaultVolume#
+				OptionsDataManager::Save(options)
 			EndIf
 			; Music update
 			If GY_CheckBoxDown(BUpdateMusic) <> 1 - UpdateMusic
