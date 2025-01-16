@@ -3,6 +3,7 @@ Strict
 Include "Modules\IO\Filesystem.bb"
 Include "Modules\IO\File.bb"
 Include "Modules\IO\Managers\OptionsDataManager.bb"
+Include "Modules\IO\Managers\MiscDataManager.bb"
 
 ; Should eventually remove globals
 Global GameDir$
@@ -10,12 +11,12 @@ Global GameName$ = ""
 Global UpdateGame$ = ""
 Global UpdateMusic = False
 
-Const PROJECT_VERSION% = 20240115
+Const PROJECT_VERSION% = 20250115
 
 Type Project
     Field rootDir$
     Field name$
-    Field version$
+    Field version%
     Field projectSettings.File
 
     ; Options
@@ -47,6 +48,13 @@ Type Project
 
         File::close(self\projectSettings)
 
+        Local miscData.MiscDataManager = new MiscDataManager()
+        MiscDataManager::Load(miscData)
+        if (miscData\versionData\version > 20240115)
+            self\version = miscData\versionData\version
+        end if
+        Delete miscData
+
         ; Backwards compatibility
         GameDir = self\rootDir
         GameName = self\name
@@ -62,9 +70,14 @@ Type Project
         File::writeLine(self\projectSettings, self\name)
         File::writeLine(self\projectSettings, self\updateGame)
         File::writeLine(self\projectSettings, self\updateMusic)
-        File::writeLine(self\projectSettings, self\version)
 
         File::close(self\projectSettings)
+
+        Local miscData.MiscDataManager = new MiscDataManager()
+        MiscDataManager::Load(miscData)
+        miscData\versionData\version = self\version
+        MiscDataManager::Save(miscData)
+        Delete miscData
     End Method
 
     Method needsMigrations()
@@ -86,17 +99,27 @@ Type Project
     Method migrate()
         while (Project::needsMigrations(self))
             select self\version
-                case 20240115
+                case 20250115
                     DebugLog "Current version is up to date."
+                case 20240115
+                    DebugLog "Running migration 20240115..."
+
+                    // version.dat will now house the project version moving forward
+                    local miscData.MiscDataManager = new MiscDataManager()
+                    MiscDataManager::Load(miscData, True)
+                    MiscDataManager::Save(miscData)
+                    Delete miscData
+
+                    self\version = 20250115
                 default
-                    DebugLog "Migrating options.dat..."
+                    DebugLog "Running initial migration..."
 
                     local options.OptionsDataManager = new OptionsDataManager()
                     OptionsDataManager::Load(options, True)
                     OptionsDataManager::Save(options)
+                    Delete options
 
 
-                    // Convert options.dat
                     // Convert all Areas/*.dat
                     // What are the .rdr files?
                     // Convert Emitter Configs/*.rpc files
@@ -108,9 +131,6 @@ Type Project
                     // Server Data/Areas/Ownerships?
                     // Server Data/Areas/*.dat
                     // Server Data/*.dat
-                    // controls.dat
-                    // Last Username.dat is probably fine
-                    // Version.dat can probably be deleted
 
 
                     self\version = 20240115

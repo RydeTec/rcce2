@@ -1,4 +1,6 @@
 Include "Modules\IO\Managers\OptionsDataManager.bb"
+Include "Modules\IO\Managers\MiscDataManager.bb"
+Include "Modules\Helpers\Strings.bb"
 
 ; Character data storage
 Dim CharButtons(9)
@@ -670,11 +672,11 @@ Function LogIn()
 	;---------------------------
 
 	; Read in last username/password
-	F = ReadFile("Data\Last Username.dat")
-	If F <> 0
-		GY_UpdateTextField(TName, ReadLine$(F))
-		GY_UpdateTextField(TPass, Encrypt$(ReadLine$(F), 1))
-		CloseFile(F)
+	Local miscData.MiscDataManager = new MiscDataManager()
+	MiscDataManager::Load(miscData)
+	If miscData\lastUsernameData\username <> ""
+		GY_UpdateTextField(TName, miscData\lastUsernameData\username)
+		GY_UpdateTextField(TPass, Strings::Encrypt$(Null, miscData\lastUsernameData\passwordEncrypted, 1))
 	EndIf
 	
 	; Split hostname and port if they are joined
@@ -789,10 +791,13 @@ Function LogIn()
 			; If successful, download Actor/Attributes lists and go to character selection
 			If Result = 1
 				; Save username/password
-				F = WriteFile("Data\Last Username.dat")
-					WriteLine F, GY_TextFieldText$(TName)
-					WriteLine F, Encrypt$(GY_TextFieldText$(TPass), -1)
-				CloseFile F
+				miscData.MiscDataManager = new MiscDataManager()
+				MiscDataManager::Load(miscData)
+				miscData\lastUsernameData\username = GY_TextFieldText$(TName)
+				miscData\lastUsernameData\passwordEncrypted = Strings::Encrypt$(Null, GY_TextFieldText$(TPass), -1)
+				MiscDataManager::Save(miscData)
+				Delete miscData
+
 				UName$ = GY_TextFieldText$(TName) : PWord$ = MD5$(GY_TextFieldText$(TPass))
 
 				; Request actors list
@@ -1244,10 +1249,10 @@ Function LogIn()
 			; Invert mouse options
 			If GY_CheckBoxHit(BInvertAxis1)
 				InvertAxis1 = 0 - InvertAxis1
-				SaveControlBindings("Data\Controls.dat")
+				SaveControlBindings()
 			ElseIf GY_CheckBoxHit(BInvertAxis3)
 				InvertAxis3 = 0 - InvertAxis3
-				SaveControlBindings("Data\Controls.dat")
+				SaveControlBindings()
 			EndIf
 
 			; Control remapping
@@ -1364,7 +1369,7 @@ Function LogIn()
 						Case 17 : Key_Select = Ctrl : GY_UpdateLabel(LSelectKey, LanguageString$(LS_CSelect) + " " + ControlName$(Key_Select), 255, 255, 255)
 					End Select
 					SelectedControl = 0
-					SaveControlBindings("Data\Controls.dat")
+					SaveControlBindings()
 				EndIf
 			EndIf
 		EndIf
@@ -3302,10 +3307,10 @@ Function GameOptionsMenu()
 			; Invert mouse options
 			If GY_CheckBoxHit(BInvertAxis1)
 				InvertAxis1 = 0 - InvertAxis1
-				SaveControlBindings("Data\Controls.dat")
+				SaveControlBindings()
 			ElseIf GY_CheckBoxHit(BInvertAxis3)
 				InvertAxis3 = 0 - InvertAxis3
-				SaveControlBindings("Data\Controls.dat")
+				SaveControlBindings()
 			EndIf
 
 			; Control remapping
@@ -3422,7 +3427,7 @@ Function GameOptionsMenu()
 						Case 17 : Key_Select = Ctrl : GY_UpdateLabel(LSelectKey, LanguageString$(LS_CSelect) + " " + ControlName$(Key_Select), 255, 255, 255)
 					End Select
 					SelectedControl = 0
-					SaveControlBindings("Data\Controls.dat")
+					SaveControlBindings()
 				EndIf
 			EndIf
 		EndIf

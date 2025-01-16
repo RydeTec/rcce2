@@ -1,3 +1,5 @@
+Include "Modules\IO\Managers\MiscDataManager.bb"
+
 ; Dialogs
 Type Dialog
 	Field Win
@@ -201,67 +203,68 @@ Function DialogScriptHandle(Han)
 End Function
 
 ; Loads control bindings
-Function LoadControlBindings(Filename$)
+Function LoadControlBindings()
 
-	F = ReadFile(Filename$)
-	If F = 0 Then Return False
+	Local miscData.MiscDataManager = new MiscDataManager()
+	MiscDataManager::Load(miscData)
 
-		Key_Forward        = ReadInt(F)
-		Key_Back           = ReadInt(F)
-		Key_TurnRight      = ReadInt(F)
-		Key_TurnLeft       = ReadInt(F)
-		Key_FlyUp          = ReadInt(F)
-		Key_FlyDown        = ReadInt(F)
-		Key_Run            = ReadInt(F)
-		Key_ChangeViewMode = ReadInt(F)
-		Key_CameraRight    = ReadInt(F)
-		Key_CameraLeft     = ReadInt(F)
-		Key_CameraIn       = ReadInt(F)
-		Key_CameraOut      = ReadInt(F)
-		Key_Jump           = ReadInt(F)
-		InvertAxis1        = ReadByte(F) - 1
-		InvertAxis3        = ReadByte(F) - 1
-		Key_Attack         = ReadInt(F)
-		Key_AlwaysRun      = ReadInt(F)
-		Key_CycleTarget    = ReadInt(F)
-		Key_MoveTo         = ReadInt(F)
-		Key_TalkTo         = ReadInt(F)
-		Key_Select         = ReadInt(F)
+		Key_Forward        = miscData\controlsData\Key_Forward
+		Key_Back           = miscData\controlsData\Key_Back
+		Key_TurnRight      = miscData\controlsData\Key_TurnRight
+		Key_TurnLeft       = miscData\controlsData\Key_TurnLeft
+		Key_FlyUp          = miscData\controlsData\Key_FlyUp
+		Key_FlyDown        = miscData\controlsData\Key_FlyDown
+		Key_Run            = miscData\controlsData\Key_Run
+		Key_ChangeViewMode = miscData\controlsData\Key_ChangeViewMode
+		Key_CameraRight    = miscData\controlsData\Key_CameraRight
+		Key_CameraLeft     = miscData\controlsData\Key_CameraLeft
+		Key_CameraIn       = miscData\controlsData\Key_CameraIn
+		Key_CameraOut      = miscData\controlsData\Key_CameraOut
+		Key_Jump           = miscData\controlsData\Key_Jump
+		InvertAxis1        = miscData\controlsData\InvertAxis1
+		InvertAxis3        = miscData\controlsData\InvertAxis3
+		Key_Attack         = miscData\controlsData\Key_Attack
+		Key_AlwaysRun      = miscData\controlsData\Key_AlwaysRun
+		Key_CycleTarget    = miscData\controlsData\Key_CycleTarget
+		Key_MoveTo         = miscData\controlsData\Key_MoveTo
+		Key_TalkTo         = miscData\controlsData\Key_TalkTo
+		Key_Select         = miscData\controlsData\Key_Select
 
-	CloseFile(F)
+	Delete miscData
 	Return True
 
 End Function
 
 ; Saves control bindings
-Function SaveControlBindings(Filename$)
+Function SaveControlBindings()
 
-	F = WriteFile(Filename$)
-	If F = 0 Then Return False
+	Local miscData.MiscDataManager = new MiscDataManager()
+	MiscDataManager::Load(miscData)
 
-		WriteInt(F, Key_Forward)
-		WriteInt(F, Key_Back)
-		WriteInt(F, Key_TurnRight)
-		WriteInt(F, Key_TurnLeft)
-		WriteInt(F, Key_FlyUp)
-		WriteInt(F, Key_FlyDown)
-		WriteInt(F, Key_Run)
-		WriteInt(F, Key_ChangeViewMode)
-		WriteInt(F, Key_CameraRight)
-		WriteInt(F, Key_CameraLeft)
-		WriteInt(F, Key_CameraIn)
-		WriteInt(F, Key_CameraOut)
-		WriteInt(F, Key_Jump)
-		WriteByte(F, InvertAxis1 + 1)
-		WriteByte(F, InvertAxis3 + 1)
-		WriteInt(F, Key_Attack)
-		WriteInt(F, Key_AlwaysRun)
-		WriteInt(F, Key_CycleTarget)
-		WriteInt(F, Key_MoveTo)
-		WriteInt(F, Key_TalkTo)
-		WriteInt(F, Key_Select)
+		miscData\controlsData\Key_Forward = Key_Forward
+		miscData\controlsData\Key_Back = Key_Back
+		miscData\controlsData\Key_TurnRight = Key_TurnRight
+		miscData\controlsData\Key_TurnLeft = Key_TurnLeft
+		miscData\controlsData\Key_FlyUp = Key_FlyUp
+		miscData\controlsData\Key_FlyDown = Key_FlyDown
+		miscData\controlsData\Key_Run = Key_Run
+		miscData\controlsData\Key_ChangeViewMode = Key_ChangeViewMode
+		miscData\controlsData\Key_CameraRight = Key_CameraRight
+		miscData\controlsData\Key_CameraLeft = Key_CameraLeft
+		miscData\controlsData\Key_CameraIn = Key_CameraIn
+		miscData\controlsData\Key_CameraOut = Key_CameraOut
+		miscData\controlsData\Key_Jump = Key_Jump
+		miscData\controlsData\InvertAxis1 = InvertAxis1
+		miscData\controlsData\InvertAxis3 = InvertAxis3
+		miscData\controlsData\Key_Attack = Key_Attack
+		miscData\controlsData\Key_AlwaysRun = Key_AlwaysRun
+		miscData\controlsData\Key_CycleTarget = Key_CycleTarget
+		miscData\controlsData\Key_MoveTo = Key_MoveTo
+		miscData\controlsData\Key_TalkTo = Key_TalkTo
+		miscData\controlsData\Key_Select = Key_Select
 
-	CloseFile(F)
+	MiscDataManager::Save(miscData)
+	Delete miscData
 	Return True
 
 End Function

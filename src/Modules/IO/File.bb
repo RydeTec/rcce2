@@ -49,6 +49,14 @@ Type File
         return ReadFloat(self\stream)
     End Method
 
+    Method readInt()
+        if (self\stream = Null)
+            self\stream = ReadFile(self\uri)
+        end if
+
+        return ReadInt(self\stream)
+    End Method
+
     Method remove()
         DeleteFile(self\uri)
     End Method
@@ -83,6 +91,14 @@ Type File
         end if
 
         WriteFloat(self\stream, value)
+    End Method
+
+    Method writeInt(value%)
+        if (self\stream = Null)
+            self\stream = WriteFile(self\uri)
+        end if
+
+        WriteInt(self\stream, value)
     End Method
 
     Method seekFile(position%)

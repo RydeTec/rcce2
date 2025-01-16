@@ -24,8 +24,8 @@ Function LoadOptions()
 	CloseFile(F)
 	AppTitle(GameName$)
 
-	Result = LoadControlBindings("Data\Controls.dat")
-	If Result = False Then RuntimeError("Could not open Data\Controls.dat!")
+	Result = LoadControlBindings()
+	If Result = False Then RuntimeError("Could not load control bindings!")
 
 	F = ReadFile("Data\Game Data\Other.dat")
 	If F = 0 Then RuntimeError("Could not open Data\Game Data\Other.dat!")
