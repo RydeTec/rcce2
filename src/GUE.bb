@@ -2021,16 +2021,19 @@ FUI_SendMessage(SBubblesB, M_SETVALUE, BubblesB)
 
 ; Money options
 WriteLog(GUELog, "Creating money options")
-F = ReadFile("Data\Game Data\Money.dat")
-If F = 0 Then RuntimeError("Could not open Data\Game Data\Money.dat!")
-	Money1$ = ReadString$(F)
-	Money2$ = ReadString$(F)
-	Money2x = ReadShort(F)
-	Money3$ = ReadString$(F)
-	Money3x = ReadShort(F)
-	Money4$ = ReadString$(F)
-	Money4x = ReadShort(F)
-CloseFile(F)
+gameDataManager.GameDataManager = new GameDataManager()
+GameDataManager::Load(gameDataManager)
+
+Money1$ = gameDataManager\moneyData\Money1
+Money2$ = gameDataManager\moneyData\Money2
+Money2x = gameDataManager\moneyData\Money2x
+Money3$ = gameDataManager\moneyData\Money3
+Money3x = gameDataManager\moneyData\Money3x
+Money4$ = gameDataManager\moneyData\Money4
+Money4x = gameDataManager\moneyData\Money4x
+
+Delete(gameDataManager)
+
 G = FUI_GroupBox(TOther, 250, 230, 380, 140, "Money")
 FUI_Label(G, 10, 7, "Tier 1 (base units): ")
 TMoney1Name = FUI_TextBox(G, 110, 5, 100, 20, 12)
@@ -3595,15 +3598,19 @@ Cls
 
 			; Money options
 			Case TMoney1Name, TMoney2Name, TMoney3Name, TMoney4Name, SMoney2x, SMoney3x, SMoney4x
-				F = WriteFile("Data\Game Data\Money.dat")
-					WriteString F, FUI_SendMessage(TMoney1Name, M_GETTEXT)
-					WriteString F, FUI_SendMessage(TMoney2Name, M_GETTEXT)
-					WriteShort F, FUI_SendMessage(SMoney2x, M_GETVALUE)
-					WriteString F, FUI_SendMessage(TMoney3Name, M_GETTEXT)
-					WriteShort F, FUI_SendMessage(SMoney3x, M_GETVALUE)
-					WriteString F, FUI_SendMessage(TMoney4Name, M_GETTEXT)
-					WriteShort F, FUI_SendMessage(SMoney4x, M_GETVALUE)
-				CloseFile(F)
+				gameDataManager.GameDataManager = new GameDataManager()
+				GameDataManager::Load(gameDataManager)
+
+				gameDataManager\moneyData\Money1 = FUI_SendMessage(TMoney1Name, M_GETTEXT)
+				gameDataManager\moneyData\Money2 = FUI_SendMessage(TMoney2Name, M_GETTEXT)
+				gameDataManager\moneyData\Money2x = FUI_SendMessage(SMoney2x, M_GETVALUE)
+				gameDataManager\moneyData\Money3 = FUI_SendMessage(TMoney3Name, M_GETTEXT)
+				gameDataManager\moneyData\Money3x = FUI_SendMessage(SMoney3x, M_GETVALUE)
+				gameDataManager\moneyData\Money4 = FUI_SendMessage(TMoney4Name, M_GETTEXT)
+				gameDataManager\moneyData\Money4x = FUI_SendMessage(SMoney4x, M_GETVALUE)
+
+				GameDataManager::Save(gameDataManager)
+				Delete(gameDataManager)
 
 			; Gubbin remapping
 			Case TGubbin1, TGubbin2, TGubbin3, TGubbin4, TGubbin5, TGubbin6

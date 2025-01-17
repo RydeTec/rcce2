@@ -78,16 +78,18 @@ Function LoadGame()
 		ShadowR = options\ShadowR
 
 	; Money settings
-	F = ReadFile("Data\Game Data\Money.dat")
-	If F = 0 Then RuntimeError("Could not open Data\Game Data\Money.dat!")
-		Money1$ = ReadString$(F)
-		Money2$ = ReadString$(F)
-		Money2x = ReadShort(F)
-		Money3$ = ReadString$(F)
-		Money3x = ReadShort(F)
-		Money4$ = ReadString$(F)
-		Money4x = ReadShort(F)
-	CloseFile(F)
+	Local gameDataManager.GameDataManager = new GameDataManager()
+	GameDataManager::Load(gameDataManager)
+
+	Money1$ = gameDataManager\moneyData\Money1
+	Money2$ = gameDataManager\moneyData\Money2
+	Money2x = gameDataManager\moneyData\Money2x
+	Money3$ = gameDataManager\moneyData\Money3
+	Money3x = gameDataManager\moneyData\Money3x
+	Money4$ = gameDataManager\moneyData\Money4
+	Money4x = gameDataManager\moneyData\Money4x
+
+	Delete(gameDataManager)
 
 	; Main screen turn on
 	Select FullScreen

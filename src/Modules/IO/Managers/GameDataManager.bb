@@ -78,8 +78,15 @@ Type MiscData
     Field GameVersion%
 End Type
 
+// Money
 Type MoneyData
-
+    Field Money1$
+    Field Money2$
+    Field Money2x%
+    Field Money3$
+    Field Money3x%
+    Field Money4$
+    Field Money4x%
 End Type
 
 Type OtherData
@@ -111,6 +118,7 @@ Type GameDataManager
     Field gubbinsData.GubbinsData
     Field interfaceData.InterfaceData
     Field miscData.MiscData
+    Field moneyData.MoneyData
 
     Method create.GameDataManager()
         self\animationsData = new AnimationsData()
@@ -120,6 +128,7 @@ Type GameDataManager
         self\gubbinsData = new GubbinsData()
         self\interfaceData = new InterfaceData()
         self\miscData = new MiscData()
+        self\moneyData = new MoneyData()
 
         return self
     End Method
@@ -245,6 +254,20 @@ Type GameDataManager
 
         File::close(miscFile)
         Delete(miscFile)
+
+        // Money
+        Local moneyFile.File = new File("Data\Game Data\Money.dat")
+
+        self\moneyData\Money1 = File::readString(moneyFile)
+        self\moneyData\Money2 = File::readString(moneyFile)
+        self\moneyData\Money2x = Int(File::readShort(moneyFile))
+        self\moneyData\Money3 = File::readString(moneyFile)
+        self\moneyData\Money3x = Int(File::readShort(moneyFile))
+        self\moneyData\Money4 = File::readString(moneyFile)
+        self\moneyData\Money4x = Int(File::readShort(moneyFile))
+
+        File::close(moneyFile)
+        Delete(moneyFile)
     End Method
 
     Method WriteObfuscated()
@@ -345,6 +368,20 @@ Type GameDataManager
 
         File::close(miscFile)
         Delete(miscFile)
+
+        // Money
+        Local moneyFile.File = new File("Data\Game Data\Money.dat")
+
+        File::writeString(moneyFile, self\moneyData\Money1)
+        File::writeString(moneyFile, self\moneyData\Money2)
+        File::writeShort(moneyFile, self\moneyData\Money2x)
+        File::writeString(moneyFile, self\moneyData\Money3)
+        File::writeShort(moneyFile, self\moneyData\Money3x)
+        File::writeString(moneyFile, self\moneyData\Money4)
+        File::writeShort(moneyFile, self\moneyData\Money4x)
+
+        File::close(moneyFile)
+        Delete(moneyFile)
     End Method
 
     Method ReadFast()
@@ -452,6 +489,20 @@ Type GameDataManager
 
         File::close(miscFile)
         Delete(miscFile)
+
+        // Money
+        Local moneyFile.File = new File("Data\Game Data\Money.dat")
+
+        self\moneyData\Money1 = File::readLine(moneyFile)
+        self\moneyData\Money2 = File::readLine(moneyFile)
+        self\moneyData\Money2x = Int(File::readLine(moneyFile))
+        self\moneyData\Money3 = File::readLine(moneyFile)
+        self\moneyData\Money3x = Int(File::readLine(moneyFile))
+        self\moneyData\Money4 = File::readLine(moneyFile)
+        self\moneyData\Money4x = Int(File::readLine(moneyFile))
+
+        File::close(moneyFile)
+        Delete(moneyFile)
     End Method
 
     Method WriteFast()
@@ -552,6 +603,20 @@ Type GameDataManager
 
         File::close(miscFile)
         Delete(miscFile)
+
+        // Money
+        Local moneyFile.File = new File("Data\Game Data\Money.dat")
+
+        File::writeLine(moneyFile, self\moneyData\Money1)
+        File::writeLine(moneyFile, self\moneyData\Money2)
+        File::writeLine(moneyFile, self\moneyData\Money2x)
+        File::writeLine(moneyFile, self\moneyData\Money3)
+        File::writeLine(moneyFile, self\moneyData\Money3x)
+        File::writeLine(moneyFile, self\moneyData\Money4)
+        File::writeLine(moneyFile, self\moneyData\Money4x)
+
+        File::close(moneyFile)
+        Delete(moneyFile)
     End Method
 
 End Type
