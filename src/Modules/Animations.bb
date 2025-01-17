@@ -1,3 +1,5 @@
+Include "Modules/IO/Managers/GameDataManager.bb"
+
 ; Required animations
 Const Anim_Walk          = 149
 Const Anim_Run           = 148
@@ -107,26 +109,29 @@ End Function
 ; Loads all animation sets
 Function LoadAnimSets(Filename$)
 
-	Local Sets = 0
+	Local gameDataManager.GameDataManager = new GameDataManager()
+	GameDataManager::Load(gameDataManager)
 
-	F = ReadFile(Filename$)
-	If F = 0 Then Return -1
+	Local Sets = ListSize(gameDataManager\animationsData\Animations)
 
-		While Not Eof(F)
-			A.AnimSet = New AnimSet
-			A\ID = ReadShort(F)
-			AnimList(A\ID) = A
-			A\Name$ = ReadString$(F)
-			For i = 0 To 149
-				A\AnimName$[i] = ReadString$(F)
-				A\AnimStart[i] = ReadShort(F)
-				A\AnimEnd[i] = ReadShort(F)
-				A\AnimSpeed#[i] = ReadFloat#(F)
-			Next
-			Sets = Sets + 1
-		Wend
+	For i = 1 to Sets
+		Local index = i - 1
+		Local A.Animation = ListAt(gameDataManager\animationsData\Animations, index)
 
-	CloseFile(F)
+		Local AS.AnimSet = new AnimSet()
+		AS\ID = A\ID
+		AS\Name$ = A\Name
+		for j = 0 to 149
+			AS\AnimName$[j] = A\AnimName$[j]
+			AS\AnimStart[j] = A\AnimStart[j]
+			AS\AnimEnd[j] = A\AnimEnd[j]
+			AS\AnimSpeed#[j] = A\AnimSpeed#[j]
+		Next
+
+		AnimList(AS\ID) = AS
+	Next
+
+	Delete gameDataManager
 	Return(Sets)
 
 End Function
@@ -134,36 +139,27 @@ End Function
 ; Saves all animation sets
 Function SaveAnimSets(Filename$)
 
-	F = WriteFile(Filename$)
-	If F = 0 Then Return False
+	Local gameDataManager.GameDataManager = new GameDataManager()
+	GameDataManager::Load(gameDataManager)
 
-		For A.AnimSet = Each AnimSet
-			WriteShort F, A\ID
-			WriteString F, A\Name$
-			For i = 0 To 149
-				WriteString F, A\AnimName$[i]
-				WriteShort F, A\AnimStart[i]
-				WriteShort F, A\AnimEnd[i]
-				WriteFloat F, A\AnimSpeed#[i]
-			Next
-		Next
+	ListClear(gameDataManager\animationsData\Animations)
 
-	CloseFile(F)
-	;Allows for animation sets to be recovered or something... cysis145
-	G = WriteFile("Data\Game Data\Animations_debug.txt")
-	If G = 0 Then Return False  
-	For A.AnimSet = Each AnimSet
-		WriteLine(G, "Anim ID: " + A\ID)
-		WriteLine(G, "Anim Set: " + A\Name$)
-		For i = 0 To 149
-			If A\AnimName$[i] <> "" Then WriteLine(G, A\AnimName$[i] + "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" + A\AnimStart[i] + "-" + A\AnimEnd[i])
+	For AS.AnimSet = Each AnimSet
+		Local A.Animation = new Animation()
+		A\ID = AS\ID
+		A\Name = AS\Name
+		for i = 0 to 149
+			A\AnimName$[i] = AS\AnimName$[i]
+			A\AnimStart[i] = AS\AnimStart[i]
+			A\AnimEnd[i] = AS\AnimEnd[i]
+			A\AnimSpeed#[i] = AS\AnimSpeed#[i]
 		Next
-		WriteLine(G, "")
-		WriteLine(G, "")
+		ListAdd(gameDataManager\animationsData\Animations, A)
 	Next
-	CloseFile(G)
 
-	
+	GameDataManager::Save(gameDataManager)
+	Delete gameDataManager
+
 	Return True
 
 End Function
