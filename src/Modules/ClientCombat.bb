@@ -1,3 +1,5 @@
+Include "Modules/IO/Managers/GameDataManager.bb"
+
 Global LastAttack, AttackTarget
 Global CombatDelay
 Global DamageInfoStyle
@@ -75,11 +77,14 @@ End Function
 ; Loads combat settings from file
 Function LoadCombat()
 
-	F = ReadFile("Data\Game Data\Combat.dat")
-	If F = 0 Then RuntimeError("Could not open Data\Game Data\Combat.dat!")
-		CombatDelay = ReadShort(F)
-		DamageInfoStyle = ReadByte(F)
-	CloseFile(F)
+	Local gameDataManager.GameDataManager = new GameDataManager()
+	GameDataManager::Load(gameDataManager)
+
+	CombatDelay = gameDataManager\combatData\CombatDelay
+	DamageInfoStyle = gameDataManager\combatData\DamageInfoStyle
+
+	Delete(gameDataManager)
+
 	LastAttack = MilliSecs()
 
 	; Replace blood texture IDs with RottParticles config handles

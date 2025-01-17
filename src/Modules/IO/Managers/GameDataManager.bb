@@ -20,8 +20,10 @@ Type AnimationsData
     End Method
 End Type
 
+// Combat
 Type CombatData
-
+    Field CombatDelay%
+    Field DamageInfoStyle%
 End Type
 
 Type FixedAttributesData
@@ -91,9 +93,11 @@ End Type
 Type GameDataManager
 
     Field animationsData.AnimationsData
+    Field combatData.CombatData
 
     Method create.GameDataManager()
         self\animationsData = new AnimationsData()
+        self\combatData = new CombatData()
 
         return self
     End Method
@@ -139,6 +143,15 @@ Type GameDataManager
 
         File::close(animationsFile)
         Delete(animationsFile)
+
+        // Combat
+        Local combatFile.File = new File("Data\Game Data\Combat.dat")
+
+        self\combatData\CombatDelay = File::readShort(combatFile)
+        self\combatData\DamageInfoStyle = File::readByte(combatFile)
+
+        File::close(combatFile)
+        Delete(combatFile)
     End Method
 
     Method WriteObfuscated()
@@ -163,7 +176,14 @@ Type GameDataManager
         File::close(animationsFile)
         Delete(animationsFile)
 
+        // Combat
+        Local combatFile.File = new File("Data\Game Data\Combat.dat")
 
+        File::writeShort(combatFile, self\combatData\CombatDelay)
+        File::writeByte(combatFile, self\combatData\DamageInfoStyle)
+
+        File::close(combatFile)
+        Delete(combatFile)
     End Method
 
     Method ReadFast()
@@ -191,6 +211,15 @@ Type GameDataManager
 
         File::close(animationsFile)
         Delete(animationsFile)
+
+        // Combat
+        Local combatFile.File = new File("Data\Game Data\Combat.dat")
+
+        self\combatData\CombatDelay = Int(File::readLine(combatFile))
+        self\combatData\DamageInfoStyle = Int(File::readLine(combatFile))
+
+        File::close(combatFile)
+        Delete(combatFile)
     End Method
 
     Method WriteFast()
@@ -214,6 +243,15 @@ Type GameDataManager
 
         File::close(animationsFile)
         Delete(animationsFile)
+
+        // Combat
+        Local combatFile.File = new File("Data\Game Data\Combat.dat")
+
+        File::writeLine(combatFile, self\combatData\CombatDelay)
+        File::writeLine(combatFile, self\combatData\DamageInfoStyle)
+
+        File::close(combatFile)
+        Delete(combatFile)
     End Method
 
 End Type

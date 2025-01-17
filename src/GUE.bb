@@ -29,6 +29,7 @@ Include "Modules\RottParticles.bb"
 Include "Modules\Packets.bb"
 Include "Modules\F-UI.bb"
 Include "Modules\Logging.bb"
+Include "Modules\IO\Managers\GameDataManager.bb"
 
 ; Globals ---------------------------------------------------------------------------------------------------------------------------
 
@@ -644,11 +645,14 @@ CCombatInfoStyle = FUI_ComboBox(G, 120, 140, 110, 20)
 FUI_ComboBoxItem(CCombatInfoStyle, "None")
 FUI_ComboBoxItem(CCombatInfoStyle, "Chat message")
 FUI_ComboBoxItem(CCombatInfoStyle, "Floating number")
-F = ReadFile("Data\Game Data\Combat.dat")
-If F = 0 Then RuntimeError("Could not open Data\Game Data\Combat.dat!")
-	SeekFile F, 2
-	CombatInfoStyle = ReadShort(F)
-CloseFile(F)
+
+Local gameDataManager.GameDataManager = new GameDataManager()
+GameDataManager::Load(gameDataManager)
+
+CombatInfoStyle = gameDataManager\combatData\DamageInfoStyle
+
+Delete(gameDataManager)
+
 FUI_SendMessage(CCombatInfoStyle, M_SETINDEX, CombatInfoStyle)
 FUI_Label(G, 10, 172, "Faction rating hit after kill:")
 SCombatRatingAdjust = FUI_Spinner(G, 150, 170, 70, 20, 0, 5, CombatRatingAdjust, 1, DTYPE_INTEGER, "%")
@@ -3478,16 +3482,22 @@ Cls
 					SeekFile F, 9
 					WriteShort F, E\EventData
 				CloseFile(F)
-				F = OpenFile("Data\Game Data\Combat.dat")
-				If F = 0 Then RuntimeError("Could not open Data\Game Data\Combat.dat!")
-					WriteShort F, E\EventData
-				CloseFile(F)
+
+				gameDataManager.GameDataManager = new GameDataManager()
+				GameDataManager::Load(gameDataManager)
+
+				gameDataManager\combatData\CombatDelay = E\EventData
+				GameDataManager::Save(gameDataManager)
+
+				Delete(gameDataManager)
 			Case CCombatInfoStyle
-				F = OpenFile("Data\Game Data\Combat.dat")
-				If F = 0 Then RuntimeError("Could not open Data\Game Data\Combat.dat!")
-					SeekFile F, 2
-					WriteShort F, E\EventData
-				CloseFile(F)
+				gameDataManager.GameDataManager = new GameDataManager()
+				GameDataManager::Load(gameDataManager)
+
+				gameDataManager\combatData\DamageInfoStyle = E\EventData
+				GameDataManager::Save(gameDataManager)
+
+				Delete(gameDataManager)
 			Case CCombatFormula
 				F = OpenFile("Data\Server Data\Misc.dat")
 				If F = 0 Then RuntimeError("Could not open Data\Server Data\Misc.dat!")
