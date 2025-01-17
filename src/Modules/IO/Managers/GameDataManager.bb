@@ -47,8 +47,27 @@ Type GubbinsData
     Field GubbinNames$[6]
 End Type
 
-Type InterfaceData
+// Interface
+Type InterfaceComponentData
+    Field X#
+    Field Y#
+    Field Width#
+    Field Height#
+    Field Alpha#
+    Field R%
+    Field G%
+    Field B%
+    Field Texture%
+End Type
 
+Type InterfaceData
+    Field InterfaceComponents.BBList
+
+    Method create.InterfaceData()
+        self\InterfaceComponents = CreateList()
+
+        return self
+    End Method
 End Type
 
 Type MeshesData
@@ -106,6 +125,7 @@ Type GameDataManager
     Field hostsData.HostsData
     Field fixedAttributesData.FixedAttributesData
     Field gubbinsData.GubbinsData
+    Field interfaceData.InterfaceData
 
     Method create.GameDataManager()
         self\animationsData = new AnimationsData()
@@ -113,6 +133,7 @@ Type GameDataManager
         self\hostsData = new HostsData()
         self\fixedAttributesData = new FixedAttributesData()
         self\gubbinsData = new GubbinsData()
+        self\interfaceData = new InterfaceData()
 
         return self
     End Method
@@ -199,6 +220,34 @@ Type GameDataManager
 
         File::close(gubbinsFile)
         Delete(gubbinsFile)
+
+        // Interface
+        Local interfaceFile.File = new File("Data\Game Data\Interface.dat")
+
+        local currentInterfaceComponent% = 0
+        while (NOT File::isEnd(interfaceFile))
+            Local interfaceComponent.InterfaceComponentData = new InterfaceComponentData()
+
+            interfaceComponent\X = File::readFloat(interfaceFile)
+            interfaceComponent\Y = File::readFloat(interfaceFile)
+            interfaceComponent\Width = File::readFloat(interfaceFile)
+            interfaceComponent\Height = File::readFloat(interfaceFile)
+            interfaceComponent\Alpha = File::readFloat(interfaceFile)
+            interfaceComponent\R = File::readByte(interfaceFile)
+            interfaceComponent\G = File::readByte(interfaceFile)
+            interfaceComponent\B = File::readByte(interfaceFile)
+
+            if (currentInterfaceComponent = 0)
+                interfaceComponent\Texture = File::readShort(interfaceFile)
+            end if
+
+            ListAdd(self\interfaceData\InterfaceComponents, interfaceComponent)
+
+            currentInterfaceComponent = currentInterfaceComponent + 1
+        wend
+
+        File::close(interfaceFile)
+        Delete(interfaceFile)
     End Method
 
     Method WriteObfuscated()
@@ -263,6 +312,31 @@ Type GameDataManager
 
         File::close(gubbinsFile)
         Delete(gubbinsFile)
+
+        // Interface
+        Local interfaceFile.File = new File("Data\Game Data\Interface.dat")
+
+        local maxInterfaceComponents% = ListSize(self\interfaceData\InterfaceComponents) - 1
+
+        for i = 0 to maxInterfaceComponents
+            Local interfaceComponent.InterfaceComponentData = ListAt(self\interfaceData\InterfaceComponents, i)
+
+            File::writeFloat(interfaceFile, interfaceComponent\X)
+            File::writeFloat(interfaceFile, interfaceComponent\Y)
+            File::writeFloat(interfaceFile, interfaceComponent\Width)
+            File::writeFloat(interfaceFile, interfaceComponent\Height)
+            File::writeFloat(interfaceFile, interfaceComponent\Alpha)
+            File::writeByte(interfaceFile, interfaceComponent\R)
+            File::writeByte(interfaceFile, interfaceComponent\G)
+            File::writeByte(interfaceFile, interfaceComponent\B)
+
+            if (i = 0)
+                File::writeShort(interfaceFile, interfaceComponent\Texture)
+            end if
+        next
+
+        File::close(interfaceFile)
+        Delete(interfaceFile)
     End Method
 
     Method ReadFast()
@@ -331,6 +405,34 @@ Type GameDataManager
 
         File::close(gubbinsFile)
         Delete(gubbinsFile)
+
+        // Interface
+        Local interfaceFile.File = new File("Data\Game Data\Interface.dat")
+
+        local currentInterfaceComponent% = 0
+        while (NOT File::isEnd(interfaceFile))
+            Local interfaceComponent.InterfaceComponentData = new InterfaceComponentData()
+
+            interfaceComponent\X = Float(File::readLine(interfaceFile))
+            interfaceComponent\Y = Float(File::readLine(interfaceFile))
+            interfaceComponent\Width = Float(File::readLine(interfaceFile))
+            interfaceComponent\Height = Float(File::readLine(interfaceFile))
+            interfaceComponent\Alpha = Float(File::readLine(interfaceFile))
+            interfaceComponent\R = Int(File::readLine(interfaceFile))
+            interfaceComponent\G = Int(File::readLine(interfaceFile))
+            interfaceComponent\B = Int(File::readLine(interfaceFile))
+
+            if (currentInterfaceComponent = 0)
+                interfaceComponent\Texture = Int(File::readLine(interfaceFile))
+            end if
+
+            ListAdd(self\interfaceData\InterfaceComponents, interfaceComponent)
+
+            currentInterfaceComponent = currentInterfaceComponent + 1
+        wend
+
+        File::close(interfaceFile)
+        Delete(interfaceFile)
     End Method
 
     Method WriteFast()
@@ -395,6 +497,31 @@ Type GameDataManager
 
         File::close(gubbinsFile)
         Delete(gubbinsFile)
+
+        // Interface
+        Local interfaceFile.File = new File("Data\Game Data\Interface.dat")
+
+        local maxInterfaceComponents% = ListSize(self\interfaceData\InterfaceComponents) - 1
+
+        for i = 0 to maxInterfaceComponents
+            Local interfaceComponent.InterfaceComponentData = ListAt(self\interfaceData\InterfaceComponents, i)
+
+            File::writeLine(interfaceFile, interfaceComponent\X)
+            File::writeLine(interfaceFile, interfaceComponent\Y)
+            File::writeLine(interfaceFile, interfaceComponent\Width)
+            File::writeLine(interfaceFile, interfaceComponent\Height)
+            File::writeLine(interfaceFile, interfaceComponent\Alpha)
+            File::writeLine(interfaceFile, interfaceComponent\R)
+            File::writeLine(interfaceFile, interfaceComponent\G)
+            File::writeLine(interfaceFile, interfaceComponent\B)
+
+            if (i = 0)
+                File::writeLine(interfaceFile, interfaceComponent\Texture)
+            end if
+        next
+
+        File::close(interfaceFile)
+        Delete(interfaceFile)
     End Method
 
 End Type

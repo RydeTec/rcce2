@@ -1,4 +1,5 @@
 Include "Modules\IO\Managers\MiscDataManager.bb"
+Include "Modules\IO\Managers\GameDataManager.bb"
 
 ; Dialogs
 Type Dialog
@@ -269,72 +270,70 @@ Function SaveControlBindings()
 
 End Function
 
-; Writes the data for any interface component to a stream
-Function WriteInterfaceComponent(IC.InterfaceComponent, Stream)
+; Writes the data for any interface component to a DTO
+Function WriteInterfaceComponent.InterfaceComponentData(IC.InterfaceComponent)
 
-	WriteFloat(Stream, IC\X#)
-	WriteFloat(Stream, IC\Y#)
-	WriteFloat(Stream, IC\Width#)
-	WriteFloat(Stream, IC\Height#)
-	WriteFloat(Stream, IC\Alpha#)
-	WriteByte(Stream, IC\R)
-	WriteByte(Stream, IC\G)
-	WriteByte(Stream, IC\B)
+	Local ICD.InterfaceComponentData = new InterfaceComponentData()
+
+	ICD\X = IC\X
+	ICD\Y = IC\Y
+	ICD\Width = IC\Width
+	ICD\Height = IC\Height
+	ICD\Alpha = IC\Alpha
+	ICD\R = IC\R
+	ICD\G = IC\G
+	ICD\B = IC\B
+	ICD\Texture = IC\Texture
+
+	return ICD
 
 End Function
 
-; Reads in the data for any interface component from a stream
-Function ReadInterfaceComponent(IC.InterfaceComponent, Stream)
+; Reads in the data for any interface component from a DTO
+Function ReadInterfaceComponent.InterfaceComponent(ICD.InterfaceComponentData)
 
-	IC\X#      = ReadFloat#(Stream)
-	IC\Y#      = ReadFloat#(Stream)
-	IC\Width#  = ReadFloat#(Stream)
-	IC\Height# = ReadFloat#(Stream)
-	IC\Alpha#  = ReadFloat#(Stream)
-	IC\R = ReadByte(Stream)
-	IC\G = ReadByte(Stream)
-	IC\B = ReadByte(Stream)
+	Local IC.InterfaceComponent = new InterfaceComponent()
+
+	IC\X#      = ICD\X
+	IC\Y#      = ICD\Y
+	IC\Width#  = ICD\Width
+	IC\Height# = ICD\Height
+	IC\Alpha#  = ICD\Alpha
+	IC\R = ICD\R
+	IC\G = ICD\G
+	IC\B = ICD\B
+	IC\Texture = ICD\Texture
+
+	Return IC
 
 End Function
 
 ; Loads the settings for interface layout from file
 Function LoadInterfaceSettings(Filename$)
 
-	F = ReadFile(Filename$)
-	If F = 0 Then Return False
+	Local gameDataManager.GameDataManager = new GameDataManager()
+	GameDataManager::Load(gameDataManager)
 
-		; Main game screen
-		Chat = New InterfaceComponent
-		ReadInterfaceComponent(Chat, F)
-		Chat\Texture = ReadShort(F)
-		ChatEntry = New InterfaceComponent
-		ReadInterfaceComponent(ChatEntry, F)
-		For i = 0 To 39
-			AttributeDisplays(i) = New InterfaceComponent
-			ReadInterfaceComponent(AttributeDisplays(i), F)
-		Next
-		BuffsArea = New InterfaceComponent
-		ReadInterfaceComponent(BuffsArea, F)
-		Radar = New InterfaceComponent
-		ReadInterfaceComponent(Radar, F)
-		Compass = New InterfaceComponent
-		ReadInterfaceComponent(Compass, F)
+	// Main game screen
+	Chat = ReadInterfaceComponent(ListAt(gameDataManager\interfaceData\InterfaceComponents, 0))
+	ChatEntry = ReadInterfaceComponent(ListAt(gameDataManager\interfaceData\InterfaceComponents, 1))
+	For i = 0 To 39
+		AttributeDisplays(i) = ReadInterfaceComponent(ListAt(gameDataManager\interfaceData\InterfaceComponents, i + 2))
+	Next
+	BuffsArea = ReadInterfaceComponent(ListAt(gameDataManager\interfaceData\InterfaceComponents, 42))
+	Radar = ReadInterfaceComponent(ListAt(gameDataManager\interfaceData\InterfaceComponents, 43))
+	Compass = ReadInterfaceComponent(ListAt(gameDataManager\interfaceData\InterfaceComponents, 44))
 
-		; Inventory
-		InventoryWindow = New InterfaceComponent
-		ReadInterfaceComponent(InventoryWindow, F)
-		InventoryDrop = New InterfaceComponent
-		ReadInterfaceComponent(InventoryDrop, F)
-		InventoryEat = New InterfaceComponent
-		ReadInterfaceComponent(InventoryEat, F)
-		InventoryGold = New InterfaceComponent
-		ReadInterfaceComponent(InventoryGold, F)
-		For i = 0 To Slots_Inventory
-			InventoryButtons(i) = New InterfaceComponent
-			ReadInterfaceComponent(InventoryButtons(i), F)
-		Next
+	// Inventory
+	InventoryWindow = ReadInterfaceComponent(ListAt(gameDataManager\interfaceData\InterfaceComponents, 45))
+	InventoryDrop = ReadInterfaceComponent(ListAt(gameDataManager\interfaceData\InterfaceComponents, 46))
+	InventoryEat = ReadInterfaceComponent(ListAt(gameDataManager\interfaceData\InterfaceComponents, 47))
+	InventoryGold = ReadInterfaceComponent(ListAt(gameDataManager\interfaceData\InterfaceComponents, 48))
+	For i = 0 To Slots_Inventory
+		InventoryButtons(i) = ReadInterfaceComponent(ListAt(gameDataManager\interfaceData\InterfaceComponents, i + 49))
+	Next
 
-	CloseFile(F)
+	Delete gameDataManager
 	Return True
 
 End Function
@@ -342,30 +341,32 @@ End Function
 ; Saves the interface settings to a file
 Function SaveInterfaceSettings(Filename$)
 
-	F = WriteFile(Filename$)
-	If F = 0 Then Return False
+	Local gameDataManager.GameDataManager = new GameDataManager()
+	GameDataManager::Load(gameDataManager)
 
-		; Main game screen
-		WriteInterfaceComponent(Chat, F)
-		WriteShort(F, Chat\Texture)
-		WriteInterfaceComponent(ChatEntry, F)
-		For i = 0 To 39
-			WriteInterfaceComponent(AttributeDisplays(i), F)
-		Next
-		WriteInterfaceComponent(BuffsArea, F)
-		WriteInterfaceComponent(Radar, F)
-		WriteInterfaceComponent(Compass, F)
+	ListClear(gameDataManager\interfaceData\InterfaceComponents)
 
-		; Inventory
-		WriteInterfaceComponent(InventoryWindow, F)
-		WriteInterfaceComponent(InventoryDrop, F)
-		WriteInterfaceComponent(InventoryEat, F)
-		WriteInterfaceComponent(InventoryGold, F)
-		For i = 0 To Slots_Inventory
-			WriteInterfaceComponent(InventoryButtons(i), F)
-		Next
+	ListAdd(gameDataManager\interfaceData\InterfaceComponents, WriteInterfaceComponent(Chat))
+	ListAdd(gameDataManager\interfaceData\InterfaceComponents, WriteInterfaceComponent(ChatEntry))
+	For i = 0 To 39
+		ListAdd(gameDataManager\interfaceData\InterfaceComponents, WriteInterfaceComponent(AttributeDisplays(i)))
+	Next
+	ListAdd(gameDataManager\interfaceData\InterfaceComponents, WriteInterfaceComponent(BuffsArea))
+	ListAdd(gameDataManager\interfaceData\InterfaceComponents, WriteInterfaceComponent(Radar))
+	ListAdd(gameDataManager\interfaceData\InterfaceComponents, WriteInterfaceComponent(Compass))
 
-	CloseFile(F)
+	// Inventory
+	ListAdd(gameDataManager\interfaceData\InterfaceComponents, WriteInterfaceComponent(InventoryWindow))
+	ListAdd(gameDataManager\interfaceData\InterfaceComponents, WriteInterfaceComponent(InventoryDrop))
+	ListAdd(gameDataManager\interfaceData\InterfaceComponents, WriteInterfaceComponent(InventoryEat))
+	ListAdd(gameDataManager\interfaceData\InterfaceComponents, WriteInterfaceComponent(InventoryGold))
+	For i = 0 To Slots_Inventory
+		ListAdd(gameDataManager\interfaceData\InterfaceComponents, WriteInterfaceComponent(InventoryButtons(i)))
+	Next
+
+	GameDataManager::Save(gameDataManager)
+
+	Delete gameDataManager
 	Return True
 
 End Function
