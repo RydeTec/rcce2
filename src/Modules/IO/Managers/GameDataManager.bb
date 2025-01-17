@@ -89,8 +89,17 @@ Type MoneyData
     Field Money4x%
 End Type
 
+// Other
 Type OtherData
-
+    Field HideNametags%
+    Field DisableCollisions%
+    Field ViewMode%
+    Field ServerPort%
+    Field RequireMemorise%
+    Field UseBubbles%
+    Field BubblesR%
+    Field BubblesG%
+    Field BubblesB%
 End Type
 
 Type PatchVersionData
@@ -119,6 +128,7 @@ Type GameDataManager
     Field interfaceData.InterfaceData
     Field miscData.MiscData
     Field moneyData.MoneyData
+    Field otherData.OtherData
 
     Method create.GameDataManager()
         self\animationsData = new AnimationsData()
@@ -129,6 +139,7 @@ Type GameDataManager
         self\interfaceData = new InterfaceData()
         self\miscData = new MiscData()
         self\moneyData = new MoneyData()
+        self\otherData = new OtherData()
 
         return self
     End Method
@@ -268,6 +279,22 @@ Type GameDataManager
 
         File::close(moneyFile)
         Delete(moneyFile)
+
+        // Other
+        Local otherFile.File = new File("Data\Game Data\Other.dat")
+
+        self\otherData\HideNametags = Int(File::readByte(otherFile))
+        self\otherData\DisableCollisions = Int(File::readByte(otherFile))
+        self\otherData\ViewMode = Int(File::readByte(otherFile))
+        self\otherData\ServerPort = File::readInt(otherFile)
+        self\otherData\RequireMemorise = Int(File::readByte(otherFile))
+        self\otherData\UseBubbles = Int(File::readByte(otherFile))
+        self\otherData\BubblesR = Int(File::readByte(otherFile))
+        self\otherData\BubblesG = Int(File::readByte(otherFile))
+        self\otherData\BubblesB = Int(File::readByte(otherFile))
+
+        File::close(otherFile)
+        Delete(otherFile)
     End Method
 
     Method WriteObfuscated()
@@ -382,6 +409,22 @@ Type GameDataManager
 
         File::close(moneyFile)
         Delete(moneyFile)
+
+        // Other
+        Local otherFile.File = new File("Data\Game Data\Other.dat")
+
+        File::writeByte(otherFile, self\otherData\HideNametags)
+        File::writeByte(otherFile, self\otherData\DisableCollisions)
+        File::writeByte(otherFile, self\otherData\ViewMode)
+        File::writeInt(otherFile, self\otherData\ServerPort)
+        File::writeByte(otherFile, self\otherData\RequireMemorise)
+        File::writeByte(otherFile, self\otherData\UseBubbles)
+        File::writeByte(otherFile, self\otherData\BubblesR)
+        File::writeByte(otherFile, self\otherData\BubblesG)
+        File::writeByte(otherFile, self\otherData\BubblesB)
+
+        File::close(otherFile)
+        Delete(otherFile)
     End Method
 
     Method ReadFast()
@@ -503,6 +546,22 @@ Type GameDataManager
 
         File::close(moneyFile)
         Delete(moneyFile)
+
+        // Other
+        Local otherFile.File = new File("Data\Game Data\Other.dat")
+
+        self\otherData\HideNametags = Int(File::readLine(otherFile))
+        self\otherData\DisableCollisions = Int(File::readLine(otherFile))
+        self\otherData\ViewMode = Int(File::readLine(otherFile))
+        self\otherData\ServerPort = Int(File::readLine(otherFile))
+        self\otherData\RequireMemorise = Int(File::readLine(otherFile))
+        self\otherData\UseBubbles = Int(File::readLine(otherFile))
+        self\otherData\BubblesR = Int(File::readLine(otherFile))
+        self\otherData\BubblesG = Int(File::readLine(otherFile))
+        self\otherData\BubblesB = Int(File::readLine(otherFile))
+
+        File::close(otherFile)
+        Delete(otherFile)
     End Method
 
     Method WriteFast()
@@ -617,6 +676,22 @@ Type GameDataManager
 
         File::close(moneyFile)
         Delete(moneyFile)
+
+        // Other
+        Local otherFile.File = new File("Data\Game Data\Other.dat")
+
+        File::writeLine(otherFile, self\otherData\HideNametags)
+        File::writeLine(otherFile, self\otherData\DisableCollisions)
+        File::writeLine(otherFile, self\otherData\ViewMode)
+        File::writeLine(otherFile, self\otherData\ServerPort)
+        File::writeLine(otherFile, self\otherData\RequireMemorise)
+        File::writeLine(otherFile, self\otherData\UseBubbles)
+        File::writeLine(otherFile, self\otherData\BubblesR)
+        File::writeLine(otherFile, self\otherData\BubblesG)
+        File::writeLine(otherFile, self\otherData\BubblesB)
+
+        File::close(otherFile)
+        Delete(otherFile)
     End Method
 
 End Type

@@ -1961,18 +1961,22 @@ If F = 0 Then RuntimeError("Could not open Data\Server Data\Misc.dat!")
 	StartReputation = ReadInt(F)
 	ForcePortals = ReadByte(F)
 CloseFile(F)
-F = ReadFile("Data\Game Data\Other.dat")
-If F = 0 Then RuntimeError("Could not open Data\Game Data\Other.dat!")
-	HideNames = ReadByte(F)
-	DisableCollisions = ReadByte(F)
-	ViewMode = ReadByte(F)
-	ReadInt(F) ; (Server port)
-	RequireMemorise = ReadByte(F)
-	UseBubbles = ReadByte(F)
-	BubblesR = ReadByte(F)
-	BubblesG = ReadByte(F)
-	BubblesB = ReadByte(F)
-CloseFile(F)
+
+gameDataManager.GameDataManager = new GameDataManager()
+GameDataManager::Load(gameDataManager)
+
+HideNames = gameDataManager\otherData\HideNametags
+DisableCollisions = gameDataManager\otherData\DisableCollisions
+ViewMode = gameDataManager\otherData\ViewMode
+ServerPort = gameDataManager\otherData\ServerPort
+RequireMemorise = gameDataManager\otherData\RequireMemorise
+UseBubbles = gameDataManager\otherData\UseBubbles
+BubblesR = gameDataManager\otherData\BubblesR
+BubblesG = gameDataManager\otherData\BubblesG
+BubblesB = gameDataManager\otherData\BubblesB
+
+Delete(gameDataManager)
+
 G = FUI_GroupBox(TOther, 10, 230, 230, 350, "Game")
 FUI_Label(G, 10, 7, "Initial player money: ")
 SStartGold = FUI_Spinner(G, 130, 5, 90, 20, 0, 5000, StartGold, 1, DTYPE_INTEGER)
@@ -3442,11 +3446,13 @@ Cls
 					SeekFile(F, 17)
 					WriteInt(F, ServerPort)
 				CloseFile(F)
-				F = OpenFile("Data\Game Data\Other.dat")
-				If F = 0 Then RuntimeError("Could not open Data\Game Data\Other.dat!")
-					SeekFile(F, 3)
-					WriteInt(F, ServerPort)
-				CloseFile(F)
+
+				gameDataManager.GameDataManager = new GameDataManager()
+				GameDataManager::Load(gameDataManager)
+
+				gameDataManager\otherData\ServerPort = ServerPort
+				GameDataManager::Save(gameDataManager)
+				Delete(gameDataManager)
 
 			; Allow new account creation from client
 			Case BNewAccounts
@@ -3537,16 +3543,19 @@ Cls
 					WriteByte F, E\EventData
 				CloseFile(F)
 			Case CHideNametags
-				F = OpenFile("Data\Game Data\Other.dat")
-				If F = 0 Then RuntimeError("Could not open Data\Game Data\Other.dat!")
-					WriteByte F, Int(E\EventData) - 1
-				CloseFile(F)
+				gameDataManager.GameDataManager = new GameDataManager()
+				GameDataManager::Load(gameDataManager)
+
+				gameDataManager\otherData\HideNametags = Int(E\EventData) - 1
+				GameDataManager::Save(gameDataManager)
+				Delete(gameDataManager)
 			Case BDisableCollisions
-				F = OpenFile("Data\Game Data\Other.dat")
-				If F = 0 Then RuntimeError("Could not open Data\Game Data\Other.dat!")
-					SeekFile F, 1
-					WriteByte F, E\EventData
-				CloseFile(F)
+				gameDataManager.GameDataManager = new GameDataManager()
+				GameDataManager::Load(gameDataManager)
+
+				gameDataManager\otherData\DisableCollisions = E\EventData
+				GameDataManager::Save(gameDataManager)
+				Delete(gameDataManager)
 			Case CViewMode
 				If Int(E\EventData) = 1
 					ViewMode = 1
@@ -3555,46 +3564,54 @@ Cls
 				ElseIf Int(E\EventData) = 3
 					ViewMode = 2
 				EndIf
-				F = OpenFile("Data\Game Data\Other.dat")
-				If F = 0 Then RuntimeError("Could not open Data\Game Data\Other.dat!")
-					SeekFile F, 2
-					WriteByte F, ViewMode
-				CloseFile(F)
+
+				gameDataManager.GameDataManager = new GameDataManager()
+				GameDataManager::Load(gameDataManager)
+
+				gameDataManager\otherData\ViewMode = ViewMode
+				GameDataManager::Save(gameDataManager)
+				Delete(gameDataManager)
 			Case BRequireMemorise
-				F = OpenFile("Data\Game Data\Other.dat")
-				If F = 0 Then RuntimeError("Could not open Data\Game Data\Other.dat!")
-					SeekFile F, 7
-					WriteByte F, E\EventData
-				CloseFile(F)
+				gameDataManager.GameDataManager = new GameDataManager()
+				GameDataManager::Load(gameDataManager)
+
+				gameDataManager\otherData\RequireMemorise = E\EventData
+				GameDataManager::Save(gameDataManager)
+				Delete(gameDataManager)
+
 				F = OpenFile("Data\Server Data\Misc.dat")
 				If F = 0 Then RuntimeError("Could not open Data\Server Data\Misc.dat!")
 					SeekFile F, 21
 					WriteByte F, E\EventData
 				CloseFile(F)
 			Case CUseBubbles
-				F = OpenFile("Data\Game Data\Other.dat")
-				If F = 0 Then RuntimeError("Could not open Data\Game Data\Other.dat!")
-					SeekFile F, 8
-					WriteByte F, E\EventData
-				CloseFile(F)
+				gameDataManager.GameDataManager = new GameDataManager()
+				GameDataManager::Load(gameDataManager)
+
+				gameDataManager\otherData\UseBubbles = E\EventData
+				GameDataManager::Save(gameDataManager)
+				Delete(gameDataManager)
 			Case SBubblesR
-				F = OpenFile("Data\Game Data\Other.dat")
-				If F = 0 Then RuntimeError("Could not open Data\Game Data\Other.dat!")
-					SeekFile F, 9
-					WriteByte F, E\EventData
-				CloseFile(F)
+				gameDataManager.GameDataManager = new GameDataManager()
+				GameDataManager::Load(gameDataManager)
+
+				gameDataManager\otherData\BubblesR = E\EventData
+				GameDataManager::Save(gameDataManager)
+				Delete(gameDataManager)
 			Case SBubblesG
-				F = OpenFile("Data\Game Data\Other.dat")
-				If F = 0 Then RuntimeError("Could not open Data\Game Data\Other.dat!")
-					SeekFile F, 10
-					WriteByte F, E\EventData
-				CloseFile(F)
+				gameDataManager.GameDataManager = new GameDataManager()
+				GameDataManager::Load(gameDataManager)
+
+				gameDataManager\otherData\BubblesG = E\EventData
+				GameDataManager::Save(gameDataManager)
+				Delete(gameDataManager)
 			Case SBubblesB
-				F = OpenFile("Data\Game Data\Other.dat")
-				If F = 0 Then RuntimeError("Could not open Data\Game Data\Other.dat!")
-					SeekFile F, 11
-					WriteByte F, E\EventData
-				CloseFile(F)
+				gameDataManager.GameDataManager = new GameDataManager()
+				GameDataManager::Load(gameDataManager)
+
+				gameDataManager\otherData\BubblesB = E\EventData
+				GameDataManager::Save(gameDataManager)
+				Delete(gameDataManager)
 
 			; Money options
 			Case TMoney1Name, TMoney2Name, TMoney3Name, TMoney4Name, SMoney2x, SMoney3x, SMoney4x

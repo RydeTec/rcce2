@@ -36,19 +36,21 @@ Function LoadOptions()
 	Result = LoadControlBindings()
 	If Result = False Then RuntimeError("Could not load control bindings!")
 
-	F = ReadFile("Data\Game Data\Other.dat")
-	If F = 0 Then RuntimeError("Could not open Data\Game Data\Other.dat!")
-		HideNametags = ReadByte(F)
-		DisableCollisions = ReadByte(F)
-		ViewMode = ReadByte(F)
-		ServerPort = ReadInt(F)
-		If ServerPort = 0 Then ServerPort = 25000
-		RequireMemorise = ReadByte(F)
-		UseBubbles = ReadByte(F)
-		BubblesR = ReadByte(F)
-		BubblesG = ReadByte(F)
-		BubblesB = ReadByte(F)
-	CloseFile(F)
+	gameDataManager.GameDataManager = new GameDataManager()
+	GameDataManager::Load(gameDataManager)
+
+	HideNametags = gameDataManager\otherData\HideNametags
+	DisableCollisions = gameDataManager\otherData\DisableCollisions
+	ViewMode = gameDataManager\otherData\ViewMode
+	ServerPort = gameDataManager\otherData\ServerPort
+	RequireMemorise = gameDataManager\otherData\RequireMemorise
+	UseBubbles = gameDataManager\otherData\UseBubbles
+	BubblesR = gameDataManager\otherData\BubblesR
+	BubblesG = gameDataManager\otherData\BubblesG
+	BubblesB = gameDataManager\otherData\BubblesB
+
+	Delete(gameDataManager)
+
 	If ViewMode = 1 Then CamMode = 1
 
 	WriteLog(MainLog, "Loaded options from file")
