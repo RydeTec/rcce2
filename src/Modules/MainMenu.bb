@@ -1,6 +1,7 @@
 Include "Modules\IO\Managers\OptionsDataManager.bb"
 Include "Modules\IO\Managers\MiscDataManager.bb"
 Include "Modules\Helpers\Strings.bb"
+Include "Modules\IO\Managers\GameDataManager.bb"
 
 ; Character data storage
 Dim CharButtons(9)
@@ -379,12 +380,10 @@ End Function
 Function LogIn()
 
 	; Read whether new account creation is enabled
-	F = ReadFile("Data\Game Data\Hosts.dat")
-	If F = 0 Then RuntimeError("Could not open Data\Game Data\Hosts.dat!")
-		ReadLine$(F)
-		ReadLine$(F)
-		AccountsEnabled = ReadLine$(F)
-	CloseFile(F)
+	Local gameDataManager.GameDataManager = new GameDataManager()
+	GameDataManager::Load(gameDataManager)
+	AccountsEnabled = gameDataManager\hostsData\NewAccounts
+	Delete(gameDataManager)
 			
 	; Background
 	Logo = LoadSprite("Data\Textures\Menu Logo.bmp",4) ; Logo opacity terrier

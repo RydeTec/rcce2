@@ -1,15 +1,20 @@
 Include "Modules\IO\Managers\OptionsDataManager.bb"
+Include "Modules\IO\Managers\GameDataManager.bb"
 
 ; General game options (host name, etc. - NOT stuff set by player)
 Function LoadOptions()
 
 	Result = LoadLanguage("Data\Game Data\Language.txt")
 	If Result = False Then RuntimeError("Could not open Data\Game Data\Language.txt!")
-	F = ReadFile("Data\Game Data\Hosts.dat")
-	If F = 0 Then RuntimeError("Could not open Data\Game Data\Hosts.dat!")
-		ServerHost$ = ReadLine$(F)
-		UpdateHost$ = ReadLine$(F)
-	CloseFile(F)
+
+	Local gameDataManager.GameDataManager = new GameDataManager()
+	GameDataManager::Load(gameDataManager)
+
+	ServerHost$ = gameDataManager\hostsData\ServerHost
+	UpdateHost$ = gameDataManager\hostsData\UpdateHost
+
+	Delete(gameDataManager)
+
 	If Right$(UpdateHost$, 1) <> "/" Then UpdateHost$ = UpdateHost$ + "/"
 	NewHost$ = Trim$(CommandLine$())
 	If NewHost$ <> ""

@@ -254,11 +254,13 @@ CloseFile(F)
 FUI_AppTitle("RealmCrafter: Community Edition" + " - " + GameName$)
 ;#########
 
-F = ReadFile("Data\Game Data\Hosts.dat")
-If F = 0 Then RuntimeError("Could not open Data\Game Data\Hosts.dat!")
-	ServerHost$ = ReadLine$(F)
-	UpdatesHost$ = ReadLine$(F)
-CloseFile(F)
+Local gameDataManager.GameDataManager = new GameDataManager()
+GameDataManager::Load(gameDataManager)
+
+ServerHost$ = gameDataManager\hostsData\ServerHost
+UpdatesHost$ = gameDataManager\hostsData\UpdateHost
+
+Delete(gameDataManager)
 
 ; Load actors, items, etc.
 updateSplashScreen("Loading damage types")
@@ -646,7 +648,7 @@ FUI_ComboBoxItem(CCombatInfoStyle, "None")
 FUI_ComboBoxItem(CCombatInfoStyle, "Chat message")
 FUI_ComboBoxItem(CCombatInfoStyle, "Floating number")
 
-Local gameDataManager.GameDataManager = new GameDataManager()
+gameDataManager.GameDataManager = new GameDataManager()
 GameDataManager::Load(gameDataManager)
 
 CombatInfoStyle = gameDataManager\combatData\DamageInfoStyle
@@ -1919,12 +1921,13 @@ Next
 
 ; Host options
 WriteLog(GUELog, "Creating host options")
-F = ReadFile("Data\Game Data\Hosts.dat")
-If F = 0 Then RuntimeError("Could not open Data\Game Data\Hosts.dat!")
-	ReadLine$(F)
-	ReadLine$(F)
-	AccountsEnabled = ReadLine$(F)
-CloseFile(F)
+gameDataManager.GameDataManager = new GameDataManager()
+GameDataManager::Load(gameDataManager)
+
+AccountsEnabled = gameDataManager\hostsData\NewAccounts
+
+Delete(gameDataManager)
+
 F = ReadFile("Data\Server Data\Misc.dat")
 If F = 0 Then RuntimeError("Could not open Data\Server Data\Misc.dat!")
 	SeekFile F, 16
@@ -3411,19 +3414,22 @@ Cls
 
 			; Hosts
 			Case TServerHost
-				F = WriteFile("Data\Game Data\Hosts.dat")
-				If F = 0 Then RuntimeError("Could not open Data\Game Data\Hosts.dat!")
-					WriteLine F, FUI_SendMessage(TServerHost, M_GETCAPTION)
-					WriteLine F, FUI_SendMessage(TUpdatesHost, M_GETCAPTION)
-					WriteLine F, FUI_SendMessage(BNewAccounts, M_GETCHECKED)
-				CloseFile(F)
+				gameDataManager.GameDataManager = new GameDataManager()
+				GameDataManager::Load(gameDataManager)
+
+				gameDataManager\hostsData\ServerHost = FUI_SendMessage(TServerHost, M_GETCAPTION)
+
+				GameDataManager::Save(gameDataManager)
+				Delete(gameDataManager)
+
 			Case TUpdatesHost
-				F = WriteFile("Data\Game Data\Hosts.dat")
-				If F = 0 Then RuntimeError("Could not open Data\Game Data\Hosts.dat!")
-					WriteLine F, FUI_SendMessage(TServerHost, M_GETCAPTION)
-					WriteLine F, FUI_SendMessage(TUpdatesHost, M_GETCAPTION)
-					WriteLine F, FUI_SendMessage(BNewAccounts, M_GETCHECKED)
-				CloseFile(F)
+				gameDataManager.GameDataManager = new GameDataManager()
+				GameDataManager::Load(gameDataManager)
+
+				gameDataManager\hostsData\UpdateHost = FUI_SendMessage(TUpdatesHost, M_GETCAPTION)
+				
+				GameDataManager::Save(gameDataManager)
+				Delete(gameDataManager)
 			Case TServerPort
 				ServerPort = E\EventData
 				F = OpenFile("Data\Server Data\Misc.dat")
@@ -3439,11 +3445,14 @@ Cls
 
 			; Allow new account creation from client
 			Case BNewAccounts
-				F = WriteFile("Data\Game Data\Hosts.dat")
-					WriteLine F, FUI_SendMessage(TServerHost, M_GETCAPTION)
-					WriteLine F, FUI_SendMessage(TUpdatesHost, M_GETCAPTION)
-					WriteLine F, FUI_SendMessage(BNewAccounts, M_GETCHECKED)
-				CloseFile(F)
+				gameDataManager.GameDataManager = new GameDataManager()
+				GameDataManager::Load(gameDataManager)
+
+				gameDataManager\hostsData\NewAccounts = FUI_SendMessage(BNewAccounts, M_GETCHECKED)
+
+				GameDataManager::Save(gameDataManager)
+				Delete(gameDataManager)
+
 				F = OpenFile("Data\Server Data\Misc.dat")
 				If F = 0 Then RuntimeError("Could not open Data\Server Data\Misc.dat!")
 					SeekFile F, 15

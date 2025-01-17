@@ -26,15 +26,18 @@ Type CombatData
     Field DamageInfoStyle%
 End Type
 
+// Hosts
+Type HostsData
+    Field ServerHost$
+    Field UpdateHost$
+    Field NewAccounts%
+End Type
+
 Type FixedAttributesData
 
 End Type
 
 Type GubbinsData
-
-End Type
-
-Type HostsData
 
 End Type
 
@@ -94,10 +97,12 @@ Type GameDataManager
 
     Field animationsData.AnimationsData
     Field combatData.CombatData
+    Field hostsData.HostsData
 
     Method create.GameDataManager()
         self\animationsData = new AnimationsData()
         self\combatData = new CombatData()
+        self\hostsData = new HostsData()
 
         return self
     End Method
@@ -152,6 +157,16 @@ Type GameDataManager
 
         File::close(combatFile)
         Delete(combatFile)
+
+        // Hosts
+        Local hostsFile.File = new File("Data\Game Data\Hosts.dat")
+
+        self\hostsData\ServerHost = File::readLine(hostsFile)
+        self\hostsData\UpdateHost = File::readLine(hostsFile)
+        self\hostsData\NewAccounts = Int(File::readLine(hostsFile))
+
+        File::close(hostsFile)
+        Delete(hostsFile)
     End Method
 
     Method WriteObfuscated()
@@ -184,6 +199,16 @@ Type GameDataManager
 
         File::close(combatFile)
         Delete(combatFile)
+
+        // Hosts
+        Local hostsFile.File = new File("Data\Game Data\Hosts.dat")
+
+        File::writeLine(hostsFile, self\hostsData\ServerHost)
+        File::writeLine(hostsFile, self\hostsData\UpdateHost)
+        File::writeLine(hostsFile, self\hostsData\NewAccounts)
+
+        File::close(hostsFile)
+        Delete(hostsFile)
     End Method
 
     Method ReadFast()
@@ -220,6 +245,16 @@ Type GameDataManager
 
         File::close(combatFile)
         Delete(combatFile)
+
+        // Hosts
+        Local hostsFile.File = new File("Data\Game Data\Hosts.dat")
+
+        self\hostsData\ServerHost = File::readLine(hostsFile)
+        self\hostsData\UpdateHost = File::readLine(hostsFile)
+        self\hostsData\NewAccounts = Int(File::readLine(hostsFile))
+
+        File::close(hostsFile)
+        Delete(hostsFile)
     End Method
 
     Method WriteFast()
@@ -252,6 +287,16 @@ Type GameDataManager
 
         File::close(combatFile)
         Delete(combatFile)
+
+        // Hosts
+        Local hostsFile.File = new File("Data\Game Data\Hosts.dat")
+
+        File::writeLine(hostsFile, self\hostsData\ServerHost)
+        File::writeLine(hostsFile, self\hostsData\UpdateHost)
+        File::writeLine(hostsFile, self\hostsData\NewAccounts)
+
+        File::close(hostsFile)
+        Delete(hostsFile)
     End Method
 
 End Type
