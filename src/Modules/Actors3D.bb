@@ -1,3 +1,5 @@
+Include "Modules/IO/Managers/GameDataManager.bb"
+
 ; Gubbin joint names
 Dim GubbinJoints$(5)
 ; Default values
@@ -17,12 +19,14 @@ Const farFadeModifier# = 0.75 ; 1500 units
 ; Loads gubbin joint names from file
 Function LoadGubbinNames()
 
-	F = ReadFile("Data\Game Data\Gubbins.dat")
-	If F = 0 Then RuntimeError("File not found: " + "Data\Game Data\Gubbins.dat!")
-		For i = 0 To 5
-			GubbinJoints$(i) = ReadString$(F)
-		Next
-	CloseFile(F)
+	Local gameDataManager.GameDataManager = new GameDataManager()
+	GameDataManager::Load(gameDataManager)
+
+	for i = 0 to 5
+		GubbinJoints$(i) = gameDataManager\gubbinsData\GubbinNames$[i]
+	next
+
+	Delete(gameDataManager)
 
 End Function
 

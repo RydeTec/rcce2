@@ -33,6 +33,7 @@ Type HostsData
     Field NewAccounts%
 End Type
 
+// Fixed Attributes
 Type FixedAttributesData
     Field HealthStat%
     Field EnergyStat%
@@ -41,8 +42,9 @@ Type FixedAttributesData
     Field SpeedStat%
 End Type
 
+// Gubbins
 Type GubbinsData
-
+    Field GubbinNames$[6]
 End Type
 
 Type InterfaceData
@@ -103,12 +105,14 @@ Type GameDataManager
     Field combatData.CombatData
     Field hostsData.HostsData
     Field fixedAttributesData.FixedAttributesData
+    Field gubbinsData.GubbinsData
 
     Method create.GameDataManager()
         self\animationsData = new AnimationsData()
         self\combatData = new CombatData()
         self\hostsData = new HostsData()
         self\fixedAttributesData = new FixedAttributesData()
+        self\gubbinsData = new GubbinsData()
 
         return self
     End Method
@@ -185,6 +189,16 @@ Type GameDataManager
 
         File::close(fixedAttributesFile)
         Delete(fixedAttributesFile)
+
+        // Gubbins
+        Local gubbinsFile.File = new File("Data\Game Data\Gubbins.dat")
+
+        for i = 0 to 5
+            self\gubbinsData\GubbinNames$[i] = File::readString(gubbinsFile)
+        next
+
+        File::close(gubbinsFile)
+        Delete(gubbinsFile)
     End Method
 
     Method WriteObfuscated()
@@ -239,6 +253,16 @@ Type GameDataManager
 
         File::close(fixedAttributesFile)
         Delete(fixedAttributesFile)
+
+        // Gubbins
+        Local gubbinsFile.File = new File("Data\Game Data\Gubbins.dat")
+
+        for i = 0 to 5
+            File::writeString(gubbinsFile, self\gubbinsData\GubbinNames$[i])
+        next
+
+        File::close(gubbinsFile)
+        Delete(gubbinsFile)
     End Method
 
     Method ReadFast()
@@ -297,6 +321,16 @@ Type GameDataManager
 
         File::close(fixedAttributesFile)
         Delete(fixedAttributesFile)
+
+        // Gubbins
+        Local gubbinsFile.File = new File("Data\Game Data\Gubbins.dat")
+
+        for i = 0 to 5
+            self\gubbinsData\GubbinNames$[i] = File::readLine(gubbinsFile)
+        next
+
+        File::close(gubbinsFile)
+        Delete(gubbinsFile)
     End Method
 
     Method WriteFast()
@@ -351,6 +385,16 @@ Type GameDataManager
 
         File::close(fixedAttributesFile)
         Delete(fixedAttributesFile)
+
+        // Gubbins
+        Local gubbinsFile.File = new File("Data\Game Data\Gubbins.dat")
+
+        for i = 0 to 5
+            File::writeLine(gubbinsFile, self\gubbinsData\GubbinNames$[i])
+        next
+
+        File::close(gubbinsFile)
+        Delete(gubbinsFile)
     End Method
 
 End Type

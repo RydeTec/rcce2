@@ -3606,14 +3606,20 @@ Cls
 			; Gubbin remapping
 			Case TGubbin1, TGubbin2, TGubbin3, TGubbin4, TGubbin5, TGubbin6
 				GubbinNamesChanged = True
-				F = WriteFile("Data\Game Data\Gubbins.dat")
-					WriteString(F, FUI_SendMessage(TGubbin1, M_GETTEXT))
-					WriteString(F, FUI_SendMessage(TGubbin2, M_GETTEXT))
-					WriteString(F, FUI_SendMessage(TGubbin3, M_GETTEXT))
-					WriteString(F, FUI_SendMessage(TGubbin4, M_GETTEXT))
-					WriteString(F, FUI_SendMessage(TGubbin5, M_GETTEXT))
-					WriteString(F, FUI_SendMessage(TGubbin6, M_GETTEXT))
-				CloseFile(F)
+
+				gameDataManager.GameDataManager = new GameDataManager()
+				GameDataManager::Load(gameDataManager)
+
+				gameDataManager\gubbinsData\GubbinNames$[0] = FUI_SendMessage(TGubbin1, M_GETTEXT)
+				gameDataManager\gubbinsData\GubbinNames$[1] = FUI_SendMessage(TGubbin2, M_GETTEXT)
+				gameDataManager\gubbinsData\GubbinNames$[2] = FUI_SendMessage(TGubbin3, M_GETTEXT)
+				gameDataManager\gubbinsData\GubbinNames$[3] = FUI_SendMessage(TGubbin4, M_GETTEXT)
+				gameDataManager\gubbinsData\GubbinNames$[4] = FUI_SendMessage(TGubbin5, M_GETTEXT)
+				gameDataManager\gubbinsData\GubbinNames$[5] = FUI_SendMessage(TGubbin6, M_GETTEXT)
+
+				GameDataManager::Save(gameDataManager)
+				Delete(gameDataManager)
+
 				LoadGubbinNames()
 
 			; Seasons tab events ----------------------------------------------------------------------------------------------------
