@@ -172,14 +172,15 @@ LoadGame()
 Connect()
 
 ; Fixed attributes needed by engine
-F = ReadFile("Data\Game Data\Fixed Attributes.dat")
-If F = 0 Then RuntimeError("Could not open Data\Game Data\Fixed Attributes.dat!")
-HealthStat = ReadShort(F)
-EnergyStat = ReadShort(F)
-BreathStat = ReadShort(F)
-StrengthStat = ReadShort(F)
-SpeedStat = ReadShort(F)
-CloseFile(F)
+Local gameDataManager.GameDataManager = new GameDataManager()
+GameDataManager::Load(gameDataManager)
+HealthStat = gameDataManager\fixedAttributesData\HealthStat
+EnergyStat = gameDataManager\fixedAttributesData\EnergyStat
+BreathStat = gameDataManager\fixedAttributesData\BreathStat
+StrengthStat = gameDataManager\fixedAttributesData\StrengthStat
+SpeedStat = gameDataManager\fixedAttributesData\SpeedStat
+Delete(gameDataManager)
+
 If HealthStat = 65535 Then RuntimeError("A valid Health attribute must be selected!")
 ;If EnergyStat = 65535 Then EnergyStat = -1
 ;If BreathStat = 65535 Then BreathStat = -1

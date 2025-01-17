@@ -34,7 +34,11 @@ Type HostsData
 End Type
 
 Type FixedAttributesData
-
+    Field HealthStat%
+    Field EnergyStat%
+    Field BreathStat%
+    Field StrengthStat%
+    Field SpeedStat%
 End Type
 
 Type GubbinsData
@@ -98,11 +102,13 @@ Type GameDataManager
     Field animationsData.AnimationsData
     Field combatData.CombatData
     Field hostsData.HostsData
+    Field fixedAttributesData.FixedAttributesData
 
     Method create.GameDataManager()
         self\animationsData = new AnimationsData()
         self\combatData = new CombatData()
         self\hostsData = new HostsData()
+        self\fixedAttributesData = new FixedAttributesData()
 
         return self
     End Method
@@ -167,6 +173,18 @@ Type GameDataManager
 
         File::close(hostsFile)
         Delete(hostsFile)
+
+        // Fixed Attributes
+        Local fixedAttributesFile.File = new File("Data\Game Data\Fixed Attributes.dat")
+
+        self\fixedAttributesData\HealthStat = File::readShort(fixedAttributesFile)
+        self\fixedAttributesData\EnergyStat = File::readShort(fixedAttributesFile)
+        self\fixedAttributesData\BreathStat = File::readShort(fixedAttributesFile)
+        self\fixedAttributesData\StrengthStat = File::readShort(fixedAttributesFile)
+        self\fixedAttributesData\SpeedStat = File::readShort(fixedAttributesFile)
+
+        File::close(fixedAttributesFile)
+        Delete(fixedAttributesFile)
     End Method
 
     Method WriteObfuscated()
@@ -209,6 +227,18 @@ Type GameDataManager
 
         File::close(hostsFile)
         Delete(hostsFile)
+
+        // Fixed Attributes
+        Local fixedAttributesFile.File = new File("Data\Game Data\Fixed Attributes.dat")
+
+        File::writeShort(fixedAttributesFile, self\fixedAttributesData\HealthStat)
+        File::writeShort(fixedAttributesFile, self\fixedAttributesData\EnergyStat)
+        File::writeShort(fixedAttributesFile, self\fixedAttributesData\BreathStat)
+        File::writeShort(fixedAttributesFile, self\fixedAttributesData\StrengthStat)
+        File::writeShort(fixedAttributesFile, self\fixedAttributesData\SpeedStat)
+
+        File::close(fixedAttributesFile)
+        Delete(fixedAttributesFile)
     End Method
 
     Method ReadFast()
@@ -255,6 +285,18 @@ Type GameDataManager
 
         File::close(hostsFile)
         Delete(hostsFile)
+
+        // Fixed Attributes
+        Local fixedAttributesFile.File = new File("Data\Game Data\Fixed Attributes.dat")
+
+        self\fixedAttributesData\HealthStat = Int(File::readLine(fixedAttributesFile))
+        self\fixedAttributesData\EnergyStat = Int(File::readLine(fixedAttributesFile))
+        self\fixedAttributesData\BreathStat = Int(File::readLine(fixedAttributesFile))
+        self\fixedAttributesData\StrengthStat = Int(File::readLine(fixedAttributesFile))
+        self\fixedAttributesData\SpeedStat = Int(File::readLine(fixedAttributesFile))
+
+        File::close(fixedAttributesFile)
+        Delete(fixedAttributesFile)
     End Method
 
     Method WriteFast()
@@ -297,6 +339,18 @@ Type GameDataManager
 
         File::close(hostsFile)
         Delete(hostsFile)
+
+        // Fixed Attributes
+        Local fixedAttributesFile.File = new File("Data\Game Data\Fixed Attributes.dat")
+
+        File::writeLine(fixedAttributesFile, self\fixedAttributesData\HealthStat)
+        File::writeLine(fixedAttributesFile, self\fixedAttributesData\EnergyStat)
+        File::writeLine(fixedAttributesFile, self\fixedAttributesData\BreathStat)
+        File::writeLine(fixedAttributesFile, self\fixedAttributesData\StrengthStat)
+        File::writeLine(fixedAttributesFile, self\fixedAttributesData\SpeedStat)
+
+        File::close(fixedAttributesFile)
+        Delete(fixedAttributesFile)
     End Method
 
 End Type

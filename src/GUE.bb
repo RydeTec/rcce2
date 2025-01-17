@@ -10087,13 +10087,19 @@ Function FixedAttributeDialog()
 						WriteShort(F, StrengthStat)
 						WriteShort(F, SpeedStat)
 					CloseFile(F)
-					F = WriteFile("Data\Game Data\Fixed Attributes.dat")
-						WriteShort(F, HealthStat)
-						WriteShort(F, EnergyStat)
-						WriteShort(F, BreathStat)
-						WriteShort(F, StrengthStat)
-						WriteShort(F, SpeedStat)
-					CloseFile(F)
+
+					gameDataManager.GameDataManager = new GameDataManager()
+					GameDataManager::Load(gameDataManager)
+
+					gameDataManager\fixedAttributesData\HealthStat = HealthStat
+					gameDataManager\fixedAttributesData\EnergyStat = EnergyStat
+					gameDataManager\fixedAttributesData\BreathStat = BreathStat
+					gameDataManager\fixedAttributesData\StrengthStat = StrengthStat
+					gameDataManager\fixedAttributesData\SpeedStat = SpeedStat
+
+					GameDataManager::Save(gameDataManager)
+					Delete(gameDataManager)
+
 					Done = True
 				; Change selected attributes
 				Case CHealth
