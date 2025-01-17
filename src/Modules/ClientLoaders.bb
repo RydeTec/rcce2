@@ -21,12 +21,16 @@ Function LoadOptions()
 		ServerHost$ = NewHost$
 		WriteLog(MainLog, "Changed server host to " + NewHost$ + " from command line")
 	EndIf
-	F = ReadFile("Data\Game Data\Misc.dat")
-	If F = 0 Then RuntimeError("Could not open Data\Game Data\Misc.dat!")
-		GameName$ = ReadLine$(F)
-		UpdateGame$ = ReadLine$(F)
-		UpdateMusic = ReadLine$(F)
-	CloseFile(F)
+
+	gameDataManager.GameDataManager = new GameDataManager()
+	GameDataManager::Load(gameDataManager)
+
+	GameName$ = gameDataManager\miscData\GameName
+	UpdateGame$ = gameDataManager\miscData\GameUpdate
+	UpdateMusic = gameDataManager\miscData\GameMusicUpdate
+
+	Delete(gameDataManager)
+
 	AppTitle(GameName$)
 
 	Result = LoadControlBindings()

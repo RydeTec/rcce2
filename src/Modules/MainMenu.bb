@@ -1388,11 +1388,15 @@ Function LogIn()
 			If GY_CheckBoxDown(BUpdateMusic) <> 1 - UpdateMusic
 				UpdateMusic = 1 - GY_CheckBoxDown(BUpdateMusic)
 				; Update file
-				F = WriteFile("Data\Game Data\Misc.dat")
-					WriteLine F, GameName$
-					WriteLine F, UpdateGame$
-					WriteLine F, UpdateMusic
-				CloseFile F
+				gameDataManager.GameDataManager = new GameDataManager()
+				GameDataManager::Load(gameDataManager)
+
+				gameDataManager\miscData\GameName = GameName$
+				gameDataManager\miscData\GameUpdate = UpdateGame$
+				gameDataManager\miscData\GameMusicUpdate = UpdateMusic
+
+				GameDataManager::Save(gameDataManager)
+				Delete(gameDataManager)
 			EndIf
 		EndIf
 				
@@ -3452,11 +3456,15 @@ Function GameOptionsMenu()
 			If GY_CheckBoxDown(BUpdateMusic) <> 1 - UpdateMusic
 				UpdateMusic = 1 - GY_CheckBoxDown(BUpdateMusic)
 				; Update file
-				F = WriteFile("Data\Game Data\Misc.dat")
-					WriteLine F, GameName$
-					WriteLine F, UpdateGame$
-					WriteLine F, UpdateMusic
-				CloseFile F
+				Local gameDataManager.GameDataManager = new GameDataManager()
+				GameDataManager::Load(gameDataManager)
+
+				gameDataManager\miscData\GameName = GameName$
+				gameDataManager\miscData\GameUpdate = UpdateGame$
+				gameDataManager\miscData\GameMusicUpdate = UpdateMusic
+				
+				GameDataManager::Save(gameDataManager)
+				Delete(gameDataManager)
 			EndIf
 		EndIf
 

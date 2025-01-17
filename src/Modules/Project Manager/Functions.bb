@@ -2,6 +2,7 @@ Strict
 
 Include "Modules\IO\Filesystem.bb"
 Include "Modules\Project Manager\Variables.bb"
+Include "Modules\IO\Managers\GameDataManager.bb"
 
 Function dq$(s$)
     Return Chr(34) + s$ + Chr(34)
@@ -42,11 +43,14 @@ Function GenerateFullInstall()
 		Filesystem::CopyTree(Null, UpdatesList$(i), "Game\" + UpdatesList$(i))
 	Next
 	; Change to non development version
-	local F.BBStream = WriteFile("Game\Data\Game Data\Misc.dat")
-		WriteLine(F, GameName$)
-		WriteLine(F, "Normal")
-		WriteLine(F, "1")
-	CloseFile(F)
+	Local gameDataManager.GameDataManager = new GameDataManager()
+	GameDataManager::Load(gameDataManager)
+	gameDataManager\miscData\GameName = GameName$
+	gameDataManager\miscData\GameUpdate = "Normal"
+	gameDataManager\miscData\GameMusicUpdate = 1
+	GameDataManager::Save(gameDataManager)
+	Delete(gameDataManager)
+	
 	; Complete
 	FUI_CustomMessageBox("Complete! Required files are in the \Game folder.", "Build Client", MB_OK)
 

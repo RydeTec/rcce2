@@ -4,6 +4,7 @@ Include "Modules\IO\Filesystem.bb"
 Include "Modules\IO\File.bb"
 Include "Modules\IO\Managers\OptionsDataManager.bb"
 Include "Modules\IO\Managers\MiscDataManager.bb"
+Include "Modules\IO\Managers\GameDataManager.bb"
 
 ; Should eventually remove globals
 Global GameDir$
@@ -20,8 +21,8 @@ Type Project
     Field projectSettings.File
 
     ; Options
-    Field updateGame
-    Field updateMusic
+    Field updateGame$
+    Field updateMusic%
 
     Method create.Project(rootDir$)
         self\rootDir = rootDir
@@ -37,16 +38,15 @@ Type Project
     Method load()
         ChangeDir(self\rootDir)
 
-        if (self\projectSettings = Null)
-            self\projectSettings = new File("Data\Game Data\Misc.dat")
-        end if
+        Local gameDataManager.GameDataManager = new GameDataManager()
+        GameDataManager::Load(gameDataManager)
 
-        self\name = File::readLine(self\projectSettings)
-        self\updateGame = Int(File::readLine(self\projectSettings))
-        self\updateMusic = Int(File::readLine(self\projectSettings))
-        self\version = Int(File::readLine(self\projectSettings))
+        self\name = gameDataManager\miscData\GameName
+        self\updateGame = gameDataManager\miscData\GameUpdate
+        self\updateMusic = gameDataManager\miscData\GameMusicUpdate
+        self\version = gameDataManager\miscData\GameVersion
 
-        File::close(self\projectSettings)
+        Delete(gameDataManager)
 
         Local miscData.MiscDataManager = new MiscDataManager()
         MiscDataManager::Load(miscData)
@@ -63,15 +63,15 @@ Type Project
     End Method
 
     Method save()
-        if (self\projectSettings = Null)
-            self\projectSettings = new File("Data\Game Data\Misc.dat")
-        end if
+        Local gameDataManager.GameDataManager = new GameDataManager()
+        GameDataManager::Load(gameDataManager)
 
-        File::writeLine(self\projectSettings, self\name)
-        File::writeLine(self\projectSettings, self\updateGame)
-        File::writeLine(self\projectSettings, self\updateMusic)
+        gameDataManager\miscData\GameName = self\name
+        gameDataManager\miscData\GameUpdate = self\updateGame
+        gameDataManager\miscData\GameMusicUpdate = self\updateMusic
 
-        File::close(self\projectSettings)
+        GameDataManager::Save(gameDataManager)
+        Delete(gameDataManager)
 
         Local miscData.MiscDataManager = new MiscDataManager()
         MiscDataManager::Load(miscData)

@@ -244,17 +244,19 @@ D = ReadDir("Data\Emitter Configs")
 CloseDir(D)
 
 ; Misc options
-F = ReadFile("Data\Game Data\Misc.dat")
-If F = 0 Then RuntimeError("Could not open Data\Game Data\Misc.dat!")
-	GameName$ = ReadLine$(F)
-CloseFile(F)
+Local gameDataManager.GameDataManager = new GameDataManager()
+GameDataManager::Load(gameDataManager)
+
+GameName$ = gameDataManager\miscData\GameName	
+
+Delete(gameDataManager)
 
 ;Title +Project name
 ;#########
 FUI_AppTitle("RealmCrafter: Community Edition" + " - " + GameName$)
 ;#########
 
-Local gameDataManager.GameDataManager = new GameDataManager()
+gameDataManager.GameDataManager = new GameDataManager()
 GameDataManager::Load(gameDataManager)
 
 ServerHost$ = gameDataManager\hostsData\ServerHost

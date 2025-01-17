@@ -14,6 +14,7 @@ Include "Modules\Graphics\UI\Components\TextComponent.bb"
 Include "Modules\Graphics\UI\Components\MenuItemComponent.bb"
 Include "Modules\Graphics\RCCEGraphics.bb"
 Include "Modules\Framework\Project\Project.bb"
+Include "Modules\IO\Managers\GameDataManager.bb"
 
 Type ProjectManager.RCCEApp
 	Field window%
@@ -481,13 +482,13 @@ Repeat
 		Case BCLOSE
 			app\Quit = True
 		Case ProName
-			local F.BBStream = WriteFile("Data\Game Data\Misc.dat")
-			If F = Null Then RuntimeError("Could not open Data\Game Data\Misc.dat!")
-			WriteLine F, FUI_SendMessage(ProName, M_GETCAPTION)
-			WriteLine F, UpdateGame$
-			WriteLine F, UpdateMusic
-			WriteLine F, pm\prj\version
-			CloseFile(F)
+			Local gameDataManager.GameDataManager = new GameDataManager()
+			GameDataManager::Load(gameDataManager)
+
+			gameDataManager\miscData\GameName = FUI_SendMessage(ProName, M_GETCAPTION)
+			
+			GameDataManager::Save(gameDataManager)
+			Delete(gameDataManager)
 		Case M_Meshes
 			ExecFile(OMF$)
 		Case M_Textures

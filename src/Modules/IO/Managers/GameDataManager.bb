@@ -70,19 +70,15 @@ Type InterfaceData
     End Method
 End Type
 
-Type MeshesData
-
-End Type
-
+// Misc
 Type MiscData
-
+    Field GameName$
+    Field GameUpdate$
+    Field GameMusicUpdate%
+    Field GameVersion%
 End Type
 
 Type MoneyData
-
-End Type
-
-Type MusicData 
 
 End Type
 
@@ -98,23 +94,11 @@ Type RCTEData
 
 End Type
 
-Type SoundsData
-
-End Type
-
 Type SunsData 
 
 End Type
 
-Type TexturesData
-
-End Type
-
 Type WebData
-
-End Type
-
-Type xMeshesData
 
 End Type
 
@@ -126,6 +110,7 @@ Type GameDataManager
     Field fixedAttributesData.FixedAttributesData
     Field gubbinsData.GubbinsData
     Field interfaceData.InterfaceData
+    Field miscData.MiscData
 
     Method create.GameDataManager()
         self\animationsData = new AnimationsData()
@@ -134,6 +119,7 @@ Type GameDataManager
         self\fixedAttributesData = new FixedAttributesData()
         self\gubbinsData = new GubbinsData()
         self\interfaceData = new InterfaceData()
+        self\miscData = new MiscData()
 
         return self
     End Method
@@ -248,6 +234,17 @@ Type GameDataManager
 
         File::close(interfaceFile)
         Delete(interfaceFile)
+
+        // Misc
+        Local miscFile.File = new File("Data\Game Data\Misc.dat")
+
+        self\miscData\GameName = File::readLine(miscFile)
+        self\miscData\GameUpdate = File::readLine(miscFile)
+        self\miscData\GameMusicUpdate = Int(File::readLine(miscFile))
+        self\miscData\GameVersion = Int(File::readLine(miscFile))
+
+        File::close(miscFile)
+        Delete(miscFile)
     End Method
 
     Method WriteObfuscated()
@@ -337,6 +334,17 @@ Type GameDataManager
 
         File::close(interfaceFile)
         Delete(interfaceFile)
+
+        // Misc
+        Local miscFile.File = new File("Data\Game Data\Misc.dat")
+
+        File::writeLine(miscFile, self\miscData\GameName)
+        File::writeLine(miscFile, self\miscData\GameUpdate)
+        File::writeLine(miscFile, self\miscData\GameMusicUpdate)
+        File::writeLine(miscFile, self\miscData\GameVersion)
+
+        File::close(miscFile)
+        Delete(miscFile)
     End Method
 
     Method ReadFast()
@@ -433,6 +441,17 @@ Type GameDataManager
 
         File::close(interfaceFile)
         Delete(interfaceFile)
+
+        // Misc
+        Local miscFile.File = new File("Data\Game Data\Misc.dat")
+
+        self\miscData\GameName = File::readLine(miscFile)
+        self\miscData\GameUpdate = File::readLine(miscFile)
+        self\miscData\GameMusicUpdate = Int(File::readLine(miscFile))
+        self\miscData\GameVersion = Int(File::readLine(miscFile))
+
+        File::close(miscFile)
+        Delete(miscFile)
     End Method
 
     Method WriteFast()
@@ -522,6 +541,17 @@ Type GameDataManager
 
         File::close(interfaceFile)
         Delete(interfaceFile)
+
+        // Misc
+        Local miscFile.File = new File("Data\Game Data\Misc.dat")
+
+        File::writeLine(miscFile, self\miscData\GameName)
+        File::writeLine(miscFile, self\miscData\GameUpdate)
+        File::writeLine(miscFile, self\miscData\GameMusicUpdate)
+        File::writeLine(miscFile, self\miscData\GameVersion)
+
+        File::close(miscFile)
+        Delete(miscFile)
     End Method
 
 End Type
