@@ -18,6 +18,10 @@ Type File
     End Method
 
     Method readLine$()
+        If (NOT File::exists(self))
+            Return ""
+        End If
+
         if (self\stream = Null)
             self\stream = ReadFile(self\uri)
         end if
@@ -26,6 +30,10 @@ Type File
     End Method
 
     Method readShort()
+        If (NOT File::exists(self))
+            Return 0
+        End If
+
         if (self\stream = Null)
             self\stream = ReadFile(self\uri)
         end if
@@ -34,6 +42,10 @@ Type File
     End Method
 
     Method readByte()
+        If (NOT File::exists(self))
+            Return 0
+        End If
+
         if (self\stream = Null)
             self\stream = ReadFile(self\uri)
         end if
@@ -42,6 +54,10 @@ Type File
     End Method
 
     Method readFloat#()
+        If (NOT File::exists(self))
+            Return 0.0
+        End If
+
         if (self\stream = Null)
             self\stream = ReadFile(self\uri)
         end if
@@ -50,6 +66,10 @@ Type File
     End Method
 
     Method readInt()
+        If (NOT File::exists(self))
+            Return 0
+        End If
+
         if (self\stream = Null)
             self\stream = ReadFile(self\uri)
         end if
@@ -57,8 +77,16 @@ Type File
         return ReadInt(self\stream)
     End Method
 
-    Method remove()
-        DeleteFile(self\uri)
+    Method readString$()
+        If (NOT File::exists(self))
+            Return ""
+        End If
+
+        if (self\stream = Null)
+            self\stream = ReadFile(self\uri)
+        end if
+
+        return ReadString(self\stream)
     End Method
 
     Method writeLine(string$)
@@ -101,6 +129,14 @@ Type File
         WriteInt(self\stream, value)
     End Method
 
+    Method writeString(string$)
+        if (self\stream = Null)
+            self\stream = WriteFile(self\uri)
+        end if
+
+        WriteString(self\stream, string)
+    End Method
+
     Method seekFile(position%)
         if (self\stream = Null)
             self\stream = ReadFile(self\uri)
@@ -121,9 +157,17 @@ Type File
         Wend
     End Method
 
+    Method remove()
+        DeleteFile(self\uri)
+    End Method
+
+    Method exists()
+        return NOT FileType(self\uri) = 0
+    End Method
+
     Method isEnd()
         if (self\stream = Null)
-            return true
+            self\stream = ReadFile(self\uri)
         end if
         
         return EOF(self\stream)
