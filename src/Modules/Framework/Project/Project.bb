@@ -12,7 +12,7 @@ Global GameName$ = ""
 Global UpdateGame$ = ""
 Global UpdateMusic = False
 
-Const PROJECT_VERSION% = 20250115
+Const PROJECT_VERSION% = 20250122
 
 Type Project
     Field rootDir$
@@ -99,8 +99,17 @@ Type Project
     Method migrate()
         while (Project::needsMigrations(self))
             select self\version
-                case 20250115
+                case 20250122
                     DebugLog "Current version is up to date."
+                case 20250115
+                    DebugLog "Running migration 20250115..."
+
+                    local gameDataManager.GameDataManager = new GameDataManager()
+                    GameDataManager::Load(gameDataManager, True)
+                    GameDataManager::Save(gameDataManager)
+                    Delete gameDataManager
+
+                    self\version = 20250122
                 case 20240115
                     DebugLog "Running migration 20240115..."
 

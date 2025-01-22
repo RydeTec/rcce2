@@ -157,7 +157,7 @@ Type GameDataManager
         return self
     End Method
 
-    Method Load(obfuscated=True)
+    Method Load(obfuscated=False)
         if (obfuscated)
             GameDataManager::ReadObfuscated(self)
         else
@@ -165,7 +165,7 @@ Type GameDataManager
         end if
     End Method
 
-    Method Save(obfuscated=True)
+    Method Save(obfuscated=False)
         if (obfuscated)
             GameDataManager::WriteObfuscated(self)
         else
