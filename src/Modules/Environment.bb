@@ -1,3 +1,5 @@
+Include "Modules/IO/Managers/GameDataManager.bb"
+
 ; Set constants
 Const W_Sun   = 0
 Const W_Rain  = 1
@@ -183,39 +185,37 @@ End Function
 ; Loads and creates all suns
 Function LoadSuns()
 
-	F = ReadFile("Data\Game Data\Suns.dat")
-	If F = 0 Then Return False
+	Local gameDataManager.GameDataManager = New GameDataManager()
+	GameDataManager::Load(gameDataManager)
 
-		Suns = ReadInt(F)
+		Suns = ListSize(gameDataManager\sunsData\Suns)
 		For i = 1 To Suns
 			S.Sun = New Sun
-			
-		
-			;S\TexID = ReadShort(F)
+			Local sunData.SunData = ListAt(gameDataManager\sunsData\Suns, i - 1)
 
 			For j = 0 To 7
-				S\TexID[j] = ReadShort(F)
+				S\TexID[j] = sunData\TexID[j]
 			Next
 			
-			S\ShowPhases = ReadByte(F)
-			S\Phase_Length = ReadByte(F)
+			S\ShowPhases = sunData\ShowPhases
+			S\Phase_Length = sunData\Phase_Length
 			S\CurrentPhase = 0
 			
-			S\Size# = ReadFloat#(F)
-			S\LightR = ReadByte(F)
-			S\LightG = ReadByte(F)
-			S\LightB = ReadByte(F)
-			S\PathAngle# = ReadFloat#(F)
+			S\Size# = sunData\Size
+			S\LightR = sunData\LightR
+			S\LightG = sunData\LightG
+			S\LightB = sunData\LightB
+			S\PathAngle# = sunData\PathAngle
 			For j = 0 To 11
-				S\StartH[j] = ReadByte(F)
-				S\StartM[j] = ReadByte(F)
-				S\EndH[j] = ReadByte(F)
-				S\EndM[j] = ReadByte(F)
+				S\StartH[j] = sunData\StartH[j]
+				S\StartM[j] = sunData\StartM[j]
+				S\EndH[j] = sunData\EndH[j]
+				S\EndM[j] = sunData\EndM[j]
 			Next
-			S\ShowFlares = ReadByte(F)
+			S\ShowFlares = sunData\ShowFlares
 		Next
 
-	CloseFile(F)
+	Delete(gameDataManager)
 	Return True
 
 End Function
@@ -223,37 +223,41 @@ End Function
 ; Saves sun settings
 Function SaveSuns()
 
-	F = WriteFile("Data\Game Data\Suns.dat")
+	Local gameDataManager.GameDataManager = New GameDataManager()
+	GameDataManager::Load(gameDataManager)
 
 		Count = 0
 		For S.Sun = Each Sun : Count = Count + 1 : Next
-		WriteInt(F, Count)
+		
 		For S.Sun = Each Sun
 		
-		;WriteShort(F, S\TexID)
+			Local sunData.SunData = New SunData()
 		
 			For i = 0 To 7
-				WriteShort(F, S\TexID[i])
+				sunData\TexID[i] = S\TexID[i]
 			Next
 			
-			WriteByte(F, S\ShowPhases)
-			WriteByte(F, S\Phase_Length)
+			sunData\ShowPhases = S\ShowPhases
+			sunData\Phase_Length = S\Phase_Length
 		
-			WriteFloat(F, S\Size#)
-			WriteByte(F, S\LightR)
-			WriteByte(F, S\LightG)
-			WriteByte(F, S\LightB)
-			WriteFloat(F, S\PathAngle#)
+			sunData\Size = S\Size#
+			sunData\LightR = S\LightR
+			sunData\LightG = S\LightG
+			sunData\LightB = S\LightB
+			sunData\PathAngle = S\PathAngle#
 			For i = 0 To 11
-				WriteByte(F, S\StartH[i])
-				WriteByte(F, S\StartM[i])
-				WriteByte(F, S\EndH[i])
-				WriteByte(F, S\EndM[i])
+				sunData\StartH[i] = S\StartH[i]
+				sunData\StartM[i] = S\StartM[i]
+				sunData\EndH[i] = S\EndH[i]
+				sunData\EndM[i] = S\EndM[i]
 			Next
-			WriteByte(F, S\ShowFlares)
+			sunData\ShowFlares = S\ShowFlares
+
+			ListAdd(gameDataManager\sunsData\Suns, sunData)
 		Next
 
-	CloseFile(F)
+	GameDataManager::Save(gameDataManager)
+	Delete(gameDataManager)
 
 End Function
 

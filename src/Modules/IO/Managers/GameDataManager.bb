@@ -102,20 +102,31 @@ Type OtherData
     Field BubblesB%
 End Type
 
-Type PatchVersionData
-
-End Type
-
-Type RCTEData
-
+Type SunData
+    Field TexID[8]
+    Field ShowPhases%
+    Field Phase_Length%
+    Field CurrentPhase%
+    Field Size#
+    Field LightR%
+    Field LightG%
+    Field LightB%
+    Field PathAngle#
+    Field StartH[12]
+    Field StartM[12]
+    Field EndH[12]
+    Field EndM[12]
+    Field ShowFlares%
 End Type
 
 Type SunsData 
+    Field Suns.BBList
 
-End Type
+    Method create.SunsData()
+        self\Suns = CreateList()
 
-Type WebData
-
+        return self
+    End Method
 End Type
 
 Type GameDataManager
@@ -129,6 +140,7 @@ Type GameDataManager
     Field miscData.MiscData
     Field moneyData.MoneyData
     Field otherData.OtherData
+    Field sunsData.SunsData
 
     Method create.GameDataManager()
         self\animationsData = new AnimationsData()
@@ -140,6 +152,7 @@ Type GameDataManager
         self\miscData = new MiscData()
         self\moneyData = new MoneyData()
         self\otherData = new OtherData()
+        self\sunsData = new SunsData()
 
         return self
     End Method
@@ -295,6 +308,43 @@ Type GameDataManager
 
         File::close(otherFile)
         Delete(otherFile)
+
+        // Suns
+        Local sunsFile.File = new File("Data\Game Data\Suns.dat")
+
+        Local suns% = File::readInt(sunsFile)
+
+        Local sun.SunData = new SunData()
+
+        for i = 1 to suns
+
+            for i = 0 to 7
+                sun\TexID[i] = File::readShort(sunsFile)
+            next
+
+            sun\ShowPhases = File::readByte(sunsFile)
+            sun\Phase_Length = File::readByte(sunsFile)
+            sun\CurrentPhase = 0
+            sun\Size = File::readFloat(sunsFile)
+            sun\LightR = File::readByte(sunsFile)
+            sun\LightG = File::readByte(sunsFile)
+            sun\LightB = File::readByte(sunsFile)
+            sun\PathAngle = File::readFloat(sunsFile)
+
+            for i = 0 to 11
+                sun\StartH[i] = File::readByte(sunsFile)
+                sun\StartM[i] = File::readByte(sunsFile)
+                sun\EndH[i] = File::readByte(sunsFile)
+                sun\EndM[i] = File::readByte(sunsFile)
+            next
+
+            sun\ShowFlares = File::readByte(sunsFile)
+
+            ListAdd(self\sunsData\Suns, sun)
+        next
+
+        File::close(sunsFile)
+        Delete(sunsFile)
     End Method
 
     Method WriteObfuscated()
@@ -425,6 +475,41 @@ Type GameDataManager
 
         File::close(otherFile)
         Delete(otherFile)
+
+        // Suns
+        Local sunsFile.File = new File("Data\Game Data\Suns.dat")
+
+        Local suns% = ListSize(self\sunsData\Suns)
+
+        File::writeInt(sunsFile, suns)
+
+        for i = 1 to suns
+            Local sun.SunData = ListAt(self\sunsData\Suns, i - 1)
+
+            for j = 0 to 7
+                File::writeShort(sunsFile, sun\TexID[j])
+            next
+
+            File::writeByte(sunsFile, sun\ShowPhases)
+            File::writeByte(sunsFile, sun\Phase_Length)
+            File::writeFloat(sunsFile, sun\Size)
+            File::writeByte(sunsFile, sun\LightR)
+            File::writeByte(sunsFile, sun\LightG)
+            File::writeByte(sunsFile, sun\LightB)
+            File::writeFloat(sunsFile, sun\PathAngle)
+
+            for j = 0 to 11
+                File::writeByte(sunsFile, sun\StartH[j])
+                File::writeByte(sunsFile, sun\StartM[j])
+                File::writeByte(sunsFile, sun\EndH[j])
+                File::writeByte(sunsFile, sun\EndM[j])
+            next
+
+            File::writeByte(sunsFile, sun\ShowFlares)
+        next
+
+        File::close(sunsFile)
+        Delete(sunsFile)
     End Method
 
     Method ReadFast()
@@ -562,6 +647,43 @@ Type GameDataManager
 
         File::close(otherFile)
         Delete(otherFile)
+
+        // Suns
+        Local sunsFile.File = new File("Data\Game Data\Suns.dat")
+
+        Local suns% = Int(File::readLine(sunsFile))
+
+        Local sun.SunData = new SunData()
+
+        for i = 1 to suns
+
+            for i = 0 to 7
+                sun\TexID[i] = Int(File::readLine(sunsFile))
+            next
+
+            sun\ShowPhases = Int(File::readLine(sunsFile))
+            sun\Phase_Length = Int(File::readLine(sunsFile))
+            sun\CurrentPhase = 0
+            sun\Size = Float(File::readLine(sunsFile))
+            sun\LightR = Int(File::readLine(sunsFile))
+            sun\LightG = Int(File::readLine(sunsFile))
+            sun\LightB = Int(File::readLine(sunsFile))
+            sun\PathAngle = Float(File::readLine(sunsFile))
+
+            for i = 0 to 11
+                sun\StartH[i] = Int(File::readLine(sunsFile))
+                sun\StartM[i] = Int(File::readLine(sunsFile))
+                sun\EndH[i] = Int(File::readLine(sunsFile))
+                sun\EndM[i] = Int(File::readLine(sunsFile))
+            next
+
+            sun\ShowFlares = Int(File::readLine(sunsFile))
+
+            ListAdd(self\sunsData\Suns, sun)
+        next
+
+        File::close(sunsFile)
+        Delete(sunsFile)
     End Method
 
     Method WriteFast()
@@ -692,6 +814,41 @@ Type GameDataManager
 
         File::close(otherFile)
         Delete(otherFile)
+
+        // Suns
+        Local sunsFile.File = new File("Data\Game Data\Suns.dat")
+
+        Local suns% = ListSize(self\sunsData\Suns)
+
+        File::writeLine(sunsFile, suns)
+
+        for i = 1 to suns
+            Local sun.SunData = ListAt(self\sunsData\Suns, i - 1)
+
+            for j = 0 to 7
+                File::writeLine(sunsFile, sun\TexID[j])
+            next
+
+            File::writeLine(sunsFile, sun\ShowPhases)
+            File::writeLine(sunsFile, sun\Phase_Length)
+            File::writeLine(sunsFile, sun\Size)
+            File::writeLine(sunsFile, sun\LightR)
+            File::writeLine(sunsFile, sun\LightG)
+            File::writeLine(sunsFile, sun\LightB)
+            File::writeLine(sunsFile, sun\PathAngle)
+
+            for j = 0 to 11
+                File::writeLine(sunsFile, sun\StartH[j])
+                File::writeLine(sunsFile, sun\StartM[j])
+                File::writeLine(sunsFile, sun\EndH[j])
+                File::writeLine(sunsFile, sun\EndM[j])
+            next
+
+            File::writeLine(sunsFile, sun\ShowFlares)
+        next
+
+        File::close(sunsFile)
+        Delete(sunsFile)
     End Method
 
 End Type
