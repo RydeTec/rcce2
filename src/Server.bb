@@ -1,4 +1,4 @@
-; This application should be compiled with BlitzPlus
+; This application should be compiled with BlitzForge
 Global componentName$ = "server"
 Global RootDir$ = "..\"
 
@@ -31,9 +31,77 @@ Include "Modules\GameServer.bb"           ; Game server module
 Include "Modules\UpdatesServer.bb"        ; Updates server module
 Include "Modules\Packets.bb"              ; Packet types module
 Include "Modules\ServerNet.bb"            ; Server specific network module
-Include "Modules\MySQL.bb"				  ; MySQL functions
+//Include "Modules\MySQL.bb"				  ; MySQL functions
+
+Include "Modules\Framework\RCCEApp.bb"
+Include "Modules\Graphics\RCCEGraphics.bb"
+Include "Modules\Graphics\UI\Components\Component.bb"
+Include "Modules\Graphics\UI\Components\TextComponent.bb"
+Include "Modules\F-UI.bb"
+Include "Modules\Graphics\UI\BPWrapper.bb"
+Include "Modules\IO\Image.bb"
 
 ; Variables -------------------------------------------------------------------------------------------------------------------------
+
+Type Server.RCCEApp
+	Field window%
+	Field gfx.RCCEGraphics
+	Field assetList.BBList
+	Field componentList.BBList
+
+	Method create.Server()
+		self = Recast.Server(RCCEApp::create(self, "Realm Crafter Engine BVM Server", ".\"))
+
+		return self
+	End Method
+
+	Method init()
+		If FileType(self\rootDir + "bin") <> 2
+			self\rootDir = "..\"
+		End If
+
+		RCCEApp::init(self, 1024, 768)
+
+		self\gfx = new RCCEGraphics(self\width, self\height, 0, 2)
+
+		RCCEGraphics::init(self\gfx)
+
+		Local loadingText.TextComponent = new TextComponent("Starting server...", True)
+		TextComponent::place(loadingText, (self\width / 2), (self\height / 2))
+		TextComponent::setColor(loadingText, 255,255,255)
+		TextComponent::draw(loadingText)
+
+		RCCEGraphics::push(self\gfx)
+
+		FUI_Initialise(self\width, self\height, 0, 2, False, True, self\title, RCCEApp::version(self))
+
+		Server::loadAssets(self)
+		Server::loadComponents(self)
+	End Method
+
+	Method loadAssets()
+	End Method
+
+	Method loadComponents()
+	End Method
+
+	Method addComponent(comp.Component)
+		if self\componentList = Null
+			self\componentList = CreateList()
+		end if
+
+		ListAdd(self\componentList, comp)
+	End Method
+
+	Method getComponent.Component(index%)
+		local comp.Component = ListAt(self\componentList, index)
+		return comp
+	End Method
+End Type
+
+Local serv.Server = new Server()
+
+Server::init(serv)
 
 ; MySQL variables
 Const MySQL = False ; Used to toggle a MySQL server build
@@ -101,8 +169,8 @@ Global UpdateArea.Area
 ; Start server ----------------------------------------------------------------------------------------------------------------------
 
 ; General
-AppTitle("Realm Crafter Engine BVM Server")
-AutoSuspend(False)
+;AppTitle("Realm Crafter Engine BVM Server")
+;AutoSuspend(False)
 SeedRnd(MilliSecs())
 ; Log files
 Global MainLog = StartLog("Server Log", False)
@@ -117,11 +185,11 @@ Game.GameWindow         = CreateGameWindow()
 Updates.UpdatesWindow   = CreateUpdatesWindow()
 WriteLog(MainLog, "Created server windows...")
 ; Taskbar notification area icon
-ggTrayCreate(QueryObject(Accounts\Window, 1))
-ggTraySetIconFromFile("Data\Server Data\TaskbarIcon.ico")
-ggTraySetToolTip("Realm Crafter Server is running")
+;ggTrayCreate(QueryObject(Accounts\Window, 1))
+;ggTraySetIconFromFile("Data\Server Data\TaskbarIcon.ico")
+;ggTraySetToolTip("Realm Crafter Server is running")
 
-ggTrayShowIcon()
+;ggTrayShowIcon()
 ServerMinimised = False
 ; Game data
 Result = LoadLanguage("Data\Server Data\Language.txt")
@@ -230,7 +298,7 @@ If Instr(Upper$(CommandLine$()), "-UNLOCK") > 0
 	; Update window
 	HideGadget Updates\LockLabel
 	SetGadgetText Updates\LockButton, "Lock Updates Server"
-	SetPanelImage(Updates\LockPanel, "Data\Server Data\GreenLight.bmp")
+	SetPanelImage(Updates\ImageBox, CurrentDir() + "Data\Server Data\GreenLight.bmp")
 
 	; Reload files list
 	Number = LoadUpdateFiles() : WriteLog(MainLog, "Loaded " + Str$(Number) + " files for update system...")
@@ -251,8 +319,13 @@ WriteLog(MainLog, "Loading complete, server running.", True, True)
 
 ; Main loop -------------------------------------------------------------------------------------------------------------------------
 Repeat
+	Cls
+	RCCEGraphics::resetBuffer(serv\gfx)
+	FUI_Update()
+	Flip(0)
+
 	; Process taskbar notification area icon events
-	If ggTrayPeekLeftDblClick() > 0
+	/*If ggTrayPeekLeftDblClick() > 0
 		ServerMinimised = Not ServerMinimised
 		If ServerMinimised
 			HideGadget(Accounts\Window)
@@ -264,185 +337,180 @@ Repeat
 			ShowGadget(Updates\Window)
 		EndIf
 	EndIf
-	ggTrayClearEvents()
+	ggTrayClearEvents()*/
 
 	; Process window events
-	Select WaitEvent(2)
-		; One of the windows has been closed
-		Case $803
-			If Confirm("Really shut down server?", True) = True Then Shutdown() : End
-		; Gadget event
-		Case $401
-			Select EventSource()
-;				 Refresh scripts
-				Case Game\RefreshScriptsButton
-					Bvm_RefreshScripts()
-				; Boot player
-				Case Game\BootButton
-					ID = SelectedGadgetItem(Game\PlayersList)
-					If ID > -1
-						Name$ = GadgetItemText(Game\PlayersList, ID)
-						For AI.ActorInstance = Each ActorInstance
-							If AI\RNID > 0
-								AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea)
-								If AInstance\Area = GameArea
-									If AI\Name$ + " (" + AInstance\ID + ")" = Name$
-										DataAux$ = RCE_StrFromInt(AI\RNID)
-										RCE_FSend(0, RCE_PlayerKicked, DataAux$, True, Len(DataAux$))
-										RCE_FSend(AI\RNID, P_KickedPlayer, "", True, 0)
-										Exit
-									EndIf
-								EndIf
-							EndIf
-						Next
-					EndIf
-				; Change login message
-				Case Game\MessageButton
-					LoginMessage$ = TextFieldText$(Game\MessageText)
-					WriteLog(MainLog, "Login message set to: " + LoginMessage$)
-				; Send global message to all players
-				Case Game\SendMessageButton
-					Msg$ = Chr$(253) + "<< SERVER MESSAGE >>  " + TextFieldText$(Game\SendMessageText)
-					For AI.ActorInstance = Each ActorInstance
-						If AI\RNID > 0
-							RCE_Send(Host, AI\RNID, P_ChatMessage, Msg$, True)
-						EndIf
-					Next
-					SetGadgetText(Game\SendMessageText, "")
-					ActivateGadget(Game\SendMessageText)
-				; Change selected area
-				Case Game\AreaCombo
-					; Select new area
-					Name$ = GadgetItemText$(Game\AreaCombo, EventData())
-					For Ar.Area = Each Area
-						If Ar\Name$ = Name$
-							GameArea = Ar
-							Exit
-						EndIf
-					Next
-					; Clear
-					SetTextAreaText(Game\ChatText, "")
-					ClearGadgetItems(Game\PlayersList)
-					; Fill players list
+	Local E.Event	
+	For E.Event = Each Event
+		Select E\EventID
+			Case Game\RefreshScriptsButton
+				Bvm_RefreshScripts()
+			; Boot player
+			Case Game\BootButton
+				ID = SelectedGadgetItem(Game\PlayersList)
+				If ID > -1
+					Name$ = GadgetItemText(Game\PlayersList, ID)
 					For AI.ActorInstance = Each ActorInstance
 						If AI\RNID > 0
 							AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea)
 							If AInstance\Area = GameArea
-								AddGadgetItem(Game\PlayersList, AI\Name$ + " (" + AInstance\ID + ")")
+								If AI\Name$ + " (" + AInstance\ID + ")" = Name$
+									DataAux$ = RCE_StrFromInt(AI\RNID)
+									RCE_FSend(0, RCE_PlayerKicked, DataAux$, True, Len(DataAux$))
+									RCE_FSend(AI\RNID, P_KickedPlayer, "", True, 0)
+									Exit
+								EndIf
 							EndIf
 						EndIf
 					Next
-				; Change chat logging mode
-				Case Game\ChatLogMode
-					ChatLoggingMode = EventData()
-				; Flush chat log
-				Case Game\ChatLogFlushButton
-					StopLog(ChatLog)
-					DeleteFile("Data\Logs\Chat Log.txt")
-					ChatLog = StartLog("Chat Log", True)
-					WriteLog(ChatLog, "** Log flushed **", True, True)
-				; Toggle DM status
-				Case Accounts\DMButton
-					A.Account = First Account
-					For i = 1 To SelectedGadgetItem(Accounts\List) : A = After A : Next
-					If A <> Null Then SetAccountDMStatus(A, Not A\IsDM)
-				; Toggle ban status
-				Case Accounts\BanButton
-					A.Account = First Account
-					For i = 1 To SelectedGadgetItem(Accounts\List) : A = After A : Next
-					If A <> Null Then SetAccountBanStatus(A, Not A\IsBanned)
-				; Remove account
-				Case Accounts\DeleteButton
-					If Confirm("Really remove account?") = True
-						A.Account = First Account
-						For i = 1 To SelectedGadgetItem(Accounts\List) : A = After A : Next
-						If A <> Null
-							; Remove from counters
-							Accounts\TotalAccounts = Accounts\TotalAccounts - 1
-							If A\IsDM = True Then Accounts\TotalDMs = Accounts\TotalDMs - 1
-							If A\IsBanned = True Then Accounts\TotalBanned = Accounts\TotalBanned - 1
-							SetGadgetText(Accounts\AccountsLabel, "Total accounts: " + Str(Accounts\TotalAccounts))
-							SetGadgetText(Accounts\DMLabel, "GM accounts: " + Str(Accounts\TotalDMs))
-							SetGadgetText(Accounts\BannedLabel, "Banned accounts: " + Str(Accounts\TotalBanned))
-							; Move all others up in the list
-							Ac2.Account = After A
-							While Ac2 <> Null
-								Ac2\ListID = Ac2\ListID - 1
-								Ac2 = After Ac2
-							Wend
-							; Delete it
-							WriteLog(MainLog, "Deleted account: " + A\User$)
-							Delete A
-							RemoveGadgetItem Accounts\List, SelectedGadgetItem(Accounts\List)
-							SaveAccounts()
+				EndIf
+			; Change login message
+			Case Game\MessageButton
+				LoginMessage$ = TextFieldText$(Game\MessageText)
+				WriteLog(MainLog, "Login message set to: " + LoginMessage$)
+			; Send global message to all players
+			Case Game\SendMessageButton
+				Msg$ = Chr$(253) + "<< SERVER MESSAGE >>  " + TextFieldText$(Game\SendMessageText)
+				For AI.ActorInstance = Each ActorInstance
+					If AI\RNID > 0
+						RCE_Send(Host, AI\RNID, P_ChatMessage, Msg$, True)
+					EndIf
+				Next
+				SetGadgetText(Game\SendMessageText, "")
+				ActivateGadget(Game\SendMessageText)
+			; Change selected area
+			Case Game\AreaCombo
+				; Select new area
+				Name$ = GadgetItemText$(Game\AreaCombo, E\EventData)
+				For Ar.Area = Each Area
+					If Ar\Name$ = Name$
+						GameArea = Ar
+						Exit
+					EndIf
+				Next
+				; Clear
+				SetTextAreaText(Game\ChatText, "")
+				ClearGadgetItems(Game\PlayersList)
+				; Fill players list
+				For AI.ActorInstance = Each ActorInstance
+					If AI\RNID > 0
+						AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea)
+						If AInstance\Area = GameArea
+							AddListBoxItem(Game\PlayersList, AI\Name$ + " (" + AInstance\ID + ")")
 						EndIf
 					EndIf
-				; Lock/unlock updates server
-				Case Updates\LockButton
-					ServerLocked = Not ServerLocked
-					If ServerLocked = True
-						WriteLog(MainLog, "Updates Server Locked", True, True)
-
-						; Update window
-						ShowGadget Updates\LockLabel
-						SetGadgetText Updates\LockButton, "Unlock Updates Server"
-						SetPanelImage(Updates\LockPanel, "Data\Server Data\RedLight.bmp")
-
-						; Boot all players
-						For AI.ActorInstance = Each ActorInstance
-							If AI\RNID > 0 Then RCE_FSend(AI\RNID, P_KickedPlayer, "", True, 0)
-						Next
-
-						; Save everything
-						SaveAccounts()
-						WriteLog(MainLog, "Saved accounts...")
-						SaveSuperGlobals("Data\Server Data\Superglobals.dat")
-						WriteLog(MainLog, "Saved superglobal variables...")
-						;For Ar.Area = Each Area : ServerSaveAreaOwnerships(Ar) : Next ;{##}
-						WriteLog(MainLog, "Saved zone ownerships...")
-						SaveEnvironment()
-						WriteLog(MainLog, "Saved environment settings...")
-						SaveDroppedItems("Data\Server Data\Dropped Items.dat")
-						WriteLog(MainLog, "Saved dropped items...")
-
-						; Sit for a little while to make sure everybody gets the boot message
-						T = MilliSecs()
-						While MilliSecs() - T < 1000
-;							Delay 5					
-							RCE_Update() 
-							RCE_CreateMessages()						
+				Next
+			; Change chat logging mode
+			Case Game\ChatLogMode
+				ChatLoggingMode = E\EventData
+			; Flush chat log
+			Case Game\ChatLogFlushButton
+				StopLog(ChatLog)
+				DeleteFile("Data\Logs\Chat Log.txt")
+				ChatLog = StartLog("Chat Log", True)
+				WriteLog(ChatLog, "** Log flushed **", True, True)
+			; Toggle DM status
+			Case Accounts\DMButton
+				A.Account = First Account
+				For i = 1 To SelectedGadgetItem(Accounts\List) : A = After A : Next
+				If A <> Null Then SetAccountDMStatus(A, Not A\IsDM)
+			; Toggle ban status
+			Case Accounts\BanButton
+				A.Account = First Account
+				For i = 1 To SelectedGadgetItem(Accounts\List) : A = After A : Next
+				If A <> Null Then SetAccountBanStatus(A, Not A\IsBanned)
+			; Remove account
+			Case Accounts\DeleteButton
+				If Confirm("Really remove account?") = True
+					A.Account = First Account
+					For i = 1 To SelectedGadgetItem(Accounts\List) : A = After A : Next
+					If A <> Null
+						; Remove from counters
+						Accounts\TotalAccounts = Accounts\TotalAccounts - 1
+						If A\IsDM = True Then Accounts\TotalDMs = Accounts\TotalDMs - 1
+						If A\IsBanned = True Then Accounts\TotalBanned = Accounts\TotalBanned - 1
+						SetGadgetText(Accounts\AccountsLabel, "Total accounts: " + Str(Accounts\TotalAccounts))
+						SetGadgetText(Accounts\DMLabel, "GM accounts: " + Str(Accounts\TotalDMs))
+						SetGadgetText(Accounts\BannedLabel, "Banned accounts: " + Str(Accounts\TotalBanned))
+						; Move all others up in the list
+						Ac2.Account = After A
+						While Ac2 <> Null
+							Ac2\ListID = Ac2\ListID - 1
+							Ac2 = After Ac2
 						Wend
-
-						; Disconnect
-						RCE_Disconnect()
-
-						; Set every account to logged off
-						For A.Account = Each Account
-							SetLoginStatus(A, -1)
-						Next
-					Else
-						WriteLog(MainLog, "Updates Server Unlocked", True, True)
-
-						; Update window
-						HideGadget Updates\LockLabel
-						SetGadgetText Updates\LockButton, "Lock Updates Server"
-						SetPanelImage(Updates\LockPanel, "Data\Server Data\GreenLight.bmp")
-
-						; Reload files list
-						Delete Each UpdateFile
-						Number = LoadUpdateFiles() : WriteLog(MainLog, "Loaded " + Str$(Number) + " files for update system...")
-
-						; Open network
-						Host = RCE_StartHost(ServerPort, "", 5000, "Data\Logs\Server Connection.txt", False)
-						If Host = False
-							WriteLog(MainLog, "** Could not open port " + ServerPort + " - server shut down **", True, True)
-							Shutdown()
-							RuntimeError "Could not open port " + ServerPort + "!"
-						EndIf
+						; Delete it
+						WriteLog(MainLog, "Deleted account: " + A\User$)
+						Delete A
+						RemoveGadgetItem Accounts\List, SelectedGadgetItem(Accounts\List)
+						SaveAccounts()
 					EndIf
+				EndIf
+			; Lock/unlock updates server
+			Case Updates\LockButton
+				ServerLocked = Not ServerLocked
+				If ServerLocked = True
+					WriteLog(MainLog, "Updates Server Locked", True, True)
 
-			End Select
-	End Select
+					; Update window
+					ShowGadget Updates\LockLabel
+					SetGadgetText Updates\LockButton, "Unlock Updates Server"
+					SetPanelImage(Updates\ImageBox, CurrentDir() + "Data\Server Data\RedLight.bmp")
+
+					; Boot all players
+					For AI.ActorInstance = Each ActorInstance
+						If AI\RNID > 0 Then RCE_FSend(AI\RNID, P_KickedPlayer, "", True, 0)
+					Next
+
+					; Save everything
+					SaveAccounts()
+					WriteLog(MainLog, "Saved accounts...")
+					SaveSuperGlobals("Data\Server Data\Superglobals.dat")
+					WriteLog(MainLog, "Saved superglobal variables...")
+					;For Ar.Area = Each Area : ServerSaveAreaOwnerships(Ar) : Next ;{##}
+					WriteLog(MainLog, "Saved zone ownerships...")
+					SaveEnvironment()
+					WriteLog(MainLog, "Saved environment settings...")
+					SaveDroppedItems("Data\Server Data\Dropped Items.dat")
+					WriteLog(MainLog, "Saved dropped items...")
+
+					; Sit for a little while to make sure everybody gets the boot message
+					T = MilliSecs()
+					While MilliSecs() - T < 1000
+;							Delay 5					
+						RCE_Update() 
+						RCE_CreateMessages()						
+					Wend
+
+					; Disconnect
+					RCE_Disconnect()
+
+					; Set every account to logged off
+					For A.Account = Each Account
+						SetLoginStatus(A, -1)
+					Next
+				Else
+					WriteLog(MainLog, "Updates Server Unlocked", True, True)
+
+					; Update window
+					HideGadget Updates\LockLabel
+					SetGadgetText Updates\LockButton, "Lock Updates Server"
+					SetPanelImage(Updates\ImageBox, CurrentDir() + "Data\Server Data\GreenLight.bmp")
+
+					; Reload files list
+					Delete Each UpdateFile
+					Number = LoadUpdateFiles() : WriteLog(MainLog, "Loaded " + Str$(Number) + " files for update system...")
+
+					; Open network
+					Host = RCE_StartHost(ServerPort, "", 5000, "Data\Logs\Server Connection.txt", False)
+					If Host = False
+						WriteLog(MainLog, "** Could not open port " + ServerPort + " - server shut down **", True, True)
+						Shutdown()
+						RuntimeError "Could not open port " + ServerPort + "!"
+					EndIf
+				EndIf
+		End Select
+		Delete E
+	Next
 
 
 	; Things to do only if the server is unlocked
@@ -452,7 +520,7 @@ Repeat
 		RCE_CreateMessages()
 
 		UpdateNetwork()
-		My_UpdateThreads()
+		//My_UpdateThreads()
 
 		; Update one zone per loop to save CPU time
 		UpdateArea = After UpdateArea

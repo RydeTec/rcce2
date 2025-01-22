@@ -852,7 +852,7 @@ Function UpdateCamera()
 		PlayerY# = EntityY#(Me\CollisionEN) + CamHeight#
 		PlayerZ# = EntityZ#(Me\CollisionEN)
 		PositionEntity(Cam, PlayerX#, PlayerY#, PlayerZ#)
-		RotateEntity(Cam, CamPitch#, CamYaw# + EntityYaw#(Me\CollisionEN) + 180.0, 0.0)
+		RotateEntity(Cam, CamPitch#, CamYaw# + 180.0, 0.0)
 		MoveEntity(Cam, 0.0, 0.0, -CamDist#)
 		DesiredX# = EntityX#(Cam)
 		DesiredY# = EntityY#(Cam) + 1.5

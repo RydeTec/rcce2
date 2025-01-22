@@ -1,19 +1,11 @@
 {
     "version": "2.0.0",
-    "inputs": [
-      {
-        "id": "compilerVersion",
-        "type": "pickString",
-        "description": "Select Compiler",
-        "options": ["BlitzForge", "BlitzPlus"],
-        "default": "BlitzForge"
-      }
-    ],
+    "inputs": [],
     "tasks": [
         {
             "label": "compile",
             "type": "shell",
-            "command":"${workspaceFolder}\\scripts\\compiler.bat \"${workspaceFolder}\" ${input:compilerVersion} \"${fileDirname}\" \"${file}\" -c",
+            "command":"${workspaceFolder}\\scripts\\compiler.bat \"${workspaceFolder}\" BlitzForge \"${fileDirname}\" \"${file}\" -c",
             "problemMatcher": [
                 {
                   "pattern": [
@@ -50,7 +42,7 @@
         {
             "label": "debug",
             "type": "shell",
-            "command":"${workspaceFolder}\\scripts\\compiler.bat \"${workspaceFolder}\" ${input:compilerVersion} \"${fileDirname}\" \"${file}\" -d",
+            "command":"${workspaceFolder}\\scripts\\compiler.bat \"${workspaceFolder}\" BlitzForge \"${fileDirname}\" \"${file}\" -d",
             "problemMatcher": [
                 {
                   "pattern": [
@@ -87,7 +79,7 @@
         {
             "label": "test",
             "type": "shell",
-            "command":"${workspaceFolder}\\scripts\\compiler.bat \"${workspaceFolder}\" ${input:compilerVersion} \"${fileDirname}\" \"${file}\" -d -t",
+            "command":"${workspaceFolder}\\scripts\\compiler.bat \"${workspaceFolder}\" BlitzForge \"${fileDirname}\" \"${file}\" -d -t",
             "problemMatcher": [
                 {
                   "pattern": [
@@ -124,7 +116,7 @@
         {
             "label": "run",
             "type": "shell",
-            "command":"${workspaceFolder}\\scripts\\compiler.bat \"${workspaceFolder}\" ${input:compilerVersion} \"${fileDirname}\" \"${file}\"",
+            "command":"${workspaceFolder}\\scripts\\compiler.bat \"${workspaceFolder}\" BlitzForge \"${fileDirname}\" \"${file}\"",
             "problemMatcher": [
                 {
                   "pattern": [

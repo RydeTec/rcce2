@@ -73,9 +73,6 @@ Discord: A discord invite link is available from the RCCE Project Manager.
 ### BlitzForge (previously BlitzRC)
 BlitzForge is a custom version of Blitz3D specifically tailored for RealmCrafter: Community Edition. The [source](compiler\BlitzForge\src) for this is included in the compilers folder.
 
-### BlitzRCPlus
-BlitzRCPlus is a custom version of BlitzPlus specifically tailored for RealmCrafter: Community Edition. The [source](compiler\BlitzPlus\src) for this is included in the compilers folder.
-
 ### VSCode
 Blitz Syntax Plugin code is located in a [submodule](extras\vscode-blitz-forge)
 

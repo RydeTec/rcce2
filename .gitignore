@@ -87,3 +87,7 @@ bin/ReShade.log1
 bin/ReShade.log2
 
 bin/ReShade.ini
+
+compiler/BlitzPlus/
+
+scripts/msbuild_blitzrcplus.bat

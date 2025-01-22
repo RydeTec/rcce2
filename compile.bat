@@ -4,7 +4,6 @@ setlocal EnableDelayedExpansion
 set TOOLCHAIN=0
 set RCCETOOLS=1
 set RCCE=1
-set PLUS=0
 
 set ROOTDIR=%CD%
 
@@ -14,10 +13,6 @@ if "%1"=="-b" (
     set TOOLCHAIN=1
 ) else if "%1"=="--blitz" (
     set TOOLCHAIN=1
-) else if "%1"=="-p" (
-    set PLUS=1
-) else if "%1"=="--plus" (
-    set PLUS=1
 ) else if "%1"=="-t" (
     set RCCETOOLS=0
 ) else if "%1"=="--skip-tools" (
@@ -43,7 +38,6 @@ echo RCCE2 Compiler Script
 echo.
 echo -t ^| --skip-tools     Skip compilation of the RCCE2 tool applications in \src\tools
 echo -b ^| --blitz          Compile the BlitzForge toolchain
-echo -p ^| --plus           Compile the BlitzRCPlus toolchain
 echo -e ^| --skip-engine    Skip compilation of the RCCE2 engine itself in \src
 endlocal
 exit /b
@@ -60,15 +54,6 @@ if %TOOLCHAIN%==1 (
     call %ROOTDIR%\compiler\BlitzForge\scripts\msbuild_blitzforge.bat
 )
 
-if %PLUS%==1 (
-    echo Compiling BlitzRCPlus Toolchain...
-    call %ROOTDIR%\scripts\msbuild_init.bat
-
-    cd %ROOTDIR%
-
-    call %ROOTDIR%\scripts\msbuild_blitzrcplus.bat
-)
-
 if %RCCE%==1 (
     IF NOT EXIST "%ROOTDIR%\compiler\BlitzForge\bin\blitzcc.exe" (
         echo "%ROOTDIR%\compiler\BlitzForge\bin\blitzcc.exe not found!"
@@ -80,12 +65,9 @@ if %RCCE%==1 (
 
     cd %ROOTDIR%\src
 
-    set BLITZPATH=%ROOTDIR%\compiler\BlitzPlus
-
-    "!BLITZPATH!\bin\blitzcc.exe" -o "%ROOTDIR%\bin\Server.exe" "%ROOTDIR%\src\Server.bb"
-
     set BLITZPATH=%ROOTDIR%\compiler\BlitzForge
 
+    "!BLITZPATH!\bin\blitzcc.exe" -o "%ROOTDIR%\bin\Server.exe" "%ROOTDIR%\src\Server.bb"
     "!BLITZPATH!\bin\blitzcc.exe" -o "%ROOTDIR%\Project Manager.exe" -n "%ROOTDIR%\res\Icon.ico" "%ROOTDIR%\src\Project Manager.bb"
     "!BLITZPATH!\bin\blitzcc.exe" -o "%ROOTDIR%\bin\GUE.exe" -n "%ROOTDIR%\res\Icon.ico" "%ROOTDIR%\src\GUE.bb"
     "!BLITZPATH!\bin\blitzcc.exe" -o "%ROOTDIR%\bin\Client.exe" -n "%ROOTDIR%\res\Icon.ico" "%ROOTDIR%\src\Client.bb"

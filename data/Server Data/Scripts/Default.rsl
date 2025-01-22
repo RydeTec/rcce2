@@ -1,0 +1,17 @@
+Using "RC_Core.rcm"
+; Default server script
+; You may alter this script however you like
+; This script is used in some instances where no other script is specified or able to be run
+
+Function Main()
+	Return
+
+End Function
+
+Function Examine()
+    Player = Actor()
+	Target = ContextActor()
+
+	Output(Actor(), "This is a " + Name(Target))
+End Function
+
