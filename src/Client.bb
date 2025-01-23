@@ -848,7 +848,7 @@ Function UpdateCamera()
 		PlayerY# = EntityY#(Me\CollisionEN) + CamHeight#
 		PlayerZ# = EntityZ#(Me\CollisionEN)
 		PositionEntity(Cam, PlayerX#, PlayerY#, PlayerZ#)
-		RotateEntity(Cam, CamPitch#, CamYaw# + EntityYaw#(Me\CollisionEN) + 180.0, 0.0)
+		RotateEntity(Cam, CamPitch#, CamYaw# + 180.0, 0.0)
 		MoveEntity(Cam, 0.0, 0.0, -CamDist#)
 		DesiredX# = EntityX#(Cam)
 		DesiredY# = EntityY#(Cam) + 1.5
@@ -1164,7 +1164,7 @@ Function Money$(Amount)
 		Amount2$ = Money2$ + " " + Str$(Amount / Money2x) + ", " ;:
 		Amount = Amount Mod Money2x
 	EndIf
-	Amount1$ = " " + " " + Str$(Amount) ;:Money1$
+	Amount1$ = Money1$ + " " + Str$(Amount) ;:Money1$
 	Return Amount4$ + Amount3$ + Amount2$ + Amount1$
 
 End Function

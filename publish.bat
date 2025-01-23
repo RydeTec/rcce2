@@ -12,6 +12,7 @@ if exist "%ROOTDIR%\release" rmdir /S /Q "%ROOTDIR%\release"
 mkdir "%ROOTDIR%\release"
 
 xcopy /E /Y /I "%ROOTDIR%\bin" "%ROOTDIR%\release\bin"
+xcopy /E /Y /I "%ROOTDIR%\bin\ReShade.ini.example" "%ROOTDIR%\release\bin\ReShade.ini"
 xcopy /Y "%ROOTDIR%\Project Manager.exe" "%ROOTDIR%\release\"
 xcopy /E /Y /I "%ROOTDIR%\data" "%ROOTDIR%\release\data"
 xcopy /E /Y /I "%ROOTDIR%\res" "%ROOTDIR%\release\res"

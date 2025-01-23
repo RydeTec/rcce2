@@ -73,9 +73,6 @@ Discord: A discord invite link is available from the RCCE Project Manager.
 ### BlitzForge (previously BlitzRC)
 BlitzForge is a custom version of Blitz3D specifically tailored for RealmCrafter: Community Edition. The [source](compiler\BlitzForge\src) for this is included in the compilers folder.
 
-### BlitzRCPlus
-BlitzRCPlus is a custom version of BlitzPlus specifically tailored for RealmCrafter: Community Edition. The [source](compiler\BlitzPlus\src) for this is included in the compilers folder.
-
 ### VSCode
 Blitz Syntax Plugin code is located in a [submodule](extras\vscode-blitz-forge)
 
@@ -104,3 +101,10 @@ In order to edit and compile the BlitzBasic compilers you will need to open thei
 
 ### Resource Hacker
 You can use [Resource Hacker](https://www.angusj.com/resourcehacker/) to update the icon of your game instead of the standard BlitzForge icon attached to all compiled executables.
+
+### ReShade
+To reinstall ReShade you can do so by running the ReShade setup in the extras folder. To open the ReShade control panel in the Client press Shift+F12 when running the client.
+
+You should copy bin/ReShade.ini.example to bin/ReShade.ini 
+
+If you don't copy the example and go with the default .ini file that is generated the Control Panel key is the Home key.

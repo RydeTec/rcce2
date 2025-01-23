@@ -41,7 +41,7 @@ Function CreateGameWindow.GameWindow()
 	CreateLabel("Players in zone:", 10, 220, 150, 20, G\Window)
 	G\PlayersList = CreateListBox(10, 240, 200, 100, G\Window)
 	CreateLabel("Zone chat:", 10, 350, 150, 20, G\Window)
-	G\ChatText = CreateTextArea(10, 370, 440, 150, G\Window, 1)
+	G\ChatText = CreateListBox(10, 370, 440, 150, G\Window)
 	CreateLabel("Log chat messages:", 10, 527, 100, 20, G\Window)
 	G\ChatLogMode = CreateComboBox(110, 525, 90, 20, G\Window)
 	AddGadgetItem(G\ChatLogMode, "Never")
@@ -989,7 +989,7 @@ Function SetArea(A.ActorInstance, Ar.Area, Instance, Waypoint = -1, Portal = 0, 
 				Next
 			EndIf
 		EndIf
-		If Ar = GameArea Then AddGadgetItem(Game\PlayersList, A\Name$ + " (" + Str$(Instance) + ")")
+		If Ar = GameArea Then AddListBoxItem(Game\PlayersList, A\Name$ + " (" + Str$(Instance) + ")")
 	EndIf
 
 	; If old and new zones are different

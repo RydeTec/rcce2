@@ -100,7 +100,7 @@ Function AddAccount(User$, Pass$, Email$)
 	A\Pass$ = Pass$
 	A\Email$ = Email$
 	A\LoggedOn = -1
-	AddGadgetItem(Accounts\List, User$ + "  (" + Email$ + ")")
+	AddListBoxItem(Accounts\List, User$ + "  (" + Email$ + ")")
 	A\ListID = CountGadgetItems(Accounts\List) - 1
 	Accounts\TotalAccounts = Accounts\TotalAccounts + 1
 	SetGadgetText(Accounts\AccountsLabel, "Total accounts: " + Str(Accounts\TotalAccounts))
@@ -188,16 +188,16 @@ Function LoadAccounts()
 			A\LoggedOn = -1
 			If A\IsDM = False
 				If A\IsBanned = False
-					AddGadgetItem Accounts\List, A\User$ + "  (" + A\Email$ + ")"
+					AddListBoxItem Accounts\List, A\User$ + "  (" + A\Email$ + ")"
 				Else
-					AddGadgetItem Accounts\List, "[BAN] " + A\User$ + "  (" + A\Email$ + ")"
+					AddListBoxItem Accounts\List, "[BAN] " + A\User$ + "  (" + A\Email$ + ")"
 					Accounts\TotalBanned = Accounts\TotalBanned + 1
 				EndIf
 			Else
 				If A\IsBanned = False
-					AddGadgetItem Accounts\List, "[GM] " + A\User$ + "  (" + A\Email$ + ")"
+					AddListBoxItem Accounts\List, "[GM] " + A\User$ + "  (" + A\Email$ + ")"
 				Else
-					AddGadgetItem Accounts\List, "[BAN][GM] " + A\User$ + "  (" + A\Email$ + ")"
+					AddListBoxItem Accounts\List, "[BAN][GM] " + A\User$ + "  (" + A\Email$ + ")"
 					Accounts\TotalBanned = Accounts\TotalBanned + 1
 				EndIf
 				Accounts\TotalDMs = Accounts\TotalDMs + 1
@@ -234,20 +234,20 @@ End Function
 ; Creates the Accounts window
 Function CreateAccountsWindow.AccountsWindow()
 
-	If MySQL = True Then Return My_CreateAccountsWindow()
+	//If MySQL = True Then Return My_CreateAccountsWindow()
 
 	A.AccountsWindow = New AccountsWindow
 	A\Window = CreateWindow("Accounts", 10, 10, 500, 450, Desktop(), 1)
 
-	A\List = CreateListBox(5, 10, ClientWidth(A\Window) - 150, ClientHeight(A\Window) - 20, A\Window)
+	A\List = CreateListBox(5, 10, ClientWidth(A\Window) - 150, ClientHeight(A\Window) - 50, A\Window)
 
 	A\DMButton     = CreateButton("Toggle Account GM Status", ClientWidth(A\Window) - 140, 10, 135, 25, A\Window)
 	A\BanButton    = CreateButton("Ban/Unban Account", ClientWidth(A\Window) - 140, 40, 135, 25, A\Window)
 	A\DeleteButton = CreateButton("Remove Account", ClientWidth(A\Window) - 140, 70, 135, 25, A\Window)
 
-	A\AccountsLabel = CreateLabel("Total accounts: 999", ClientWidth(A\Window) - 140, ClientHeight(A\Window) - 60, 135, 20, A\Window)
-	A\DMLabel       = CreateLabel("GM accounts: 999", ClientWidth(A\Window) - 140, ClientHeight(A\Window) - 40, 135, 20, A\Window)
-	A\BannedLabel   = CreateLabel("Banned accounts: 999", ClientWidth(A\Window) - 140, ClientHeight(A\Window) - 20, 135, 20, A\Window)
+	A\AccountsLabel = CreateLabel("Total accounts: 999", ClientWidth(A\Window) - 140, ClientHeight(A\Window) - 80, 135, 20, A\Window)
+	A\DMLabel       = CreateLabel("GM accounts: 999", ClientWidth(A\Window) - 140, ClientHeight(A\Window) - 60, 135, 20, A\Window)
+	A\BannedLabel   = CreateLabel("Banned accounts: 999", ClientWidth(A\Window) - 140, ClientHeight(A\Window) - 40, 135, 20, A\Window)
 
 	Return A
 

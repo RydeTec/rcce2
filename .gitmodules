@@ -4,3 +4,6 @@
 [submodule "extras/vscode-blitz-forge"]
 	path = extras/vscode-blitz-forge
 	url = https://github.com/RydeTec/vscode-blitz-forge.git
+[submodule "extras/reshade"]
+	path = extras/reshade
+	url = https://github.com/RydeTec/reshade.git

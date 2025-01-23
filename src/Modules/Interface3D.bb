@@ -1,3 +1,9 @@
+Global WContextMenu = 0
+Global BInteract = 0
+Global BAttack = 0
+Global BExamine = 0
+Global BTrade = 0
+
 ; Alphabetically sorted list of abilities
 Dim KnownSpellSort(999)
 
@@ -393,7 +399,7 @@ Function UpdateInterface()
 	
 	;[~~~] automatic rotation behind character if mouse button 3 is hit cysis145
 	If MouseHit(3) = True
-		CamYaw# = EntityYaw#(Me\CollisionEN) + 180
+		CamYaw# = EntityYaw#(Me\CollisionEN)
 		CamPitch# = 0.0
 	EndIf
 	
@@ -416,7 +422,7 @@ Function UpdateInterface()
 		; Change camera mode
 		If ControlHit(Key_ChangeViewMode) And ViewMode = 2
 			CamMode = Not CamMode
-			CamYaw# = 0.0
+			CamYaw# = EntityYaw#(Me\CollisionEN)
 			CamPitch# = 0.0
 		EndIf
 		; Walk around / Fixed Bug where the player could still move once dead Cysis145
@@ -597,7 +603,7 @@ Function UpdateInterface()
 	If MZSpeed <> 0
 		CamDist# = CamDist# - (Float#(MZSpeed) * 1.5); * Delta#)
 		If CamDist# < 5.0 Then CamDist# = 5.0 ;5.0
-		If CamDist# > 25.0 Then CamDist# = 25.0
+		If CamDist# > 50.0 Then CamDist# = 50.0
 	EndIf
 	; Keyboard
 	If ControlDown(Key_CameraIn)
@@ -605,7 +611,66 @@ Function UpdateInterface()
 		If CamDist# < 3.0 Then CamDist# = 3.0
 	ElseIf ControlDown(Key_CameraOut)
 		CamDist# = CamDist# + Delta#
-		If CamDist# > 25.0 Then CamDist# = 25.0
+		If CamDist# > 50.0 Then CamDist# = 50.0
+	EndIf
+
+	; Update context menu if it exists
+	If WContextMenu <> 0
+		If PlayerTarget > 0
+			AI.ActorInstance = Object.ActorInstance(PlayerTarget)
+			; Handle Interact button
+			If GY_ButtonHit(BInteract)
+				If AI <> Null
+					If EntityDistance#(AI\CollisionEN, Me\CollisionEN) < InteractRange
+						RCE_Send(Connection, PeerToHost, P_RightClick, RCE_StrFromInt$(AI\RuntimeID, 2), True)
+					else
+						SetDestination(Me, EntityX#(AI\CollisionEN), EntityZ#(AI\CollisionEN), EntityY#(AI\CollisionEN))
+						Me\IsRunning = True
+						If Me\Mount <> Null Then Me\Mount\IsRunning = True
+					EndIf
+				EndIf
+				GY_FreeGadget(WContextMenu)
+				WContextMenu = 0
+			EndIf
+			
+			; Handle Attack button
+			If GY_ButtonHit(BAttack)
+				If AI <> Null
+					SetDestination(Me, EntityX#(AI\CollisionEN), EntityZ#(AI\CollisionEN), EntityY#(AI\CollisionEN))
+					Me\IsRunning = True
+					If Me\Mount <> Null Then Me\Mount\IsRunning = True
+					AttackTarget = True
+				EndIf
+				GY_FreeGadget(WContextMenu)
+				WContextMenu = 0
+			EndIf
+			
+			; Handle Examine button
+			If GY_ButtonHit(BExamine)
+				If AI <> Null
+					RCE_Send(Connection, PeerToHost, P_Examine, RCE_StrFromInt$(AI\RuntimeID, 2), True)
+				EndIf
+				GY_FreeGadget(WContextMenu)
+				WContextMenu = 0
+			EndIf
+
+			; Handle Trade button
+			If GY_ButtonHit(BTrade)
+				If AI <> Null
+					RCE_Send(Connection, PeerToHost, P_Trade, RCE_StrFromInt$(AI\RuntimeID, 2), True)
+				EndIf
+				GY_FreeGadget(WContextMenu)
+				WContextMenu = 0
+			EndIf
+			
+			; Close menu if clicked outside
+			If MouseHit(1) And GY_MouseOverGadget = False
+				GY_FreeGadget(WContextMenu)
+				WContextMenu = 0
+			EndIf
+		else 
+			WContextMenu = 0
+		EndIf
 	EndIf
 
 	; Update these buttons if the mouse is not over a dialog or the action bar
@@ -702,8 +767,7 @@ Function UpdateInterface()
 					; Double clicking the target makes you run towards it and attack if in range [~~~]
 					If IsDouble = True And OldTarget = PlayerTarget
 						SetDestination(Me, PickedX#(), PickedZ#(), PickedY#())
-						CamYaw# = 0.0
-						CamPitch# = 0.0
+						
 						Me\IsRunning = True
 						If Me\Mount <> Null Then Me\Mount\IsRunning = True
 						
@@ -718,14 +782,32 @@ Function UpdateInterface()
 					Else
 						If CharInteractVisible
 							UpdateCharInteractionWindow()
-						ElseIf CharInteract = Null
+						Else
 							CreateCharInteractionWindow(AI)
-							;CysisLibs Outline
-							;Outline ActorSelectEN
 						EndIf
-						If AI\FactionRatings[Me\HomeFaction] > 99 And EntityDistance#(AI\CollisionEN, Me\CollisionEN) < InteractRange
-							RCE_Send(Connection, PeerToHost, P_RightClick, RCE_StrFromInt$(AI\RuntimeID, 2), True)
+						; Create context menu
+						WContextMenu = GY_CreateWindowInter("Actions", GY_MouseX#, GY_MouseY#, 0.1, 0.08, True, True, False, CreateTexture(2, 2))
+						
+						; Interact button
+						Local interactLabel$ = "Interact"
+						If EntityDistance#(AI\CollisionEN, Me\CollisionEN) > InteractRange
+							interactLabel$ = "Move To"
 						EndIf
+						BInteract = GY_CreateButton(WContextMenu, 0.0, 0.0, 1.0, 0.33, interactLabel$, False, 255, 255, 255, LoadTexture("Data\Textures\GUI\ToolTip.png"))
+						
+						; Attack button (only if target is attackable)
+						If AI\Actor\Aggressiveness < 3 And Me\FactionRatings[AI\HomeFaction] <= 150
+							BAttack = GY_CreateButton(WContextMenu, 0.0, 0.33, 1.0, 0.33, "Attack", False, 255, 255, 255, LoadTexture("Data\Textures\GUI\ToolTip.png"))
+						EndIf
+						
+						; Examine button
+						BExamine = GY_CreateButton(WContextMenu, 0.0, 0.66, 1.0, 0.33, "Examine", False, 255, 255, 255, LoadTexture("Data\Textures\GUI\ToolTip.png"))
+						
+						; Trade Button
+						If AI\Actor\TradeMode > 0
+							BTrade = GY_CreateButton(WContextMenu, 0.0, 0.99, 1.0, 0.33, "Trade", False, 255, 255, 255, LoadTexture("Data\Textures\GUI\ToolTip.png"))
+						EndIf
+
 						AttackTarget = False
 					EndIf
 					;HideEntity(ClickMarkerEN) ;{@@@~}
@@ -807,8 +889,7 @@ Function UpdateInterface()
 							AlignToVector(ClickMarkerEN, PickedNX#(), PickedNY#(), PickedNZ#(), 2)
 							MoveEntity(ClickMarkerEN, 0, 0.085, 0)
 						EndIf
-						CamYaw# = 0.0
-						CamPitch# = 0.0
+						
 						; If in first person view, "compress" angle to destination
 						If CamMode = 1
 							PositionEntity GPP, Me\DestX#, EntityY#(Me\CollisionEN), Me\DestZ#
@@ -843,8 +924,7 @@ Function UpdateInterface()
 					If Target$ = ""
 						If IsDouble = False
 							SetDestination(Me, PickedX#(), PickedZ#(), PickedY#())
-							CamYaw# = 0.0
-							CamPitch# = 0.0
+							
 							Me\IsRunning = AlwaysRun
 							If Me\Mount <> Null Then Me\Mount\IsRunning = Me\IsRunning
 							AttackTarget = False
@@ -884,8 +964,7 @@ Function UpdateInterface()
 		If AI <> Null
 			SetDestination(Me, EntityX#(AI\CollisionEN), EntityZ#(AI\CollisionEN), EntityY#(AI\CollisionEN))
 			;[~~~]
-			CamYaw# = 0.0
-			CamPitch# = 0.0
+			
 			Me\IsRunning = True
 			If Me\Mount <> Null Then Me\Mount\IsRunning = True
 			; Check target is a combatant
@@ -1104,6 +1183,10 @@ Function UpdateInterface()
 			CharInteract = Null
 			GY_FreeGadget(WCharInteract)
 			CharInteractVisible = False
+			PlayerTarget = 0
+			;closes open context menu
+			GY_FreeGadget(WContextMenu)
+			WContextMenu = 0
 		; Window still open
 		Else
 			; Change target

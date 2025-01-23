@@ -79,4 +79,15 @@ Server/
 bin/tools/FontGen/Title.bmp
 
 bin/tools/FontGen/Title.dat
-data/Last Username.dat
+
+bin/ReShade.log
+
+bin/ReShade.log1
+
+bin/ReShade.log2
+
+bin/ReShade.ini
+
+compiler/BlitzPlus/
+
+scripts/msbuild_blitzrcplus.bat

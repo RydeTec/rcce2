@@ -296,7 +296,6 @@ local TER$ = RootDir$ + "bin\tools\RC Terrain Editor.exe"
 local TRE$ = RootDir$ + "bin\tools\RC Tree Editor.exe"
 
 local B3D$ = RootDir$ + "compiler\BlitzForge\BlitzRC.exe"
-local BPS$ = RootDir$ + "compiler\BlitzPlus\BlitzPlus.exe"
 
 ;Main Window
 local WMain = pm\window
@@ -388,14 +387,9 @@ local TOOL6 = FUI_Button(TEngine, 170 + 75.5 + 75.5, 200, 70.5, 25, "Tree")
 ;Source
 local ST = FUI_GroupBox(TEngine, 405, 140, 135, 100, "Source Tools")	
 local BB3D = FUI_Button(TEngine, 410, 165, 125, 25, "BlitzForge")
-local BBPS = FUI_Button(TEngine, 410, 200, 125, 25, "BlitzPlus")
 
 if FileType(B3D$) = 0
 	FUI_DisableGadget(BB3D)
-EndIf
-
-if FileType(BPS$) = 0
-	FUI_DisableGadget(BBPS)
 EndIf
 
 ;Support Tab
@@ -537,8 +531,6 @@ Repeat
 
 		Case BB3D
 			ExecFile(dq(B3D$))
-		Case BBPS
-			ExecFile(dq(BPS$))
 			
 		Case BANO
 			ExecFile("https://github.com/RydeTec/rcce2/releases")
