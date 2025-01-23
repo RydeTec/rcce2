@@ -1,0 +1,9 @@
+Item ID: 0
+Item Name: Long Sword
+
+Item ID: 1
+Item Name: Scimitar
+
+Item ID: 2
+Item Name: Battle Axe
+
