@@ -1,0 +1,32 @@
+Using "RC_Core.rcm"
+; Define entry function 'Main'
+
+Function Main()
+
+Player = Actor()
+Trader = ContextActor()
+
+D = OpenDialog(Player, Trader, "Weapon Merchant")
+	DialogOutput(Player, D, "Hello there adventurer. What can I do for you?", 255, 255, 255)
+	
+	Repeat
+
+	Result = DialogInput(Player, D, "Who are you?|I'd like to trade|Goodbye", "|")
+			
+		If Result = 1
+			DialogOutput(Player, D, "Hello I am Bob, I sell weapons.", 0, 255, 0)
+			DoEvents(2000)
+		ElseIf Result = 2
+			open = 0
+			opentrading(player,trader)
+		Else
+			open = 0
+		EndIf
+
+Until Open = 0
+
+CloseDialog(Player, D)
+
+Return
+
+End Function

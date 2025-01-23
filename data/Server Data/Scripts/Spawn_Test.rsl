@@ -2,7 +2,7 @@ Using "RC_Core.rcm"
 ; Define entry function 'Main'
 
 Function Main()
-giveitem(actor(),"imperial armor", 5)
+
 NPC = Actor()
 
 SetName(NPC, "Test Human")

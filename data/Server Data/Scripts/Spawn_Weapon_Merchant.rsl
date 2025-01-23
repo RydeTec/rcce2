@@ -1,0 +1,15 @@
+Using "RC_Core.rcm"
+; Define entry function 'Main'
+
+Function Main()
+
+NPC = Actor()
+
+SetName(NPC, "Bob")
+SetTag(NPC, "Weapon Merchant")
+
+giveitem(NPC,"long sword", 2)
+giveitem(NPC, "battle axe", 1)
+giveitem(NPC, "scimitar", 1)
+
+End Function
