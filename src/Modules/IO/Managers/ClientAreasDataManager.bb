@@ -180,8 +180,6 @@ Type ClientAreasDataManager
 
         self\CurrentArea\Name = areaName$
 
-        DebugLog("Loading area: " + areaName$)
-
         self\CurrentArea\LoadingTexID = File::readShort(file)
         self\CurrentArea\LoadingMusicID = File::readShort(file)
         self\CurrentArea\SkyTexID = File::readShort(file)
@@ -203,8 +201,6 @@ Type ClientAreasDataManager
         self\CurrentArea\DefaultLightPitch# = File::readFloat(file)
         self\CurrentArea\DefaultLightYaw# = File::readFloat(file)
         self\CurrentArea\SlopeRestrict# = File::readFloat(file)
-
-        DebugLog("Loading sceneries...")
 
         self\CurrentArea\Sceneries = File::readShort(file)
         for i = 1 to self\CurrentArea\Sceneries
@@ -234,8 +230,6 @@ Type ClientAreasDataManager
             ListAdd(self\CurrentArea\SceneryData, sceneryData)
         next
 
-        DebugLog("Loading waters...")
-
         self\CurrentArea\Waters = File::readShort(file)
         for i = 1 to self\CurrentArea\Waters
             Local waterData.ClientAreaWaterData = new ClientAreaWaterData()
@@ -255,8 +249,6 @@ Type ClientAreasDataManager
             ListAdd(self\CurrentArea\WaterData, waterData)
         next
 
-        DebugLog("Loading col boxes...")
-
         self\CurrentArea\ColBoxes = File::readShort(file)
         for i = 1 to self\CurrentArea\ColBoxes
             Local colBoxData.ClientAreaCollisionData = new ClientAreaCollisionData()
@@ -274,8 +266,6 @@ Type ClientAreasDataManager
             ListAdd(self\CurrentArea\ColBoxData, colBoxData)
         next
 
-        DebugLog("Loading emitters...")
-
         self\CurrentArea\Emitters = File::readShort(file)
         for i = 1 to self\CurrentArea\Emitters
             Local emitterData.ClientAreaEmitterData = new ClientAreaEmitterData()
@@ -291,8 +281,6 @@ Type ClientAreasDataManager
 
             ListAdd(self\CurrentArea\EmitterData, emitterData)
         next
-
-        DebugLog("Loading terrains...")
 
         self\CurrentArea\Terrains = File::readShort(file)
         for i = 1 to self\CurrentArea\Terrains
@@ -323,8 +311,6 @@ Type ClientAreasDataManager
             ListAdd(self\CurrentArea\TerrainData, terrainData)
         next
 
-        DebugLog("Loading sounds...")
-
         self\CurrentArea\Sounds = File::readShort(file)
         for i = 1 to self\CurrentArea\Sounds
             Local soundData.ClientAreaSoundData = new ClientAreaSoundData()
@@ -346,7 +332,145 @@ Type ClientAreasDataManager
     End Method
 
     Method WriteObfuscated(areaName$)
+        Local file.File = new File("Data\Areas\" + areaName$ + ".dat")
 
+        File::writeShort(file, self\CurrentArea\LoadingTexID)
+        File::writeShort(file, self\CurrentArea\LoadingMusicID)
+        File::writeShort(file, self\CurrentArea\SkyTexID)
+        File::writeShort(file, self\CurrentArea\CloudTexID)
+        File::writeShort(file, self\CurrentArea\StormCloudTexID)
+        File::writeShort(file, self\CurrentArea\StarsTexID)
+
+        File::writeByte(file, self\CurrentArea\FogR)
+        File::writeByte(file, self\CurrentArea\FogG)
+        File::writeByte(file, self\CurrentArea\FogB)
+        File::writeFloat(file, self\CurrentArea\FogNear#)
+        File::writeFloat(file, self\CurrentArea\FogFar#)
+
+        File::writeShort(file, self\CurrentArea\MapTexID)
+        File::writeByte(file, self\CurrentArea\Outdoors)
+        File::writeByte(file, self\CurrentArea\AmbientR)
+        File::writeByte(file, self\CurrentArea\AmbientG)
+        File::writeByte(file, self\CurrentArea\AmbientB)
+        File::writeFloat(file, self\CurrentArea\DefaultLightPitch#)
+        File::writeFloat(file, self\CurrentArea\DefaultLightYaw#)
+        File::writeFloat(file, self\CurrentArea\SlopeRestrict#)
+
+        File::writeShort(file, self\CurrentArea\Sceneries)
+        for i = 1 to self\CurrentArea\Sceneries
+            Local sceneryData.ClientAreaSceneryData = ListAt(self\CurrentArea\SceneryData, i-1)
+
+            File::writeShort(file, sceneryData\MeshID)
+            File::writeFloat(file, sceneryData\X)
+            File::writeFloat(file, sceneryData\Y)
+            File::writeFloat(file, sceneryData\Z)
+            File::writeFloat(file, sceneryData\Pitch)
+            File::writeFloat(file, sceneryData\Yaw)
+            File::writeFloat(file, sceneryData\Roll)
+            File::writeFloat(file, sceneryData\ScaleX)
+            File::writeFloat(file, sceneryData\ScaleY)
+            File::writeFloat(file, sceneryData\ScaleZ)
+            File::writeByte(file, sceneryData\AnimationMode)
+            File::writeByte(file, sceneryData\SceneryID)
+            File::writeShort(file, sceneryData\TextureID)
+            File::writeByte(file, sceneryData\CatchRain)
+            File::writeByte(file, sceneryData\Collides)
+            File::writeString(file, sceneryData\Lightmap)
+            File::writeString(file, sceneryData\RCTE)
+            File::writeByte(file, sceneryData\CastShadow)
+            File::writeByte(file, sceneryData\ReceiveShadow)
+            File::writeByte(file, sceneryData\RenderRange)
+        next
+
+        File::writeShort(file, self\CurrentArea\Waters)
+        for i = 1 to self\CurrentArea\Waters
+            Local waterData.ClientAreaWaterData = ListAt(self\CurrentArea\WaterData, i-1)
+
+            File::writeShort(file, waterData\TexID)
+            File::writeFloat(file, waterData\TexScale)
+            File::writeFloat(file, waterData\X)
+            File::writeFloat(file, waterData\Y)
+            File::writeFloat(file, waterData\Z)
+            File::writeFloat(file, waterData\ScaleX)
+            File::writeFloat(file, waterData\ScaleZ)
+            File::writeByte(file, waterData\Red)
+            File::writeByte(file, waterData\Green)
+            File::writeByte(file, waterData\Blue)
+            File::writeByte(file, waterData\Opacity)
+        next
+
+        File::writeShort(file, self\CurrentArea\ColBoxes)
+        for i = 1 to self\CurrentArea\ColBoxes
+            Local colBoxData.ClientAreaCollisionData = ListAt(self\CurrentArea\ColBoxData, i-1)
+
+            File::writeFloat(file, colBoxData\X)
+            File::writeFloat(file, colBoxData\Y)
+            File::writeFloat(file, colBoxData\Z)
+            File::writeFloat(file, colBoxData\Pitch)
+            File::writeFloat(file, colBoxData\Yaw)
+            File::writeFloat(file, colBoxData\Roll)
+            File::writeFloat(file, colBoxData\ScaleX)
+            File::writeFloat(file, colBoxData\ScaleY)
+            File::writeFloat(file, colBoxData\ScaleZ)
+        next
+
+        File::writeShort(file, self\CurrentArea\Emitters)
+        for i = 1 to self\CurrentArea\Emitters
+            Local emitterData.ClientAreaEmitterData = ListAt(self\CurrentArea\EmitterData, i-1)
+
+            File::writeString(file, emitterData\ConfigName)
+            File::writeShort(file, emitterData\TexID)
+            File::writeFloat(file, emitterData\X)
+            File::writeFloat(file, emitterData\Y)
+            File::writeFloat(file, emitterData\Z)
+            File::writeFloat(file, emitterData\Pitch)
+            File::writeFloat(file, emitterData\Yaw)
+            File::writeFloat(file, emitterData\Roll)
+        next
+
+        File::writeShort(file, self\CurrentArea\Terrains)
+        for i = 1 to self\CurrentArea\Terrains
+            Local terrainData.ClientAreaTerrainData = ListAt(self\CurrentArea\TerrainData, i-1)
+
+            File::writeShort(file, terrainData\BaseTexID)
+            File::writeShort(file, terrainData\DetailTexID)
+            File::writeInt(file, terrainData\GridSize)
+            for j = 0 to terrainData\GridSize
+                for k = 0 to terrainData\GridSize
+                    File::writeFloat(file, terrainData\Points[j + k * terrainData\GridSize])
+                next
+            next
+            File::writeFloat(file, terrainData\X)
+            File::writeFloat(file, terrainData\Y)
+            File::writeFloat(file, terrainData\Z)
+            File::writeFloat(file, terrainData\Pitch)
+            File::writeFloat(file, terrainData\Yaw)
+            File::writeFloat(file, terrainData\Roll)
+            File::writeFloat(file, terrainData\ScaleX)
+            File::writeFloat(file, terrainData\ScaleY)
+            File::writeFloat(file, terrainData\ScaleZ)
+            File::writeFloat(file, terrainData\DetailTexScale)
+            File::writeInt(file, terrainData\Detail)
+            File::writeByte(file, terrainData\Morph)
+            File::writeByte(file, terrainData\Shading)
+        next
+
+        File::writeShort(file, self\CurrentArea\Sounds)
+        for i = 1 to self\CurrentArea\Sounds
+            Local soundData.ClientAreaSoundData = ListAt(self\CurrentArea\SoundData, i-1)
+
+            File::writeFloat(file, soundData\X)
+            File::writeFloat(file, soundData\Y)
+            File::writeFloat(file, soundData\Z)
+            File::writeFloat(file, soundData\Radius)
+            File::writeShort(file, soundData\SoundID)
+            File::writeShort(file, soundData\MusicID)
+            File::writeInt(file, soundData\RepeatTime)
+            File::writeByte(file, soundData\Volume)
+        next
+
+        File::Close(file)
+        Delete(file)
     End Method
 
     Method ReadFast(areaName$)

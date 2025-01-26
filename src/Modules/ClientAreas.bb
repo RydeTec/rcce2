@@ -1042,157 +1042,182 @@ End Function
 ; Saves the current area back to file
 Function SaveArea(Name$)
 
-	F = WriteFile("Data\Areas\" + Name$ + ".dat")
-	If F = 0 Then Return False
+	Local clientAreasDataManager.ClientAreasDataManager = new ClientAreasDataManager()
+	clientAreasDataManager\CurrentArea = New ClientAreaData()
 
 		; Loading screen
-		WriteShort F, LoadingTexID
-		WriteShort F, LoadingMusicID
+		clientAreasDataManager\CurrentArea\LoadingTexID = LoadingTexID
+		clientAreasDataManager\CurrentArea\LoadingMusicID = LoadingMusicID
 
 		; Environment
-		WriteShort F, SkyTexID
-		WriteShort F, CloudTexID
-		WriteShort F, StormCloudTexID
-		WriteShort F, StarsTexID
+		clientAreasDataManager\CurrentArea\SkyTexID = SkyTexID
+		clientAreasDataManager\CurrentArea\CloudTexID = CloudTexID
+		clientAreasDataManager\CurrentArea\StormCloudTexID = StormCloudTexID
+		clientAreasDataManager\CurrentArea\StarsTexID = StarsTexID
 
-		WriteByte F, FogR
-		WriteByte F, FogG
-		WriteByte F, FogB
-		WriteFloat F, FogNear#
-		WriteFloat F, FogFar#
+		clientAreasDataManager\CurrentArea\FogR = FogR
+		clientAreasDataManager\CurrentArea\FogG = FogG
+		clientAreasDataManager\CurrentArea\FogB = FogB
+		clientAreasDataManager\CurrentArea\FogNear# = FogNear#
+		clientAreasDataManager\CurrentArea\FogFar# = FogFar#
 
-		WriteShort F, MapTexID
-		WriteByte F, Outdoors
-		WriteByte F, AmbientR
-		WriteByte F, AmbientG
-		WriteByte F, AmbientB
-		WriteFloat F, DefaultLightPitch#
-		WriteFloat F, DefaultLightYaw#
-		WriteFloat F, SlopeRestrict#
+		clientAreasDataManager\CurrentArea\MapTexID = MapTexID
+		clientAreasDataManager\CurrentArea\Outdoors = Outdoors
+		clientAreasDataManager\CurrentArea\AmbientR = AmbientR
+		clientAreasDataManager\CurrentArea\AmbientG = AmbientG
+		clientAreasDataManager\CurrentArea\AmbientB = AmbientB
+		clientAreasDataManager\CurrentArea\DefaultLightPitch# = DefaultLightPitch#
+		clientAreasDataManager\CurrentArea\DefaultLightYaw# = DefaultLightYaw#
+		clientAreasDataManager\CurrentArea\SlopeRestrict# = SlopeRestrict#
 
 		; Scenery
 		Count = 0
 		For S.Scenery = Each Scenery : Count = Count + 1 : Next
-		WriteShort F, Count
+		clientAreasDataManager\CurrentArea\Sceneries = Count
+
 		For S.Scenery = Each Scenery
-			WriteShort F, S\MeshID
-			WriteFloat F, EntityX#(S\EN, True)
-			WriteFloat F, EntityY#(S\EN, True)
-			WriteFloat F, EntityZ#(S\EN, True)
-			WriteFloat F, EntityPitch#(S\EN, True)
-			WriteFloat F, EntityYaw#(S\EN, True)
-			WriteFloat F, EntityRoll#(S\EN, True)
-			WriteFloat F, S\ScaleX#
-			WriteFloat F, S\ScaleY#
-			WriteFloat F, S\ScaleZ#
-			WriteByte F, S\AnimationMode
-			WriteByte F, S\SceneryID
-			WriteShort F, S\TextureID
-			WriteByte F, S\CatchRain
+			Local sceneryData.ClientAreaSceneryData = New ClientAreaSceneryData()
+
+			sceneryData\MeshID = S\MeshID
+			sceneryData\X# = EntityX#(S\EN, True)
+			sceneryData\Y# = EntityY#(S\EN, True)
+			sceneryData\Z# = EntityZ#(S\EN, True)
+			sceneryData\Pitch# = EntityPitch#(S\EN, True)
+			sceneryData\Yaw# = EntityYaw#(S\EN, True)
+			sceneryData\Roll# = EntityRoll#(S\EN, True)
+			sceneryData\ScaleX# = S\ScaleX#
+			sceneryData\ScaleY# = S\ScaleY#
+			sceneryData\ScaleZ# = S\ScaleZ#
+			sceneryData\AnimationMode = S\AnimationMode
+			sceneryData\SceneryID = S\SceneryID
+			sceneryData\TextureID = S\TextureID
+			sceneryData\CatchRain = S\CatchRain
 						
-			WriteByte F, GetEntityType(S\EN)
-			WriteString F, S\Lightmap$
-			WriteString F, S\RCTE$ ; Extra data for RTCE
+			sceneryData\Collides = GetEntityType(S\EN)
+			sceneryData\Lightmap$ = S\Lightmap$
+			sceneryData\RCTE$ = S\RCTE$ ; Extra data for RTCE
 			
-			WriteByte F, S\CastShadow ;[010]
-			WriteByte F, S\ReceiveShadow
-			WriteByte F, S\RenderRange ;[011]
-			
+			sceneryData\CastShadow = S\CastShadow ;[010]
+			sceneryData\ReceiveShadow = S\ReceiveShadow
+			sceneryData\RenderRange = S\RenderRange ;[011]
+
+			ListAdd(clientAreasDataManager\CurrentArea\SceneryData, sceneryData)
 		Next
 
 		; Water
 		Count = 0
 		For W.Water = Each Water : Count = Count + 1 : Next
-		WriteShort F, Count
+		clientAreasDataManager\CurrentArea\Waters = Count
 		For W.Water = Each Water
-			WriteShort F, W\TexID
-			WriteFloat F, W\TexScale#
-			WriteFloat F, EntityX#(W\EN, True)
-			WriteFloat F, EntityY#(W\EN, True)
-			WriteFloat F, EntityZ#(W\EN, True)
-			WriteFloat F, W\ScaleX#
-			WriteFloat F, W\ScaleZ#
-			WriteByte F, W\Red
-			WriteByte F, W\Green
-			WriteByte F, W\Blue
-			WriteByte F, W\Opacity
+			Local waterData.ClientAreaWaterData = New ClientAreaWaterData()
+
+			waterData\TexID = W\TexID
+			waterData\TexScale# = W\TexScale#
+			waterData\X# = EntityX#(W\EN, True)
+			waterData\Y# = EntityY#(W\EN, True)
+			waterData\Z# = EntityZ#(W\EN, True)
+			waterData\ScaleX# = W\ScaleX#
+			waterData\ScaleZ# = W\ScaleZ#
+			waterData\Red = W\Red
+			waterData\Green = W\Green
+			waterData\Blue = W\Blue
+			waterData\Opacity = W\Opacity
+
+			ListAdd(clientAreasDataManager\CurrentArea\WaterData, waterData)
 		Next
 
 		; Collision boxes
 		Count = 0
 		For C.ColBox = Each ColBox : Count = Count + 1 : Next
-		WriteShort F, Count
+		clientAreasDataManager\CurrentArea\ColBoxes = Count
 		For C.ColBox = Each ColBox
-			WriteFloat F, EntityX#(C\EN, True)
-			WriteFloat F, EntityY#(C\EN, True)
-			WriteFloat F, EntityZ#(C\EN, True)
-			WriteFloat F, EntityPitch#(C\EN, True)
-			WriteFloat F, EntityYaw#(C\EN, True)
-			WriteFloat F, EntityRoll#(C\EN, True)
-			WriteFloat F, C\ScaleX#
-			WriteFloat F, C\ScaleY#
-			WriteFloat F, C\ScaleZ#
+			Local colBoxData.ClientAreaCollisionData = New ClientAreaCollisionData()
+
+			colBoxData\X# = EntityX#(C\EN, True)
+			colBoxData\Y# = EntityY#(C\EN, True)
+			colBoxData\Z# = EntityZ#(C\EN, True)
+			colBoxData\Pitch# = EntityPitch#(C\EN, True)
+			colBoxData\Yaw# = EntityYaw#(C\EN, True)
+			colBoxData\Roll# = EntityRoll#(C\EN, True)
+			colBoxData\ScaleX# = C\ScaleX#
+			colBoxData\ScaleY# = C\ScaleY#
+			colBoxData\ScaleZ# = C\ScaleZ#
+
+			ListAdd(clientAreasDataManager\CurrentArea\ColBoxData, colBoxData)
 		Next
 
 		; Emitters
 		Count = 0
 		For E.Emitter = Each Emitter : Count = Count + 1 : Next
-		WriteShort F, Count
+		clientAreasDataManager\CurrentArea\Emitters = Count
 		For E.Emitter = Each Emitter
-			WriteString F, E\ConfigName$
-			WriteShort F, E\TexID
-			WriteFloat F, EntityX#(E\EN, True)
-			WriteFloat F, EntityY#(E\EN, True)
-			WriteFloat F, EntityZ#(E\EN, True)
-			WriteFloat F, EntityPitch#(E\EN, True)
-			WriteFloat F, EntityYaw#(E\EN, True)
-			WriteFloat F, EntityRoll#(E\EN, True)
+			Local emitterData.ClientAreaEmitterData = New ClientAreaEmitterData()
+
+			emitterData\ConfigName$ = E\ConfigName$
+			emitterData\TexID = E\TexID
+			emitterData\X# = EntityX#(E\EN, True)
+			emitterData\Y# = EntityY#(E\EN, True)
+			emitterData\Z# = EntityZ#(E\EN, True)
+			emitterData\Pitch# = EntityPitch#(E\EN, True)
+			emitterData\Yaw# = EntityYaw#(E\EN, True)
+			emitterData\Roll# = EntityRoll#(E\EN, True)
+
+			ListAdd(clientAreasDataManager\CurrentArea\EmitterData, emitterData)
 		Next
 
 		; Terrains
 		Count = 0
 		For T.Terrain = Each Terrain :  Count = Count + 1 : Next
-		WriteShort F, Count
+		clientAreasDataManager\CurrentArea\Terrains = Count
 		For T.Terrain = Each Terrain
-			WriteShort F, T\BaseTexID
-			WriteShort F, T\DetailTexID
-			WriteInt F, TerrainSize(T\EN)
+			Local terrainData.ClientAreaTerrainData = New ClientAreaTerrainData()
+
+			terrainData\BaseTexID = T\BaseTexID
+			terrainData\DetailTexID = T\DetailTexID
+			terrainData\GridSize = TerrainSize(T\EN)
 			For X = 0 To TerrainSize(T\EN)
 				For Z = 0 To TerrainSize(T\EN)
-					WriteFloat F, TerrainHeight#(T\EN, X, Z)
+					terrainData\Points[X + Z * TerrainSize(T\EN)] = TerrainHeight#(T\EN, X, Z)
 				Next
 			Next
-			WriteFloat F, EntityX#(T\EN, True)
-			WriteFloat F, EntityY#(T\EN, True)
-			WriteFloat F, EntityZ#(T\EN, True)
-			WriteFloat F, EntityPitch#(T\EN, True)
-			WriteFloat F, EntityYaw#(T\EN, True)
-			WriteFloat F, EntityRoll#(T\EN, True)
-			WriteFloat F, T\ScaleX#
-			WriteFloat F, T\ScaleY#
-			WriteFloat F, T\ScaleZ#
-			WriteFloat F, T\DetailTexScale#
-			WriteInt   F, T\Detail
-			WriteByte  F, T\Morph
-			WriteByte  F, T\Shading
+			terrainData\X# = EntityX#(T\EN, True)
+			terrainData\Y# = EntityY#(T\EN, True)
+			terrainData\Z# = EntityZ#(T\EN, True)
+			terrainData\Pitch# = EntityPitch#(T\EN, True)
+			terrainData\Yaw# = EntityYaw#(T\EN, True)
+			terrainData\Roll# = EntityRoll#(T\EN, True)
+			terrainData\ScaleX# = T\ScaleX#
+			terrainData\ScaleY# = T\ScaleY#
+			terrainData\ScaleZ# = T\ScaleZ#
+			terrainData\DetailTexScale# = T\DetailTexScale#
+			terrainData\Detail = T\Detail
+			terrainData\Morph = T\Morph
+			terrainData\Shading = T\Shading
+
+			ListAdd(clientAreasDataManager\CurrentArea\TerrainData, terrainData)
 		Next
 
 		; Sound zones
 		Count = 0
 		For SZ.SoundZone = Each SoundZone : Count = Count + 1 : Next
-		WriteShort F, Count
+		clientAreasDataManager\CurrentArea\Sounds = Count
 		For SZ.SoundZone = Each SoundZone
-			WriteFloat F, EntityX#(SZ\EN, True)
-			WriteFloat F, EntityY#(SZ\EN, True)
-			WriteFloat F, EntityZ#(SZ\EN, True)
-			WriteFloat F, SZ\Radius#
-			WriteShort F, SZ\SoundID
-			WriteShort F, SZ\MusicID
-			WriteInt F, SZ\RepeatTime
-			WriteByte F, SZ\Volume
+			Local soundZoneData.ClientAreaSoundData = New ClientAreaSoundData()
+
+			soundZoneData\X# = EntityX#(SZ\EN, True)
+			soundZoneData\Y# = EntityY#(SZ\EN, True)
+			soundZoneData\Z# = EntityZ#(SZ\EN, True)
+			soundZoneData\Radius# = SZ\Radius#
+			soundZoneData\SoundID = SZ\SoundID
+			soundZoneData\MusicID = SZ\MusicID
+			soundZoneData\RepeatTime = SZ\RepeatTime
+			soundZoneData\Volume = SZ\Volume
+
+			ListAdd(clientAreasDataManager\CurrentArea\SoundData, soundZoneData)
 		Next
 
-	CloseFile(F)
+	ClientAreasDataManager::Save(clientAreasDataManager, Name$)
+	Delete(clientAreasDataManager)
 	Return True
 
 End Function
