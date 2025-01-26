@@ -1,4 +1,5 @@
 Include "Modules\IO\Managers\OptionsDataManager.bb"
+Include "Modules\IO\Managers\ClientAreasDataManager.bb"
 
 ;Set Constants
 Const MaxFogFar# = 2000.0
@@ -258,12 +259,13 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 	LockTextures()
 	
 	; Open file
-	F = ReadFile("Data\Areas\" + Name$ + ".dat")
-	If F = 0 Then Return False
+	Local clientAreasDataManager.ClientAreasDataManager = new ClientAreasDataManager()
+	ClientAreasDataManager::Load(clientAreasDataManager, Name$)
+
 
 		; Loading screen
-		LoadingTexID = ReadShort(F)
-		LoadingMusicID = ReadShort(F)
+		LoadingTexID = clientAreasDataManager\CurrentArea\LoadingTexID
+		LoadingMusicID = clientAreasDataManager\CurrentArea\LoadingMusicID
 		
 		; Music
 		If LoadingMusicID < 65535 Then 
@@ -342,16 +344,16 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 		EndIf
 
 		; Environment
-		SkyTexID = ReadShort(F)
-		CloudTexID = ReadShort(F)
-		StormCloudTexID = ReadShort(F)
-		StarsTexID = ReadShort(F)
+		SkyTexID = clientAreasDataManager\CurrentArea\SkyTexID
+		CloudTexID = clientAreasDataManager\CurrentArea\CloudTexID
+		StormCloudTexID = clientAreasDataManager\CurrentArea\StormCloudTexID
+		StarsTexID = clientAreasDataManager\CurrentArea\StarsTexID
 
-		FogR = ReadByte(F)
-		FogG = ReadByte(F)
-		FogB = ReadByte(F)
-		FogNear# = ReadFloat#(F)
-		FogFar#  = ReadFloat#(F)
+		FogR = clientAreasDataManager\CurrentArea\FogR
+		FogG = clientAreasDataManager\CurrentArea\FogG
+		FogB = clientAreasDataManager\CurrentArea\FogB
+		FogNear# = clientAreasDataManager\CurrentArea\FogNear#
+		FogFar#  = clientAreasDataManager\CurrentArea\FogFar#
 		If FogFar# > MaxFogFar# Then FogFar# = MaxFogFar#
 		FogNearNow# = FogNear#
 		FogFarNow# = FogFar#
@@ -386,14 +388,14 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 			CameraClsColor(CameraEN, FogR, FogG, FogB)
 		EndIf
 
-		MapTexID = ReadShort(F)
-		Outdoors = ReadByte(F)
-		AmbientR = ReadByte(F)
-		AmbientG = ReadByte(F)
-		AmbientB = ReadByte(F)
-		DefaultLightPitch# = ReadFloat#(F)
-		DefaultLightYaw# = ReadFloat#(F)
-		SlopeRestrict# = ReadFloat#(F)
+		MapTexID = clientAreasDataManager\CurrentArea\MapTexID
+		Outdoors = clientAreasDataManager\CurrentArea\Outdoors
+		AmbientR = clientAreasDataManager\CurrentArea\AmbientR
+		AmbientG = clientAreasDataManager\CurrentArea\AmbientG
+		AmbientB = clientAreasDataManager\CurrentArea\AmbientB
+		DefaultLightPitch# = clientAreasDataManager\CurrentArea\DefaultLightPitch#
+		DefaultLightYaw# = clientAreasDataManager\CurrentArea\DefaultLightYaw#
+		SlopeRestrict# = clientAreasDataManager\CurrentArea\SlopeRestrict#
 		AmbientLight(AmbientR, AmbientG, AmbientB)
 		
 	;&&&&& Camera refractive water terrier
@@ -414,11 +416,15 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 		EndIf
 
 		; Scenery
-		Sceneries = ReadShort(F)
+		Sceneries = clientAreasDataManager\CurrentArea\Sceneries
+		Local shouldStop = False
 		For i = 1 To Sceneries
 			S.Scenery = New Scenery
+			DebugLog("Loading scenery: " + i + " of " + Sceneries)
+			Local sceneryData.ClientAreaSceneryData = ListAt(clientAreasDataManager\CurrentArea\SceneryData, i-1)
+
 			; Mesh (from media database ID)
-			S\MeshID = ReadShort(F)
+			S\MeshID = sceneryData\MeshID
 			
 		; Nasty hack to disable decryption on RCTE terrains in a subfolder DISABLED terrains are no longer encrypted so no need to keep code.
 			NoDecrypt = False
@@ -431,9 +437,9 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 			S\EN = GetMesh(S\MeshID, False)
 
 			; Read position/rotation/scale
-			X# = ReadFloat#(F) : Y# = ReadFloat#(F) : Z# = ReadFloat#(F)
-			Pitch# = ReadFloat#(F) : Yaw# = ReadFloat#(F) : Roll# = ReadFloat#(F)
-			S\ScaleX# = ReadFloat#(F) : S\ScaleY# = ReadFloat#(F) : S\ScaleZ# = ReadFloat#(F)
+			X# = sceneryData\X# : Y# = sceneryData\Y# : Z# = sceneryData\Z#
+			Pitch# = sceneryData\Pitch# : Yaw# = sceneryData\Yaw# : Roll# = sceneryData\Roll#
+			S\ScaleX# = sceneryData\ScaleX# : S\ScaleY# = sceneryData\ScaleY# : S\ScaleZ# = sceneryData\ScaleZ#
 		
 			; is it a bump mesh? [BUMP]
          If Instr(Name$, "BUMPED\") Then
@@ -448,25 +454,25 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 			; bump mesh end
 			
 			; Animation mode and ownership ID
-			S\AnimationMode = ReadByte(F)
-			S\SceneryID = ReadByte(F) ;{##}
+			S\AnimationMode = sceneryData\AnimationMode
+			S\SceneryID = sceneryData\SceneryID ;{##}
 			; Retexturing
-			S\TextureID = ReadShort(F)
+			S\TextureID = sceneryData\TextureID
 			; Collision/picking
-			S\CatchRain = ReadByte(F)
+			S\CatchRain = sceneryData\CatchRain
 			
 			
 			
-			Collides = ReadByte(F)
+			Collides = sceneryData\Collides
 			; Lightmap information and RCTE data
-			S\Lightmap$ = ReadString$(F)
-			S\RCTE$ = ReadString$(F)
+			S\Lightmap$ = sceneryData\Lightmap$
+			S\RCTE$ = sceneryData\RCTE$
 			
 			;v1.104 options cysis145 [010]
-			S\CastShadow = ReadByte(F)
-			S\ReceiveShadow = ReadByte(F)
+			S\CastShadow = sceneryData\CastShadow
+			S\ReceiveShadow = sceneryData\ReceiveShadow
 			
-			S\RenderRange = ReadByte(F) ;[011]
+			S\RenderRange = sceneryData\RenderRange ;[011]
 
 			If S\EN <> 0
 				; Toolbox extras [~@~]
@@ -732,16 +738,18 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 		Next
 
 		; Water
-		Waters = ReadShort(F)
+		Waters = clientAreasDataManager\CurrentArea\Waters
 		For i = 1 To Waters
 			W.Water = New Water
+			Local waterData.ClientAreaWaterData = ListAt(clientAreasDataManager\CurrentArea\WaterData, i-1)
+
 			; Entity/Texture
-			W\TexID = ReadShort(F)
+			W\TexID = waterData\TexID
 			W\TexHandle = GetTexture(W\TexID, True)
-			W\TexScale# = ReadFloat#(F)
+			W\TexScale# = waterData\TexScale#
 			; Position/size
-			X# = ReadFloat#(F) : Y# = ReadFloat#(F) : Z# = ReadFloat#(F)
-			W\ScaleX# = ReadFloat#(F) : W\ScaleZ# = ReadFloat#(F)
+			X# = waterData\X# : Y# = waterData\Y# : Z# = waterData\Z#
+			W\ScaleX# = waterData\ScaleX# : W\ScaleZ# = waterData\ScaleZ#
 			XDivs = Ceil(W\ScaleX# / 15.0)
 			ZDivs = Ceil(W\ScaleZ# / 15.0)
 			If XDivs > 70 Then XDivs = 70
@@ -775,11 +783,11 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 		AlignClipplane W\WaterClipplane, W\EN
 			
 			; Colour
-			W\Red = ReadByte(F)
-			W\Green = ReadByte(F)
-			W\Blue = ReadByte(F)
+			W\Red = waterData\Red
+			W\Green = waterData\Green
+			W\Blue = waterData\Blue
 			; Opacity
-			W\Opacity = ReadByte(F)
+			W\Opacity = waterData\Opacity
 			If W\Opacity >= 100
 				EntityFX(W\EN, 1 + 16)
 			Else
@@ -823,15 +831,17 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 		EndIf
 
 		; Collision zones
-		ColBoxes = ReadShort(F)
+		ColBoxes = clientAreasDataManager\CurrentArea\ColBoxes
 		For i = 1 To ColBoxes
 			C.ColBox = New ColBox
+			Local colBoxData.ClientAreaCollisionData = ListAt(clientAreasDataManager\CurrentArea\ColBoxData, i-1)
+
 			C\EN = CreateCube()
 			If DisplayItems = True Then EntityAlpha C\EN, 0.4 Else EntityAlpha C\EN, 0.0
 			; Position/rotation/size
-			X# = ReadFloat#(F) : Y# = ReadFloat#(F) : Z# = ReadFloat#(F)
-			Pitch# = ReadFloat#(F) : Yaw# = ReadFloat#(F) : Roll# = ReadFloat#(F)
-			C\ScaleX# = ReadFloat#(F) : C\ScaleY# = ReadFloat#(F) : C\ScaleZ# = ReadFloat#(F)
+			X# = colBoxData\X# : Y# = colBoxData\Y# : Z# = colBoxData\Z#
+			Pitch# = colBoxData\Pitch# : Yaw# = colBoxData\Yaw# : Roll# = colBoxData\Roll#
+			C\ScaleX# = colBoxData\ScaleX# : C\ScaleY# = colBoxData\ScaleY# : C\ScaleZ# = colBoxData\ScaleZ#
 			PositionEntity C\EN, X#, Y#, Z#
 			RotateEntity C\EN, Pitch#, Yaw#, Roll#
 			ScaleEntity C\EN, C\ScaleX#, C\ScaleY#, C\ScaleZ#
@@ -850,10 +860,12 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 		EndIf
 
 		; Emitters
-		Emitters = ReadShort(F)
+		Emitters = clientAreasDataManager\CurrentArea\Emitters
 		For i = 1 To Emitters
 			; Create emitter parent entity
 			E.Emitter = New Emitter
+			Local emitterData.ClientAreaEmitterData = ListAt(clientAreasDataManager\CurrentArea\EmitterData, i-1)
+
 			If DisplayItems = True 
 				E\EN = CreateCone() : ScaleMesh E\EN, 3, 3, 3 : EntityAlpha E\EN, 0.5
 			Else 
@@ -861,11 +873,11 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 			EndIf
 								
 			; Read in emitter data
-			E\ConfigName$ = ReadString$(F)
-			E\TexID = ReadShort(F)
+			E\ConfigName$ = emitterData\ConfigName$
+			E\TexID = emitterData\TexID
 			Texture = GetTexture(E\TexID)
-			X# = ReadFloat#(F) : Y# = ReadFloat#(F) : Z# = ReadFloat#(F)
-			Pitch# = ReadFloat#(F) : Yaw# = ReadFloat#(F) : Roll# = ReadFloat#(F)
+			X# = emitterData\X# : Y# = emitterData\Y# : Z# = emitterData\Z#
+			Pitch# = emitterData\Pitch# : Yaw# = emitterData\Yaw# : Roll# = emitterData\Roll#
 			; Load config
 			E\Config = RP_LoadEmitterConfig("Data\Emitter Configs\" + E\ConfigName$ + ".rpc", Texture, CameraEN)
 			
@@ -901,30 +913,32 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 		EndIf
 
 		; Blitz LOD terrains
-		Terrains = ReadShort(F)
+		Terrains = clientAreasDataManager\CurrentArea\Terrains
 		For i = 1 To Terrains
 			T.Terrain = New Terrain
+			Local terrainData.ClientAreaTerrainData = ListAt(clientAreasDataManager\CurrentArea\TerrainData, i-1)
+			
 			; Textures
-			T\BaseTexID = ReadShort(F)
-			T\DetailTexID = ReadShort(F)
+			T\BaseTexID = terrainData\BaseTexID
+			T\DetailTexID = terrainData\DetailTexID
 			; Terrain heights
-			GridSize = ReadInt(F)
+			GridSize = terrainData\GridSize
 			T\EN = CreateTerrain(GridSize)
 			For X = 0 To TerrainSize(T\EN)
 				For Z = 0 To TerrainSize(T\EN)
-					ModifyTerrain(T\EN, X, Z, ReadFloat#(F), False)
+					ModifyTerrain(T\EN, X, Z, terrainData\Points[X + Z * GridSize], False)
 				Next
 			Next
 			; Position/rotation/size
-			X# = ReadFloat#(F) : Y# = ReadFloat#(F) : Z# = ReadFloat#(F)
-			Pitch# = ReadFloat#(F) : Yaw# = ReadFloat#(F) : Roll# = ReadFloat#(F)
-			T\ScaleX# = ReadFloat#(F)
-			T\ScaleY# = ReadFloat#(F)
-			T\ScaleZ# = ReadFloat#(F)
+			X# = terrainData\X# : Y# = terrainData\Y# : Z# = terrainData\Z#
+			Pitch# = terrainData\Pitch# : Yaw# = terrainData\Yaw# : Roll# = terrainData\Roll#
+			T\ScaleX# = terrainData\ScaleX#
+			T\ScaleY# = terrainData\ScaleY#
+			T\ScaleZ# = terrainData\ScaleZ#
 			PositionEntity T\EN, X#, Y#, Z# : RotateEntity T\EN, Pitch#, Yaw#, Roll#
 			ScaleEntity T\EN, T\ScaleX#, T\ScaleY#, T\ScaleZ#
 			; Texture scale
-			T\DetailTexScale# = ReadFloat#(F)
+			T\DetailTexScale# = terrainData\DetailTexScale#
 			; Apply textures
 			Tex = GetTexture(T\BaseTexID, True)
 			If Tex <> 0
@@ -942,9 +956,9 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 				EndIf
 			EndIf
 			; Detail etc.
-			T\Detail = ReadInt(F)
-			T\Morph = ReadByte(F)
-			T\Shading = ReadByte(F)
+			T\Detail = terrainData\Detail
+			T\Morph = terrainData\Morph
+			T\Shading = terrainData\Shading
 			TerrainDetail(T\EN, T\Detail, T\Morph)
 			TerrainShading(T\EN, T\Shading)
 			; Collisions
@@ -972,9 +986,11 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 		EndIf
 
 		; Sound zones
-		Sounds = ReadShort(F)
+		Sounds = clientAreasDataManager\CurrentArea\Sounds
 		For i = 1 To Sounds
 			SZ.SoundZone = New SoundZone
+			Local soundZoneData.ClientAreaSoundData = ListAt(clientAreasDataManager\CurrentArea\SoundData, i-1)
+
 			If DisplayItems = True
 				SZ\EN = CreateSphere()
 				EntityAlpha SZ\EN, 0.5
@@ -983,15 +999,15 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 				SZ\EN = CreatePivot()
 			EndIf
 			; Position/size
-			X# = ReadFloat#(F) : Y# = ReadFloat#(F) : Z# = ReadFloat#(F)
-			SZ\Radius# = ReadFloat#(F)
+			X# = soundZoneData\X# : Y# = soundZoneData\Y# : Z# = soundZoneData\Z#
+			SZ\Radius# = soundZoneData\Radius#
 			ScaleEntity SZ\EN, SZ\Radius#, SZ\Radius#, SZ\Radius#
 			PositionEntity SZ\EN, X#, Y#, Z#
 			; Sound options
-			SZ\SoundID = ReadShort(F)
-			SZ\MusicID = ReadShort(F)
-			SZ\RepeatTime = ReadInt(F)
-			SZ\Volume = ReadByte(F)
+			SZ\SoundID = soundZoneData\SoundID
+			SZ\MusicID = soundZoneData\MusicID
+			SZ\RepeatTime = soundZoneData\RepeatTime
+			SZ\Volume = soundZoneData\Volume
 			; Load sound
 			If SZ\SoundID <> 65535
 				SZ\LoadedSound = GetSound(SZ\SoundID)
@@ -1005,7 +1021,7 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 			If UpdateRottNet = True And MilliSecs() - RNUpdateTime > 500 Then RCE_Update() : RCE_CreateMessages() : RNUpdateTime = MilliSecs()
 		Next
 
-	CloseFile(F)
+	Delete(clientAreasDataManager)
 
 	UnlockMeshes()
 	UnlockTextures()
