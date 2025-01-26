@@ -157,7 +157,7 @@ Type ClientAreasDataManager
         return self
     End Method
 
-    Method Load(areaName$, obfuscated=True)
+    Method Load(areaName$, obfuscated=False)
         if (obfuscated)
             ClientAreasDataManager::ReadObfuscated(self, areaName$)
         else
@@ -165,7 +165,7 @@ Type ClientAreasDataManager
         end if
     End Method
 
-    Method Save(areaName$, obfuscated=True)
+    Method Save(areaName$, obfuscated=False)
         if (obfuscated)
             ClientAreasDataManager::WriteObfuscated(self, areaName$)
         else
@@ -474,11 +474,303 @@ Type ClientAreasDataManager
     End Method
 
     Method ReadFast(areaName$)
+        Local file.File = new File("Data\Areas\" + areaName$ + ".dat")
 
+        self\CurrentArea = new ClientAreaData()
+
+        self\CurrentArea\Name = areaName$
+
+        self\CurrentArea\LoadingTexID = Int(File::readLine(file))
+        self\CurrentArea\LoadingMusicID = Int(File::readLine(file))
+        self\CurrentArea\SkyTexID = Int(File::readLine(file))
+        self\CurrentArea\CloudTexID = Int(File::readLine(file))
+        self\CurrentArea\StormCloudTexID = Int(File::readLine(file))
+        self\CurrentArea\StarsTexID = Int(File::readLine(file))
+
+        self\CurrentArea\FogR = Int(File::readLine(file))
+        self\CurrentArea\FogG = Int(File::readLine(file))
+        self\CurrentArea\FogB = Int(File::readLine(file))
+        self\CurrentArea\FogNear# = Float(File::readLine(file))
+        self\CurrentArea\FogFar# = Float(File::readLine(file))
+
+        self\CurrentArea\MapTexID = Int(File::readLine(file))
+        self\CurrentArea\Outdoors = Int(File::readLine(file))
+        self\CurrentArea\AmbientR = Int(File::readLine(file))
+        self\CurrentArea\AmbientG = Int(File::readLine(file))
+        self\CurrentArea\AmbientB = Int(File::readLine(file))
+        self\CurrentArea\DefaultLightPitch# = Float(File::readLine(file))
+        self\CurrentArea\DefaultLightYaw# = Float(File::readLine(file))
+        self\CurrentArea\SlopeRestrict# = Float(File::readLine(file))
+
+        self\CurrentArea\Sceneries = Int(File::readLine(file))
+        for i = 1 to self\CurrentArea\Sceneries
+            Local sceneryData.ClientAreaSceneryData = new ClientAreaSceneryData()
+
+            sceneryData\MeshID = Int(File::readLine(file))
+            sceneryData\X = Float(File::readLine(file))
+            sceneryData\Y = Float(File::readLine(file))
+            sceneryData\Z = Float(File::readLine(file))
+            sceneryData\Pitch = Float(File::readLine(file))
+            sceneryData\Yaw = Float(File::readLine(file))
+            sceneryData\Roll = Float(File::readLine(file))
+            sceneryData\ScaleX = Float(File::readLine(file))
+            sceneryData\ScaleY = Float(File::readLine(file))
+            sceneryData\ScaleZ = Float(File::readLine(file))
+            sceneryData\AnimationMode = Int(File::readLine(file))
+            sceneryData\SceneryID = Int(File::readLine(file))
+            sceneryData\TextureID = Int(File::readLine(file))
+            sceneryData\CatchRain = Int(File::readLine(file))
+            sceneryData\Collides = Int(File::readLine(file))
+            sceneryData\Lightmap = File::readLine(file)
+            sceneryData\RCTE = File::readLine(file)
+            sceneryData\CastShadow = Int(File::readLine(file))
+            sceneryData\ReceiveShadow = Int(File::readLine(file))
+            sceneryData\RenderRange = Int(File::readLine(file))
+
+            ListAdd(self\CurrentArea\SceneryData, sceneryData)
+        next
+
+        self\CurrentArea\Waters = Int(File::readLine(file))
+        for i = 1 to self\CurrentArea\Waters
+            Local waterData.ClientAreaWaterData = new ClientAreaWaterData()
+
+            waterData\TexID = Int(File::readLine(file))
+            waterData\TexScale = Float(File::readLine(file))
+            waterData\X = Float(File::readLine(file))
+            waterData\Y = Float(File::readLine(file))
+            waterData\Z = Float(File::readLine(file))
+            waterData\ScaleX = Float(File::readLine(file))
+            waterData\ScaleZ = Float(File::readLine(file))
+            waterData\Red = Int(File::readLine(file))
+            waterData\Green = Int(File::readLine(file))
+            waterData\Blue = Int(File::readLine(file))
+            waterData\Opacity = Int(File::readLine(file))
+
+            ListAdd(self\CurrentArea\WaterData, waterData)
+        next
+
+        self\CurrentArea\ColBoxes = Int(File::readLine(file))
+        for i = 1 to self\CurrentArea\ColBoxes
+            Local colBoxData.ClientAreaCollisionData = new ClientAreaCollisionData()
+
+            colBoxData\X = Float(File::readLine(file))
+            colBoxData\Y = Float(File::readLine(file))
+            colBoxData\Z = Float(File::readLine(file))
+            colBoxData\Pitch = Float(File::readLine(file))
+            colBoxData\Yaw = Float(File::readLine(file))
+            colBoxData\Roll = Float(File::readLine(file))
+            colBoxData\ScaleX = Float(File::readLine(file))
+            colBoxData\ScaleY = Float(File::readLine(file))
+            colBoxData\ScaleZ = Float(File::readLine(file))
+
+            ListAdd(self\CurrentArea\ColBoxData, colBoxData)
+        next
+
+        self\CurrentArea\Emitters = Int(File::readLine(file))
+        for i = 1 to self\CurrentArea\Emitters
+            Local emitterData.ClientAreaEmitterData = new ClientAreaEmitterData()
+
+            emitterData\ConfigName = File::readLine(file)
+            emitterData\TexID = Int(File::readLine(file))
+            emitterData\X = Float(File::readLine(file))
+            emitterData\Y = Float(File::readLine(file))
+            emitterData\Z = Float(File::readLine(file))
+            emitterData\Pitch = Float(File::readLine(file))
+            emitterData\Yaw = Float(File::readLine(file))
+            emitterData\Roll = Float(File::readLine(file))
+
+            ListAdd(self\CurrentArea\EmitterData, emitterData)
+        next
+
+        self\CurrentArea\Terrains = Int(File::readLine(file))
+        for i = 1 to self\CurrentArea\Terrains
+            Local terrainData.ClientAreaTerrainData = new ClientAreaTerrainData()
+
+            terrainData\BaseTexID = Int(File::readLine(file))
+            terrainData\DetailTexID = Int(File::readLine(file))
+            terrainData\GridSize = Int(File::readLine(file))
+            for j = 0 to terrainData\GridSize
+                for k = 0 to terrainData\GridSize
+                    terrainData\Points[j + k * terrainData\GridSize] = File::readFloat(file)
+                next
+            next
+            terrainData\X = Float(File::readLine(file))
+            terrainData\Y = Float(File::readLine(file))
+            terrainData\Z = Float(File::readLine(file))
+            terrainData\Pitch = Float(File::readLine(file))
+            terrainData\Yaw = Float(File::readLine(file))
+            terrainData\Roll = Float(File::readLine(file))
+            terrainData\ScaleX = Float(File::readLine(file))
+            terrainData\ScaleY = Float(File::readLine(file))
+            terrainData\ScaleZ = Float(File::readLine(file))
+            terrainData\DetailTexScale = Float(File::readLine(file))
+            terrainData\Detail = Int(File::readLine(file))
+            terrainData\Morph = Int(File::readLine(file))
+            terrainData\Shading = Int(File::readLine(file))
+
+            ListAdd(self\CurrentArea\TerrainData, terrainData)
+        next
+
+        self\CurrentArea\Sounds = Int(File::readLine(file))
+        for i = 1 to self\CurrentArea\Sounds
+            Local soundData.ClientAreaSoundData = new ClientAreaSoundData()
+
+            soundData\X = Float(File::readLine(file))
+            soundData\Y = Float(File::readLine(file))
+            soundData\Z = Float(File::readLine(file))
+            soundData\Radius = Float(File::readLine(file))
+            soundData\SoundID = Int(File::readLine(file))
+            soundData\MusicID = Int(File::readLine(file))
+            soundData\RepeatTime = Int(File::readLine(file))
+            soundData\Volume = Int(File::readLine(file))
+
+            ListAdd(self\CurrentArea\SoundData, soundData)
+        next
+
+        File::Close(file)
+        Delete(file)
     End Method
 
     Method WriteFast(areaName$)
+        Local file.File = new File("Data\Areas\" + areaName$ + ".dat")
 
+        File::writeLine(file, self\CurrentArea\LoadingTexID)
+        File::writeLine(file, self\CurrentArea\LoadingMusicID)
+        File::writeLine(file, self\CurrentArea\SkyTexID)
+        File::writeLine(file, self\CurrentArea\CloudTexID)
+        File::writeLine(file, self\CurrentArea\StormCloudTexID)
+        File::writeLine(file, self\CurrentArea\StarsTexID)
+
+        File::writeLine(file, self\CurrentArea\FogR)
+        File::writeLine(file, self\CurrentArea\FogG)
+        File::writeLine(file, self\CurrentArea\FogB)
+        File::writeLine(file, self\CurrentArea\FogNear#)
+        File::writeLine(file, self\CurrentArea\FogFar#)
+
+        File::writeLine(file, self\CurrentArea\MapTexID)
+        File::writeLine(file, self\CurrentArea\Outdoors)
+        File::writeLine(file, self\CurrentArea\AmbientR)
+        File::writeLine(file, self\CurrentArea\AmbientG)
+        File::writeLine(file, self\CurrentArea\AmbientB)
+        File::writeLine(file, self\CurrentArea\DefaultLightPitch#)
+        File::writeLine(file, self\CurrentArea\DefaultLightYaw#)
+        File::writeLine(file, self\CurrentArea\SlopeRestrict#)
+
+        File::writeLine(file, self\CurrentArea\Sceneries)
+        for i = 1 to self\CurrentArea\Sceneries
+            Local sceneryData.ClientAreaSceneryData = ListAt(self\CurrentArea\SceneryData, i-1)
+
+            File::writeLine(file, sceneryData\MeshID)
+            File::writeLine(file, sceneryData\X)
+            File::writeLine(file, sceneryData\Y)
+            File::writeLine(file, sceneryData\Z)
+            File::writeLine(file, sceneryData\Pitch)
+            File::writeLine(file, sceneryData\Yaw)
+            File::writeLine(file, sceneryData\Roll)
+            File::writeLine(file, sceneryData\ScaleX)
+            File::writeLine(file, sceneryData\ScaleY)
+            File::writeLine(file, sceneryData\ScaleZ)
+            File::writeLine(file, sceneryData\AnimationMode)
+            File::writeLine(file, sceneryData\SceneryID)
+            File::writeLine(file, sceneryData\TextureID)
+            File::writeLine(file, sceneryData\CatchRain)
+            File::writeLine(file, sceneryData\Collides)
+            File::writeLine(file, sceneryData\Lightmap)
+            File::writeLine(file, sceneryData\RCTE)
+            File::writeLine(file, sceneryData\CastShadow)
+            File::writeLine(file, sceneryData\ReceiveShadow)
+            File::writeLine(file, sceneryData\RenderRange)
+        next
+
+        File::writeLine(file, self\CurrentArea\Waters)
+        for i = 1 to self\CurrentArea\Waters
+            Local waterData.ClientAreaWaterData = ListAt(self\CurrentArea\WaterData, i-1)
+
+            File::writeLine(file, waterData\TexID)
+            File::writeLine(file, waterData\TexScale)
+            File::writeLine(file, waterData\X)
+            File::writeLine(file, waterData\Y)
+            File::writeLine(file, waterData\Z)
+            File::writeLine(file, waterData\ScaleX)
+            File::writeLine(file, waterData\ScaleZ)
+            File::writeLine(file, waterData\Red)
+            File::writeLine(file, waterData\Green)
+            File::writeLine(file, waterData\Blue)
+            File::writeLine(file, waterData\Opacity)
+        next
+
+        File::writeLine(file, self\CurrentArea\ColBoxes)
+        for i = 1 to self\CurrentArea\ColBoxes
+            Local colBoxData.ClientAreaCollisionData = ListAt(self\CurrentArea\ColBoxData, i-1)
+
+            File::writeLine(file, colBoxData\X)
+            File::writeLine(file, colBoxData\Y)
+            File::writeLine(file, colBoxData\Z)
+            File::writeLine(file, colBoxData\Pitch)
+            File::writeLine(file, colBoxData\Yaw)
+            File::writeLine(file, colBoxData\Roll)
+            File::writeLine(file, colBoxData\ScaleX)
+            File::writeLine(file, colBoxData\ScaleY)
+            File::writeLine(file, colBoxData\ScaleZ)
+        next
+
+        File::writeLine(file, self\CurrentArea\Emitters)
+        for i = 1 to self\CurrentArea\Emitters
+            Local emitterData.ClientAreaEmitterData = ListAt(self\CurrentArea\EmitterData, i-1)
+
+            File::writeLine(file, emitterData\ConfigName)
+            File::writeLine(file, emitterData\TexID)
+            File::writeLine(file, emitterData\X)
+            File::writeLine(file, emitterData\Y)
+            File::writeLine(file, emitterData\Z)
+            File::writeLine(file, emitterData\Pitch)
+            File::writeLine(file, emitterData\Yaw)
+            File::writeLine(file, emitterData\Roll)
+        next
+
+        File::writeLine(file, self\CurrentArea\Terrains)
+        for i = 1 to self\CurrentArea\Terrains
+            Local terrainData.ClientAreaTerrainData = ListAt(self\CurrentArea\TerrainData, i-1)
+
+            File::writeLine(file, terrainData\BaseTexID)
+            File::writeLine(file, terrainData\DetailTexID)
+            File::writeLine(file, terrainData\GridSize)
+            for j = 0 to terrainData\GridSize
+                for k = 0 to terrainData\GridSize
+                    File::writeLine(file, terrainData\Points[j + k * terrainData\GridSize])
+                next
+            next
+            File::writeLine(file, terrainData\X)
+            File::writeLine(file, terrainData\Y)
+            File::writeLine(file, terrainData\Z)
+            File::writeLine(file, terrainData\Pitch)
+            File::writeLine(file, terrainData\Yaw)
+            File::writeLine(file, terrainData\Roll)
+            File::writeLine(file, terrainData\ScaleX)
+            File::writeLine(file, terrainData\ScaleY)
+            File::writeLine(file, terrainData\ScaleZ)
+            File::writeLine(file, terrainData\DetailTexScale)
+            File::writeLine(file, terrainData\Detail)
+            File::writeLine(file, terrainData\Morph)
+            File::writeLine(file, terrainData\Shading)
+        next
+
+        File::writeLine(file, self\CurrentArea\Sounds)
+        for i = 1 to self\CurrentArea\Sounds
+            Local soundData.ClientAreaSoundData = ListAt(self\CurrentArea\SoundData, i-1)
+
+            File::writeLine(file, soundData\X)
+            File::writeLine(file, soundData\Y)
+            File::writeLine(file, soundData\Z)
+            File::writeLine(file, soundData\Radius)
+            File::writeLine(file, soundData\SoundID)
+            File::writeLine(file, soundData\MusicID)
+            File::writeLine(file, soundData\RepeatTime)
+            File::writeLine(file, soundData\Volume)
+        next
+
+        File::Close(file)
+        Delete(file)
     End Method
 
     Method Remove(areaName$)

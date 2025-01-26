@@ -5,6 +5,7 @@ Include "Modules\IO\File.bb"
 Include "Modules\IO\Managers\OptionsDataManager.bb"
 Include "Modules\IO\Managers\MiscDataManager.bb"
 Include "Modules\IO\Managers\GameDataManager.bb"
+Include "Modules\IO\Managers\ClientAreasDataManager.bb"
 
 ; Should eventually remove globals
 Global GameDir$
@@ -12,7 +13,7 @@ Global GameName$ = ""
 Global UpdateGame$ = ""
 Global UpdateMusic = False
 
-Const PROJECT_VERSION% = 20250122
+Const PROJECT_VERSION% = 20250126
 
 Type Project
     Field rootDir$
@@ -99,8 +100,27 @@ Type Project
     Method migrate()
         while (Project::needsMigrations(self))
             select self\version
-                case 20250122
+                case 20250126
                     DebugLog "Current version is up to date."
+                case 20250122
+                    DebugLog "Running migration 20250122..."
+
+                    local clientAreasDataManager.ClientAreasDataManager = new ClientAreasDataManager()
+                    Local Dir.BBDir = ReadDir("Data\Areas")
+                    Local File$ = NextFile$(Dir)
+                    While File$ <> ""
+                        If FileType("Data\Areas\" + File$) = 1
+                            File$ = Replace$(File$, ".dat", "") : File$ = Replace$(File$, ".DAT", "") : File$ = Replace$(File$, ".Dat", "")
+                            DebugLog "Migrating area " + File$ + "..."
+                            ClientAreasDataManager::Load(clientAreasDataManager, File$, True)
+                            ClientAreasDataManager::Save(clientAreasDataManager, File$)
+                        EndIf
+                        File$ = NextFile$(Dir)
+                    Wend
+                    CloseDir Dir
+                    Delete clientAreasDataManager
+
+                    self\version = 20250126
                 case 20250115
                     DebugLog "Running migration 20250115..."
 
