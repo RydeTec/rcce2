@@ -1168,7 +1168,7 @@ Function Money$(Amount)
 		Amount2$ = Money2$ + " " + Str$(Amount / Money2x) + ", " ;:
 		Amount = Amount Mod Money2x
 	EndIf
-	Amount1$ = " " + " " + Str$(Amount) ;:Money1$
+	Amount1$ = Money1$ + " " + Str$(Amount) ;:Money1$
 	Return Amount4$ + Amount3$ + Amount2$ + Amount1$
 
 End Function

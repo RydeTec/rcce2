@@ -26,5 +26,7 @@ Function Main()
 End Function
 
 Function Examine()
+
 	Output(Actor(), "This trainer can teach you the fireball skill")
+	
 End Function

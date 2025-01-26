@@ -54,3 +54,4 @@ Const P_BubbleMessage      = 52
 Const P_ScriptInput        = 53
 Const P_KickedPlayer       = 60
 Const P_Examine            = 61
+Const P_Trade              = 62

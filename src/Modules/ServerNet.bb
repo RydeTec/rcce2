@@ -101,7 +101,7 @@ Function UpdateNetwork()
 							Params$ = ""
 						EndIf
 						Select Command$
-							Case LanguageString$(LS_SKick)
+							Case LanguageString$(LS_SCKick)
 								A.Account = Object.Account(AI\Account)
 								If A\IsDM = True
 									A2.ActorInstance = FindActorInstanceFromName(Params$)
@@ -113,7 +113,7 @@ Function UpdateNetwork()
 										EndIf
 									EndIf
 								EndIf
-							Case LanguageString$(LS_SUnIgnore)
+							Case LanguageString$(LS_SCUnIgnore)
 								A2.ActorInstance = FindActorInstanceFromName(Params$)
 								If A2 <> Null And A2 <> AI
 									If A2\RNID >= 0
@@ -126,7 +126,7 @@ Function UpdateNetwork()
 										EndIf
 									EndIf
 								EndIf
-							Case LanguageString$(LS_SIgnore)
+							Case LanguageString$(LS_SCIgnore)
 								A2.ActorInstance = FindActorInstanceFromName(Params$)
 								If A2 <> Null And A2 <> AI
 									If A2\RNID >= 0
@@ -138,7 +138,7 @@ Function UpdateNetwork()
 										RCE_Send(Host, AI\RNID, P_ChatMessage, Chr$(253) + LanguageString$(LS_Ignoring) + " " + Params$, True)
 									EndIf
 								EndIf
-							Case LanguageString$(LS_SNetDump)
+							Case LanguageString$(LS_SCNetDump)
 								A.Account = Object.Account(AI\Account)
 								If LogNetwork = False And A\IsDM = True
 									RCE_Send(Host, AI\RNID, P_ChatMessage, Chr$(254) + "Starting new net dump...", True)
@@ -150,7 +150,7 @@ Function UpdateNetwork()
 									;LogNetworkBytesIn = RCE_BytesReceived(Host)
 									;LogNetworkBytesOut = RCE_BytesSent(Host)
 								EndIf
-							Case LanguageString$(LS_SPet)
+							Case LanguageString$(LS_SCPet)
 								If AI\NumberOfSlaves > 0
 									Name$ = Upper$(Trim$(Split$(Params$, 1, ",")))
 									Command$ = Trim$(Split$(Params$, 2, ","))
@@ -167,9 +167,9 @@ Function UpdateNetwork()
 										EndIf
 									Next
 								EndIf
-							Case LanguageString$(LS_SLeave)
+							Case LanguageString$(LS_SCLeave)
 								LeaveParty(AI)
-							Case LanguageString$(LS_SOk)
+							Case LanguageString$(LS_SCOk)
 								Party.Party = Object.Party(AI\AcceptPending)
 								If Party <> Null
 									; Check there's a free space in the party
@@ -199,7 +199,7 @@ Function UpdateNetwork()
 										AI\AcceptPending = 0
 									EndIf
 								EndIf
-							Case LanguageString$(LS_SInvite)
+							Case LanguageString$(LS_SCInvite)
 								A2.ActorInstance = FindActorInstanceFromName(Params$)
 								If A2 <> Null And A2 <> AI
 									If A2\RNID > 0
@@ -225,10 +225,10 @@ Function UpdateNetwork()
 										EndIf
 									EndIf
 								EndIf
-							Case LanguageString$(LS_SXP)
+							Case LanguageString$(LS_SCXP)
 								A.Account = Object.Account(AI\Account)
 								If A\IsDM = True Then GiveXP(AI, Int(Params$))
-							Case LanguageString$(LS_SGold)
+							Case LanguageString$(LS_SCGold)
 								A.Account = Object.Account(AI\Account)
 								If A\IsDM = True
 									Change = Int(Params$)
@@ -240,7 +240,7 @@ Function UpdateNetwork()
 									EndIf
 									RCE_Send(Host, AI\RNID, P_GoldChange, Pa$, True)
 								EndIf
-							Case LanguageString$(LS_SSetAttribute)
+							Case LanguageString$(LS_SCSetAttribute)
 								A.Account = Object.Account(AI\Account)
 								If A\IsDM = True
 									Attribute = FindAttribute(Split$(Params$, 1, ","))
@@ -254,7 +254,7 @@ Function UpdateNetwork()
 										EndIf
 									EndIf
 								EndIf
-							Case LanguageString$(LS_SSetAttributeMax)
+							Case LanguageString$(LS_SCSetAttributeMax)
 								A.Account = Object.Account(AI\Account)
 								If A\IsDM = True
 									Attribute = FindAttribute(Split$(Params$, 1, ","))
@@ -268,14 +268,14 @@ Function UpdateNetwork()
 										EndIf
 									EndIf
 								EndIf
-							Case LanguageString$(LS_SScript)
+							Case LanguageString$(LS_SCScript)
 								A.Account = Object.Account(AI\Account)
 								If A\IsDM = True
 									Name$ = Trim$(Split$(Params$, 1, ","))
 									Func$ = Trim$(Split$(Params$, 2, ","))
 									ThreadScript(Name$, Func$, Handle(AI), 0)
 								EndIf
-							Case LanguageString$(LS_SMe)
+							Case LanguageString$(LS_SCMe)
 								Pa$ = Chr$(252) + "* " + AI\Name$ + " " + Params$
 								AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea)
 								A2.ActorInstance = AInstance\FirstInZone
@@ -288,7 +288,7 @@ Function UpdateNetwork()
 									A2 = A2\NextInZone
 								Wend
 								If AInstance\Area = GameArea Then AddListBoxItem(Game\ChatText, Pa$ + Chr$(13))
-							Case LanguageString$(LS_SYell)
+							Case LanguageString$(LS_SCYell)
 								Pa$ = Chr$(253) + "<" + AI\Name$ + "> " + Params$
 								For A2.ActorInstance = Each ActorInstance
 									If A2\RNID > 0
@@ -298,7 +298,7 @@ Function UpdateNetwork()
 									EndIf
 								Next
 								AddListBoxItem(Game\ChatText, Pa$ + Chr$(13))
-							Case LanguageString$(LS_SGM)
+							Case LanguageString$(LS_SCGM)
 								A.Account = Object.Account(AI\Account)
 								If A\IsDM = True
 									Pa$ = Chr$(254) + "<GM> <" + AI\Name$ + "> " + Params$
@@ -309,7 +309,7 @@ Function UpdateNetwork()
 										EndIf
 									Next
 								EndIf
-							Case LanguageString$(LS_SG)
+							Case LanguageString$(LS_SCGuildSay)
 								If AI\TeamID > 0
 									Pa$ = Chr$(251) + "<G> <" + AI\Name$ + "> " + Params$
 									For A2.ActorInstance = Each ActorInstance
@@ -318,7 +318,7 @@ Function UpdateNetwork()
 										EndIf
 									Next
 								EndIf
-							Case LanguageString$(LS_SP)
+							Case LanguageString$(LS_SCPartySay)
 								Party.Party = Object.Party(AI\PartyID)
 								If Party <> Null
 									Pa$ = Chr$(251) + "<PARTY> <" + AI\Name$ + "> " + Params$
@@ -328,7 +328,7 @@ Function UpdateNetwork()
 										EndIf
 									Next
 								EndIf
-							Case LanguageString$(LS_SPM)
+							Case LanguageString$(LS_SCPMSay)
 								Name$ = Upper$(Split$(Params$, 1, ","))
 								Params$ = Split$(Params$, 2, ",")
 								For A2.ActorInstance = Each ActorInstance
@@ -341,7 +341,7 @@ Function UpdateNetwork()
 										EndIf
 									EndIf
 								Next
-							Case LanguageString$(LS_STrade)
+							Case LanguageString$(LS_SCTrade)
 								; Player has been offered a trade and is accepting
 								If AI\IsTrading = 3
 									AI\IsTrading = 4
@@ -384,13 +384,13 @@ Function UpdateNetwork()
 										EndIf
 									EndIf
 								EndIf
-							Case LanguageString$(LS_SAllPlayers)
+							Case LanguageString$(LS_SCAllPlayers)
 								Players = 0
 								For A2.ActorInstance = Each ActorInstance
 									If A2\RNID > 0 Then Players = Players + 1
 								Next
 								RCE_Send(Host, AI\RNID, P_ChatMessage, Chr$(254) + LanguageString$(LS_PlayersInGame) + " " + Str$(Players - 1), True)
-							Case LanguageString$(LS_SPlayers)
+							Case LanguageString$(LS_SCPlayers)
 								Players = 0
 								AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea)
 								A2.ActorInstance = AInstance\FirstInZone
@@ -399,7 +399,7 @@ Function UpdateNetwork()
 									A2 = A2\NextInZone
 								Wend
 								RCE_Send(Host, AI\RNID, P_ChatMessage, Chr$(254) + LanguageString$(LS_PlayersInZone) + " " + Str$(Players - 1), True)
-							Case LanguageString$(LS_SWarp)
+							Case LanguageString$(LS_SCWarp)
 								A.Account = Object.Account(AI\Account)
 								If A\IsDM = True
 									Ar.Area = FindArea(Trim$(Split$(Params$, 1, ",")))
@@ -413,7 +413,7 @@ Function UpdateNetwork()
 										Next
 									EndIf
 								EndIf
-							Case LanguageString$(LS_SWarpOther)
+							Case LanguageString$(LS_SCWarpOther)
 								A.Account = Object.Account(AI\Account)
 								If A\IsDM = True
 									Name$ = Upper$(Trim$(Split$(Params$, 1, ",")))
@@ -433,7 +433,7 @@ Function UpdateNetwork()
 										EndIf
 									Next
 								EndIf
-							Case LanguageString$(LS_SAbility)
+							Case LanguageString$(LS_SCAbility)
 								A.Account = Object.Account(AI\Account)
 								If A\IsDM = True
 									Params$ = Upper$(Params$)
@@ -443,7 +443,7 @@ Function UpdateNetwork()
 										If Upper$(Sp\Name$) = Name$ Then AddSpell(AI, Sp\ID, Level) : Exit
 									Next
 								EndIf
-							Case LanguageString$(LS_SGive)
+							Case LanguageString$(LS_SCGive)
 								; Make sure it's a GM account
 								A.Account = Object.Account(AI\Account)
 								If A\IsDM = True
@@ -463,7 +463,7 @@ Function UpdateNetwork()
 										EndIf
 									Next
 								EndIf
-							Case LanguageString$(LS_SWeather)
+							Case LanguageString$(LS_SCWeather)
 								Params$ = Trim$(Upper$(Params$))
 								; Make sure it's a GM account
 								A.Account = Object.Account(AI\Account)
@@ -507,13 +507,13 @@ Function UpdateNetwork()
 										Next
 									EndIf
 								EndIf
-							Case LanguageString$(LS_STime)
+							Case LanguageString$(LS_SCTime)
 								Hour$ = Str$(TimeH)
 								If Len(Hour$) = 1 Then Hour$ = "0" + Hour$
 								Minute$ = Str$(TimeM)
 								If Len(Minute$) = 1 Then Minute$ = "0" + Minute$
 								RCE_Send(Host, AI\RNID, P_ChatMessage, Chr$(254) + "Time: " + Hour$ + ":" + Minute$, True)
-							Case LanguageString$(LS_SDate)
+							Case LanguageString$(LS_SCDate)
 								Month = GetMonth()
 								If Month = 0
 									Date$ = Str$(Day + 1)
@@ -531,7 +531,7 @@ Function UpdateNetwork()
 								EndIf
 								Date$ = Chr$(254) + MonthName$(Month) + " " + Date$ + ", " + Str$(Year)
 								RCE_Send(Host, AI\RNID, P_ChatMessage, Date$, True)
-							Case LanguageString$(LS_SSeason)
+							Case LanguageString$(LS_SCSeason)
 								ml = Len(Chr$(254) + LanguageString$(LS_Season) + " " + SeasonName$(GetSeason()))
 								RCE_Send(Host, AI\RNID, P_ChatMessage, Chr$(254) + LanguageString$(LS_Season) + " " + SeasonName$(GetSeason()), True)
 							Default
@@ -633,110 +633,110 @@ Function UpdateNetwork()
 					; Accept trading
 					If Len(M\MessageData$) > 0
 						; Player -> NPC or player -> scenery trading {##}
-						;If AI\IsTrading = 1
-						;	AI\IsTrading = 0
-						;	Change = 0
-						;	If AI\TradeResult$ <> ""
-						;		ID = RCE_IntFromStr(Left$(AI\TradeResult$, 2))
-						;		AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea)
-						;		;Owned.OwnedScenery = AInstance\OwnedScenery[ID]
-						;	EndIf
-;
-							; Sold items
-						;	Offset = 193
-						;	For i = 0 To 31
-						;		SlotID = RCE_IntFromStr(Mid$(M\MessageData$, Offset, 1))
-						;		Amount = RCE_IntFromStr(Mid$(M\MessageData$, Offset + 1, 2))
-						;		Offset = Offset + 3
-						;		If SlotID > 0
-						;			If Amount > AI\Inventory\Amounts[SlotID] Then Amount = AI\Inventory\Amounts[SlotID]
-						;			If AI\Inventory\Items[SlotID] <> Null And Amount > 0
+						If AI\IsTrading = 1
+							AI\IsTrading = 0
+							Change = 0
+							If AI\TradeResult$ <> ""
+								ID = RCE_IntFromStr(Left$(AI\TradeResult$, 2))
+								AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea)
+								;Owned.OwnedScenery = AInstance\OwnedScenery[ID]
+							EndIf
+
+							;Sold items
+							Offset = 193
+							For i = 0 To 31
+								SlotID = RCE_IntFromStr(Mid$(M\MessageData$, Offset, 1))
+								Amount = RCE_IntFromStr(Mid$(M\MessageData$, Offset + 1, 2))
+								Offset = Offset + 3
+								If SlotID > 0
+									If Amount > AI\Inventory\Amounts[SlotID] Then Amount = AI\Inventory\Amounts[SlotID]
+									If AI\Inventory\Items[SlotID] <> Null And Amount > 0
 										; Alter cost {##}
 										;If Owned = Null
-										;	Change = Change + (AI\Inventory\Items[SlotID]\Item\Value * Amount)
+											Change = Change + (AI\Inventory\Items[SlotID]\Item\Value * Amount)
 										; Add item to scenery inventory if applicable
-										;Else
-										;	For j = 0 To Owned\InventorySize - 1
-										;		If Owned\Inventory\Items[j] = Null
-										;			Owned\Inventory\Items[j] = CopyItemInstance(AI\Inventory\Items[SlotID])
-										;			Owned\Inventory\Amounts[j] = Amount
-										;			Exit
-										;		ElseIf ItemInstancesIdentical(AI\Inventory\Items[SlotID], Owned\Inventory\Items[j])
-										;			Owned\Inventory\Amounts[j] = Owned\Inventory\Amounts[j] + Amount
-										;			Exit
-										;		EndIf
-										;	Next
-										;EndIf
+										; Else
+										; 	For j = 0 To Owned\InventorySize - 1
+										; 		If Owned\Inventory\Items[j] = Null
+										; 			Owned\Inventory\Items[j] = CopyItemInstance(AI\Inventory\Items[SlotID])
+										; 			Owned\Inventory\Amounts[j] = Amount
+										; 			Exit
+										; 		ElseIf ItemInstancesIdentical(AI\Inventory\Items[SlotID], Owned\Inventory\Items[j])
+										; 			Owned\Inventory\Amounts[j] = Owned\Inventory\Amounts[j] + Amount
+										; 			Exit
+										; 		EndIf
+										; 	Next
+										; EndIf
 										; Remove item
-						;				AI\Inventory\Amounts[SlotID] = AI\Inventory\Amounts[SlotID] - Amount
-						;				If AI\Inventory\Amounts[SlotID] <= 0 Then FreeItemInstance(AI\Inventory\Items[SlotID])
-						;				; Tell player if required
-						;				If AI\RNID > 0
-						;					Pa$ = RCE_StrFromInt$(SlotID, 1) + RCE_StrFromInt$(Amount, 2)
-						;					RCE_Send(Host, AI\RNID, P_InventoryUpdate, "T" + Pa$, True)
-						;				EndIf
-						;			EndIf
-						;		EndIf
-						;	Next
+										AI\Inventory\Amounts[SlotID] = AI\Inventory\Amounts[SlotID] - Amount
+										If AI\Inventory\Amounts[SlotID] <= 0 Then FreeItemInstance(AI\Inventory\Items[SlotID])
+										; Tell player if required
+										If AI\RNID > 0
+											Pa$ = RCE_StrFromInt$(SlotID, 1) + RCE_StrFromInt$(Amount, 2)
+											RCE_Send(Host, AI\RNID, P_InventoryUpdate, "T" + Pa$, True)
+										EndIf
+									EndIf
+								EndIf
+							Next
 						;	; Bought items
-						;	Offset = 1
-						;	For i = 0 To 31
-						;		II.ItemInstance = Object.ItemInstance(RCE_IntFromStr(Mid$(M\MessageData$, Offset, 4)))
-						;		Amount = RCE_IntFromStr(Mid$(M\MessageData$, Offset + 4, 2))
-						;		Offset = Offset + 6
-						;		If II <> Null And Amount > 0
-						;			If II\Assignment > 0 And II\AssignTo = AI
-						;				If Amount < II\Assignment Then II\Assignment = Amount
+							Offset = 1
+							For i = 0 To 31
+								II.ItemInstance = Object.ItemInstance(RCE_IntFromStr(Mid$(M\MessageData$, Offset, 4)))
+								Amount = RCE_IntFromStr(Mid$(M\MessageData$, Offset + 4, 2))
+								Offset = Offset + 6
+								If II <> Null And Amount > 0
+									If II\Assignment > 0 And II\AssignTo = AI
+										If Amount < II\Assignment Then II\Assignment = Amount
 										; Alter cost {##}
-										;If Owned = Null
-										;	OldChange = Change
-										;	Change = Change - (II\Item\Value * II\Assignment)
-										; Remove from scenery inventory if applicable
-										;Else
-										;	RemoveAmount = II\Assignment
-										;	For j = 0 To Owned\InventorySize - 1
-										;		If Owned\Inventory\Items[j] <> Null
-										;			If ItemInstancesIdentical(II, Owned\Inventory\Items[j])
-										;				If Owned\Inventory\Amounts[j] >= RemoveAmount
-										;					Owned\Inventory\Amounts[j] = Owned\Inventory\Amounts[j] - RemoveAmount
-										;					RemoveAmount = 0
-										;					If Owned\Inventory\Amounts[j] = 0 Then FreeItemInstance(Owned\Inventory\Items[j])
-										;				Else
-										;					RemoveAmount = RemoveAmount - Owned\Inventory\Amounts[j]
-										;					Owned\Inventory\Amounts[j] = 0
-										;					FreeItemInstance(Owned\Inventory\Items[j])
-										;				EndIf
-										;				If RemoveAmount = 0 Then Exit
-										;			EndIf
-										;		EndIf
+										; If Owned = Null
+											OldChange = Change
+											Change = Change - (II\Item\Value * II\Assignment)
+										;Remove from scenery inventory if applicable
+										; Else
+										; 	RemoveAmount = II\Assignment
+										; 	For j = 0 To Owned\InventorySize - 1
+										; 		If Owned\Inventory\Items[j] <> Null
+										; 			If ItemInstancesIdentical(II, Owned\Inventory\Items[j])
+										; 				If Owned\Inventory\Amounts[j] >= RemoveAmount
+										; 					Owned\Inventory\Amounts[j] = Owned\Inventory\Amounts[j] - RemoveAmount
+										; 					RemoveAmount = 0
+										; 					If Owned\Inventory\Amounts[j] = 0 Then FreeItemInstance(Owned\Inventory\Items[j])
+										; 				Else
+										; 					RemoveAmount = RemoveAmount - Owned\Inventory\Amounts[j]
+										; 					Owned\Inventory\Amounts[j] = 0
+										; 					FreeItemInstance(Owned\Inventory\Items[j])
+										; 				EndIf
+										; 				If RemoveAmount = 0 Then Exit
+										; 			EndIf
+										; 		EndIf
 										;	Next
 										;EndIf
 										; Prevent cheating
-						;				If AI\Gold + Change >= 0
-											; Ask client to specify a slot to put it in
-						;					Pa$ = RCE_StrFromInt$(II\Item\ID, 2) + RCE_StrFromInt$(II\Assignment, 2)
-						;					RCE_Send(Host, AI\RNID, P_InventoryUpdate, "G" + RCE_StrFromInt$(Handle(II), 4) + Pa$, True)
-						;				Else
-						;					Change = OldChange
-						;					FreeItemInstance(II)
-						;					Exit
-						;				EndIf
-						;			EndIf
-						;		EndIf
-						;	Next
+										If AI\Gold + Change >= 0
+											;Ask client to specify a slot to put it in
+											Pa$ = RCE_StrFromInt$(II\Item\ID, 2) + RCE_StrFromInt$(II\Assignment, 2)
+											RCE_Send(Host, AI\RNID, P_InventoryUpdate, "G" + RCE_StrFromInt$(Handle(II), 4) + Pa$, True)
+										Else
+											Change = OldChange
+											FreeItemInstance(II)
+											Exit
+										EndIf
+									EndIf
+								EndIf
+							Next
 
 							; Adjust gold level
-						;	If Owned = Null
-						;		If Change <> 0
-						;			AI\Gold = AI\Gold + Change
-						;			If Change > 0
-						;				Pa$ = "U" + RCE_StrFromInt$(Change, 4)
-						;			Else
-						;				Pa$ = "D" + RCE_StrFromInt$(Abs(Change), 4)
-						;			EndIf
-						;			RCE_Send(Host, AI\RNID, P_GoldChange, Pa$, True)
-						;		EndIf
-						;	EndIf
+							;If Owned = Null
+								If Change <> 0
+									AI\Gold = AI\Gold + Change
+									If Change > 0
+										Pa$ = "U" + RCE_StrFromInt$(Change, 4)
+									Else
+										Pa$ = "D" + RCE_StrFromInt$(Abs(Change), 4)
+									EndIf
+									RCE_Send(Host, AI\RNID, P_GoldChange, Pa$, True)
+								EndIf
+							;EndIf
 						; Player -> player trading
 						ElseIf AI\IsTrading = 4
 							AI\IsTrading = 5
@@ -756,33 +756,34 @@ Function UpdateNetwork()
 							ElseIf AI\TradingActor\IsTrading = 5
 								A2.ActorInstance = AI\TradingActor
 
-								; Compare what players expect with what they are getting, to prevent cheating
+								; Compare what players expect with what they are getting, to prevent cheating (COMMENTED OUT, Was causing all player to player trades to fail)
 								Valid = True
 								A1Cost = RCE_IntFromStr(Left$(AI\TradeResult$, 4)) * -1
 								A2Cost = RCE_IntFromStr(Left$(A2\TradeResult$, 4))
-								If A1Cost <> A2Cost Then Valid = False
-								For i = 0 To 31
-									A1SoldAmount = RCE_IntFromStr(Mid$(AI\TradeResult$, 101 + (i * 2), 2))
-									If A1SoldAmount > 0
-										For j = 0 To 31
-											If RCE_IntFromStr(Mid$(A2\TradeResult$, 5 + (j * 3), 1)) = i
-												Amount = RCE_IntFromStr(Mid$(A2\TradeResult$, 6 + (j * 3), 2))
-												If Amount <> A1SoldAmount Then Valid = False
-												Exit
-											EndIf
-										Next
-									EndIf
-									A2SoldAmount = RCE_IntFromStr(Mid$(A2\TradeResult$, 101 + (i * 2), 2))
-									If A2SoldAmount > 0
-										For j = 0 To 31
-											If RCE_IntFromStr(Mid$(AI\TradeResult$, 5 + (j * 3), 1)) = i
-												Amount = RCE_IntFromStr(Mid$(AI\TradeResult$, 6 + (j * 3), 2))
-												If Amount <> A2SoldAmount Then Valid = False
-												Exit
-											EndIf
-										Next
-									EndIf
-								Next
+
+								; If A1Cost <> A2Cost Then Valid = False
+								; For i = 0 To 31
+								; 	A1SoldAmount = RCE_IntFromStr(Mid$(AI\TradeResult$, 101 + (i * 2), 2))
+								; 	If A1SoldAmount > 0
+								; 		For j = 0 To 31
+								; 			If RCE_IntFromStr(Mid$(A2\TradeResult$, 5 + (j * 3), 1)) = i
+								; 				Amount = RCE_IntFromStr(Mid$(A2\TradeResult$, 6 + (j * 3), 2))
+								; 				If Amount <> A1SoldAmount Then Valid = False
+								; 				Exit
+								; 			EndIf
+								; 		Next
+								; 	EndIf
+								; 	A2SoldAmount = RCE_IntFromStr(Mid$(A2\TradeResult$, 101 + (i * 2), 2))
+								; 	If A2SoldAmount > 0
+								; 		For j = 0 To 31
+								; 			If RCE_IntFromStr(Mid$(AI\TradeResult$, 5 + (j * 3), 1)) = i
+								; 				Amount = RCE_IntFromStr(Mid$(AI\TradeResult$, 6 + (j * 3), 2))
+								; 				If Amount <> A2SoldAmount Then Valid = False
+								; 				Exit
+								; 			EndIf
+								; 		Next
+								; 	EndIf
+								; Next
 
 								If Valid = True
 									; Swap money
@@ -830,7 +831,7 @@ Function UpdateNetwork()
 											RCE_Send(Host, AI\RNID, P_InventoryUpdate, "G" + RCE_StrFromInt$(Handle(GiveItem), 4) + Pa$, True)
 										EndIf
 									Next
-								EndIf
+								 EndIf
 
 								; End trading mode for both players
 								AI\TradeResult$ = ""
@@ -850,7 +851,7 @@ Function UpdateNetwork()
 						EndIf
 						AI\IsTrading = 0
 					EndIf
-				;EndIf {##}
+				EndIf
 
 			; Jump
 			Case P_Jump
@@ -1149,6 +1150,13 @@ Function UpdateNetwork()
 					Else
 						ThreadScript("Default", "Examine", Handle(AI), Handle(A2))
 					EndIf
+				EndIf
+
+				Case P_Trade
+				AI.ActorInstance = FindActorInstanceFromRNID(M\FromID)
+				If AI <> Null And Len(M\MessageData$) = 2
+					A2.ActorInstance = RuntimeIDList(RCE_IntFromStr(M\MessageData$))
+						ThreadScript("Default", "Trade", Handle(AI), Handle(A2))
 				EndIf
 
 			; A player has attacked something

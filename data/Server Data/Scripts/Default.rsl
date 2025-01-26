@@ -15,3 +15,9 @@ Function Examine()
 	Output(Actor(), "This is a " + Name(Target))
 End Function
 
+Function Trade()
+	player = actor()
+	trader = contextactor()
+
+	opentrading(player,trader)
+End Function

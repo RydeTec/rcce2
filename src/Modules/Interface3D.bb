@@ -2,6 +2,7 @@ Global WContextMenu = 0
 Global BInteract = 0
 Global BAttack = 0
 Global BExamine = 0
+Global BTrade = 0
 
 ; Alphabetically sorted list of abilities
 Dim KnownSpellSort(999)
@@ -652,6 +653,15 @@ Function UpdateInterface()
 				GY_FreeGadget(WContextMenu)
 				WContextMenu = 0
 			EndIf
+
+			; Handle Trade button
+			If GY_ButtonHit(BTrade)
+				If AI <> Null
+					RCE_Send(Connection, PeerToHost, P_Trade, RCE_StrFromInt$(AI\RuntimeID, 2), True)
+				EndIf
+				GY_FreeGadget(WContextMenu)
+				WContextMenu = 0
+			EndIf
 			
 			; Close menu if clicked outside
 			If MouseHit(1) And GY_MouseOverGadget = False
@@ -793,6 +803,11 @@ Function UpdateInterface()
 						; Examine button
 						BExamine = GY_CreateButton(WContextMenu, 0.0, 0.66, 1.0, 0.33, "Examine", False, 255, 255, 255, LoadTexture("Data\Textures\GUI\ToolTip.png"))
 						
+						; Trade Button
+						If AI\Actor\TradeMode > 0
+							BTrade = GY_CreateButton(WContextMenu, 0.0, 0.99, 1.0, 0.33, "Trade", False, 255, 255, 255, LoadTexture("Data\Textures\GUI\ToolTip.png"))
+						EndIf
+
 						AttackTarget = False
 					EndIf
 					;HideEntity(ClickMarkerEN) ;{@@@~}
@@ -1169,6 +1184,9 @@ Function UpdateInterface()
 			GY_FreeGadget(WCharInteract)
 			CharInteractVisible = False
 			PlayerTarget = 0
+			;closes open context menu
+			GY_FreeGadget(WContextMenu)
+			WContextMenu = 0
 		; Window still open
 		Else
 			; Change target
