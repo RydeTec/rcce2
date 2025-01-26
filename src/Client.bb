@@ -138,8 +138,8 @@ Include "Modules\ClientCombat.bb"          ; Combat module
 Include "Modules\Interface.bb"             ; In-game user interface
 Include "Modules\Interface3D.bb"           ; In-game user interface 3D stuff
 Include "Modules\Radar.bb"                 ; RifRaf's radar	
-;Include "Modules\RCTrees.bb"               ; RifRaf's trees/grass			[DISABLED]
-Include "Modules\ClientAreas_FE.bb"           ; Area/zone module
+Include "Modules\RCTrees.bb"               ; RifRaf's trees/grass
+Include "Modules\ClientAreas.bb"           ; Area/zone module
 Include "Modules\Logging.bb"               ; Logging
 Include "Modules\ClientLoaders.bb"         ; Client startup module
 Include "Modules\ClientNet.bb"             ; Client specific network module

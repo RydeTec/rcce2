@@ -29,6 +29,8 @@ Include "Modules\RottParticles.bb"
 Include "Modules\Packets.bb"
 Include "Modules\F-UI.bb"
 Include "Modules\Logging.bb"
+Include "Modules\FastExt.bb"			   ; Fast Extends Library
+Include "Modules\ShadowsSimple.bb" 		   ; FE Shadows
 Include "Modules\IO\Managers\GameDataManager.bb"
 
 ; Globals ---------------------------------------------------------------------------------------------------------------------------
