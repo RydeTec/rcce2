@@ -3,8 +3,107 @@ Using "RC_Core.rcm"
 
 ; You are responsible for applying any damage to the actor, but not for animating actors or blood effects
 ; The actor is the attacker, and the context actor is the actor being attacked
+
+;Sample Attack Script for RCCE2 Sample Project written by Wyatt Raymond - March 22 2025
+
 Function Main()
 
+Player = Actor()
+Target = ContextActor()
 
+PName$ = Name(Player)
+TName$ = Name(Target)
+
+;COMBANTANT ATTRIBUTE VARIABLES(These are based on existing Attributes in GUE but more can be added or even less if desired!)
+
+;Player (Attacker) Attributes
+PHealth% = Attribute(Player, "Health")
+PStrength% = Attribute(Player, "Strength")
+PDexterity% = Attribute(Player, "Dexterity")
+PSpeed% = Attribute(Player, "Speed")
+PToughness% = Attribute(Player, "Toughness")
+
+;Target Attributes
+THealth% = Attribute(Target, "Health")
+TStrength% = Attribute(Target, "Strength")
+TDexterity% = Attribute(Target, "Dexterity")
+TSpeed% = Attribute(Target, "Speed")
+TToughness% = Attribute(Target, "Toughness")
+
+;WEAPON AND ARMOR VARIABLES
+
+;Player Weapon (Pulls from item damage set in GUE from weapon items, more can be added such as Strength bonus from enchnacted jewelry!)
+PWeaponDamage% = ItemDamage(ActorWeapon(Player))
+
+;Player Damage Attribute is Determined by Weapon Type (Range vs melee)
+If (ItemWeaponType(ActorWeapon(Player)) = 3)
+    PAttributeDamage% = PDexterity
+Else
+    PAttributeDamage% = PStrength
+EndIf
+
+;Target Armor Class (Includes Armor Value set in GUE from Chest, Hat and Shield Items, more items can be scripted in!)
+TArmorClass% = ItemArmor(ActorChest(Target)) + ItemArmor(ActorHat(Target)) + ItemArmor(ActorShield(Target)) 
+
+;To Hit Roll (Basic comparison between randomly generated die rolls for Attackers speed and Targets Toughness)
+AttackRoll% = Rand(1,PSpeed) + PWeaponDamage%
+DefenseRoll% = Rand(1,TToughness) + TArmorClass%
+
+;Determine hit or miss
+If (AttackRoll > DefenseRoll)
+    Damage = Rand(1,PAttributeDamage) + Rand(0, PWeaponDamage)
+Else
+    Damage = 0
+EndIf
+
+;Animantions + sounds
+
+If(ItemWeaponType(ActorWeapon(Player)) = 1)
+	
+	animateactor(player,"Right hand attack", 1)
+	
+	doevents(500)
+	;Playsound(Player,13,1)
+
+	
+elseif(ItemWeaponType(ActorWeapon(Player)) = 2)
+	animateactor(player,"Two hand attack", 1)
+	doevents(500)
+	;Playsound(Player,13,1)
+
+elseif(ItemWeaponType(ActorWeapon(Player)) = 3)
+	animateactor(player,"bow attack", 2)
+	doevents(1200)
+	;Playsound(Player,2,1)
+	
+else
+	animateactor(player,"default attack", 1)
+	doevents(500)
+	;Playsound(Player,13,1)
+	
+EndIf
+
+;apply damage and show text output and floating number
+newTHealth% = THealth - Damage
+
+if (Damage > 0) ; change color/ texoutput for misses
+    CreateFloatingNumber(Target,Damage,255,0,0)
+    POutput$ = "You have hit " + TName + " for " + Damage + " damage!"
+    TOutput$ = PName + " has hit you for " + Damage + " damage!"
+else
+    CreateFloatingNumber(Target,Damage,0,0,255)
+    POutput$ = "You have missed " + TName + "!"
+    TOutput$ = PName + " has missed you!"
+endif
+
+Output(Player, POutput, 0, 255, 0)
+Output(Target, TOutput, 255, 0, 0)
+ 
+;check for kill
+if (newTHealth > 0)
+    SetAttribute(Target, "Health", newTHealth)
+else
+    killActor(Target, Player)
+endif
 
 End Function

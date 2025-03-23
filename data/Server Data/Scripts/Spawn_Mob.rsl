@@ -1,0 +1,19 @@
+Using "RC_Core.rcm"
+; Define entry function 'Main'
+
+Function Main()
+
+Mob = Actor()
+MobName$ = Name(Mob)
+
+If MobName$ = "Bandit"
+GiveItem(Mob,"Scimitar",1)
+GiveItem(Mob, "Round Shield" , 1)
+
+EndIf
+
+
+
+
+
+End Function

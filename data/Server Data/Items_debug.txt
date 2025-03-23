@@ -7,3 +7,12 @@ Item Name: Scimitar
 Item ID: 2
 Item Name: Battle Axe
 
+Item ID: 3
+Item Name: Short Bow
+
+Item ID: 4
+Item Name: Round Shield
+
+Item ID: 5
+Item Name: Kite Shield
+
