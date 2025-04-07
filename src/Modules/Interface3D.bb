@@ -1792,7 +1792,7 @@ EndIf
 					If Y# + 0.4 > 0.99 Then Y# = 0.59
 					If X# + 0.4 > 0.99 Then X# = 0.59
 					If LTooltip <> 0 Then GY_FreeGadget(LTooltip) : LTooltip = 0
-					WTooltip = GY_CreateWindowInventory(Name$, X#, Y#, 0.15, 0.1, True, False, False)
+					WTooltip = GY_CreateWindowInventory(Name$, X#, Y#, 0.3, 0.25, True, False, False)
 					WTooltipReturn = WInventory
 					GY_CreateLabel(WTooltip, 0.02, 0.01, LanguageString$(LS_Type) + " " + GetItemType$(Me\Inventory\Items[i]\Item))
 					If Me\Inventory\Items[i]\Item\TakesDamage = True

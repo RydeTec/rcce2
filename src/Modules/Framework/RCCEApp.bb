@@ -21,7 +21,7 @@ Type RCCEApp
         self\semMinor = 0
         self\semPatch = 0
         self\preReleasePhase = "alpha"
-        self\preReleaseCount = 3
+        self\preReleaseCount = 4
 
         return self
     End Method

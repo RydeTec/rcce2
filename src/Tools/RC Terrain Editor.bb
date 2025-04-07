@@ -2575,7 +2575,7 @@ slopeval#=Abs((vny1#+vny2#+vny3#+vny4)*.35)
 
 
 vrty# = (VertexY(S,aaa) + VertexY(S,aaa1) + VertexY(S,aaa2) + VertexY(S,aaa3)) * 0.25
-If H1 > H2 Or MinSlope > MaxSlope Then Goto continue
+If H1 > H2 Or MinSlope > MaxSlope Then Goto skip_continue
 
 ;Slopeval#=dp#;Abs(VertexNZ(S,AAA)*1.1)
 If slopeval#=<0 Then slopeval=0.1
@@ -2586,7 +2586,7 @@ If slopeval#=<0 Then slopeval=0.1
   EndIf
 EndIf
 
-.continue
+.skip_continue
 Next
 Next
   Next
