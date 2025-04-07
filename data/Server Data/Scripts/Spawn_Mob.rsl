@@ -5,6 +5,9 @@ Function Main()
 
 Mob = Actor()
 MobName$ = Name(Mob)
+MobLevel# = Level(Mob)
+
+SetActorLevel(Mob,MobLevel)
 
 If MobName$ = "Bandit"
 GiveItem(Mob,"Scimitar",1)

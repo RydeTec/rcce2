@@ -16,3 +16,27 @@ Item Name: Round Shield
 Item ID: 5
 Item Name: Kite Shield
 
+Item ID: 6
+Item Name: Leather Armor
+
+Item ID: 7
+Item Name: Leather Cap
+
+Item ID: 8
+Item Name: Leather Trousers
+
+Item ID: 9
+Item Name: Leather Gloves
+
+Item ID: 10
+Item Name: Breast Plate
+
+Item ID: 11
+Item Name: Plate Helmet
+
+Item ID: 12
+Item Name: Plated Greaves
+
+Item ID: 13
+Item Name: Plated Gauntlets
+
