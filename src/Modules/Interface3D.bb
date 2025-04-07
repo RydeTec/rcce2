@@ -1845,6 +1845,128 @@ EndIf
 				EndIf
 			Next
 		EndIf
+	;Trading Item Tool Tips
+	ElseIf TradingVisible = True And GY_WindowActive(WTrading)
+		If MilliSecs() - LastMouseMove > 1300 And GY_MouseOverGadget = True And WTooltip = 0
+		For i = 0 To 31
+					If GY_MouseHovering(BSlotsMine(i)) = True And Me\Inventory\Items[i + SlotI_Backpack] <> Null
+						Name$ = Me\Inventory\Items[i + SlotI_Backpack]\Item\Name$
+						X# = GY_MouseX# + 0.03
+						Y# = GY_MouseY#
+						If Y# + 0.4 > 0.99 Then Y# = 0.59
+						If X# + 0.4 > 0.99 Then X# = 0.59
+						If LTooltip <> 0 Then GY_FreeGadget(LTooltip) : LTooltip = 0
+						WTooltip = GY_CreateWindowIntan(Name$, X#, Y#, 0.3, 0.25, True, False, False)
+						WTooltipReturn = WTrading
+						GY_CreateLabel(WTooltip, 0.02, 0.01, LanguageString$(LS_Type) + " " + GetItemType$(Me\Inventory\Items[i + SlotI_Backpack]\Item))
+						If Me\Inventory\Items[i + SlotI_Backpack]\Item\TakesDamage = True
+							Damage = 100 - Me\Inventory\Items[i + SlotI_Backpack]\ItemHealth
+							GY_CreateLabel(WTooltip, 0.02, 0.15, LanguageString$(LS_Damage) + " " + Str$(Damage) + "%")
+						Else
+							;GY_CreateLabel(WTooltip, 0.02, 0.12, LanguageString$(LS_Indestructible), 255, 0, 0)
+						EndIf
+						GY_CreateLabel(WTooltip, 0.02, 0.29, "Value :" + " " + Me\Inventory\Items[i + SlotI_Backpack]\Item\Value) ;LanguageString$(LS_Value)
+						GY_CreateLabel(WTooltip, 0.02, 0.43, "Weight:" + " " + Me\Inventory\Items[i + SlotI_Backpack]\Item\Mass) ;LanguageString$(LS_Mass)
+						If Me\Inventory\Items[i + SlotI_Backpack]\Item\Stackable = True
+							GY_CreateLabel(WTooltip, 0.02, 0.57, "Item can be stacked", 255, 255, 255) ;LanguageString$(LS_CanBeStacked)
+						Else
+							GY_CreateLabel(WTooltip, 0.02, 0.57, "Item does not stack", 255, 255, 255) ;LanguageString$(LS_CannotBeStacked)
+						EndIf
+						Select Me\Inventory\Items[i + SlotI_Backpack]\Item\ItemType
+							Case I_Weapon
+								Dam = Me\Inventory\Items[i + SlotI_Backpack]\Item\WeaponDamage
+								DamType$ = DamageTypes$(Me\Inventory\Items[i + SlotI_Backpack]\Item\WeaponDamageType)
+								WepType$ = GetWeaponType$(Me\Inventory\Items[i + SlotI_Backpack]\Item)
+								GY_CreateLabel(WTooltip, 0.02, 0.71, LanguageString$(LS_Damage) + " " + Str$(Dam))
+								GY_CreateLabel(WTooltip, 0.02, 0.55, LanguageString$(LS_DamageType) + " " + DamType$)
+								GY_CreateLabel(WTooltip, 0.02, 0.99, LanguageString$(LS_WeaponType) + " " + WepType$)
+								Y# = 0.61
+							Case I_Armour
+								AP = Me\Inventory\Items[i + SlotI_Backpack]\Item\ArmourLevel
+								GY_CreateLabel(WTooltip, 0.02, 0.71, LanguageString$(LS_ArmourLevel) + " " + Str$(AP))
+								Y# = 0.47
+							Case I_Ingredient, I_Potion
+								EatEffects = Me\Inventory\Items[i + SlotI_Backpack]\Item\EatEffectsLength
+								GY_CreateLabel(WTooltip, 0.02, 0.71, LanguageString$(LS_EffectsLast) + " " + Str$(EatEffects) + " " + LanguageString$(LS_Seconds))
+								Y# = 0.47
+						End Select
+						If Me\Inventory\Items[i + SlotI_Backpack]\Item\ExclusiveRace$ <> ""
+							Ex$ = Me\Inventory\Items[i + SlotI_Backpack]\Item\ExclusiveRace$
+							If Upper$(Me\Actor\Race$) <> Upper$(Ex$)
+								GY_CreateLabel(WTooltip, 0.02, Y#, Ex$ + " " + LanguageString$(LS_RaceOnly), 255, 0, 0)
+								Y# = Y# + 0.07
+							EndIf
+						EndIf
+						If Me\Inventory\Items[i + SlotI_Backpack]\Item\ExclusiveClass$ <> ""
+							Ex$ = Me\Inventory\Items[i + SlotI_Backpack]\Item\ExclusiveClass$
+							If Upper$(Me\Actor\Class$) <> Upper$(Ex$)
+								GY_CreateLabel(WTooltip, 0.02, Y#, Ex$ + " " + LanguageString$(LS_ClassOnly), 255, 0, 0)
+								Y# = Y# + 0.07
+							EndIf
+						EndIf
+						GY_GadgetAlpha(WTooltip, 0.85, True)
+						Exit
+						EndIf
+					If GY_MouseHovering(BSlotsHis(i)) = True And TradeItems(i) <> Null
+							Name$ = TradeItems(i)\Item\Name$
+						X# = GY_MouseX# + 0.03
+						Y# = GY_MouseY#
+						If Y# + 0.4 > 0.99 Then Y# = 0.59
+						If X# + 0.4 > 0.99 Then X# = 0.59
+						If LTooltip <> 0 Then GY_FreeGadget(LTooltip) : LTooltip = 0
+						WTooltip = GY_CreateWindowIntan(Name$, X#, Y#, 0.3, 0.25, True, False, False)
+						WTooltipReturn = WTrading
+						GY_CreateLabel(WTooltip, 0.02, 0.01, LanguageString$(LS_Type) + " " + GetItemType$(TradeItems(i)\Item))
+						If TradeItems(i)\Item\TakesDamage = True
+							Damage = 100 - TradeItems(i)\ItemHealth
+							GY_CreateLabel(WTooltip, 0.02, 0.15, LanguageString$(LS_Damage) + " " + Str$(Damage) + "%")
+						Else
+							;GY_CreateLabel(WTooltip, 0.02, 0.12, LanguageString$(LS_Indestructible), 255, 0, 0)
+						EndIf
+						GY_CreateLabel(WTooltip, 0.02, 0.29, "Value :" + " " + TradeItems(i)\Item\Value) ;LanguageString$(LS_Value)
+						GY_CreateLabel(WTooltip, 0.02, 0.43, "Weight:" + " " + TradeItems(i)\Item\Mass) ;LanguageString$(LS_Mass)
+						If TradeItems(i)\Item\Stackable = True
+							GY_CreateLabel(WTooltip, 0.02, 0.57, "Item can be stacked", 255, 255, 255) ;LanguageString$(LS_CanBeStacked)
+						Else
+							GY_CreateLabel(WTooltip, 0.02, 0.57, "Item does not stack", 255, 255, 255) ;LanguageString$(LS_CannotBeStacked)
+						EndIf
+						Select TradeItems(i)\Item\ItemType
+							Case I_Weapon
+								Dam = TradeItems(i)\Item\WeaponDamage
+								DamType$ = DamageTypes$(TradeItems(i)\Item\WeaponDamageType)
+								WepType$ = GetWeaponType$(TradeItems(i)\Item)
+								GY_CreateLabel(WTooltip, 0.02, 0.71, LanguageString$(LS_Damage) + " " + Str$(Dam))
+								GY_CreateLabel(WTooltip, 0.02, 0.55, LanguageString$(LS_DamageType) + " " + DamType$)
+								GY_CreateLabel(WTooltip, 0.02, 0.99, LanguageString$(LS_WeaponType) + " " + WepType$)
+								Y# = 0.61
+							Case I_Armour
+								AP = TradeItems(i)\Item\ArmourLevel
+								GY_CreateLabel(WTooltip, 0.02, 0.71, LanguageString$(LS_ArmourLevel) + " " + Str$(AP))
+								Y# = 0.47
+							Case I_Ingredient, I_Potion
+								EatEffects = TradeItems(i)\Item\EatEffectsLength
+								GY_CreateLabel(WTooltip, 0.02, 0.71, LanguageString$(LS_EffectsLast) + " " + Str$(EatEffects) + " " + LanguageString$(LS_Seconds))
+								Y# = 0.47
+						End Select
+						If TradeItems(i)\Item\ExclusiveRace$ <> ""
+							Ex$ = TradeItems(i)\Item\ExclusiveRace$
+							If Upper$(Me\Actor\Race$) <> Upper$(Ex$)
+								GY_CreateLabel(WTooltip, 0.02, Y#, Ex$ + " " + LanguageString$(LS_RaceOnly), 255, 0, 0)
+								Y# = Y# + 0.07
+							EndIf
+						EndIf
+						If TradeItems(i)\Item\ExclusiveClass$ <> ""
+							Ex$ = TradeItems(i)\Item\ExclusiveClass$
+							If Upper$(Me\Actor\Class$) <> Upper$(Ex$)
+								GY_CreateLabel(WTooltip, 0.02, Y#, Ex$ + " " + LanguageString$(LS_ClassOnly), 255, 0, 0)
+								Y# = Y# + 0.07
+							EndIf
+						EndIf
+						GY_GadgetAlpha(WTooltip, 0.85, True)
+						Exit
+						EndIf
+				Next
+			EndIf
 	; If hovering over spellbook, create tooltip
 	ElseIf SpellsVisible = True And GY_WindowActive(WSpells)
 		If MilliSecs() - LastMouseMove > 1000 And GY_MouseOverGadget = True And WTooltip = 0
