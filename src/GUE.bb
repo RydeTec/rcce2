@@ -1174,8 +1174,8 @@ Global SItemEatEffects = FUI_Spinner(TItemsGeneral, 110, 210, 100, 20, 1, 100000
 
 Global LItemImageID = FUI_Label(TItemsGeneral, 20, 212, "Display image: [NONE]")
 Global BItemImageID = FUI_Button(TItemsGeneral, 20, 240, 90, 20, "Change")
-Global LItemMiscData = FUI_Label(TItemsGeneral, 20, 212, "Miscellaneous data:")
-Global TItemMiscData = FUI_TextBox(TItemsGeneral, 120, 210, 300, 20)
+Global LItemMiscData = FUI_Label(TItemsGeneral, 20, 400, "Miscellaneous data:")
+Global TItemMiscData = FUI_TextBox(TItemsGeneral, 120, 400, 300, 20)
 
 
 ; Appearance
@@ -7468,7 +7468,7 @@ Function UpdateItemDisplay()
 	FUI_HideGadget(LItemArmourLevel) : FUI_HideGadget(SItemArmourLevel)
 	FUI_HideGadget(LItemEatEffects) : FUI_HideGadget(SItemEatEffects)
 	FUI_HideGadget(LItemImageID) : FUI_HideGadget(BItemImageID)
-	FUI_HideGadget(LItemMiscData) : FUI_HideGadget(TItemMiscData)
+	//FUI_HideGadget(LItemMiscData) : FUI_HideGadget(TItemMiscData)
 	FUI_HideGadget(LItemRangedProjectile) : FUI_HideGadget(CItemRangedProjectile)
 	FUI_HideGadget(LItemRangedAnimation) : FUI_HideGadget(TItemRangedAnimation)
 	FUI_HideGadget(LItemRange) : FUI_HideGadget(SItemRange)
@@ -7606,11 +7606,9 @@ Function UpdateItemDisplay()
 			Case I_Image
 				FUI_ShowGadget(LItemImageID) : FUI_ShowGadget(BItemImageID)
 				FUI_SendMessage(LItemImageID, M_SETTEXT, "Display image: " + GetFilename$(EditorTexName$(SelectedItem\ImageID)))
-			; Other
-			Case I_Other
+			End Select
 				FUI_ShowGadget(LItemMiscData) : FUI_ShowGadget(TItemMiscData)
 				FUI_SendMessage(TItemMiscData, M_SETCAPTION, SelectedItem\MiscData$)
-		End Select
 	EndIf
 
 End Function

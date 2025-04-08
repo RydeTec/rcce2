@@ -1632,10 +1632,9 @@ Function UpdateNetwork()
 						Case I_Potion, I_Ingredient
 							Pa$ = Pa$ + RCE_StrFromInt$(It\EatEffectsLength, 2)
 						Case I_Image
-							Pa$ = Pa$ + RCE_StrFromInt$(It\ImageID, 2)
-						Case I_Other
-							Pa$ = Pa$ + RCE_StrFromInt$(Len(It\MiscData$), 1) + It\MiscData$
+							Pa$ = Pa$ + RCE_StrFromInt$(It\ImageID, 2)							
 					End Select
+					Pa$ = Pa$ + RCE_StrFromInt$(Len(It\MiscData$), 1) + It\MiscData$
 					If ItemsSent >= 6 And It <> Last Item
 						SendQueued(Host, M\FromID, P_FetchActors, "IN" + Pa$, True)
 						ItemsSent = 0

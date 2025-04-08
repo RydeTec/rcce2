@@ -1807,6 +1807,7 @@ EndIf
 					Else
 						GY_CreateLabel(WTooltip, 0.02, 0.33, LanguageString$(LS_CannotBeStacked), 255, 0, 0)
 					EndIf
+					Y# = 0.40
 					Select Me\Inventory\Items[i]\Item\ItemType
 						Case I_Weapon
 							Dam = Me\Inventory\Items[i]\Item\WeaponDamage
@@ -1839,6 +1840,8 @@ EndIf
 							Y# = Y# + 0.07
 						EndIf
 					EndIf
+					ItemDescription$ = Me\Inventory\Items[i]\Item\MiscData$
+					GY_CreateLabel(WTooltip, 0.02, Y# + 0.07, ItemDescription$, 255, 255, 255)
 					GY_GadgetAlpha(WTooltip, 0.85, True)
 					Exit
 				EndIf
@@ -1871,6 +1874,7 @@ EndIf
 					Else
 						GY_CreateLabel(WTooltip, 0.02, 0.33, LanguageString$(LS_CannotBeStacked), 255, 0, 0)
 					EndIf
+					Y# = 0.40
 					Select Me\Inventory\Items[i + SlotI_Backpack]\Item\ItemType
 						Case I_Weapon
 							Dam = Me\Inventory\Items[i + SlotI_Backpack]\Item\WeaponDamage
@@ -1903,6 +1907,8 @@ EndIf
 							Y# = Y# + 0.07
 						EndIf
 					EndIf
+					ItemDescription$ = Me\Inventory\Items[i + SlotI_Backpack]\Item\MiscData$
+					GY_CreateLabel(WTooltip, 0.02, Y# + 0.07, ItemDescription$, 255, 255, 255)
 					GY_GadgetAlpha(WTooltip, 0.85, True)
 						Exit
 						EndIf
@@ -1930,6 +1936,7 @@ EndIf
 					Else
 						GY_CreateLabel(WTooltip, 0.02, 0.33, LanguageString$(LS_CannotBeStacked), 255, 0, 0)
 					EndIf
+					Y# = 0.40
 					Select TradeItems(i)\Item\ItemType
 						Case I_Weapon
 							Dam = TradeItems(i)\Item\WeaponDamage
@@ -1962,6 +1969,8 @@ EndIf
 							Y# = Y# + 0.07
 						EndIf
 					EndIf
+					ItemDescription$ = TradeItems(i)\Item\MiscData$
+					GY_CreateLabel(WTooltip, 0.02, Y# + 0.07, ItemDescription$, 255, 255, 255)
 					GY_GadgetAlpha(WTooltip, 0.85, True)
 						Exit
 						EndIf

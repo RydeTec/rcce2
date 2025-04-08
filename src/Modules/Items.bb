@@ -281,9 +281,8 @@ Function LoadItems(Filename$)
 					I\EatEffectsLength = ReadShort(F)
 				Case I_Image
 					I\ImageID          = ReadShort(F)
-				Case I_Other
-					I\MiscData$        = ReadString$(F)
 			End Select
+			I\MiscData$        = ReadString$(F)
 			Items = Items + 1
 		Wend
 
@@ -330,9 +329,8 @@ Function SaveItems(Filename$)
 					WriteShort F, I\EatEffectsLength
 				Case I_Image
 					WriteShort F, I\ImageID
-				Case I_Other
-					WriteString F, I\MiscData$
 			End Select
+			WriteString F, I\MiscData$
 		Next
 
 	CloseFile(F)

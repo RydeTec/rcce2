@@ -935,11 +935,10 @@ Function LogIn()
 										Case I_Image
 											It\ImageID = RCE_IntFromStr(Mid$(Pa$, Offset, 2))
 											Offset = Offset + 2
-										Case I_Other
+									End Select
 											NameLen = RCE_IntFromStr(Mid$(Pa$, Offset, 1))
 											It\MiscData$ = Mid$(Pa$, Offset + 1, NameLen)
 											Offset = Offset + 1 + NameLen
-									End Select
 								Wend
 								Delete M
 							; Actor block
