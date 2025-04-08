@@ -43,7 +43,9 @@ Function SetActorWeapon(AI.ActorInstance, MeshID)
 		RHand = FindChild(AI\EN, "R_Hand")
 
 		//Place Bows in Left Hand
-		IF AI\Inventory\Items[SlotI_Weapon]\Item\WeaponType = W_Ranged Then R_Hand = FindChild(AI\EN, "L_Hand")
+		If AI\Inventory\Items[SlotI_Weapon]\Item\WeaponType = 3
+		RHand = FindChild(AI\EN, "L_Hand")
+		EndIf 
 
 		If RHand = 0 Then RuntimeError(AI\Actor\Race$ + " actor mesh is missing an 'R_Hand' joint!")
 		EntityParent AI\WeaponEN, RHand, False
