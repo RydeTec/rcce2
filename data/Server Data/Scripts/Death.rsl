@@ -10,11 +10,11 @@ Function Main()
 	Output(Actor(), "You have died...")
 	Death = Rand(1, 3)
 	If (Death = 1)
-		AnimateActor(Actor(), "Death 1", 0.2, 0)
+		AnimateActor(Actor(), "Death 1", 1.0, 0)
 	ElseIf (Death = 2)
-		AnimateActor(Actor(), "Death 2", 0.2, 0)
+		AnimateActor(Actor(), "Death 2", 1.0, 0)
 	Else
-		AnimateActor(Actor(), "Death 3", 0.2, 0)
+		AnimateActor(Actor(), "Death 3", 1.0, 0)
 	EndIf
 
 	; Wait

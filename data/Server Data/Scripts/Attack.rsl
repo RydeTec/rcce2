@@ -102,8 +102,12 @@ Output(Target, TOutput, 255, 0, 0)
 ;check for kill
 if (newTHealth > 0)
     SetAttribute(Target, "Health", newTHealth)
-else
-    killActor(Target, Player)
+else ;Handle Death Differently for NPCs vs Players
+    if ActorIsHuman(Target) < 1
+        killActor(Target, Player)
+    else
+        SetAttribute(Target, "Health", 0)
+    endif
 endif
 
 End Function
