@@ -40,3 +40,6 @@ Item Name: Plated Greaves
 Item ID: 13
 Item Name: Plated Gauntlets
 
+Item ID: 14
+Item Name: Adventurine
+
