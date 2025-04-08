@@ -5,7 +5,7 @@ Function Main()
 
 Mob = Actor()
 MobName$ = Name(Mob)
-MobLevel# = Level(Mob)
+MobLevel# = Attribute(Mob, "NPCLevel")
 
 SetActorLevel(Mob,MobLevel)
 
