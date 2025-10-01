@@ -786,26 +786,31 @@ Function UpdateInterface()
 							CreateCharInteractionWindow(AI)
 						EndIf
 						; Create context menu
+						If WContextMenu <> 0 
+							GY_FreeGadget(WContextMenu)
+							WContextMenu = 0
+						EndIf
 						WContextMenu = GY_CreateWindowInter("Actions", GY_MouseX#, GY_MouseY#, 0.1, 0.08, True, True, False, CreateTexture(2, 2))
-						
+						Y# = 0.0
 						; Interact button
 						Local interactLabel$ = "Interact"
 						If EntityDistance#(AI\CollisionEN, Me\CollisionEN) > InteractRange
 							interactLabel$ = "Move To"
 						EndIf
-						BInteract = GY_CreateButton(WContextMenu, 0.0, 0.0, 1.0, 0.33, interactLabel$, False, 255, 255, 255, LoadTexture("Data\Textures\GUI\ToolTip.png"))
-						
+						BInteract = GY_CreateButton(WContextMenu, Y#, 0.0, 1.0, 0.33, interactLabel$, False, 255, 255, 255, LoadTexture("Data\Textures\GUI\ToolTip.png"))
+						Y# = Y# + 0.33
 						; Attack button (only if target is attackable)
 						If AI\Actor\Aggressiveness < 3 And Me\FactionRatings[AI\HomeFaction] <= 150
-							BAttack = GY_CreateButton(WContextMenu, 0.0, 0.33, 1.0, 0.33, "Attack", False, 255, 255, 255, LoadTexture("Data\Textures\GUI\ToolTip.png"))
+							BAttack = GY_CreateButton(WContextMenu, 0.0, Y#, 1.0, 0.33, "Attack", False, 255, 255, 255, LoadTexture("Data\Textures\GUI\ToolTip.png"))
+							Y# = Y# + 0.33
 						EndIf
 						
 						; Examine button
-						BExamine = GY_CreateButton(WContextMenu, 0.0, 0.66, 1.0, 0.33, "Examine", False, 255, 255, 255, LoadTexture("Data\Textures\GUI\ToolTip.png"))
-						
+						BExamine = GY_CreateButton(WContextMenu, 0.0, Y#, 1.0, 0.33, "Examine", False, 255, 255, 255, LoadTexture("Data\Textures\GUI\ToolTip.png"))
+						Y# = Y# + 0.33
 						; Trade Button
 						If AI\Actor\TradeMode > 0
-							BTrade = GY_CreateButton(WContextMenu, 0.0, 0.99, 1.0, 0.33, "Trade", False, 255, 255, 255, LoadTexture("Data\Textures\GUI\ToolTip.png"))
+							BTrade = GY_CreateButton(WContextMenu, 0.0, Y#, 1.0, 0.33, "Trade", False, 255, 255, 255, LoadTexture("Data\Textures\GUI\ToolTip.png"))
 						EndIf
 
 						AttackTarget = False
@@ -3126,6 +3131,8 @@ Function DestroyCharInteractionWindow()
 	GY_FreeGadget( WCharInteract )
 	CharInteract = Null
 	CharInteractVisible = False
+	GY_FreeGadget(WContextMenu)
+	WContextMenu = 0
 End Function
 
 ;#End Region
