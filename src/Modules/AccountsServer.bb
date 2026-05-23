@@ -192,7 +192,16 @@ Function LoadAccounts()
 			Chars = ReadByte(F)
 			For i = 1 To Chars
 				A\Character[i - 1] = ReadActorInstance(F)
-				A\Character[i - 1]\Account = Handle(A)
+				; Previously this dereferenced A\Character[i - 1]\Account
+				; before the Null cleanup below; a corrupted/partial
+				; Accounts.dat (server crash mid-save, manual edit) crashed
+				; every subsequent server startup. Skip the Account-link and
+				; per-character allocations on a Null read; we still need to
+				; consume the trailing QuestLog + ActionBar bytes from the
+				; stream so following characters parse correctly.
+				If A\Character[i - 1] <> Null
+					A\Character[i - 1]\Account = Handle(A)
+				EndIf
 				A\QuestLog[i - 1] = New QuestLog
 				For j = 0 To 499
 					A\QuestLog[i - 1]\EntryName$[j] = ReadString$(F)

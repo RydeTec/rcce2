@@ -71,13 +71,20 @@ Function GiveXP(A.ActorInstance, XP, IgnoreParty = 0)
 					If Party\Player[i]\ServerArea = A\ServerArea Then Members = Members + 1
 				EndIf
 			Next
-			PartyXP = XP / Members
-			For i = 0 To 7
-				If Party\Player[i] <> Null And Party\Player[i] <> A
-					If Party\Player[i]\ServerArea = A\ServerArea Then GiveXP(Party\Player[i], PartyXP, True)
-				EndIf
-			Next
-			XP = PartyXP + (XP Mod Party\Members)
+			; Skip the share path entirely if no in-area members were
+			; counted. Previously `XP / Members` and `XP Mod Party\Members`
+			; could fire with Members or Party\Members = 0 (everyone in the
+			; party in different zones, or a desynced party state), crashing
+			; the server on every kill that yielded XP.
+			If Members > 0 And Party\Members > 0
+				PartyXP = XP / Members
+				For i = 0 To 7
+					If Party\Player[i] <> Null And Party\Player[i] <> A
+						If Party\Player[i]\ServerArea = A\ServerArea Then GiveXP(Party\Player[i], PartyXP, True)
+					EndIf
+				Next
+				XP = PartyXP + (XP Mod Party\Members)
+			EndIf
 		EndIf
 	EndIf
 
@@ -928,7 +935,15 @@ Function UpdateActorInstances(Broadcast)
 								XDist# = Abs(A2\X# - A2\DestX#)
 								ZDist# = Abs(A2\Z# - A2\DestZ#)
 								DoneDist# = (XDist# * XDist#) + (ZDist# * ZDist#)
-								YPos# = A2\Y# + ((AInstance\Area\WaypointY#[A2\CurrentWaypoint] - A2\Y#) * (DoneDist# / TotalDist#))
+								; Avoid divide-by-zero when the waypoint coincides with the
+								; previous origin (single-waypoint patrol or a config error
+								; that left OldX/Z == DestX/Z). Fall back to the actor's
+								; current Y rather than crashing the periodic broadcast.
+								If TotalDist# > 0.0
+									YPos# = A2\Y# + ((AInstance\Area\WaypointY#[A2\CurrentWaypoint] - A2\Y#) * (DoneDist# / TotalDist#))
+								Else
+									YPos# = A2\Y#
+								EndIf
 							Else
 								YPos# = A2\Y#
 							EndIf
