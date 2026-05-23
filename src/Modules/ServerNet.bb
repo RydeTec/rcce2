@@ -1492,9 +1492,24 @@ Function UpdateNetwork()
 					EndIf
 					AI\RuntimeID = -1
 					AI\IsTrading = 0
+					; Mark-and-sweep to avoid deleting the current iterator.
+					; The original loop called FreeItemInstance(II) while II
+					; was still the For-Each cursor; Blitz then used II's
+					; freed next pointer for the following iteration,
+					; intermittently skipping items or crashing the server
+					; on logout. First pass tags candidates; we then sweep
+					; via a fresh enumeration that never reaches a tagged
+					; item by its own next pointer.
 					For II.ItemInstance = Each ItemInstance
-						If II\AssignTo = AI And II\Assignment > 0 Then FreeItemInstance(II)
+						If II\AssignTo = AI And II\Assignment > 0 Then II\Assignment = -1
 					Next
+					Local IINext.ItemInstance = Null
+					II.ItemInstance = First ItemInstance
+					While II <> Null
+						IINext = After II
+						If II\Assignment = -1 And II\AssignTo = AI Then FreeItemInstance(II)
+						II = IINext
+					Wend
 					
 					; Remove from server display
 					If AInstance <> Null

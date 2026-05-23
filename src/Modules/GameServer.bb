@@ -100,6 +100,31 @@ Function GiveXP(A.ActorInstance, XP, IgnoreParty = 0)
 End Function
 
 ; Kills off an actor instance
+; Deferred-kill queue. KillActor can FreeActorInstance(A), and when KillActor
+; is invoked from inside `For AI.ActorInstance = Each ActorInstance` (e.g.
+; water-damage death in UpdateActorInstances), freeing the current iterator
+; leaves Blitz's For-Each next-pointer pointing into freed memory. The
+; iteration sites use DeferKillActor instead, then call ProcessPendingKills
+; after the loop completes.
+Type PendingKill
+	Field Actor.ActorInstance
+	Field Killer.ActorInstance
+End Type
+
+Function DeferKillActor(A.ActorInstance, Killer.ActorInstance)
+	If A = Null Then Return
+	PK.PendingKill = New PendingKill
+	PK\Actor = A
+	PK\Killer = Killer
+End Function
+
+Function ProcessPendingKills()
+	For PK.PendingKill = Each PendingKill
+		If PK\Actor <> Null Then KillActor(PK\Actor, PK\Killer)
+	Next
+	Delete Each PendingKill
+End Function
+
 Function KillActor(A.ActorInstance, Killer.ActorInstance)
 
 	; Tell players in the same area if it was an AI actor dying
@@ -671,7 +696,11 @@ Function UpdateActorInstances(Broadcast)
 							UpdateAttribute(AI, HealthStat, AI\Attributes\Value[HealthStat] - 1)
 							If AI\Attributes\Value[HealthStat] <= 0
 								AI\Attributes\Value[HealthStat] = 0
-								KillActor(AI, Null)
+								; AI is the current For-Each iterator — defer the
+								; actual KillActor (which FreeActorInstance's an AI)
+								; until after the loop. See DeferKillActor /
+								; ProcessPendingKills.
+								DeferKillActor(AI, Null)
 							EndIf
 						EndIf
 						If AI\RNID > 0
@@ -686,7 +715,8 @@ Function UpdateActorInstances(Broadcast)
 						UpdateAttribute(AI, HealthStat, AI\Attributes\Value[HealthStat] - Damage)
 						If AI\Attributes\Value[HealthStat] <= 0
 							AI\Attributes\Value[HealthStat] = 0
-							KillActor(AI, Null)
+							; Same iterator-during-iteration hazard — defer.
+							DeferKillActor(AI, Null)
 						EndIf
 					EndIf
 				EndIf
@@ -878,6 +908,12 @@ Function UpdateActorInstances(Broadcast)
 			EndIf
 		EndIf
 	Next
+
+	; Process any kills deferred from the loop above (water-damage NPC
+	; deaths). Doing it here means the For-Each next-pointers stayed valid
+	; throughout the iteration; the actual FreeActorInstance(A) happens
+	; now, while no iteration is active.
+	ProcessPendingKills()
 
 ;****************************************************************
 ;****************************************************************
