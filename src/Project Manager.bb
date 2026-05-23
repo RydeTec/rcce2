@@ -322,6 +322,11 @@ local M_SWH = FUI_MenuItem(M_Help, "Spell Wizard Help")
 local M_HF = FUI_MenuItem(M_Help, "Help File")
 
 ;Function Buttons
+; Buttons disabled; preserve the global symbols so the (dead) Case BMINI /
+; Case BCLOSE branches below still compile under Strict mode. Both will
+; remain 0, so the Cases never match a real gadget event.
+Global BMINI = 0
+Global BCLOSE = 0
 ;BMINI = FUI_Button(WMain, 509, 1, 18, 18, "_")
 ;BCLOSE = FUI_Button(WMain, 529, 1, 18, 18, "X")
 
