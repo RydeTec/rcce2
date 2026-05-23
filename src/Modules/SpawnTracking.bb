@@ -14,7 +14,11 @@ Function SyncAreaSpawnCounts()
 	Next
 
 	For AI.ActorInstance = Each ActorInstance
-		If AI\SourceSP > -1
+		; Upper-bound SourceSP against the Spawned[] array (declared 0..999).
+		; Legacy saves or a script bug can leave an actor with an out-of-range
+		; SourceSP; before this guard the resync wrote past the end of the
+		; AreaInstance struct, corrupting adjacent fields.
+		If AI\SourceSP > -1 And AI\SourceSP <= 999
 			AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea)
 			If AInstance <> Null
 				AInstance\Spawned[AI\SourceSP] = AInstance\Spawned[AI\SourceSP] + 1

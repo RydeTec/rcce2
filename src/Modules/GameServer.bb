@@ -963,10 +963,16 @@ End Function
 ; Changes the area of an actor instance
 Function SetArea(A.ActorInstance, Ar.Area, Instance, Waypoint = -1, Portal = 0, X# = 0, Y# = 0, Z# = 0)
 
-	; Check instance exists
-	If Ar\Instances[Instance] = Null
+	; Check instance exists. The bounds check has to come BEFORE the
+	; Instances[] access — without it, a GM typing `/warp Area, 9999`
+	; indexed past the 100-slot Instances array (declared 0..99) and
+	; crashed the server before any Null check could run.
+	If Instance < 0 Or Instance > 99
+		WriteLog(MainLog, "Error: Cannot put actor into instance #" + Str$(Instance) + " of " + Ar\Name$ + " — instance index out of range")
 		Instance = 0
+	ElseIf Ar\Instances[Instance] = Null
 		WriteLog(MainLog, "Error: Cannot put actor into instance #" + Str$(Instance) + " of " + Ar\Name$ + " as the instance does not exist")
+		Instance = 0
 	EndIf
 	
 	;set flag to ignore standard updates until client has notified us that it has completed the move
