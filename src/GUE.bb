@@ -30,6 +30,7 @@ Include "Modules\RottParticles.bb"
 Include "Modules\Packets.bb"
 Include "Modules\F-UI.bb"
 Include "Modules\Logging.bb"
+Include "Modules\CommandPalette.bb"
 
 ; Globals ---------------------------------------------------------------------------------------------------------------------------
 
@@ -2164,6 +2165,12 @@ FUI_HideMouse()
 SetZoneDefaults()
 CurrentArea = ServerCreateArea()
 UpdateZoneDisplay(1)
+
+; Loom: build the Ctrl+K command palette. Hidden until invoked. Has to come
+; after the entity comboboxes are populated so the palette can search across
+; the same in-memory entity lists the rest of GUE uses.
+CmdPalette_Init()
+
 WriteLog(GUELog, "** GUE loading complete **")
 CloseAllLogs()
 
@@ -3135,13 +3142,23 @@ Cls
 	; Update screen
 	RP_Update(Delta#)
 	FUI_Update()
-	
+
 	;Update after Event checks cysis145
 	;Flip(0)
+
+	; Loom: global hotkey poll (Ctrl+K opens palette, Esc/Enter handled while open).
+	CmdPalette_PollKeys()
 
 	Local E.Event
 	; Process events
 	For E.Event = Each Event
+
+		; Loom: let the command palette consume its own events (text field
+		; changes for live filtering, listbox clicks for activation). The
+		; palette's gadget IDs are unique handles and won't collide with
+		; anything in the Select below, so we just call this in parallel.
+		CmdPalette_HandleEvent(E\EventID, E\EventData)
+
 		Select E\EventID
 
 			;- Tab switched ----------------------------------------------------------------------------------------------------------
