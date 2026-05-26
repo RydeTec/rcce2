@@ -81,6 +81,7 @@ Include "Modules\Logging.bb"
 // Loom UI layer.
 Include "Modules\Loom\Theme.bb"
 Include "Modules\Loom\Atlas.bb"
+Include "Modules\Loom\ZoneMap.bb"
 
 
 // -----------------------------------------------------------------------------
@@ -178,41 +179,50 @@ Atlas_Init()
 
 
 // -----------------------------------------------------------------------------
-// Boot surface: world atlas. Click a zone to "select" it -- this PR just
-// logs the selection and shows an acknowledgement overlay for one frame
-// to confirm the interaction is plumbed; PR #3 will hand off to the world
-// view that loads the zone's mesh and entities in 3D.
+// Main loop -- two surfaces, switched by clicks:
 //
-// Esc exits.
+//   ATLAS  : zone picker (Atlas.bb). Click a zone to open it.
+//   MAP    : top-down map of the opened zone (ZoneMap.bb). Click entities
+//            to select. Back button or Esc returns to atlas.
+//
+// From the atlas, Esc exits Loom.
+// From the map, Esc returns to the atlas (the user has to be back at the
+// atlas to exit -- prevents accidentally killing the editor mid-edit).
 // -----------------------------------------------------------------------------
-WriteLog(LoomLog, "** Atlas loop running **")
+WriteLog(LoomLog, "** Main loop running **")
 
-Global LoomSelectedZone = 0   // Handle(Area); set by Atlas_RenderAndUpdate
+Const LOOM_MODE_ATLAS = 1
+Const LOOM_MODE_MAP   = 2
+Global LoomMode = LOOM_MODE_ATLAS
+
+Global LoomSelectedZone = 0   // Handle(Area); set when the user picks in atlas
 
 Repeat
     Cls
 
-    Local pickedHandle = Atlas_RenderAndUpdate(Loom_width, Loom_height, LoomProjectName$)
-    If pickedHandle <> 0
-        LoomSelectedZone = pickedHandle
-        Local pickedArea.Area = Object.Area(LoomSelectedZone)
-        If pickedArea <> Null
-            WriteLog(LoomLog, "Atlas: selected zone '" + pickedArea\Name$ + "' (handle " + Str(LoomSelectedZone) + ")")
+    If LoomMode = LOOM_MODE_ATLAS
+        Local pickedHandle = Atlas_RenderAndUpdate(Loom_width, Loom_height, LoomProjectName$)
+        If pickedHandle <> 0
+            LoomSelectedZone = pickedHandle
+            ZoneMap_Open(LoomSelectedZone)
+            LoomMode = LOOM_MODE_MAP
         EndIf
+
+        // Esc exits from the atlas.
+        If KeyHit(1) Then Exit
     EndIf
 
-    // Selected-zone toast in the bottom-left corner. Persists until another
-    // selection or until exit -- gives the user feedback that the click was
-    // received while PR #3's world view is still pending.
-    If LoomSelectedZone <> 0
-        Local sel.Area = Object.Area(LoomSelectedZone)
-        If sel <> Null
-            Loom_DrawSelectionToast(Loom_width, Loom_height, sel\Name$)
+    If LoomMode = LOOM_MODE_MAP
+        Local backRequested = ZoneMap_RenderAndUpdate(Loom_width, Loom_height)
+        // Esc also returns to atlas (does not exit Loom from the map).
+        If backRequested = True Or KeyHit(1)
+            LoomMode = LOOM_MODE_ATLAS
+            WriteLog(LoomLog, "Returned to atlas from zone map")
         EndIf
     EndIf
 
     Flip
-Until KeyHit(1)
+Until False
 
 WriteLog(LoomLog, "** Loom shutdown **")
 CloseAllLogs()
