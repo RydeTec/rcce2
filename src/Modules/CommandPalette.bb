@@ -293,48 +293,66 @@ End Function
 // GUE_JumpToEntity -- PUBLIC navigation primitive.
 //
 // Switches to the entity's owning tab and selects it. Reused by the palette
-// today and by PR 2-4 (conscience findings, cross-ref nav, world atlas).
+// today and by the conscience / cross-ref / atlas features.
 //
-// We programmatically set the tab index and the combobox selection, then fire
-// the corresponding FUI events so the existing tab-switch / combobox-change
-// dispatchers run their normal hide/show + UpdateXDisplay logic next frame.
-// This re-uses every line of the existing handlers instead of duplicating
-// their show/hide bookkeeping.
+// We programmatically set the tab index and the entity-picker selection, then
+// fire the corresponding FUI events so the existing tab-switch / picker-
+// change dispatchers run their normal hide/show + UpdateXDisplay logic next
+// frame. This re-uses every line of the existing handlers instead of
+// duplicating their show/hide bookkeeping.
+//
+// Supported kinds (and their entity-picker widget + data-payload convention):
+//
+//   kind     | tab | picker            | refID payload
+//   ---------+-----+-------------------+--------------------------------------
+//   actor    |  9  | CActorSelected    | Actor\ID                  (combobox)
+//   item     | 10  | CItemSelected     | Item\ID                   (combobox)
+//   spell    | 13  | CSpellSelected    | Spell\ID                  (combobox)
+//   zone     | 12  | CZone             | Handle(Area)              (combobox)
+//   faction  |  6  | LFactions         | FactionNames$ index 0..99 (listbox)
+//   animset  |  7  | LAnimSets         | AnimSet\ID                (listbox)
+//
+// Listbox and combobox share the same M_SETINDEX / M_GETSELECTED / M_GETDATA
+// shape in F-UI, so the picker-walk loop is identical.
 // =============================================================================
 Function GUE_JumpToEntity(kind$, refID)
     Local tabIdx = 0
-    Local cb = 0
+    Local picker = 0
 
     Select Lower$(kind$)
         Case "actor"
-            tabIdx = 9 : cb = CActorSelected
+            tabIdx = 9 : picker = CActorSelected
         Case "item"
-            tabIdx = 10 : cb = CItemSelected
+            tabIdx = 10 : picker = CItemSelected
         Case "spell"
-            tabIdx = 13 : cb = CSpellSelected
+            tabIdx = 13 : picker = CSpellSelected
         Case "zone"
-            tabIdx = 12 : cb = CZone
+            tabIdx = 12 : picker = CZone
+        Case "faction"
+            tabIdx = 6 : picker = LFactions
+        Case "animset"
+            tabIdx = 7 : picker = LAnimSets
     End Select
 
-    If tabIdx = 0 Or cb = 0 Then Return
+    If tabIdx = 0 Or picker = 0 Then Return
 
     // Visible tab switch + ask the dispatcher to run its leave/enter logic.
     FUI_SendMessage(TabMain, M_SETINDEX, tabIdx)
     FUI_CreateEvent(TabMain, Str(tabIdx))
 
-    // Walk the combobox items to find the one whose stored data matches.
-    // Items are 1-indexed in F-UI comboboxes.
-    Local n = FUI_SendMessage(cb, M_COUNTITEMS)
+    // Walk the picker items to find the one whose stored data matches.
+    // Items are 1-indexed in F-UI comboboxes and listboxes.
+    Local n = FUI_SendMessage(picker, M_COUNTITEMS)
     Local i = 0
-    Local cbItem = 0
-    Local cbData = 0
+    Local pItem = 0
+    Local pData = 0
     For i = 1 To n
-        FUI_SendMessage(cb, M_SETINDEX, i)
-        cbItem = FUI_SendMessage(cb, M_GETSELECTED)
-        cbData = FUI_SendMessage(cbItem, M_GETDATA)
-        If cbData = refID Then Exit
+        FUI_SendMessage(picker, M_SETINDEX, i)
+        pItem = FUI_SendMessage(picker, M_GETSELECTED)
+        pData = FUI_SendMessage(pItem, M_GETDATA)
+        If pData = refID Then Exit
     Next
 
-    // Fire the combobox-change event so the downstream handler runs.
-    FUI_CreateEvent(cb, "")
+    // Fire the picker-change event so the downstream handler runs.
+    FUI_CreateEvent(picker, "")
 End Function

@@ -840,6 +840,9 @@ FUI_ComboBoxItem(CActorGenders, "Female only")
 FUI_ComboBoxItem(CActorGenders, "No gender")
 FUI_Label(TActorsDescription, 20, 172, "Home faction:")
 Global CActorFaction = FUI_ComboBox(TActorsDescription, 120, 170, 250, 20, 10)
+; Loom xref-nav: jump to the faction's editor on the Factions tab.
+Global BActorFactionGoto = FUI_Button(TActorsDescription, 375, 170, 22, 20, ">", "", 0, CS_BORDER)
+FUI_ToolTip(BActorFactionGoto, "Open this faction in the Factions tab")
 For i = 0 To 99
 	If FactionNames$(i) <> ""
 		Item = FUI_ComboBoxItem(CActorFaction, FactionNames$(i)) : FUI_SendMessage(Item, M_SETDATA, i)
@@ -878,8 +881,13 @@ Global BActorPlayable = FUI_CheckBox(TActorsGeneral, 20, 172, "Actor is playable
 Global BActorRideable = FUI_CheckBox(TActorsGeneral, 20, 192, "Actor can be ridden")
 FUI_Label(TActorsGeneral, 20, 222, "Male animation set:")
 Global CActorMAnim = FUI_ComboBox(TActorsGeneral, 140, 220, 150, 20, 8)
+; Loom xref-nav: jump to this anim set's editor on the Animations tab.
+Global BActorMAnimGoto = FUI_Button(TActorsGeneral, 295, 220, 22, 20, ">", "", 0, CS_BORDER)
+FUI_ToolTip(BActorMAnimGoto, "Open this animation set in the Animations tab")
 FUI_Label(TActorsGeneral, 20, 252, "Female animation set:")
 Global CActorFAnim = FUI_ComboBox(TActorsGeneral, 140, 250, 150, 20, 8)
+Global BActorFAnimGoto = FUI_Button(TActorsGeneral, 295, 250, 22, 20, ">", "", 0, CS_BORDER)
+FUI_ToolTip(BActorFAnimGoto, "Open this animation set in the Animations tab")
 For AS.AnimSet = Each AnimSet
 	Item = FUI_ComboBoxItem(CActorMAnim, AS\Name$) : FUI_SendMessage(Item, M_SETDATA, AS\ID)
 	Item = FUI_ComboBoxItem(CActorFAnim, AS\Name$) : FUI_SendMessage(Item, M_SETDATA, AS\ID)
@@ -5495,6 +5503,14 @@ Cls
 					SelectedActor\Resistances[ID] = E\EventData
 					ActorsSaved = False
 				EndIf
+
+			; Loom xref-nav: jump from this actor's bound entities to their editors.
+			Case BActorFactionGoto
+				If SelectedActor <> Null Then GUE_JumpToEntity("faction", SelectedActor\DefaultFaction)
+			Case BActorMAnimGoto
+				If SelectedActor <> Null Then GUE_JumpToEntity("animset", SelectedActor\MAnimationSet)
+			Case BActorFAnimGoto
+				If SelectedActor <> Null Then GUE_JumpToEntity("animset", SelectedActor\FAnimationSet)
 
 			; Actor navigation
 			Case CActorSelected
