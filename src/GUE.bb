@@ -32,6 +32,7 @@ Include "Modules\F-UI.bb"
 Include "Modules\Logging.bb"
 Include "Modules\CommandPalette.bb"
 Include "Modules\ConscienceRibbon.bb"
+Include "Modules\WorldAtlas.bb"
 
 ; Globals ---------------------------------------------------------------------------------------------------------------------------
 
@@ -2186,6 +2187,9 @@ CmdPalette_Init()
 ; references in items / spells are still valid.
 Conscience_Init()
 
+; Loom: build the Ctrl+M world atlas overlay (hidden until invoked).
+Atlas_Init()
+
 WriteLog(GUELog, "** GUE loading complete **")
 CloseAllLogs()
 
@@ -3164,6 +3168,9 @@ Cls
 	; Loom: global hotkey poll (Ctrl+K opens palette, Esc/Enter handled while open).
 	CmdPalette_PollKeys()
 
+	; Loom: world atlas hotkey poll (Ctrl+M opens, Esc closes).
+	Atlas_PollKeys()
+
 	; Loom: refresh the world-health conscience ribbon (internally throttled).
 	Conscience_Update()
 
@@ -3180,6 +3187,9 @@ Cls
 		; Loom: conscience ribbon dispatches its own button + findings-list
 		; clicks the same way.
 		Conscience_HandleEvent(E\EventID, E\EventData)
+
+		; Loom: world atlas dispatches its own zone-list clicks.
+		Atlas_HandleEvent(E\EventID, E\EventData)
 
 		Select E\EventID
 
