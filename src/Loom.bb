@@ -82,6 +82,7 @@ Include "Modules\Logging.bb"
 Include "Modules\Loom\Theme.bb"
 Include "Modules\Loom\Atlas.bb"
 Include "Modules\Loom\ZoneMap.bb"
+Include "Modules\Loom\Composer.bb"
 
 
 // -----------------------------------------------------------------------------
@@ -214,6 +215,10 @@ Repeat
 
     If LoomMode = LOOM_MODE_MAP
         Local backRequested = ZoneMap_RenderAndUpdate(Loom_width, Loom_height)
+        // Composer paints on top of the zone map if anything is selected;
+        // ZoneMap reserves Composer_Width() pixels on the right so markers
+        // along the right edge don't sit hidden behind the panel.
+        Composer_RenderIfVisible(Loom_width, Loom_height)
         // Esc also returns to atlas (does not exit Loom from the map).
         If backRequested = True Or KeyHit(1)
             LoomMode = LOOM_MODE_ATLAS

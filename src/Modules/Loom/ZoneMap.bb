@@ -202,9 +202,13 @@ Function ZoneMap_RenderAndUpdate(sw, sh)
     ZM_BackBtnClickedThisFrame = False
 
     // -- View area --------------------------------------------------------
+    // Reserve space on the right for the composer panel when it's visible.
+    // Composer_Width() returns 0 when nothing is selected, so an unselected
+    // map fills the full screen width.
+    Local rightReserve = Composer_Width()
     Local viewX = ZM_LEFT_PAD
     Local viewY = ZM_TOP_RIBBON + 16
-    Local viewW = sw - (ZM_LEFT_PAD + ZM_RIGHT_PAD)
+    Local viewW = sw - (ZM_LEFT_PAD + ZM_RIGHT_PAD) - rightReserve
     Local viewH = sh - ZM_TOP_RIBBON - ZM_BOT_RIBBON - 32
 
     // Subtle grid panel
