@@ -47,11 +47,13 @@ Global CR_Open       = False
 // Layout
 Const CR_RIBBON_W = 460
 Const CR_RIBBON_H = 18
-// Y=24 sits just below the menu bar (which owns Y=0..20). Y=2 was inside the
-// menu bar's mouse-capture zone, which made the Issues button unclickable
-// even though it rendered. Y=24 overlays the right side of the tab title
-// strip, where no tab title extends, so there's no visual collision.
-Const CR_RIBBON_Y = 24
+// Placement history:
+//   Y=2  -- inside menu bar's mouse-capture zone -> Issues button unclickable
+//   Y=24 -- inside tab title strip (Y=20..40)    -> button invisible behind it
+//   Bottom -- the only horizontal strip in WMain with nothing in it on any tab.
+//
+// We compute the actual Y at Init time from GraphicsHeight() so this works
+// whether GUE is launched fullscreen or in a window of any size.
 
 Const CR_FW_W = 600
 Const CR_FW_H = 380
@@ -87,19 +89,19 @@ Function Conscience_Init()
 
     CR_Findings = CreateList()
 
-    // Place the status label in the top-right, in the menu bar's empty real
-    // estate. Owned by WMain so it sits over the menu strip (the menu titles
-    // start at the left and don't extend this far).
+    // Bottom-right of WMain -- the only horizontal strip with nothing in it
+    // on any tab (the menu bar Y=0..20 captures clicks, the tab title strip
+    // Y=20..40 renders on top of overlays, the tab content area has gadgets).
     Local sw = GraphicsWidth()
+    Local sh = GraphicsHeight()
+    Local rowY = sh - CR_RIBBON_H - 4
     Local startX = sw - CR_RIBBON_W - 10
 
-    CR_LblStatus = FUI_Label(WMain, startX, CR_RIBBON_Y + 2, "World ready.", ALIGN_LEFT)
+    CR_LblStatus = FUI_Label(WMain, startX, rowY + 2, "World ready.", ALIGN_LEFT)
 
     // "Issues..." button -- shown at all times so users learn it exists. Use
-    // CS_BORDER (the F-UI default) so the button is visibly clickable; passing
-    // Flags=0 strips the border AND was the suspected cause of the click
-    // hit-test failing.
-    CR_BtnIssues = FUI_Button(WMain, sw - 90, CR_RIBBON_Y, 80, CR_RIBBON_H, "Issues...", "", 0, CS_BORDER)
+    // CS_BORDER (the F-UI default) so the button is visibly clickable.
+    CR_BtnIssues = FUI_Button(WMain, sw - 90, rowY, 80, CR_RIBBON_H, "Issues...", "", 0, CS_BORDER)
 
     // Hidden findings modal.
     Local px = (sw - CR_FW_W) / 2

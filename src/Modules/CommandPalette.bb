@@ -357,8 +357,18 @@ Function GUE_JumpToEntity(kind$, refID)
 
     If tabIdx = 0 Or picker = 0 Then Return
 
-    // Visible tab switch + ask the dispatcher to run its leave/enter logic.
-    FUI_SendMessage(TabMain, M_SETINDEX, tabIdx)
+    // Visible tab switch.
+    //
+    // F-UI's M_SETINDEX on Tab does set actTabPage internally, but in
+    // practice the tab does NOT visibly switch when invoked from outside
+    // the normal click path (suspected cause: nested-For-loop iterator
+    // shadowing in F-UI's M_SETINDEX implementation). Bypass M_SETINDEX
+    // and set the active page directly, then rebuild every page so the
+    // visuals refresh on the next render.
+    GUE_SetActiveTab(tabIdx)
+
+    // Ask the existing Case TabMain dispatcher to run its leave/enter
+    // hide/show logic next frame.
     FUI_CreateEvent(TabMain, Str(tabIdx))
 
     // Walk the picker items to find the one whose stored data matches.
@@ -380,4 +390,45 @@ Function GUE_JumpToEntity(kind$, refID)
 
     // Fire the picker-change event so the downstream handler runs.
     FUI_CreateEvent(picker, "")
+End Function
+
+
+// =============================================================================
+// GUE_SetActiveTab -- direct active-tab assignment, bypassing F-UI's
+// M_SETINDEX whose nested-For-loop iterator shadowing was preventing the
+// visible tab switch when called from outside the click path.
+//
+// Walks every TabPage looking for the (tabIdx)th page owned by TabMain (1-
+// indexed in the same order tabs were created with FUI_TabPage). Assigns it
+// to the Tab's actTabPage and rebuilds all sibling TabPage visuals so the
+// next render shows the new tab active and the others inactive.
+//
+// We use distinct iterator variable names (`probe` then `sib`) instead of
+// reusing one, which was the suspected cause of F-UI's M_SETINDEX failing.
+// =============================================================================
+Function GUE_SetActiveTab(tabIdx)
+    Local TM.Tab = Object.Tab(TabMain)
+    If TM = Null Then Return
+
+    Local count = 1
+    Local target.TabPage = Null
+    For probe.TabPage = Each TabPage
+        If probe\Owner = TM
+            If count = tabIdx
+                target = probe
+                Exit
+            EndIf
+            count = count + 1
+        EndIf
+    Next
+
+    If target = Null Then Return
+
+    TM\actTabPage = target
+
+    For sib.TabPage = Each TabPage
+        If sib\Owner = TM
+            FUI_BuildTabPage sib
+        EndIf
+    Next
 End Function
