@@ -31,6 +31,7 @@ Include "Modules\Packets.bb"
 Include "Modules\F-UI.bb"
 Include "Modules\Logging.bb"
 Include "Modules\CommandPalette.bb"
+Include "Modules\ConscienceRibbon.bb"
 
 ; Globals ---------------------------------------------------------------------------------------------------------------------------
 
@@ -2171,6 +2172,12 @@ UpdateZoneDisplay(1)
 ; the same in-memory entity lists the rest of GUE uses.
 CmdPalette_Init()
 
+; Loom: build the world-health conscience ribbon in the top-right of WMain.
+; Needs to come after the script-name comboboxes (CItemScript / CSpellScript)
+; are populated, since the validator reads those to determine whether script
+; references in items / spells are still valid.
+Conscience_Init()
+
 WriteLog(GUELog, "** GUE loading complete **")
 CloseAllLogs()
 
@@ -3149,6 +3156,9 @@ Cls
 	; Loom: global hotkey poll (Ctrl+K opens palette, Esc/Enter handled while open).
 	CmdPalette_PollKeys()
 
+	; Loom: refresh the world-health conscience ribbon (internally throttled).
+	Conscience_Update()
+
 	Local E.Event
 	; Process events
 	For E.Event = Each Event
@@ -3158,6 +3168,10 @@ Cls
 		; palette's gadget IDs are unique handles and won't collide with
 		; anything in the Select below, so we just call this in parallel.
 		CmdPalette_HandleEvent(E\EventID, E\EventData)
+
+		; Loom: conscience ribbon dispatches its own button + findings-list
+		; clicks the same way.
+		Conscience_HandleEvent(E\EventID, E\EventData)
 
 		Select E\EventID
 
