@@ -102,7 +102,10 @@ Function CmdPalette_Init()
 
     CP_ListBox = FUI_ListBox(CP_Window, CP_PAD, 88, CP_W - CP_PAD * 2, CP_H - 130, False, False)
 
-    FUI_SendMessage(CP_Window, M_HIDE)
+    // F-UI windows respond to M_CLOSE / M_OPEN, NOT M_HIDE / M_SHOW. The latter
+    // are no-ops for the Window gadget type, so the window would otherwise stay
+    // visible from creation. Close immediately to start hidden.
+    FUI_SendMessage(CP_Window, M_CLOSE)
 End Function
 
 
@@ -115,7 +118,8 @@ Function CmdPalette_Open()
     FUI_SendMessage(CP_TextBox, M_SETTEXT, "")
     CmdPalette_Filter("")
 
-    FUI_SendMessage(CP_Window, M_SHOW)
+    // M_OPEN / M_CLOSE are the show/hide pair for F-UI Window gadgets.
+    FUI_SendMessage(CP_Window, M_OPEN)
     FUI_SendMessage(CP_Window, M_BRINGTOFRONT)
     CP_Open = True
 End Function
@@ -127,7 +131,7 @@ End Function
 Function CmdPalette_Close()
     If CP_Window = 0 Then Return
     If CP_Open = False Then Return
-    FUI_SendMessage(CP_Window, M_HIDE)
+    FUI_SendMessage(CP_Window, M_CLOSE)
     CP_Open = False
 End Function
 
@@ -143,11 +147,16 @@ Function CmdPalette_Filter(query$)
 
     Local q$ = Lower$(Trim$(query$))
     Local resultIdx = 0
-    Local caption$, name$, item
+    Local caption$, name$
+
+    // Iterator form: `For X.Type = Each Type` -- declaring the type on the For
+    // line itself is the canonical GUE pattern and the one that reliably binds
+    // type info under both Strict and non-Strict modules. Pre-declaring with
+    // `Local X.Type` and then writing `For X = Each Type` was leaving the
+    // iterator unbound in practice (the inner Ar\Name$ etc. yielded nothing).
 
     // -- Zones --
-    Local Ar.Area
-    For Ar = Each Area
+    For Ar.Area = Each Area
         name$ = Ar\Name$
         If q$ = "" Or Instr(Lower$(name$), q$) > 0
             caption$ = "[Zone]  " + name$
@@ -157,8 +166,7 @@ Function CmdPalette_Filter(query$)
     Next
 
     // -- Actors --
-    Local At.Actor
-    For At = Each Actor
+    For At.Actor = Each Actor
         name$ = At\Race$ + " [" + At\Class$ + "]"
         If q$ = "" Or Instr(Lower$(name$), q$) > 0
             caption$ = "[Actor] " + name$
@@ -168,8 +176,7 @@ Function CmdPalette_Filter(query$)
     Next
 
     // -- Items --
-    Local It.Item
-    For It = Each Item
+    For It.Item = Each Item
         name$ = It\Name$
         If q$ = "" Or Instr(Lower$(name$), q$) > 0
             caption$ = "[Item]  " + name$
@@ -179,8 +186,7 @@ Function CmdPalette_Filter(query$)
     Next
 
     // -- Spells --
-    Local Sp.Spell
-    For Sp = Each Spell
+    For Sp.Spell = Each Spell
         name$ = Sp\Name$
         If q$ = "" Or Instr(Lower$(name$), q$) > 0
             caption$ = "[Spell] " + name$
@@ -266,12 +272,20 @@ End Function
 
 // Activate the current selection (or the first result if fallbackToFirst and
 // the user hasn't clicked anything yet). Then close the palette.
+//
+// F-UI listbox semantics (verified against F-UI.bb):
+//   M_GETSELECTED -> 1-based numeric index of the active row (0 if none)
+//   M_GETINDEX    -> ListBoxItem HANDLE of the active row (0 if none)
+//
+// Note: F-UI combobox has these two SWAPPED relative to listbox, which is
+// why GUE_JumpToEntity below branches on widget kind for its picker walk.
 Function CmdPalette_Activate(fallbackToFirst)
-    Local sel = FUI_SendMessage(CP_ListBox, M_GETSELECTED)
+    Local selIdx = FUI_SendMessage(CP_ListBox, M_GETSELECTED)   // 1-based index, 0 = none
     Local idx = -1
 
-    If sel <> 0
-        idx = FUI_SendMessage(sel, M_GETDATA)
+    If selIdx <> 0
+        Local selItem = FUI_SendMessage(CP_ListBox, M_GETINDEX) // item handle of active row
+        idx = FUI_SendMessage(selItem, M_GETDATA)
     Else If fallbackToFirst = True
         If ListSize(CP_Results) > 0 Then idx = 0
     EndIf
@@ -301,37 +315,44 @@ End Function
 // frame. This re-uses every line of the existing handlers instead of
 // duplicating their show/hide bookkeeping.
 //
-// Supported kinds (and their entity-picker widget + data-payload convention):
+// Supported kinds:
 //
-//   kind     | tab | picker            | refID payload
-//   ---------+-----+-------------------+--------------------------------------
-//   actor    |  9  | CActorSelected    | Actor\ID                  (combobox)
-//   item     | 10  | CItemSelected     | Item\ID                   (combobox)
-//   spell    | 13  | CSpellSelected    | Spell\ID                  (combobox)
-//   zone     | 12  | CZone             | Handle(Area)              (combobox)
-//   faction  |  6  | LFactions         | FactionNames$ index 0..99 (listbox)
-//   animset  |  7  | LAnimSets         | AnimSet\ID                (listbox)
+//   kind     | tab | picker         | widget   | refID payload
+//   ---------+-----+----------------+----------+----------------------------
+//   actor    |  9  | CActorSelected | combobox | Actor\ID
+//   item     | 10  | CItemSelected  | combobox | Item\ID
+//   spell    | 13  | CSpellSelected | combobox | Spell\ID
+//   zone     | 12  | CZone          | combobox | Handle(Area)
+//   faction  |  6  | LFactions      | listbox  | FactionNames$ index 0..99
+//   animset  |  7  | LAnimSets      | listbox  | AnimSet\ID
 //
-// Listbox and combobox share the same M_SETINDEX / M_GETSELECTED / M_GETDATA
-// shape in F-UI, so the picker-walk loop is identical.
+// F-UI gotcha that took us a debugging round to find: combobox and listbox
+// have M_GETSELECTED / M_GETINDEX SWAPPED.
+//
+//   ComboBox: M_GETSELECTED -> active item HANDLE,  M_GETINDEX -> 1-based int
+//   ListBox:  M_GETSELECTED -> 1-based int,         M_GETINDEX -> active HANDLE
+//
+// So the picker-walk loop has to ask for the item handle differently per
+// widget type. We branch on the widget-type flag set alongside the picker.
 // =============================================================================
 Function GUE_JumpToEntity(kind$, refID)
     Local tabIdx = 0
     Local picker = 0
+    Local isList = False   // True = F-UI ListBox; False = F-UI ComboBox
 
     Select Lower$(kind$)
         Case "actor"
-            tabIdx = 9 : picker = CActorSelected
+            tabIdx = 9  : picker = CActorSelected : isList = False
         Case "item"
-            tabIdx = 10 : picker = CItemSelected
+            tabIdx = 10 : picker = CItemSelected  : isList = False
         Case "spell"
-            tabIdx = 13 : picker = CSpellSelected
+            tabIdx = 13 : picker = CSpellSelected : isList = False
         Case "zone"
-            tabIdx = 12 : picker = CZone
+            tabIdx = 12 : picker = CZone          : isList = False
         Case "faction"
-            tabIdx = 6 : picker = LFactions
+            tabIdx = 6  : picker = LFactions      : isList = True
         Case "animset"
-            tabIdx = 7 : picker = LAnimSets
+            tabIdx = 7  : picker = LAnimSets      : isList = True
     End Select
 
     If tabIdx = 0 Or picker = 0 Then Return
@@ -341,14 +362,18 @@ Function GUE_JumpToEntity(kind$, refID)
     FUI_CreateEvent(TabMain, Str(tabIdx))
 
     // Walk the picker items to find the one whose stored data matches.
-    // Items are 1-indexed in F-UI comboboxes and listboxes.
+    // Items are 1-indexed in both widget types.
     Local n = FUI_SendMessage(picker, M_COUNTITEMS)
     Local i = 0
     Local pItem = 0
     Local pData = 0
     For i = 1 To n
         FUI_SendMessage(picker, M_SETINDEX, i)
-        pItem = FUI_SendMessage(picker, M_GETSELECTED)
+        If isList = True
+            pItem = FUI_SendMessage(picker, M_GETINDEX)     // listbox -> handle
+        Else
+            pItem = FUI_SendMessage(picker, M_GETSELECTED)  // combobox -> handle
+        EndIf
         pData = FUI_SendMessage(pItem, M_GETDATA)
         If pData = refID Then Exit
     Next

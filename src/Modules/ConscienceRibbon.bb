@@ -45,9 +45,13 @@ Global CR_LblEmpty   = 0
 Global CR_Open       = False
 
 // Layout
-Const CR_RIBBON_W = 440
+Const CR_RIBBON_W = 460
 Const CR_RIBBON_H = 18
-Const CR_RIBBON_Y = 2
+// Y=24 sits just below the menu bar (which owns Y=0..20). Y=2 was inside the
+// menu bar's mouse-capture zone, which made the Issues button unclickable
+// even though it rendered. Y=24 overlays the right side of the tab title
+// strip, where no tab title extends, so there's no visual collision.
+Const CR_RIBBON_Y = 24
 
 Const CR_FW_W = 600
 Const CR_FW_H = 380
@@ -91,9 +95,11 @@ Function Conscience_Init()
 
     CR_LblStatus = FUI_Label(WMain, startX, CR_RIBBON_Y + 2, "World ready.", ALIGN_LEFT)
 
-    // "Issues..." button -- only opens the modal if there are findings, but
-    // shown at all times so users learn it exists.
-    CR_BtnIssues = FUI_Button(WMain, sw - 90, CR_RIBBON_Y, 80, CR_RIBBON_H, "Issues...", "", 0, 0)
+    // "Issues..." button -- shown at all times so users learn it exists. Use
+    // CS_BORDER (the F-UI default) so the button is visibly clickable; passing
+    // Flags=0 strips the border AND was the suspected cause of the click
+    // hit-test failing.
+    CR_BtnIssues = FUI_Button(WMain, sw - 90, CR_RIBBON_Y, 80, CR_RIBBON_H, "Issues...", "", 0, CS_BORDER)
 
     // Hidden findings modal.
     Local px = (sw - CR_FW_W) / 2
@@ -103,7 +109,8 @@ Function Conscience_Init()
     CR_Window = FUI_Window(px, py, CR_FW_W, CR_FW_H, "World issues", "", 0, WS_TITLEBAR Or WS_CLOSEBUTTON)
     CR_LblEmpty = FUI_Label(CR_Window, 12, 36, "No issues found. The world is clean.")
     CR_List = FUI_ListBox(CR_Window, 12, 36, CR_FW_W - 24, CR_FW_H - 70, False, False)
-    FUI_SendMessage(CR_Window, M_HIDE)
+    // F-UI Window gadgets respond to M_CLOSE/M_OPEN, not M_HIDE/M_SHOW.
+    FUI_SendMessage(CR_Window, M_CLOSE)
 
     // Force a first pass so the ribbon starts populated rather than blank.
     Conscience_Refresh(True)
@@ -233,9 +240,13 @@ End Function
 Function Conscience_Validate()
     ListClear(CR_Findings)
 
+    // Use the canonical inline-typed iterator form `For X.Type = Each Type` --
+    // pre-declaring with `Local X.Type` and then `For X = Each Type` was not
+    // binding the iterator's type info under non-Strict and the body silently
+    // iterated nothing.
+
     // -- Items with bad script bindings ------------------------------------
-    Local It.Item
-    For It = Each Item
+    For It.Item = Each Item
         If It\Script$ <> ""
             If Conscience_ScriptExists(CItemScript, It\Script$) = False
                 Conscience_AddFinding("Item '" + It\Name$ + "' references missing script '" + It\Script$ + "'", "item", It\ID)
@@ -244,8 +255,7 @@ Function Conscience_Validate()
     Next
 
     // -- Spells with bad script bindings -----------------------------------
-    Local Sp.Spell
-    For Sp = Each Spell
+    For Sp.Spell = Each Spell
         If Sp\Script$ <> ""
             If Conscience_ScriptExists(CSpellScript, Sp\Script$) = False
                 Conscience_AddFinding("Spell '" + Sp\Name$ + "' references missing script '" + Sp\Script$ + "'", "spell", Sp\ID)
@@ -291,7 +301,7 @@ Function Conscience_OpenModal()
     If CR_Window = 0 Then Return
 
     Conscience_PopulateModalList()
-    FUI_SendMessage(CR_Window, M_SHOW)
+    FUI_SendMessage(CR_Window, M_OPEN)
     FUI_SendMessage(CR_Window, M_BRINGTOFRONT)
     CR_Open = True
 End Function
@@ -299,7 +309,7 @@ End Function
 
 Function Conscience_CloseModal()
     If CR_Window = 0 Or CR_Open = False Then Return
-    FUI_SendMessage(CR_Window, M_HIDE)
+    FUI_SendMessage(CR_Window, M_CLOSE)
     CR_Open = False
 End Function
 
@@ -338,9 +348,12 @@ Function Conscience_HandleEvent(EID, EData$)
     If CR_Open = True
         If EID = CR_List
             // Click on a finding = jump.
-            Local sel = FUI_SendMessage(CR_List, M_GETSELECTED)
-            If sel = 0 Then Return True
-            Local idx = FUI_SendMessage(sel, M_GETDATA)
+            // F-UI listbox: M_GETSELECTED -> 1-based row index (0 if none);
+            //               M_GETINDEX    -> active row's item HANDLE.
+            Local selIdx = FUI_SendMessage(CR_List, M_GETSELECTED)
+            If selIdx = 0 Then Return True
+            Local selItem = FUI_SendMessage(CR_List, M_GETINDEX)
+            Local idx = FUI_SendMessage(selItem, M_GETDATA)
             Local f.CRFinding = ListAt(CR_Findings, idx)
             If f = Null Then Return True
 

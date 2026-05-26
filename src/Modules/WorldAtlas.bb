@@ -69,7 +69,10 @@ Function Atlas_Init()
     ATL_HintLabel = FUI_Label(ATL_Window, 12, 28, "Click a zone to load it.  Esc to close.")
     ATL_List = FUI_ListBox(ATL_Window, 12, 50, ATL_W - 24, ATL_H - 90, False, False)
 
-    FUI_SendMessage(ATL_Window, M_HIDE)
+    // F-UI Window gadgets respond to M_CLOSE/M_OPEN, not M_HIDE/M_SHOW. The
+    // latter are no-ops for windows, which is why this overlay was popping up
+    // on launch -- the init-time hide silently did nothing.
+    FUI_SendMessage(ATL_Window, M_CLOSE)
 End Function
 
 
@@ -98,7 +101,7 @@ Function Atlas_Open()
 
     Atlas_Repopulate()
 
-    FUI_SendMessage(ATL_Window, M_SHOW)
+    FUI_SendMessage(ATL_Window, M_OPEN)
     FUI_SendMessage(ATL_Window, M_BRINGTOFRONT)
     ATL_Open = True
 End Function
@@ -106,7 +109,7 @@ End Function
 
 Function Atlas_Close()
     If ATL_Window = 0 Or ATL_Open = False Then Return
-    FUI_SendMessage(ATL_Window, M_HIDE)
+    FUI_SendMessage(ATL_Window, M_CLOSE)
     ATL_Open = False
 End Function
 
@@ -117,8 +120,10 @@ Function Atlas_Repopulate()
     FUI_SendMessage(ATL_List, M_RESET)
 
     Local zoneCount = 0
-    Local Ar.Area
-    For Ar = Each Area
+    // Canonical inline-typed iterator. `Local Ar.Area` + `For Ar = Each Area`
+    // wasn't binding the type info under non-Strict and the body's Ar\Name$
+    // silently iterated nothing.
+    For Ar.Area = Each Area
         zoneCount = zoneCount + 1
 
         Local portals = Atlas_CountPortals(Ar)
@@ -204,9 +209,12 @@ Function Atlas_HandleEvent(EID, EData$)
     If ATL_Open = False Then Return False
 
     If EID = ATL_List
-        Local sel = FUI_SendMessage(ATL_List, M_GETSELECTED)
-        If sel = 0 Then Return True
-        Local handleVal = FUI_SendMessage(sel, M_GETDATA)
+        // F-UI listbox: M_GETSELECTED -> 1-based row index (0 = none);
+        //               M_GETINDEX    -> active row's item HANDLE.
+        Local selIdx = FUI_SendMessage(ATL_List, M_GETSELECTED)
+        If selIdx = 0 Then Return True
+        Local selItem = FUI_SendMessage(ATL_List, M_GETINDEX)
+        Local handleVal = FUI_SendMessage(selItem, M_GETDATA)
         If handleVal = 0 Then Return True
 
         Atlas_Close()
