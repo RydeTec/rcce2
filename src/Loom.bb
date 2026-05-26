@@ -46,16 +46,41 @@ ChangeDir RootDir$
 
 
 // -----------------------------------------------------------------------------
-// Includes -- minimum surface for the skeleton.
+// Includes
 //
-// PR #1 deliberately does NOT include the data modules (Items, Actors,
-// Spells, etc.) or F-UI. The skeleton's only job is to prove the build
-// pipeline and the Project Manager hook work. PR #2 will add Logging-
-// adjacent data loaders. PR #3 brings in Blitz3D's 3D pipeline for the
-// world view.
+// Data layer: the same modules GUE includes for its data layer, MINUS the
+// UI-tied ones (F-UI, MediaDialogs, CharacterEditorLoader). The loaders here
+// just parse .dat files into the global type instances (ItemList, ActorList,
+// SpellsList, Each Area, ...). Loom reads through these same in-memory
+// instances so anything GUE can edit, Loom can see.
+//
+// Order matters: types must be declared before any code that uses them in
+// later includes. We mirror GUE.bb's include order to stay in lockstep.
 // -----------------------------------------------------------------------------
+Include "Modules\RCEnet.bb"
+Include "Modules\Media.bb"
+Include "Modules\MediaImport.bb"
+Include "Modules\Projectiles.bb"
+Include "Modules\Language.bb"
+Include "Modules\Items.bb"
+Include "Modules\Inventories.bb"
+Include "Modules\Animations.bb"
+Include "Modules\Spells.bb"
+Include "Modules\Actors.bb"
+Include "Modules\Environment.bb"
+Include "Modules\Interface.bb"
+// NOTE: ClientAreas.bb deliberately omitted -- it depends on GetFilename$,
+// which lives inside GUE.bb itself (not in a shared module). ClientAreas
+// loads the 3D zone mesh; we don't need that for the atlas. PR #3 will
+// pull it in via either extracting GetFilename$ to a shared helper or
+// defining a Loom-side zone-mesh loader.
+Include "Modules\ServerAreas.bb"
+Include "Modules\Packets.bb"
 Include "Modules\Logging.bb"
+
+// Loom UI layer.
 Include "Modules\Loom\Theme.bb"
+Include "Modules\Loom\Atlas.bb"
 
 
 // -----------------------------------------------------------------------------
@@ -88,22 +113,104 @@ WriteLog(LoomLog, "Resolution: " + Str(Loom_width) + "x" + Str(Loom_height))
 // <project>/. The leaf folder name is the project's display name.
 // -----------------------------------------------------------------------------
 Local cwd$ = CurrentDir$()
-Local projectName$ = LoomGetLeafDir(cwd$)
+Global LoomProjectName$ = LoomGetLeafDir(cwd$)
 WriteLog(LoomLog, "Project root: " + cwd$)
-WriteLog(LoomLog, "Project name: " + projectName$)
+WriteLog(LoomLog, "Project name: " + LoomProjectName$)
 
 LoomTheme_Init()
 
 
 // -----------------------------------------------------------------------------
-// Splash screen loop. Runs until Esc.
-// PR #2 replaces this with the atlas as the boot surface.
+// Load project data. Same order GUE uses, same loaders, same in-memory
+// representation. Loom never reads the .dat files directly -- it always
+// goes through these loaders so the two editors can't drift apart in how
+// they parse the files.
+//
+// Failure mode: if a required .dat is missing or unreadable, RuntimeError
+// shows a Win32 dialog and exits. Mirrors GUE.bb's behavior; a half-loaded
+// project would just confuse the user later.
 // -----------------------------------------------------------------------------
-WriteLog(LoomLog, "** Splash loop running **")
+WriteLog(LoomLog, "** Loading project data **")
+Loom_DrawLoadingScreen("Loading project data...")
+
+Loom_LoadStep("damage types", LoadDamageTypes("Data\Server Data\Damage.dat"), False)
+Loom_LoadStep("attributes",   LoadAttributes("Data\Server Data\Attributes.dat"), False)
+Loom_LoadStep("factions",     LoadFactions("Data\Server Data\Factions.dat"), True)
+Loom_LoadStep("animations",   LoadAnimSets("Data\Game Data\Animations.dat"), True)
+
+Global TotalProjectiles = LoadProjectiles("Data\Server Data\Projectiles.dat")
+If TotalProjectiles = -1 Then RuntimeError("Loom could not open Data\Server Data\Projectiles.dat")
+WriteLog(LoomLog, "Loaded " + Str(TotalProjectiles) + " projectiles")
+
+Global TotalItems = LoadItems("Data\Server Data\Items.dat")
+If TotalItems = -1 Then RuntimeError("Loom could not open Data\Server Data\Items.dat")
+WriteLog(LoomLog, "Loaded " + Str(TotalItems) + " items")
+
+Global TotalActors = LoadActors("Data\Server Data\Actors.dat")
+If TotalActors = -1 Then RuntimeError("Loom could not open Data\Server Data\Actors.dat")
+WriteLog(LoomLog, "Loaded " + Str(TotalActors) + " actors")
+
+Global TotalSpells = LoadSpells("Data\Server Data\Spells.dat")
+If TotalSpells = -1 Then RuntimeError("Loom could not open Data\Server Data\Spells.dat")
+WriteLog(LoomLog, "Loaded " + Str(TotalSpells) + " spells")
+
+// Server-side zones: every .dat in Data\Server Data\Areas\ is a zone.
+Global TotalZones = 0
+Local zoneDir = ReadDir("Data\Server Data\Areas")
+Local zoneFile$ = NextFile$(zoneDir)
+While zoneFile$ <> ""
+    If FileType("Data\Server Data\Areas\" + zoneFile$) = 1 And Len(zoneFile$) > 4
+        ServerLoadArea(Left$(zoneFile$, Len(zoneFile$) - 4))
+        TotalZones = TotalZones + 1
+    EndIf
+    zoneFile$ = NextFile$(zoneDir)
+Wend
+CloseDir(zoneDir)
+WriteLog(LoomLog, "Loaded " + Str(TotalZones) + " zones")
+
+WriteLog(LoomLog, "** Data load complete **")
+
+
+// -----------------------------------------------------------------------------
+// Build the atlas tile list now that Each Area is populated.
+// -----------------------------------------------------------------------------
+Atlas_Init()
+
+
+// -----------------------------------------------------------------------------
+// Boot surface: world atlas. Click a zone to "select" it -- this PR just
+// logs the selection and shows an acknowledgement overlay for one frame
+// to confirm the interaction is plumbed; PR #3 will hand off to the world
+// view that loads the zone's mesh and entities in 3D.
+//
+// Esc exits.
+// -----------------------------------------------------------------------------
+WriteLog(LoomLog, "** Atlas loop running **")
+
+Global LoomSelectedZone = 0   // Handle(Area); set by Atlas_RenderAndUpdate
 
 Repeat
     Cls
-    LoomRenderSplash(Loom_width, Loom_height, projectName$)
+
+    Local pickedHandle = Atlas_RenderAndUpdate(Loom_width, Loom_height, LoomProjectName$)
+    If pickedHandle <> 0
+        LoomSelectedZone = pickedHandle
+        Local pickedArea.Area = Object.Area(LoomSelectedZone)
+        If pickedArea <> Null
+            WriteLog(LoomLog, "Atlas: selected zone '" + pickedArea\Name$ + "' (handle " + Str(LoomSelectedZone) + ")")
+        EndIf
+    EndIf
+
+    // Selected-zone toast in the bottom-left corner. Persists until another
+    // selection or until exit -- gives the user feedback that the click was
+    // received while PR #3's world view is still pending.
+    If LoomSelectedZone <> 0
+        Local sel.Area = Object.Area(LoomSelectedZone)
+        If sel <> Null
+            Loom_DrawSelectionToast(Loom_width, Loom_height, sel\Name$)
+        EndIf
+    EndIf
+
     Flip
 Until KeyHit(1)
 
@@ -113,48 +220,63 @@ End
 
 
 // =============================================================================
-// LoomRenderSplash -- paint the alpha splash surface.
-//
-// Layout:
-//   - Full-screen vertical gradient stone_900 -> stone_950
-//   - Centered "LOOM" title in parchment
-//   - "WORLD EDITOR" subtitle in brass, spaced
-//   - Brass divider rule
-//   - Project context line
-//   - Footer instruction
+// Loom_LoadStep -- check the return value of a Load* call, log it, RuntimeError
+// on failure. isMinusOneFailure: True if the loader returns -1 on failure
+// (LoadFactions, LoadAnimSets), False if it returns False (LoadDamageTypes,
+// LoadAttributes). Mirrors the inconsistent return-value conventions of GUE's
+// own loaders -- we don't reshape those here, just route them.
 // =============================================================================
-Function LoomRenderSplash(sw, sh, projectName$)
-    // Background gradient (BlitzForge does not support line continuation,
-    // so these calls are intentionally long single lines.)
-    LoomGradientV(0, 0, sw, sh, LOOM_STONE_900_R, LOOM_STONE_900_G, LOOM_STONE_900_B, LOOM_STONE_950_R, LOOM_STONE_950_G, LOOM_STONE_950_B)
+Function Loom_LoadStep(stepName$, result, isMinusOneFailure)
+    Local failed = False
+    If isMinusOneFailure = True
+        If result = -1 Then failed = True
+    Else
+        If result = False Then failed = True
+    EndIf
 
-    Local cx = sw / 2
-    Local cy = sh / 2
+    If failed = True
+        WriteLog(LoomLog, "LOAD FAILED: " + stepName$)
+        RuntimeError("Loom could not load " + stepName$ + ". Make sure the project's Data folder is intact and try again.")
+    EndIf
 
-    // Title -- "LOOM" centered, drawn twice with a 1px offset to fake bolder
-    // weight on top of the Blitz default font. Real display fonts arrive in
-    // a later PR.
-    LoomTextCentered(cx, cy - 90, "LOOM", LOOM_PARCHMENT_100_R, LOOM_PARCHMENT_100_G, LOOM_PARCHMENT_100_B)
-    LoomTextCentered(cx + 1, cy - 90, "LOOM", LOOM_PARCHMENT_100_R, LOOM_PARCHMENT_100_G, LOOM_PARCHMENT_100_B)
+    WriteLog(LoomLog, "Loaded " + stepName$)
+End Function
 
-    // Subtitle
-    LoomTextCentered(cx, cy - 64, "W O R L D   E D I T O R", LOOM_BRASS_500_R, LOOM_BRASS_500_G, LOOM_BRASS_500_B)
 
-    // Brass divider (triple rule for an ornamented bar)
-    LoomHRule(cx - 180, cy - 40, 360, LOOM_BRASS_700_R, LOOM_BRASS_700_G, LOOM_BRASS_700_B)
-    LoomHRule(cx - 180, cy - 39, 360, LOOM_BRASS_500_R, LOOM_BRASS_500_G, LOOM_BRASS_500_B)
-    LoomHRule(cx - 180, cy - 38, 360, LOOM_BRASS_700_R, LOOM_BRASS_700_G, LOOM_BRASS_700_B)
+// =============================================================================
+// Loom_DrawLoadingScreen -- show a single-frame loading message while the
+// data loaders run. Called once before the slow Load* calls; the actual
+// progress isn't streamed because the loads are fast enough on modern disks
+// that an animated splash would just flicker.
+// =============================================================================
+Function Loom_DrawLoadingScreen(msg$)
+    Cls
+    LoomGradientV(0, 0, GraphicsWidth(), GraphicsHeight(), LOOM_STONE_900_R, LOOM_STONE_900_G, LOOM_STONE_900_B, LOOM_STONE_950_R, LOOM_STONE_950_G, LOOM_STONE_950_B)
+    Local cx = GraphicsWidth() / 2
+    Local cy = GraphicsHeight() / 2
+    LoomTextCentered(cx, cy - 10, "LOOM", LOOM_PARCHMENT_100_R, LOOM_PARCHMENT_100_G, LOOM_PARCHMENT_100_B)
+    LoomTextCentered(cx, cy + 10, msg$, LOOM_BRASS_500_R, LOOM_BRASS_500_G, LOOM_BRASS_500_B)
+    Flip
+End Function
 
-    // Project context
-    LoomTextCentered(cx, cy - 16, "Alpha for " + projectName$, LOOM_STONE_200_R, LOOM_STONE_200_G, LOOM_STONE_200_B)
-    LoomTextCentered(cx, cy + 2, "Realm Crafter Community Edition " + rcceVersion$, LOOM_STONE_300_R, LOOM_STONE_300_G, LOOM_STONE_300_B)
 
-    // Skeleton-stage notice (will be removed in PR #2 when the atlas becomes
-    // the boot surface).
-    LoomTextCentered(cx, cy + 60, "skeleton build -- atlas, world view, and composer arrive in subsequent PRs", LOOM_STONE_300_R, LOOM_STONE_300_G, LOOM_STONE_300_B)
+// =============================================================================
+// Loom_DrawSelectionToast -- bottom-left transient banner confirming which
+// zone the user just clicked. Replaced in PR #3 by an actual world-view
+// hand-off; here it's the visible feedback that the atlas click was received.
+// =============================================================================
+Function Loom_DrawSelectionToast(sw, sh, zoneName$)
+    Local toastW = 360
+    Local toastH = 56
+    Local toastX = 20
+    Local toastY = sh - ATLAS_BOT_RIBBON - toastH - 12
 
-    // Footer
-    LoomTextCentered(cx, sh - 40, "Esc to exit", LOOM_STONE_300_R, LOOM_STONE_300_G, LOOM_STONE_300_B)
+    LoomFill(toastX, toastY, toastW, toastH, LOOM_STONE_800_R, LOOM_STONE_800_G, LOOM_STONE_800_B)
+    LoomBorder(toastX, toastY, toastW, toastH, LOOM_ARCANE_500_R, LOOM_ARCANE_500_G, LOOM_ARCANE_500_B)
+    LoomBorder(toastX + 1, toastY + 1, toastW - 2, toastH - 2, LOOM_ARCANE_500_R, LOOM_ARCANE_500_G, LOOM_ARCANE_500_B)
+
+    LoomText(toastX + 12, toastY + 10, "Selected", LOOM_BRASS_500_R, LOOM_BRASS_500_G, LOOM_BRASS_500_B)
+    LoomText(toastX + 12, toastY + 28, zoneName$, LOOM_PARCHMENT_100_R, LOOM_PARCHMENT_100_G, LOOM_PARCHMENT_100_B)
 End Function
 
 
