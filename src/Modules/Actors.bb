@@ -30,6 +30,28 @@ Const Environment_Walk       = 3
 
 Const InteractDist = 400 ; radius of 20
 
+; Upper bound on RottNet connection IDs (RCE_StartHost cap at
+; Server.bb:309 and 513 -- 5000 simultaneous players). RNID = 0 means
+; "not in game"; RNID = -1 means "AI actor"; positive RNIDs in
+; [1, MaxRNID] are online players. ActorByRNID is the O(1)
+; sender-resolution index for inbound packets -- see FindActorInstanceFromRNID
+; below and the maintenance hooks at:
+;   * P_StartGame login (ServerNet.bb ~line 2088) -- populate slot.
+;   * P_Disconnect logout (ServerNet.bb ~line 1960) -- clear slot.
+;   * FreeActorInstance (below)                    -- clear slot.
+; The pre-index implementation walked the entire global ActorInstance
+; list on every inbound packet; with hundreds of NPCs + spawned mobs
+; per loaded zone in a typical project, that was the dominant per-tick
+; cost on the server.
+Const MaxRNID = 5000
+Dim ActorByRNID.ActorInstance(MaxRNID)
+
+; Head of the global online-player linked list (see
+; ActorInstance.NextOnlinePlayer). Walked by every chat-broadcast
+; loop and the per-tick standard-update broadcast in place of the
+; old `For Each ActorInstance / If A2\RNID > 0` filter.
+Global FirstOnlinePlayer.ActorInstance = Null
+
 ; Actor template
 Dim ActorList.Actor(65535)
 Type Actor
@@ -73,14 +95,58 @@ Global LastRuntimeID = 0
 Type ActorInstance
 	Field Actor.Actor
 	Field NextInZone.ActorInstance ; Linked list containing all actors in zone
+	; Linked list containing every CURRENTLY-online player (RNID > 0).
+	; Walked by the 7 broadcast loops in ServerNet.bb (chat: /yell /gm
+	; /g /pm /allplayers /warpother) and the per-tick standard-update
+	; broadcast in GameServer.bb's UpdateActorInstances. Replaces a
+	; `For Each ActorInstance / If A2\RNID > 0` walk that scaled with
+	; total actor count (NPCs + spawned mobs + pets + mounts + offline
+	; characters) -- the per-tick site was the dominant cost. Mirrors
+	; the FirstInZone / NextInZone pattern used per-AreaInstance.
+	; Maintained at the same three lifecycle hooks as ActorByRNID
+	; (login / logout / FreeActorInstance); see Actors.bb's helper
+	; functions and ServerNet.bb's P_StartGame / P_Disconnect handlers.
+	Field NextOnlinePlayer.ActorInstance
+	; Linked list of this actor's slaves (pets / mounts / summons).
+	; Head is FirstSlave; chained via Slave\NextSlave on each slave.
+	; Replaces `For Each ActorInstance / If X\Leader = this` walks
+	; (Actors.bb's WriteActorInstance + FreeActorInstanceSlaves,
+	; GameServer.bb's pet-aggro broadcast, MySQL.bb's My_SaveActorInstance,
+	; ServerNet.bb's /pet command + inventory pet-validation walk).
+	; Maintained by SlaveLink / SlaveUnlink helpers and at the three
+	; sites that mutate \Leader: load-from-stream (Actors.bb's
+	; ReadActorInstance), load-from-DB (MySQL.bb's
+	; My_LoadActorInstance), and BVM_SETLEADER (handles both
+	; assignment and clearing). FreeActorInstance unlinks defensively.
+	Field FirstSlave.ActorInstance
+	Field NextSlave.ActorInstance
 	Field X#, Y#, Z#
 	Field OldX#, OldZ#
 	Field DestX#, DestZ#
+	; Timestamp (MilliSecs) of the last P_StandardUpdate the server
+	; accepted from this actor. Used to bound per-packet movement
+	; deltas against actor Speed so the client can't teleport-hack.
+	Field LastPosUpdateMs%
 	Field Yaw#
 	Field WalkingBackward
 	Field Area$, ServerArea, Account
 	Field Name$, Tag$
-	Field LastPortal, LastTrigger, LastPortalTime
+	; LastPortal is a portal index 0..99 within an Area's portal list, so
+	; it only makes sense paired with the area it was set in. LastPortalArea
+	; stores Handle(Ar) of that area; the portal-lock check in Server.bb
+	; compares both (Ar, i) and the time window. Without the area component,
+	; an actor who entered Area B via waypoint/script while holding a stale
+	; LastPortal=5 from Area A would be falsely locked out of Area B's
+	; portal #5 (different physical portal), and conversely the AI spawn
+	; path's deliberate LastPortal=0 stamp would bleed across areas.
+	Field LastPortal, LastTrigger, LastPortalTime, LastPortalArea
+	; Transient companion of LastPortalArea: the area's name string,
+	; persisted across save/load (Handle() is process-local and cannot
+	; survive a server restart). When non-empty AND LastPortalArea = 0,
+	; the portal-walk in Server.bb resolves the name to a live Handle
+	; once at first opportunity. Cleared back to "" when LastPortal
+	; gets reset to -1.
+	Field LastPortalAreaName$
 	Field TeamID ; Used to allow scripting to put people together in teams
 	Field PartyID, AcceptPending ; Holds the handle of a Party object (or 0 if the actor is not in a party)
 	Field Gender ; 0 for male, 1 for female
@@ -109,10 +175,23 @@ Type ActorInstance
 	Field KnownSpells[999]
 	Field SpellLevels[999]
 	Field MemorisedSpells[9]
-	Field SpellCharge[999] ; How long until the spell is usable
+	Field SpellCharge[999] ; How long until the spell is usable -- indexed by spell ID (matches SpellsList)
+	; Server-side cooldown floor: timestamp of the last P_SpellUpdate "F"
+	; this actor was allowed to process. Prevents same-tick spell spam
+	; against zero-RechargeTime spells (a legal but cheese-prone setting
+	; in the spell data).
+	Field LastSpellFireMs
 	Field IsTrading ; 0 for not trading, 1 for trading with NPC, 2 for trading with pet, 3 for trading with player, 4/5 for accepted trading with player
 	Field TradingActor.ActorInstance
 	Field TradeResult$
+	; Server-authoritative per-slot trade offer state. Populated by
+	; each P_UpdateTrading packet from this actor (slot index 0..31,
+	; value = amount of Inventory[SlotI_Backpack + i] offered). Used
+	; on accept to ignore the client-supplied accept-packet TradeResult$
+	; amounts and only swap what was actually shown via UpdateTrading
+	; -- prevents the dupe where the accept packet swaps a different
+	; stack than what the trade UI displayed.
+	Field TradeOfferedAmount[31]
 	Field Underwater
 	Field IgnoreUpdate   ;used to ignore standard update while waiting for client to complete actor moves
 	
@@ -167,9 +246,32 @@ End Type
 Dim FactionNames$(99)
 Dim FactionDefaultRatings(99, 99)
 
-; Finds an actor instance based on their RottNet ID
+; Finds an actor instance based on their RottNet ID. O(1) via the
+; ActorByRNID index maintained at the three lifecycle hooks (login,
+; logout, FreeActorInstance). Pre-index implementation walked every
+; ActorInstance on every inbound packet -- the dominant per-tick
+; cost on a server with hundreds of NPCs / spawned mobs across loaded
+; zones.
+;
+; RNID = 0 (not in game) and RNID = -1 (AI actor) are NOT indexed --
+; only positive RNIDs in [1, MaxRNID] are real connection IDs. Out-of-
+; range or non-positive callers get Null, matching the previous walk's
+; behavior for those values (the walk would match a 0 or -1 only if
+; an ActorInstance happened to also be at that RNID, which only
+; happens for never-logged-in player characters and NPCs -- callers
+; that want those use FindActorInstanceFromName instead).
 Function FindActorInstanceFromRNID.ActorInstance(RNID)
 
+	If RNID < 1 Then Return Null
+	; Small connection ids resolve through the O(1) ActorByRNID index.
+	If RNID <= MaxRNID Then Return ActorByRNID(RNID)
+	; RCEnet's RCE_GetMessageConnection returns iSender = (int)Event.peer — a
+	; heap POINTER (> MaxRNID) — so M\FromID (and the \RNID set from it at
+	; StartGame) overflows the O(1) index and the <=MaxRNID guard skips the
+	; ActorByRNID population. The pointer is stable per connection, so fall
+	; back to an O(n) scan of the unconditionally-set \RNID field. Without
+	; this every client P_StandardUpdate / gameplay packet that resolves the
+	; sender via FindActorInstanceFromRNID is silently dropped.
 	For A.ActorInstance = Each ActorInstance
 		If A\RNID = RNID Then Return A
 	Next
@@ -253,15 +355,27 @@ Function WriteActorInstance(Stream, A.ActorInstance)
 		WriteShort Stream, A\MemorisedSpells[i]
 	Next
 
-	; Data for any slaves
-	Slaves = A\NumberOfSlaves
-	While Slaves > 0
-		For Slave.ActorInstance = Each ActorInstance
-			If Slave\Leader = A
-				WriteActorInstance(Stream, Slave)
-				Slaves = Slaves - 1
-			EndIf
-		Next
+	; v1: LastPortal triad. Persisting these closes the bypass where
+	; a logout/login cycle resets the portal-lock anti-cheat (Track
+	; TT) to zero -- a returning player can immediately re-trigger
+	; the portal they were placed at by their previous session.
+	; LastPortalAreaName$ is the persistable companion of
+	; LastPortalArea (Handle, process-local). Don't reference the
+	; Area type here: Actors.bb is included by Client.bb too, and the
+	; Area type only exists on the server. Writing the name string
+	; and re-resolving lazily in Server.bb's portal walk keeps the
+	; serializer pure.
+	WriteString Stream, A\LastPortalAreaName$
+	WriteShort Stream, A\LastPortal
+	WriteInt Stream, A\LastPortalTime
+
+	; Data for any slaves. Walk this leader's FirstSlave chain
+	; instead of the global ActorInstance list. The chain replaces
+	; the previous O(global_actors) walk filtered by `Leader = A`.
+	Local Slave.ActorInstance = A\FirstSlave
+	While Slave <> Null
+		WriteActorInstance(Stream, Slave)
+		Slave = Slave\NextSlave
 	Wend
 
 End Function
@@ -271,8 +385,20 @@ Function ReadActorInstance.ActorInstance(Stream)
 
 	; This actor instance
 	ActorID = ReadShort(Stream)
+	; Bound ActorID before indexing ActorList — ReadShort is signed, and
+	; ActorList is Dim'd 0..65535. A corrupted or tampered Accounts.dat
+	; with a negative ID would otherwise write through a wild pointer
+	; on every server boot. Track A bounded the same pattern in
+	; LoadItems/Spells/Projectiles; round 3 caught this missed per-character
+	; site. Treat out-of-range as "actor no longer exists" — the existing
+	; placeholder path keeps the stream offset correct so subsequent
+	; characters still parse.
+	If ActorID < 0 Or ActorID > 65535
+		A.ActorInstance = New ActorInstance
+		A\Attributes = New Attributes
+		A\Inventory = New Inventory
 	; Actor no longer exists, read in data to keep offset correct, then return nothing
-	If ActorList(ActorID) = Null
+	ElseIf ActorList(ActorID) = Null
 		A.ActorInstance = New ActorInstance
 		A\Attributes = New Attributes
 		A\Inventory = New Inventory
@@ -281,14 +407,40 @@ Function ReadActorInstance.ActorInstance(Stream)
 		A.ActorInstance = CreateActorInstance(ActorList(ActorID))
 	EndIf
 
-	; Read in data
-	A\Area$      = ReadString$(Stream)
-	A\Name$      = ReadString$(Stream)
-	A\Tag$       = ReadString$(Stream)
+	; Read in data. ReadBoundedString$ caps every length-prefixed
+	; string at a reasonable maximum -- a corrupted/tampered
+	; Accounts.dat with a wild length prefix on Area/Name/Tag/Script/
+	; DeathScript/ScriptGlobals[] would otherwise trigger multi-GB
+	; allocations and silent zero-padding past EOF. LoadAccounts
+	; already does this at the Account level (Track DD); extend the
+	; same defence to the per-character payload.
+	;
+	; Caps:
+	;   Area$ -- area names are typically <32 chars
+	;   Name$ -- character names are <50 chars (server-enforced at
+	;            P_CreateCharacter time)
+	;   Tag$  -- tags are short labels
+	;   Script$/DeathScript$ -- relative paths into Data\Scripts;
+	;            keep parity with the 1024-byte action-bar/quest cap
+	;            in LoadAccounts.
+	A\Area$      = ReadBoundedString$(Stream, 256)
+	A\Name$      = ReadBoundedString$(Stream, 256)
+	A\Tag$       = ReadBoundedString$(Stream, 256)
 	A\TeamID     = ReadInt(Stream)
-	A\X# = ReadFloat#(Stream)
-	A\Y# = ReadFloat#(Stream)
-	A\Z# = ReadFloat#(Stream)
+	; Sanitise loaded position floats the same way the wire / BVM entry
+	; points do (ClampWorldCoord in BVM_MOVEACTOR, ServerNet P_InventoryUpdate
+	; "D", etc. -- see RCEnet.bb and the "Float sanitisation" doctrine in
+	; CLAUDE.md). A corrupted or tampered Accounts.dat row could carry a NaN
+	; / Inf / absurd X/Y/Z; loaded raw, that value flows straight into the
+	; broadcast actor state P_StandardUpdate replicates to every client and
+	; poisons spatial code (collision, LOD culling, EntityDistance#) for the
+	; whole zone on every server boot. Every other field in this loader is
+	; already bounded (strings, appearance indices, slave count, HomeFaction)
+	; -- the position floats were the one gap. Clamp-to-0 (world origin) is a
+	; recoverable degraded state; NaN is not.
+	A\X# = ClampWorldCoord#(ReadFloat#(Stream))
+	A\Y# = ClampWorldCoord#(ReadFloat#(Stream))
+	A\Z# = ClampWorldCoord#(ReadFloat#(Stream))
 	A\Gender     = ReadByte(Stream)
 	A\XP         = ReadInt(Stream)
 	A\XPBarLevel = ReadByte(Stream)
@@ -297,6 +449,16 @@ Function ReadActorInstance.ActorInstance(Stream)
 	A\Hair       = ReadShort(Stream)
 	A\Beard      = ReadShort(Stream)
 	A\BodyTex    = ReadShort(Stream)
+	; Bound the appearance indices against the [4]-slot per-Actor ID
+	; arrays. Saved characters from before PR #199's P_CreateCharacter
+	; clamp (or characters created with a misbehaving client) may have
+	; out-of-range values that would OOB on every later appearance
+	; lookup. Match the same shape as the receive-time clamps.
+	If A\Gender < 0 Or A\Gender > 1 Then A\Gender = 0
+	If A\FaceTex < 0 Or A\FaceTex > 4 Then A\FaceTex = 0
+	If A\Hair < 0 Or A\Hair > 4 Then A\Hair = 0
+	If A\Beard < 0 Or A\Beard > 4 Then A\Beard = 0
+	If A\BodyTex < 0 Or A\BodyTex > 4 Then A\BodyTex = 0
 	For i = 0 To 39
 		A\Attributes\Value[i]   = ReadShort(Stream)
 		A\Attributes\Maximum[i] = ReadShort(Stream)
@@ -308,17 +470,35 @@ Function ReadActorInstance.ActorInstance(Stream)
 		A\Inventory\Items[i]   = ReadItemInstance(Stream)
 		A\Inventory\Amounts[i] = ReadShort(Stream)
 	Next
-	A\Script$        = ReadString$(Stream)
-	A\DeathScript$   = ReadString$(Stream)
+	A\Script$        = ReadBoundedString$(Stream, 1024)
+	A\DeathScript$   = ReadBoundedString$(Stream, 1024)
 	A\Reputation     = ReadShort(Stream)
 	A\Gold           = ReadInt(Stream)
 	A\NumberOfSlaves = ReadByte(Stream)
+	; Bound slaves at a sane cap. Without this, a corrupted byte
+	; (ReadByte returns 0..255 unsigned -- the field can also be
+	; *signed* on the wire for legacy saves, but Blitz3D treats
+	; ReadByte as 0..255) drives an unbounded recursive descent
+	; into ReadActorInstance with no inner EOF check, allocating
+	; ActorInstance + Attributes + Inventory per iteration until
+	; the heap is exhausted. The runtime pet cap is ~10; 32 is
+	; comfortable headroom.
+	If A\NumberOfSlaves < 0 Or A\NumberOfSlaves > 32
+		A\NumberOfSlaves = 0
+	EndIf
 	A\HomeFaction    = ReadByte(Stream)
+	; FactionNames$ / FactionDefaultRatings are Dim'd (99) -> 0..99.
+	; A byte-wide HomeFaction can hold 100..255 (corrupt or stale save).
+	; That value flows into FactionRatings[A\HomeFaction] and
+	; FactionNames$(Actor\HomeFaction) at runtime -- both Blitz Dim
+	; reads, neither bounds-checked. Clamp at the load site so every
+	; downstream consumer can deref freely.
+	If A\HomeFaction < 0 Or A\HomeFaction > 99 Then A\HomeFaction = 0
 	For i = 0 To 99
 		A\FactionRatings[i] = ReadByte(Stream)
 	Next
 	For i = 0 To 9
-		A\ScriptGlobals$[i] = ReadString$(Stream)
+		A\ScriptGlobals$[i] = ReadBoundedString$(Stream, 1024)
 	Next
 	For i = 0 To 999
 		A\KnownSpells[i] = ReadShort(Stream)
@@ -326,13 +506,46 @@ Function ReadActorInstance.ActorInstance(Stream)
 	Next
 	For i = 0 To 9
 		A\MemorisedSpells[i] = ReadShort(Stream)
+		; MemorisedSpells stores an index into KnownSpells (Field[999])
+		; or the sentinel 5000 ("no spell memorised"). ReadShort returns
+		; -32768..32767; a corrupt slot bypassed the `<> 5000` guards in
+		; ClientNet / Interface3D and indexed KnownSpells[OOB] -- Blitz
+		; field-array OOB crashes the client every frame an action-bar
+		; redraw walks the memorised list.
+		If A\MemorisedSpells[i] < 0 Then A\MemorisedSpells[i] = 5000
+		If A\MemorisedSpells[i] > 999 And A\MemorisedSpells[i] <> 5000 Then A\MemorisedSpells[i] = 5000
 	Next
 
+	; v1: LastPortal triad. Older saves (no magic header in
+	; Accounts.dat) skip this block; the fields default to the
+	; New-actor sentinel. The version is exposed via the
+	; ACCOUNTS_LOAD_VERSION global set in LoadAccounts before any
+	; per-actor reads. Re-resolving the area-name string back into
+	; a live Handle is deferred to Server.bb's portal walk (Actors.bb
+	; is shared with Client.bb and cannot reference the Area type).
+	If ACCOUNTS_LOAD_VERSION% >= 1
+		A\LastPortalAreaName$ = ReadBoundedString$(Stream, 256)
+		A\LastPortal = ReadShort(Stream)
+		A\LastPortalTime = ReadInt(Stream)
+		A\LastPortalArea = 0
+	EndIf
+
 	; Slaves
-	For i = 1 To A\NumberOfSlaves
+	;
+	; SlaveLink maintains the FirstSlave chain + NumberOfSlaves count.
+	; The load loop reads N records from disk where N was the
+	; previously-saved NumberOfSlaves; SlaveLink will INCREMENT
+	; NumberOfSlaves on each call. The post-load count must match the
+	; pre-load count, so reset to 0 before the loop and let SlaveLink
+	; restore it.
+	Local SavedSlaveCount% = A\NumberOfSlaves
+	A\NumberOfSlaves = 0
+	For i = 1 To SavedSlaveCount
 		Slave.ActorInstance = ReadActorInstance(Stream)
-		Slave\Leader = A
-		Slave\AIMode = AI_Pet
+		If Slave <> Null
+			SlaveLink(A, Slave)
+			Slave\AIMode = AI_Pet
+		EndIf
 	Next
 
 	; If actor didn't exist, delete all slaves and return nothing
@@ -390,7 +603,23 @@ End Function
 ; Creates a new instance of an actor
 Function CreateActorInstance.ActorInstance(Actor.Actor)
 
-	If Actor = Null Then RuntimeError("Could not create actor instance - actor does not exist!")
+	; Soft-fail on Null Actor template. Previously RuntimeError'd, which
+	; crashed the server (any thread) or client (UI preview thread)
+	; if any caller forgot the upstream ActorList(ActorID) <> Null
+	; guard. The production-server callers all guard upstream (PR
+	; #138-#144 sweep): Actors.bb (PreLoadSpawns + ActorInstanceFromString)
+	; ServerNet.bb (P_CreateCharacter), MySQL.bb (LoadCharacter). The
+	; client-side preview callers in MainMenu.bb mostly guard too,
+	; except the change-race path -- a combo-box pick of a race that
+	; was deleted from the project would crash. Defense-in-depth: log
+	; the unexpected Null and Return Null. Callers that already check
+	; the return value handle this naturally; callers that don't will
+	; deref Null on the next line which is at least a localized crash
+	; (not a server-wide RuntimeError) the runtime traps cleanly.
+	If Actor = Null
+		WriteLog(MainLog, "CreateActorInstance: called with Null Actor template; returning Null instead of RuntimeError-ing the whole process")
+		Return Null
+	EndIf
 
 	A.ActorInstance = New ActorInstance
 	A\Attributes = New Attributes
@@ -418,8 +647,99 @@ Function CreateActorInstance.ActorInstance(Actor.Actor)
 	A\SourceSP = -1
 	A\LastTrigger = -1
 	A\LastPortal = -1
+	A\LastPortalArea = 0
+	A\LastPortalAreaName$ = ""
 	A\IgnoreUpdate = 0
 	Return A
+
+End Function
+
+; Links Slave under Leader: sets Slave\Leader, head-inserts into
+; Leader\FirstSlave chain, increments Leader\NumberOfSlaves. The
+; canonical replacement for bare `Slave\Leader = Leader` (which left
+; the chain inconsistent) — every leader-assignment site should call
+; this. Safe no-op on Null Slave or Null Leader.
+;
+; If Slave was already linked to a different leader, unlinks from
+; the old chain first to avoid being in two chains simultaneously.
+Function SlaveLink(Leader.ActorInstance, Slave.ActorInstance)
+
+	If Leader = Null Or Slave = Null Then Return
+	If Slave\Leader = Leader Then Return
+	; Detach from any current leader before re-attaching.
+	If Slave\Leader <> Null Then SlaveUnlink(Slave)
+	Slave\Leader = Leader
+	Slave\NextSlave = Leader\FirstSlave
+	Leader\FirstSlave = Slave
+	Leader\NumberOfSlaves = Leader\NumberOfSlaves + 1
+
+End Function
+
+; Removes Slave from its current Leader's chain, decrements
+; NumberOfSlaves, clears Slave\Leader. Safe no-op when Slave has no
+; leader (NPCs without a master).
+Function SlaveUnlink(Slave.ActorInstance)
+
+	If Slave = Null Then Return
+	Local Leader.ActorInstance = Slave\Leader
+	If Leader = Null Then Return
+	; Walk-to-find-predecessor splice on the leader's chain.
+	If Leader\FirstSlave = Slave
+		Leader\FirstSlave = Slave\NextSlave
+	Else
+		Local Prev.ActorInstance = Leader\FirstSlave
+		While Prev <> Null And Prev\NextSlave <> Slave
+			Prev = Prev\NextSlave
+		Wend
+		If Prev <> Null Then Prev\NextSlave = Slave\NextSlave
+	EndIf
+	Slave\NextSlave = Null
+	Slave\Leader = Null
+	Leader\NumberOfSlaves = Leader\NumberOfSlaves - 1
+
+End Function
+
+; Inserts A at the head of the FirstOnlinePlayer chain. Idempotent
+; via a presence check (a double-insert from a buggy caller would
+; create a cycle in the chain). Called at login completion in
+; ServerNet.bb P_StartGame.
+Function OnlinePlayerInsert(A.ActorInstance)
+
+	If A = Null Then Return
+	; Skip if already in the chain. Walking the chain to check is O(n)
+	; in online-player count; for the host's 5000-player cap this is
+	; cheap enough at the login site (which is human-rate, not per-tick).
+	Local Cursor.ActorInstance = FirstOnlinePlayer
+	While Cursor <> Null
+		If Cursor = A Then Return
+		Cursor = Cursor\NextOnlinePlayer
+	Wend
+	A\NextOnlinePlayer = FirstOnlinePlayer
+	FirstOnlinePlayer = A
+
+End Function
+
+; Removes A from the FirstOnlinePlayer chain. Walk-to-find-predecessor
+; pattern (mirrors AreaInstance\FirstInZone removal in GameServer.bb).
+; Safe to call when A isn't in the chain (no-op).
+Function OnlinePlayerRemove(A.ActorInstance)
+
+	If A = Null Then Return
+	If FirstOnlinePlayer = Null Then Return
+	If FirstOnlinePlayer = A
+		FirstOnlinePlayer = A\NextOnlinePlayer
+		A\NextOnlinePlayer = Null
+		Return
+	EndIf
+	Local Prev.ActorInstance = FirstOnlinePlayer
+	While Prev\NextOnlinePlayer <> Null
+		If Prev\NextOnlinePlayer = A
+			Prev\NextOnlinePlayer = A\NextOnlinePlayer
+			A\NextOnlinePlayer = Null
+			Return
+		EndIf
+		Prev = Prev\NextOnlinePlayer
+	Wend
 
 End Function
 
@@ -429,21 +749,74 @@ Function FreeActorInstance(A.ActorInstance)
 	If A\RuntimeID > -1
 		If RuntimeIDList(A\RuntimeID) = A Then RuntimeIDList(A\RuntimeID) = Null
 	EndIf
-	If A\Leader <> Null Then A\Leader\NumberOfSlaves = A\Leader\NumberOfSlaves - 1
+	; ActorByRNID index cleanup. Only positive RNIDs are indexed, and
+	; we only clear if the slot currently points to us -- a defensive
+	; check that matches the RuntimeIDList pattern above and avoids
+	; clobbering a relogin that happened to recycle the same RNID
+	; (RottNet may reuse connection IDs).
+	If A\RNID > 0 And A\RNID <= MaxRNID
+		If ActorByRNID(A\RNID) = A Then ActorByRNID(A\RNID) = Null
+	EndIf
+	; FirstOnlinePlayer chain cleanup -- safe no-op when A wasn't an
+	; online player (NPCs, never-logged-in characters).
+	OnlinePlayerRemove(A)
+	; FirstSlave chain cleanup. SlaveUnlink handles the NumberOfSlaves
+	; decrement and clears Slave\Leader; safe no-op when A had no
+	; leader.
+	If A\Leader <> Null Then SlaveUnlink(A)
+	; Also free this actor's own slave chain (defensive — typically
+	; FreeActorInstanceSlaves was called first by the caller, but if
+	; not, leaving dangling NextSlave pointers from this freed actor's
+	; FirstSlave would corrupt the children's traversal). Clear without
+	; recursing into Delete -- the surviving children are simply
+	; orphaned (Leader = Null).
+	Local Child.ActorInstance = A\FirstSlave
+	Local ChildNext.ActorInstance = Null
+	While Child <> Null
+		ChildNext = Child\NextSlave
+		Child\Leader = Null
+		Child\NextSlave = Null
+		; A surviving child was a pet of A (AI_Pet / AI_PetChase); its
+		; leader is now gone. Reset to idle so the server AI tick's pet
+		; branches don't deref the now-Null Leader -- a crash in debug
+		; builds, or (per the non-short-circuit / skipped-__bbNullObjEx
+		; behaviour) a silent walk to world origin in release. Mirrors
+		; the AI_Wait reset BVM_SETLEADER performs at its SlaveUnlink site.
+		Child\AIMode = AI_Wait
+		Child\AITarget = Null
+		Child = ChildNext
+	Wend
+	A\FirstSlave = Null
 	Delete(A)
 
 End Function
 
 ; Frees all the slaves of an actor instance (RECURSIVE)
+;
+; Head-capture pattern: each iteration reads A\FirstSlave fresh,
+; recursively frees the child's slaves, then calls FreeActorInstance
+; which SlaveUnlinks the child from A's chain (mutating A\FirstSlave).
+; The next iteration's read picks up the new head. Safe because slave
+; chains are per-leader and disjoint: the recursive call into Child's
+; own FreeActorInstanceSlaves can only mutate Child's chain, never A's.
+;
+; Replaces the earlier For-Each + Restart-on-Delete pattern, which was
+; needed when the walk was over the global ActorInstance list filtered
+; by Leader; the chain walk doesn't need restart because the chain
+; mutation is the natural termination condition.
 Function FreeActorInstanceSlaves(A.ActorInstance)
 
-	For A2.ActorInstance = Each ActorInstance
-		If A\NumberOfSlaves = 0 Then Exit
-		If A2\Leader = A
-			FreeActorInstanceSlaves(A2)
-			FreeActorInstance(A2)
-		EndIf
-	Next
+	; Walk A's FirstSlave chain. Body recursively frees nested
+	; slaves first (their FirstSlave chains), then calls
+	; FreeActorInstance which SlaveUnlinks from A's chain and
+	; Delete()s the slave. The unlink mutates A\FirstSlave, so capture
+	; the head before each step rather than walking with a cursor that
+	; could point at freed memory.
+	While A\FirstSlave <> Null
+		Local Child.ActorInstance = A\FirstSlave
+		FreeActorInstanceSlaves(Child)
+		FreeActorInstance(Child)
+	Wend
 
 End Function
 
@@ -529,14 +902,35 @@ Function LoadActors(Filename$)
 			A.Actor = New Actor
 			A\Attributes = New Attributes
 			A\ID = ReadShort(F)
+			; ActorList is Dim'd 0..65535. ReadShort returns -32768..32767
+			; (signed); a negative or any other out-of-range A\ID OOB-writes
+			; into adjacent globals. Stop loading the rest of the file on
+			; the first bad ID -- the partial state is still consistent.
+			If A\ID < 0 Or A\ID > 65535
+				Delete A\Attributes : Delete A
+				Exit
+			EndIf
 			ActorList(A\ID) = A
-			A\Race$ = ReadString$(F)
-			A\Class$ = ReadString$(F)
-			A\Description$ = ReadString$(F)
-			A\StartArea$ = ReadString$(F)
-			A\StartPortal$ = ReadString$(F)
+			; Bound every length-prefixed string against a corrupted
+			; Actors.dat (same shape as the data-loader sweep in PR #149).
+			; Race / Class / area names are short identifiers; Description
+			; is editor-authored flavor text; StartArea/StartPortal are
+			; area + portal names.
+			A\Race$ = ReadBoundedString$(F, 256)
+			A\Class$ = ReadBoundedString$(F, 256)
+			A\Description$ = ReadBoundedString$(F, 4096)
+			A\StartArea$ = ReadBoundedString$(F, 256)
+			A\StartPortal$ = ReadBoundedString$(F, 256)
 			A\MAnimationSet = ReadShort(F)
 			A\FAnimationSet = ReadShort(F)
+			; AnimList is Dim'd 0..999. A ReadShort returns -32768..32767;
+			; either side of 0..999 is a Blitz Dim OOB at every PlayAnimation
+			; call (Animations.bb:44, Actors3D.bb:210, ClientNet.bb:683).
+			; A missing-set slot is already tolerated via `If A = Null Then
+			; Return`, but only after the index is in-range; clamp at load
+			; so the downstream Null check is reachable.
+			If A\MAnimationSet < 0 Or A\MAnimationSet > 999 Then A\MAnimationSet = 0
+			If A\FAnimationSet < 0 Or A\FAnimationSet > 999 Then A\FAnimationSet = 0
 			A\Scale# = ReadFloat(F)
 			A\Radius# = ReadFloat(F)
 			For i = 0 To 7  : A\MeshIDs[i] = ReadShort(F) : Next
@@ -568,6 +962,12 @@ Function LoadActors(Filename$)
 			A\InventorySlots = ReadInt(F)
 			A\DefaultDamageType = ReadByte(F)
 			A\DefaultFaction = ReadByte(F)
+			; DefaultFaction propagates to ActorInstance\HomeFaction
+			; (CreateActorInstance line ~510). FactionNames$ /
+			; FactionDefaultRatings are Dim'd (99). Clamp at load
+			; so a malformed Actors.dat can't poison every new
+			; ActorInstance with an OOB HomeFaction.
+			If A\DefaultFaction < 0 Or A\DefaultFaction > 99 Then A\DefaultFaction = 0
 			A\XPMultiplier = ReadInt(F)
 			A\PolyCollision = ReadByte(F)
 			Actors = Actors + 1
@@ -578,10 +978,13 @@ Function LoadActors(Filename$)
 
 End Function
 
-; Saves all actors to file
+; Saves all actors to file via SafeWriteOpen/Commit (atomic). A crash
+; mid-write previously truncated Actors.dat, losing the entire actor
+; template catalog -- same Track FF rationale as SaveItems.
 Function SaveActors(Filename$)
 
-	F = WriteFile(Filename$)
+	Local Temp$ = SafeWriteOpen$(Filename$)
+	F = WriteFile(Temp$)
 	If F = 0 Then Return False
 
 		For A.Actor = Each Actor
@@ -628,8 +1031,7 @@ Function SaveActors(Filename$)
 			WriteByte(F, A\PolyCollision)
 		Next
 
-	CloseFile F
-	Return True
+	Return SafeWriteCommit%(Temp$, Filename$, F)
 
 End Function
 
@@ -641,7 +1043,9 @@ Function LoadAttributes(Filename$)
 
 		AttributeAssignment = ReadByte(F)
 		For i = 0 To 39
-			AttributeNames$(i) = ReadString$(F)
+			; Bound attribute display names against a corrupted
+			; Attributes.dat (same shape as the data-loader sweep).
+			AttributeNames$(i) = ReadBoundedString$(F, 256)
 			AttributeIsSkill(i) = ReadByte(F)
 			AttributeHidden(i) = ReadByte(F)
 		Next
@@ -651,10 +1055,11 @@ Function LoadAttributes(Filename$)
 
 End Function
 
-; Saves attribute names to file
+; Saves attribute names to file via SafeWriteOpen/Commit (atomic).
 Function SaveAttributes(Filename$)
 
-	F = WriteFile(Filename$)
+	Local Temp$ = SafeWriteOpen$(Filename$)
+	F = WriteFile(Temp$)
 	If F = 0 Then Return False
 
 		WriteByte(F, AttributeAssignment)
@@ -664,8 +1069,7 @@ Function SaveAttributes(Filename$)
 			WriteByte(F, AttributeHidden(i))
 		Next
 
-	CloseFile(F)
-	Return True
+	Return SafeWriteCommit%(Temp$, Filename$, F)
 
 End Function
 
@@ -730,6 +1134,19 @@ Function ActorInstanceFromString.ActorInstance(Pa$)
 
 	RuntimeID = RCE_IntFromStr(Mid$(Pa$, 5, 2))
 	ActorID = RCE_IntFromStr(Mid$(Pa$, 13, 2))
+	; Race the server announced is unknown to this client. Same DoS
+	; surface as P_NewActor's mesh-load failure (see PR #128) but one
+	; step earlier: CreateActorInstance previously RuntimeError'd on
+	; a Null Actor template, so any P_NewActor / P_FetchCharacter for
+	; a race the client doesn't have loaded would crash the client.
+	; Reachable when the client is running an older Actors.dat than
+	; the server (update-channel skew), or from a hostile/buggy
+	; server. The lone caller (P_NewActor at ClientNet.bb:1456)
+	; already drops the actor on a Null return.
+	If ActorID < 0 Or ActorID > 65535 Or ActorList(ActorID) = Null
+		WriteLog(MainLog, "ActorInstanceFromString: unknown ActorID " + ActorID + " (RuntimeID=" + RuntimeID + "), dropping actor")
+		Return Null
+	EndIf
 	A.ActorInstance = CreateActorInstance(ActorList(ActorID))
 	A\RuntimeID = RuntimeID
 	RuntimeIDList(RuntimeID) = A
@@ -749,11 +1166,21 @@ Function ActorInstanceFromString.ActorInstance(Pa$)
 	A\Tag$ = Mid$(Pa$, Offset + 1, NameLen)
 	Offset = Offset + 1 + NameLen
 	If A\Actor\Genders = 0 Then A\Gender = RCE_IntFromStr(Mid$(Pa$, Offset, 1)) : Offset = Offset + 1
-	A\Reputation = RCE_IntFromStr(Mid$(Pa$, Offset, 2))
+	A\Reputation = RCE_SignedShortFromStr(Mid$(Pa$, Offset, 2))  ; signed: reputation can be negative
 	A\FaceTex = RCE_IntFromStr(Mid$(Pa$, Offset + 2, 2))
 	A\Hair    = RCE_IntFromStr(Mid$(Pa$, Offset + 4, 2))
 	A\BodyTex = RCE_IntFromStr(Mid$(Pa$, Offset + 6, 2))
 	A\Beard   = RCE_IntFromStr(Mid$(Pa$, Offset + 8, 2))
+	; Bound the wire-derived appearance indices. Per-Actor Face/Body/
+	; Hair/Beard ID arrays are Field [4]; an out-of-range value (server
+	; sent an unbounded byte or short, or local data drift) walks past
+	; the array. Same shape as PRs #198 / #199 / #200 for the other
+	; per-character receive sites.
+	If A\Gender < 0 Or A\Gender > 1 Then A\Gender = 0
+	If A\FaceTex < 0 Or A\FaceTex > 4 Then A\FaceTex = 0
+	If A\Hair < 0 Or A\Hair > 4 Then A\Hair = 0
+	If A\BodyTex < 0 Or A\BodyTex > 4 Then A\BodyTex = 0
+	If A\Beard < 0 Or A\Beard > 4 Then A\Beard = 0
 	A\Attributes\Value[SpeedStat] = RCE_IntFromStr(Mid$(Pa$, Offset + 10, 2))
 	A\Attributes\Maximum[SpeedStat] = RCE_IntFromStr(Mid$(Pa$, Offset + 12, 2))
 	A\Attributes\Value[HealthStat] = RCE_IntFromStr(Mid$(Pa$, Offset + 14, 2))
@@ -762,11 +1189,21 @@ Function ActorInstanceFromString.ActorInstance(Pa$)
 	ShieldID = RCE_IntFromStr(Mid$(Pa$, Offset + 20, 2))
 	HatID = RCE_IntFromStr(Mid$(Pa$, Offset + 22, 2))
 	ChestID = RCE_IntFromStr(Mid$(Pa$, Offset + 24, 2))
-	If WeaponID < 65535 Then A\Inventory\Items[SlotI_Weapon] = CreateItemInstance(ItemList(WeaponID))
-	If ShieldID < 65535 Then A\Inventory\Items[SlotI_Shield] = CreateItemInstance(ItemList(ShieldID))
-	If HatID < 65535 Then A\Inventory\Items[SlotI_Hat] = CreateItemInstance(ItemList(HatID))
-	If ChestID < 65535 Then A\Inventory\Items[SlotI_Chest] = CreateItemInstance(ItemList(ChestID))
+	; ItemList is Dim'd 65534; 65535 is the "no item" sentinel. Beyond
+	; the sentinel check, the slot itself must be non-Null -- a deleted
+	; or never-created item ID would otherwise drive CreateItemInstance
+	; with a Null Item, which faults inside the constructor on
+	; `I\Item\Attributes` deref. Range-check + Null-check at every
+	; equipped-slot rehydrate.
+	If WeaponID >= 0 And WeaponID < 65535 And ItemList(WeaponID) <> Null Then A\Inventory\Items[SlotI_Weapon] = CreateItemInstance(ItemList(WeaponID))
+	If ShieldID >= 0 And ShieldID < 65535 And ItemList(ShieldID) <> Null Then A\Inventory\Items[SlotI_Shield] = CreateItemInstance(ItemList(ShieldID))
+	If HatID >= 0 And HatID < 65535 And ItemList(HatID) <> Null Then A\Inventory\Items[SlotI_Hat] = CreateItemInstance(ItemList(HatID))
+	If ChestID >= 0 And ChestID < 65535 And ItemList(ChestID) <> Null Then A\Inventory\Items[SlotI_Chest] = CreateItemInstance(ItemList(ChestID))
 	A\HomeFaction = RCE_IntFromStr(Mid$(Pa$, Offset + 26, 1))
+	; FactionNames$ / FactionDefaultRatings are Dim'd (99) -> 0..99;
+	; FactionRatings is Field[99]. A wire byte can carry 100..255.
+	; Clamp before downstream readers index either array.
+	If A\HomeFaction < 0 Or A\HomeFaction > 99 Then A\HomeFaction = 0
 	Offset = Offset + 27
 	For i = 0 To 99
 		A\FactionRatings[i] = RCE_IntFromStr(Mid$(Pa$, Offset + i, 1))
@@ -803,7 +1240,8 @@ Function LoadFactions(Filename$)
 	If F = 0 Then Return -1
 
 		For i = 0 To 99
-			FactionNames$(i) = ReadString$(F)
+			; Bound faction names against a corrupted Factions.dat.
+			FactionNames$(i) = ReadBoundedString$(F, 256)
 			If Len(FactionNames$(i)) > 0 Then Factions = Factions + 1
 		Next
 
@@ -818,10 +1256,11 @@ Function LoadFactions(Filename$)
 
 End Function
 
-; Saves faction data to file
+; Saves faction data to file via SafeWriteOpen/Commit (atomic).
 Function SaveFactions(Filename$)
 
-	F = WriteFile(Filename$)
+	Local Temp$ = SafeWriteOpen$(Filename$)
+	F = WriteFile(Temp$)
 	If F = 0 Then Return False
 
 		For i = 0 To 99
@@ -834,9 +1273,141 @@ Function SaveFactions(Filename$)
 			Next
 		Next
 
-	CloseFile(F)
-	Return True
+	Return SafeWriteCommit%(Temp$, Filename$, F)
 
+End Function
+
+; Setter for the FactionNames$ global. Exists so Strict modules (Loom's
+; Composer.bb) can rename a faction; Strict mode disallows direct writes
+; to Dim'd globals from inside Functions / Methods (see CLAUDE.md
+; "Strict-mode Dim array assignment" feedback memory). Bounds-checked so a
+; bad index can't scribble outside the 0..99 slot range.
+Function SetFactionName(Index, Name$)
+	If Index < 0 Or Index > 99 Then Return
+	FactionNames$(Index) = Name$
+End Function
+
+; Non-Strict setter for the 100x100 FactionDefaultRatings grid. Strict
+; callers in Modules/Loom/Composer.bb route through here per the Dim-write-
+; from-Strict trap (same shape as SetFactionName above).
+Function SetFactionRelation(FromIdx, ToIdx, Rating)
+	If FromIdx < 0 Or FromIdx > 99 Then Return
+	If ToIdx   < 0 Or ToIdx   > 99 Then Return
+	FactionDefaultRatings(FromIdx, ToIdx) = Rating
+End Function
+
+; Non-Strict setters for the AttributeNames$ / AttributeIsSkill /
+; AttributeHidden arrays + AttributeAssignment global. Used by Loom's
+; Settings catalog editor. Same dim-write-from-Strict trap rationale.
+Function SetAttributeName(Index, Name$)
+	If Index < 0 Or Index > 39 Then Return
+	AttributeNames$(Index) = Name$
+End Function
+
+Function SetAttributeIsSkill(Index, IsSkill)
+	If Index < 0 Or Index > 39 Then Return
+	AttributeIsSkill(Index) = IsSkill
+End Function
+
+Function SetAttributeHidden(Index, Hidden)
+	If Index < 0 Or Index > 39 Then Return
+	AttributeHidden(Index) = Hidden
+End Function
+
+Function SetAttributeAssignment(Val)
+	AttributeAssignment = Val
+End Function
+
+; Duplicate an Actor template -- allocate a new ID via CreateActor, copy
+; every field including the Attributes side-instance (deep-copied so the
+; clone has its own backing storage). Returns the new ID, or -1 if
+; ActorList is full or the source doesn't exist.
+;
+; Race$ + Class$ get " (copy)" appended on the Class$ since that's the
+; secondary display field; if both were copied verbatim the user could
+; confuse the duplicate with the original.
+Function DuplicateActorTemplate(srcID)
+	If srcID < 0 Or srcID > 65535 Then Return -1
+	Src.Actor = ActorList(srcID)
+	If Src = Null Then Return -1
+
+	Dst.Actor = CreateActor()
+	If Dst = Null Then Return -1
+
+	Dst\Race$        = Src\Race$
+	Dst\Class$       = Src\Class$ + " (copy)"
+	Dst\Description$ = Src\Description$
+	Dst\StartArea$   = Src\StartArea$
+	Dst\StartPortal$ = Src\StartPortal$
+	Dst\Radius#      = Src\Radius#
+	Dst\Scale#       = Src\Scale#
+
+	For i = 0 To 7
+		Dst\MeshIDs[i] = Src\MeshIDs[i]
+	Next
+	For i = 0 To 4
+		Dst\BeardIDs[i]      = Src\BeardIDs[i]
+		Dst\MaleHairIDs[i]   = Src\MaleHairIDs[i]
+		Dst\FemaleHairIDs[i] = Src\FemaleHairIDs[i]
+		Dst\MaleFaceIDs[i]   = Src\MaleFaceIDs[i]
+		Dst\FemaleFaceIDs[i] = Src\FemaleFaceIDs[i]
+		Dst\MaleBodyIDs[i]   = Src\MaleBodyIDs[i]
+		Dst\FemaleBodyIDs[i] = Src\FemaleBodyIDs[i]
+	Next
+	For i = 0 To 15
+		Dst\MSpeechIDs[i] = Src\MSpeechIDs[i]
+		Dst\FSpeechIDs[i] = Src\FSpeechIDs[i]
+		Dst\HairColours[i] = Src\HairColours[i]
+	Next
+
+	Dst\BloodTexID   = Src\BloodTexID
+	Dst\Genders      = Src\Genders
+
+	For i = 0 To 19
+		Dst\Resistances[i] = Src\Resistances[i]
+	Next
+
+	Dst\MAnimationSet = Src\MAnimationSet
+	Dst\FAnimationSet = Src\FAnimationSet
+	Dst\Playable      = Src\Playable
+	Dst\Rideable      = Src\Rideable
+	Dst\Aggressiveness = Src\Aggressiveness
+	Dst\AggressiveRange = Src\AggressiveRange
+	Dst\TradeMode     = Src\TradeMode
+	Dst\Environment   = Src\Environment
+	Dst\InventorySlots = Src\InventorySlots
+	Dst\DefaultDamageType = Src\DefaultDamageType
+	Dst\DefaultFaction = Src\DefaultFaction
+	Dst\XPMultiplier   = Src\XPMultiplier
+	Dst\PolyCollision  = Src\PolyCollision
+
+	; Attributes deep-copy. CreateActor already allocated Dst\Attributes.
+	If Src\Attributes <> Null And Dst\Attributes <> Null
+		For i = 0 To 39
+			Dst\Attributes\Value[i]   = Src\Attributes\Value[i]
+			Dst\Attributes\Maximum[i] = Src\Attributes\Maximum[i]
+		Next
+	EndIf
+
+	Return Dst\ID
+End Function
+
+; Delete an Actor template (NOT an ActorInstance). Used by Loom's entity-
+; delete path. Frees the Type instance and clears the ActorList slot so a
+; subsequent CreateActor can reuse the ID. Strict callers can't write to
+; ActorList directly per the Dim-inside-Method trap.
+Function DeleteActorTemplate(ID)
+	If ID < 0 Or ID > 65535 Then Return False
+	A.Actor = ActorList(ID)
+	If A = Null Then Return False
+	; Drop the Attributes side-instance if any -- otherwise it leaks.
+	If A\Attributes <> Null
+		Delete A\Attributes
+		A\Attributes = Null
+	EndIf
+	ActorList(ID) = Null
+	Delete A
+	Return True
 End Function
 
 ; Gives a known spell (ability) to an actor instance (SERVER ONLY!)
@@ -920,10 +1491,20 @@ Function CreateActorEffect.ActorEffect( AI.ActorInstance, Effects.Attributes, Ef
 	EndIf
 	FoundAE\CreatedTime = MilliSecs()
 	FoundAE\Length = EffectLength%
+	; Bug fix: previously read from `AI\Inventory\Items[Slot]` where
+	; `Slot` is not a parameter of this function -- Blitz silently
+	; resolved it to whatever module-global of that name existed (the
+	; ServerNet P_EatItem handler's local, post-call, or zero). Every
+	; script-applied buff therefore copied attributes from whatever
+	; was in the actor's inventory slot 0, not from the `Effects`
+	; table the caller passed in. P_EatItem's open-coded inventory
+	; copy at ServerNet.bb:1131+ already does the right thing; this
+	; function takes `Effects.Attributes` precisely so script callers
+	; can pass arbitrary buff vectors -- honour that.
 	For i = 0 To 39
 		If Effects\Value[i] <> 0
 			Old = FoundAE\Attributes\Value[i]
-			FoundAE\Attributes\Value[i] = AI\Inventory\Items[Slot]\Attributes\Value[i]
+			FoundAE\Attributes\Value[i] = Effects\Value[i]
 			Pa$ = RCE_StrFromInt$(i, 1) + RCE_StrFromInt$(FoundAE\Attributes\Value[i] - Old, 4)
 			FoundAE\Owner\Attributes\Value[i] = FoundAE\Owner\Attributes\Value[i] + (FoundAE\Attributes\Value[i] - Old)
 			RCE_Send(Host, FoundAE\Owner\RNID, P_ActorEffect, "E" + Pa$, True)

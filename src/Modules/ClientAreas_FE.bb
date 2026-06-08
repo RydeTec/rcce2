@@ -101,6 +101,12 @@ End Type
 ; Creates a subdivided plane (used for water)
 Function CreateSubdividedPlane(XDivs, ZDivs, UScale# = 1.0, VScale# = 1.0, Parent = 0)
 
+	; Clamp divisions to a sane minimum (see ClientAreas.bb for the
+	; full reasoning). XDivs/ZDivs of 1 would divide-by-zero on the
+	; XPos/ZPos normalization. Below 2 has no actual subdivision.
+	If XDivs < 2 Then XDivs = 2
+	If ZDivs < 2 Then ZDivs = 2
+
 	EN = CreateMesh(Parent)
 	Surf = CreateSurface(EN)
 
@@ -456,9 +462,11 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 			
 			
 			Collides = ReadByte(F)
-			; Lightmap information and RCTE data
-			S\Lightmap$ = ReadString$(F)
-			S\RCTE$ = ReadString$(F)
+			; Lightmap information and RCTE data. Bound the asset paths
+			; so a corrupted Area data file can't hang the loader on a
+			; wild ReadInt length prefix (260 = Windows MAX_PATH).
+			S\Lightmap$ = ReadBoundedString$(F, 260)
+			S\RCTE$ = ReadBoundedString$(F, 260)
 			
 			;v1.104 options cysis145 [010]
 			S\CastShadow = ReadByte(F)
@@ -670,11 +678,14 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 				EndIf
 			; Mesh has been deleted or removed from the database!
 			Else
-				If DisplayItems = True
-					Delete(S)
-				Else
-					RuntimeError("Could not find model with ID " + S\MeshID)
-				EndIf
+				; Soft-fail: log and drop the scenery. Pre-fix, the
+				; live-game path (DisplayItems=False) RuntimeError-
+				; crashed every player entering a zone with a missing
+				; MeshID -- bad world data could grief the entire
+				; server. The editor path (True) already silently
+				; Delete'd; now both branches log + drop uniformly.
+				WriteLog(MainLog, "LoadArea: scenery MeshID " + S\MeshID + " not found in model database; dropping scenery (zone: " + Name$ + ")")
+				Delete(S)
 			EndIf
 			.CancelScenery
 
@@ -818,8 +829,8 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 				E\EN = CreatePivot()
 			EndIf
 								
-			; Read in emitter data
-			E\ConfigName$ = ReadString$(F)
+			; Read in emitter data. Same length-prefix DoS hardening.
+			E\ConfigName$ = ReadBoundedString$(F, 260)
 			E\TexID = ReadShort(F)
 			Texture = GetTexture(E\TexID)
 			X# = ReadFloat#(F) : Y# = ReadFloat#(F) : Z# = ReadFloat#(F)
@@ -836,9 +847,13 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 				; Position/rotation
 				PositionEntity E\EN, X#, Y#, Z#
 				RotateEntity E\EN, Pitch#, Yaw#, Roll# 
-			; Failed to load config, remove the emitter and display an error message if running on client
+			; Failed to load config, remove the emitter and (pre-fix)
+			; RuntimeError on the live-game path. Now soft-fail: log
+			; and continue zone load. Same threat-model as the scenery
+			; site above -- a bad emitter ConfigName$ in world data
+			; should not crash the whole client.
 			Else
-				If DisplayItems = False Then RuntimeError("Could not load emitter: " + E\ConfigName$)
+				WriteLog(MainLog, "LoadArea: emitter config '" + E\ConfigName$ + "' could not load; dropping emitter (zone: " + Name$ + ")")
 				HideEntity(E\EN)
 				FreeEntity(E\EN)
 				Delete(E)
@@ -1149,53 +1164,83 @@ Function UnloadArea()
 
 ;	UnloadTrees(False) [~@~]
 
-	For S.Scenery = Each Scenery
+	; Six After-cursor walks; same bug class as #254 (the GUE
+	; ClientAreas.bb sibling). Every zone transition on the
+	; client unloads area resources via these loops, each
+	; Deleting the current iter -- the original For-Each shape
+	; corrupted the cursor for multi-element types. Documented
+	; in CLAUDE.md (#247).
+	Local S.Scenery = First Scenery
+	Local SNext.Scenery = Null
+	While S <> Null
+		SNext = After S
 		;Shadow
 		FreeShadowCaster% (S\EN)
 		;FreeShadowReceiver% (S\EN)
-	
+
 		If S\TextureID < 65535 Then UnloadTexture(S\TextureID)
 		UnloadMesh(S\MeshID)
 		FreeEntity(S\EN)
 		Delete(S)
-	Next
+		S = SNext
+	Wend
 
-	For W.Water = Each Water
+	Local W.Water = First Water
+	Local WNext.Water = Null
+	While W <> Null
+		WNext = After W
 		UnloadTexture(W\TexID)
 		FreeTexture(W\TexHandle)
 		FreeEntity(W\EN)
-		
-		;FreeTexture(W\BumpTexA)
-		
-		Delete(W)
-	Next
 
-	For C.ColBox = Each ColBox
+		;FreeTexture(W\BumpTexA)
+
+		Delete(W)
+		W = WNext
+	Wend
+
+	Local C.ColBox = First ColBox
+	Local CNext.ColBox = Null
+	While C <> Null
+		CNext = After C
 		FreeEntity(C\EN)
 		Delete(C)
-	Next
+		C = CNext
+	Wend
 
-	For E.Emitter = Each Emitter
+	Local E.Emitter = First Emitter
+	Local ENext.Emitter = Null
+	While E <> Null
+		ENext = After E
 		RP_FreeEmitter(GetChild(E\EN, 1), True, False)
 		UnloadTexture(E\TexID)
 		FreeEntity(E\EN)
 		Delete(E)
-	Next
+		E = ENext
+	Wend
 
-	For SZ.SoundZone = Each SoundZone
+	Local SZ.SoundZone = First SoundZone
+	Local SZNext.SoundZone = Null
+	While SZ <> Null
+		SZNext = After SZ
 		If SZ\Channel <> 0 Then StopChannel(SZ\Channel)
 		If SZ\SoundID > 0 And SZ\SoundID < 65535 Then UnloadSound(SZ\SoundID)
 		FreeEntity(SZ\EN)
 		Delete(SZ)
-	Next
+		SZ = SZNext
+	Wend
 
-	For T.Terrain = Each Terrain
+	Local T.Terrain = First Terrain
+	Local TNext.Terrain = Null
+	While T <> Null
+		TNext = After T
 		FreeEntity T\EN
 		UnloadTexture(T\BaseTexID)
 		If T\DetailTex <> 0 Then FreeTexture(T\DetailTex)
 		If T\DetailTexID < 65535 Then UnloadTexture(T\DetailTexID)
 		Delete(T)
-	Next
+		T = TNext
+	Wend
 	
 	;For AI.ActorInstance = Each ActorInstance
 	;		FreeShadowCaster% (AI\EN)

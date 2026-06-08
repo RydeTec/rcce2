@@ -111,6 +111,14 @@ Function ACTORDESTINATIONX<BVM_ACTORDESTINATIONX>#(PARAM1%)
 Function ACTORDESTINATIONZ<BVM_ACTORDESTINATIONZ>#(PARAM1%)
 Function ACTORUNDERWATER<BVM_ACTORUNDERWATER>%(PARAM1%)
 Function ACTORGENDER<BVM_ACTORGENDER>%(PARAM1%)
+; DEAD-API: SetOwner / SceneryOwner are permanently disabled. The
+; underlying OwnedScenery type was removed from src/Modules/ServerAreas.bb
+; and the BVM impls are commented out in src/Modules/ScriptingCommands.bb
+; (grep "DEAD-API"). Both entries stay alive here -- removing them would
+; shift opcodes for every BVM alphabetically after SCENERYOWNER and
+; SETOWNER, breaking the fixed-Case dispatch in
+; src/Modules/RC_Standard_Invoker.bb. Mirror of the audit comment in
+; that file.
 Function SETOWNER<BVM_SETOWNER>(PARAM1%, PARAM2$, PARAM3%, PARAM4% = 0)
 Function SCENERYOWNER<BVM_SCENERYOWNER>%(PARAM1$, PARAM2%, PARAM3%=0)
 Function ACTORID<BVM_ACTORID>%(PARAM1$, PARAM2$)

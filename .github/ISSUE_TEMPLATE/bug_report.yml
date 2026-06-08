@@ -1,0 +1,96 @@
+name: Bug report
+description: Something is broken in the engine, editors, or build.
+title: "[bug] <short summary>"
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug. Please fill the fields below — repro steps + version + OS
+        are what make a bug actionable. See [CONTRIBUTING.md](../blob/develop/CONTRIBUTING.md)
+        for context.
+
+  - type: input
+    id: rcce-version
+    attributes:
+      label: RCCE 2 version / commit
+      description: |
+        Output of `git log -1 --oneline` from your local checkout, or the release tag you're running.
+      placeholder: "e.g. 2.12.1 or 03ccdc9"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which surface?
+      description: Pick the binary or subsystem the bug shows up in.
+      multiple: false
+      options:
+        - Server.exe (game server)
+        - Client.exe (player client)
+        - GUE.exe (world editor)
+        - Project Manager
+        - RC Architect / Terrain / Cave / Rock / Tree / Gubbin / Music Editor
+        - Build / compile.bat / compile.sh
+        - Tests / test.bat / test.sh
+        - BVM scripting
+        - Wire protocol / networking
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: OS + version
+      placeholder: "e.g. Windows 11 24H2, macOS 14.5 (Apple Silicon)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: |
+        Numbered, minimal steps. "It just stopped working" is not actionable;
+        "Open Server.exe, load any project, click X, then Y" is.
+      placeholder: |
+        1. Run `compile.bat -t`
+        2. Launch `bin/Server.exe`
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: Include exact error messages, stack traces, or screenshots if relevant.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: |
+        Server-side logs live under `Data/Logs/`. Paste only the relevant lines; trim noise.
+        Use a code block (triple backticks).
+      render: text
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional context
+      description: |
+        Anything else — when did this start? Does it happen on a clean clone? Does any
+        workaround exist?

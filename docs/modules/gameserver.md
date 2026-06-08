@@ -2,7 +2,62 @@
 
 **GameServer.bb**
 
-This module contains the following globals:  
+The per-tick simulation core. Holds the live `UpdateActorInstances` loop that drives every actor's AI / movement / combat / water-tick / breath / faction-aggro / spawn-management each engine frame, plus the canonical [`ActorAttack`](#FActorAttack) damage engine that [`P_AttackActor`](../protocol/packets/P_AttackActor.md) bottoms out in. The companion files are [Server.bb](../../src/Server.bb) (entry point + helpers like `UpdateAttribute` / `UpdateAttributeMax` / `UpdateReputation` — see [`P_StatUpdate`](../protocol/packets/P_StatUpdate.md)), [Actors.bb](../../src/Modules/Actors.bb) (the `ActorInstance` Type + linked-list helpers), and [ServerNet.bb](servernet.md) (packet dispatch).
+
+This page interleaves a **modern conceptual overview** of the architectural patterns that have emerged from recent hardening with the legacy function-by-function reference. For the per-function API the reference further down is authoritative; the overview is for orientation.
+
+## Conceptual overview
+
+### Per-tick simulation: `UpdateActorInstances`
+
+The dominant per-frame cost on a populated server. Walks every `ActorInstance` (NPCs + players), driving:
+
+- **Movement integration** (X/Y/Z toward DestX/Y/Z, snap to terrain via `LinePick`, `SetArea` rebinds on portal cross)
+- **AI** (`AILookForTargets`, `AICallForHelp`, target acquisition, faction-aggro propagation)
+- **Combat tick** (`AttackTime` cooldowns, calls `ActorAttack` when ready)
+- **Water-tick** (`Underwater` accumulator, breath consumption, water-damage application — walks the per-area `FirstWater` chain, not a global `For Each ServerWater`)
+- **Spell recharge** (every 100ms, all known spells across all actors)
+- **Spawn point processing** (NPC respawn timers)
+
+The loop uses the canonical [iterator hazard pattern](../../CLAUDE.md) — `DeferKillActor(AI, Null)` enqueues a `PendingKill` work item rather than calling `KillActor(AI, ...)` mid-iteration. After the loop completes, `ProcessPendingKills` drains the queue. This prevents the classic Blitz3D "Delete current For-Each element" iterator-cursor corruption.
+
+### Damage engine: `ActorAttack`
+
+Server-authoritative damage resolution. Four `CombatFormula` variants (config-set at boot):
+
+| `CombatFormula` | Hit chance | Damage formula |
+|---|---|---|
+| `1` (Normal) | 90% | `weapon.Damage ± strength-rolled bonus`, critical 1/10 (×2). Armour subtracts `GetArmourLevel + Resistances[DamageType] - 100 + ToughnessStat / 8`. |
+| `2` (No strength bonus) | 90% | `weapon.Damage` flat. Critical 1/10 (×2). Same armour formula. |
+| `3` (Multiplied) | 90% | `weapon.Damage × Strength`. Critical 1/10. |
+| `4` (Attack script) | N/A | Delegates to a `ThreadScript("Attack", "Main", attacker, victim)` — content authors implement the formula in `.rsl`. No range/damage check server-side. |
+
+See [`P_AttackActor`](../protocol/packets/P_AttackActor.md) for the wire-protocol view (the H/Y/O broadcast tuple, Damage+1 encoding, observer re-sync via [`P_StatUpdate`](../protocol/packets/P_StatUpdate.md)).
+
+The critical-damage notification is the only place in the engine that emits `P_ChatMessage Chr$(250)` custom-RGB lines outside of `BVM_OUTPUT` (`Chr$(255) + Chr$(225) + Chr$(100)` peach/orange). See [`P_ChatMessage`](../protocol/packets/P_ChatMessage.md).
+
+### Chain-walk patterns (the "linked-list initiative")
+
+Several broadcast hot-paths historically walked `Each ActorInstance` with an inner filter (`If A2\RNID > 0`, `If A2\Leader = NPC`, etc.). For populated servers with many NPCs the inner filter dominated cost. The chain initiative replaced these with O(N-filtered) walks via per-purpose linked lists:
+
+- **`FirstOnlinePlayer` / `NextOnlinePlayer`** (head Global in `Actors.bb`; `NextOnlinePlayer` Field on `ActorInstance`) — engine-wide chain of every player with `RNID > 0`. The `RNID > 0` invariant is enforced at the call sites that invoke `OnlinePlayerInsert` (the login / character-spawn path), not inside `OnlinePlayerInsert` itself — so adding a new caller requires preserving the invariant. Used by `/yell`, `/gm`, `/g`, `/pm`, `/allplayers` chat broadcasts (replaced 7 loops in `ServerNet.bb`'s `P_ChatMessage` handler — see [`P_ChatMessage`](../protocol/packets/P_ChatMessage.md)) and the per-tick `P_StandardUpdate` broadcast in `UpdateActorInstances` (the dominant per-frame cost on a populated server).
+- **`FirstSlave` / `NextSlave`** (Fields on `ActorInstance` in `Actors.bb`) — per-leader chain of pet/slave actors. Used by `/pet` command dispatch ([ServerNet.bb:266](../../src/Modules/ServerNet.bb#L266)), the `FreeActorInstanceSlaves` cleanup walk, and the pet-aggro broadcast in `ActorAttack`. Maintained by `SlaveLink` / `SlaveUnlink` (also in `Actors.bb`).
+- **`FirstInZone` / `NextInZone`** (per-Area; `FirstInZone` head Field on `AreaInstance` in `ServerAreas.bb`, `NextInZone` Field on `ActorInstance` in `Actors.bb`) — per-area chain of every actor in that `AreaInstance`. Used by the per-tick attribute-update broadcast (`UpdateAttribute` in `Server.bb` — see [`P_StatUpdate`](../protocol/packets/P_StatUpdate.md)) and the `Case "O"` observer broadcast in `ActorAttack`.
+- **`Area\FirstWater` / `ServerWater\NextWater`** (per-Area, in `ServerAreas.bb`) — per-area chain of `ServerWater` instances. Used by the water-tick loop in `UpdateActorInstances` (replaced a nested `For Each ServerWater` that scaled poorly with water-instance count across all areas).
+
+Every list has insertion/removal helpers (e.g. `OnlinePlayerInsert` / `OnlinePlayerRemove` for FirstOnlinePlayer) that maintain the chain invariants. The cleanup path in `FreeActorInstance` calls these unconditionally — so any actor that's ever been on a chain is correctly removed at free time. Regression tests for the chain semantics live in `src/Tests/Modules/OnlinePlayerChainTest.bb` and `SlaveChainTest.bb`.
+
+### Soft-fail discipline + handle-Null guards
+
+Every `Object.AreaInstance(AI\ServerArea)` lookup in this file checks the result for `Null` before walking `FirstInZone` — an actor mid-warp (`SetArea` rebinding zones) returns Null and the broadcast simply doesn't fire that tick (the actor's in-memory state already updated; only the network replication drops). PRs #154 / #176 / #182–#188 covered this discipline sweep.
+
+The same shape applies to `Object.ActorInstance(handle)` and `Object.ServerWater(handle)` results. See CLAUDE.md → "Handle-lookup Null discipline" for the canonical pattern. The water-tick site is a notable example: the initial scan captures `Underwater = Handle(SW)` for a live `ServerWater`, but ≥1 second may elapse before the damage branch runs — `Object.ServerWater` returns Null if the owning area was unloaded in that window, and the damage branch correctly skips (breath loss already ran and is fine on stale water).
+
+### Spawn-point machinery
+
+`SpawnActor[]` / `Spawned[]` per-`AreaInstance` arrays drive NPC respawn. The pattern: `Spawned[i]` counts live instances of `SpawnActor[i]` in this AreaInstance; when an actor dies (`KillActor` decrement) and `Spawned[i] < SpawnMax[i]`, the respawn timer counts down to spawn a fresh one. `PreLoadSpawns` ([Server.bb:741](../../src/Server.bb#L741)) is the startup optimization that warm-spawns everyone before players connect; the live spawner in `UpdateActorInstances` handles ongoing respawns. Both code paths now guard `ActorList(ua\SpawnActor[i]) = Null` before `CreateActorInstance` — see CLAUDE.md → "Soft-fail" section.
+
+
 
 *   [Game.GameWindow](#GGame)
 *   [LastSpellRecharge](#GLastSpellRecharge)
@@ -244,6 +299,27 @@ Return value: None
 Parameters:  
 
 *   _AI.ActorInstance_ - The actor instance who should 'call' for help
+
+* * *
+
+## Related modules
+
+- [Server.bb](../../src/Server.bb) — entry point. Hosts `UpdateAttribute` / `UpdateAttributeMax` / `UpdateReputation` (the canonical broadcast helpers for `P_StatUpdate`) and the `OnLostConnection` consolidation point.
+- [Actors.bb](../../src/Modules/Actors.bb) — `ActorInstance` Type, linked-list helpers (`OnlinePlayerInsert/Remove`, `SlaveLink/Unlink`, `FirstInZone` chain maintenance), `FreeActorInstance` (the canonical actor-free path with all chain cleanups), `SafeFreeActorInstance` (the every-frame `PlayerTarget`-clearing wrapper).
+- [ServerNet.bb](servernet.md) — packet dispatch. `P_AttackActor` handler bottoms out in `ActorAttack` here; `P_ChatMessage` slash commands include several that mutate per-actor state.
+- [ServerAreas.bb](serverareas.md) — `Area` / `AreaInstance` Type + `Area\FirstWater` chain. Mid-warp `Object.AreaInstance(...)` Null discipline lives at this boundary.
+- [Spells.bb](spells.md) — `Spell` Type + `MemorisingSpell` server-side queue. `ActorAttack` consumes weapon damage; the spell cast path lives in `P_SpellUpdate` handler in ServerNet, not here.
+- [ScriptingCommands.bb](scriptingcommands.md) — BVM functions that invoke GameServer routines from script context (`BVM_KILLACTOR` → `KillActor`, `BVM_GIVEXP` → `GiveXP`, etc.). Privilege gating on those callers prevents clicker exploits from reaching these mutators.
+
+## See also
+
+- [`P_AttackActor` detail](../protocol/packets/P_AttackActor.md) — wire-protocol view of `ActorAttack`'s output (H/Y/O sub-codes, Damage+1 encoding).
+- [`P_StatUpdate` detail](../protocol/packets/P_StatUpdate.md) — broadcasts the attribute changes that `ActorAttack` / water-tick / etc. produce.
+- [`P_SpellUpdate` detail](../protocol/packets/P_SpellUpdate.md) — the 11-gate spell-cast handler.
+- CLAUDE.md → "Iterator-during-iteration hazards" — the `DeferKillActor` / `ProcessPendingKills` pattern.
+- CLAUDE.md → "Handle-lookup Null discipline" — the `Object.AreaInstance` / `Object.ServerWater` guards used throughout this file.
+- CLAUDE.md → "Soft-fail on server-controlled data" — why server packet handlers and per-tick code must not RuntimeError on data values.
+
 
   
 This function finds all other NPCs who have a very high faction rating (90%+) with the specified actor instance and, if they are within their aggression range and not already involved in combat, causes them to come to the aid of the specified actor instance by helping to attack its current target.

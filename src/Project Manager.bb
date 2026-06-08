@@ -14,6 +14,7 @@ Include "Modules\Graphics\UI\Components\TextComponent.bb"
 Include "Modules\Graphics\UI\Components\MenuItemComponent.bb"
 Include "Modules\Graphics\RCCEGraphics.bb"
 Include "Modules\Framework\Project\Project.bb"
+Include "Modules\Project Manager\RecentProjects.bb"
 
 Type ProjectManager.RCCEApp
 	Field window%
@@ -121,7 +122,7 @@ Type ProjectManager.RCCEApp
 		Local count = ListSize(self\recentProjectList) - 1
 		for i = 0 to count
 			Local prj.Project = ListAt(self\recentProjectList, i)
-			if (prj\rootDir = dir)
+			if (NormalizeProjectRoot$(prj\rootDir) = NormalizeProjectRoot$(dir))
 				return prj
 			end if
 		next
@@ -148,26 +149,17 @@ Type ProjectManager.RCCEApp
 			return
 		end if
 
-		if (NOT self\prj = null)
-			if(NOT self\recentProjectList = Null)
-				self\recentProjectList = CreateList()
-			end if
-
-			if (ListSize(self\recentProjectList) > 0)
-				ListReplace(self\recentProjectList, 0, self\prj)
-			else
-				ListAdd(self\recentProjectList, self\prj)
-			end if
+		if self\recentProjectList = Null
+			self\recentProjectList = CreateList()
 		end if
+
+		if (NOT self\prj = Null) Then RecentProjectsPromote(self\recentProjectList, self\prj)
 
 		Project::load(prj)
 		self\prj = prj
 		
-		if(NOT self\recentProjectList = Null)
-			if (ListFind(self\recentProjectList, self\prj) <> -1)
-				ListRemove(self\recentProjectList, ListFind(self\recentProjectList, self\prj))
-			end if
-		end if
+		RecentProjectsRemoveByRootDir(self\recentProjectList, self\prj\rootDir)
+		RecentProjectsTrim(self\recentProjectList, 9)
 
 		ProjectManager::saveRecentProjects(self)
 
@@ -190,9 +182,9 @@ Type ProjectManager.RCCEApp
 
 		for i = 0 to 9
 			Local dir$ = File::readLine(self\recentProjectFile)
-			if (dir = "") Then Exit
+			if (dir$ = "") Then Exit
 			Local prj.Project = new Project(dir$)
-			if (NOT Project::verify(prj)) 
+			if (NOT Project::verify(prj))
 				delete prj
 			else
 				ListAdd(self\recentProjectList, prj)
@@ -279,6 +271,7 @@ local PMH$ = RootDir$ + "res\Help.txt"
 local SWH$ = RootDir$ + "bin\tools\RC Spell Wizard\RC Spell Wizard Documentation.pdf"
 
 local GUE$ = RootDir$ + "bin\GUE.exe"
+local LOOM$ = RootDir$ + "bin\Loom.exe"
 local CLI$ = RootDir$ + "bin\Client.exe"
 local SER$ = RootDir$ + "bin\Server.exe"
 
@@ -330,6 +323,11 @@ local M_SWH = FUI_MenuItem(M_Help, "Spell Wizard Help")
 local M_HF = FUI_MenuItem(M_Help, "Help File")
 
 ;Function Buttons
+; Buttons disabled; preserve the global symbols so the (dead) Case BMINI /
+; Case BCLOSE branches below still compile under Strict mode. Both will
+; remain 0, so the Cases never match a real gadget event.
+Global BMINI = 0
+Global BCLOSE = 0
 ;BMINI = FUI_Button(WMain, 509, 1, 18, 18, "_")
 ;BCLOSE = FUI_Button(WMain, 529, 1, 18, 18, "X")
 
@@ -373,8 +371,12 @@ local BOSC = FUI_Button(TProject, 170 + 75.5 + 75.5, 200, 70.5, 25, "Scripts")
 FUI_ImageBox(TEngine, 160, 27, 380, 112, Ptr LogoTex)
 
 ;Editors
-local LED = FUI_GroupBox(TEngine, 5, 20, 150, 80, "Editors")
-local BGUE = FUI_Button(TEngine, 15, 40, 130, 50, "Game Unified Editor") 
+local LED = FUI_GroupBox(TEngine, 5, 20, 150, 115, "Editors")
+local BGUE = FUI_Button(TEngine, 15, 40, 130, 50, "Game Unified Editor")
+;Loom alpha button -- launches the in-progress Loom redesign of GUE. Same
+;data layer, different UI shell. Labelled "Alpha" so users know it's not
+;production-ready.
+local BLOOM = FUI_Button(TEngine, 15, 95, 130, 30, "Loom (Alpha)")
 
 local LTK = FUI_GroupBox(TEngine, 160, 140, 240, 100, "Tool Kit")
 local TOOL1 = FUI_Button(TEngine, 170, 165, 70.5, 25, "Gubbin")
@@ -390,6 +392,12 @@ local BB3D = FUI_Button(TEngine, 410, 165, 125, 25, "BlitzForge")
 
 if FileType(B3D$) = 0
 	FUI_DisableGadget(BB3D)
+EndIf
+
+;Disable the Loom alpha button if Loom.exe has not been built yet (e.g. fresh
+;clone where the user hasn't run compile.bat with the new target).
+if FileType(LOOM$) = 0
+	FUI_DisableGadget(BLOOM)
 EndIf
 
 ;Support Tab
@@ -445,12 +453,31 @@ Repeat
 		Case BCLOSE
 			app\Quit = True
 		Case ProName
-			local F.BBStream = WriteFile("Data\Game Data\Misc.dat")
-			If F = Null Then RuntimeError("Could not open Data\Game Data\Misc.dat!")
+			; Atomic rewrite: previous direct-WriteFile truncated and
+			; started writing immediately, so any crash between WriteFile
+			; and CloseFile (operator clicks Quit, AV scan, disk full)
+			; left the project's core metadata file with whatever bytes
+			; had landed -- typically empty. Write to .tmp, then on
+			; success demote current Misc.dat to .bak and swap in.
+			local MiscFinal$ = "Data\Game Data\Misc.dat"
+			local MiscTemp$ = MiscFinal + ".tmp"
+			local F.BBStream = WriteFile(MiscTemp)
+			If F = Null Then RuntimeError("Could not open " + MiscTemp + " for write")
 			WriteLine F, FUI_SendMessage(ProName, M_GETCAPTION)
 			WriteLine F, UpdateGame$
 			WriteLine F, UpdateMusic
 			CloseFile(F)
+			If FileSize(MiscTemp) > 0
+				If FileType(MiscFinal) = 1
+					If FileType(MiscFinal + ".bak") = 1 Then DeleteFile(MiscFinal + ".bak")
+					CopyFile(MiscFinal, MiscFinal + ".bak")
+					DeleteFile(MiscFinal)
+				EndIf
+				CopyFile(MiscTemp, MiscFinal)
+				DeleteFile(MiscTemp)
+			Else
+				DeleteFile(MiscTemp)
+			EndIf
 		Case M_Meshes
 			ExecFile(OMF$)
 		Case M_Textures
@@ -492,6 +519,8 @@ Repeat
 	;Project Tab
 		Case BGUE
 			ExecFile(GUE$, "", GameDir$ + "Data\")
+		Case BLOOM
+			ExecFile(LOOM$, "", GameDir$ + "Data\")
 		Case BCLI
 			ExecFile(CLI$, "", GameDir$ + "Data\")
 		Case BSER

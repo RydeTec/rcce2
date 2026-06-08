@@ -25,12 +25,21 @@ Function b3dReadFloat#()
 	Return ReadFloat( b3d_file )
 End Function
 
+; Reads a NUL-terminated string with a hard upper bound. A corrupted or
+; tampered .b3d with no NUL terminator before EOF would otherwise grow t$
+; one byte at a time -- Blitz string concatenation is O(N) per concat, so
+; an unbounded loop is O(N^2) and can stall the loader for minutes on a
+; megabyte-class string of garbage. 4096 bytes covers any realistic mesh
+; tag, material name, or animation name in a legitimate .b3d.
 Function b3dReadString$()
-Local t$
+	Local t$
+	Local n
 	Repeat
 		ch=b3dReadByte()
 		If ch=0 Return t$
 		t$=t$+Chr$(ch)
+		n=n+1
+		If n >= 4096 Return t$
 	Forever
 End Function
 

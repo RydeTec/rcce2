@@ -1,0 +1,33 @@
+[package]
+name = "rcenet-ffi-probe"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "32-bit diagnostic: drive the shipped RCEnet.dll's RCE_Connect to capture its real ENet handshake bytes."
+
+# MUST be built for i686-pc-windows-msvc — the shipped RCEnet.dll is 32-bit x86
+# and a 64-bit process cannot load it. Build with:
+#   cargo build -p rcenet-ffi-probe --target i686-pc-windows-msvc
+
+[dependencies]
+libloading = "0.8"
+# default-features=false → no rusty_enet on the 32-bit target; we only need the
+# Transport trait + framing helpers.
+rcce-net = { path = "../rcce-net", default-features = false }
+
+[lib]
+name = "rcenet_ffi"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ffi-raw-probe"
+path = "src/main.rs"
+
+[[bin]]
+name = "client-probe"
+path = "src/bin/client_probe.rs"
+
+[[bin]]
+name = "login-probe"
+path = "src/bin/login_probe.rs"

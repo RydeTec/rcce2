@@ -3,13 +3,39 @@ Strict
 Include "Modules\IO\File.bb"
 
 Type Filesystem
-	; Copies a file, but deletes the destination first if it already exists
+	; Copies a file atomically. The previous implementation (DeleteFile
+	; destination, then CopyFile source -> destination) was not safe at
+	; all -- a crash, lock, or disk-full between the two left the caller
+	; with no destination. Used by GenerateFullInstall / GenerateServer
+	; to assemble release artefacts, so an aborted publish would silently
+	; produce a broken release.
+	;
+	; Pattern: copy to {ToFile}.tmp, verify size, swap in. A crash mid-
+	; sequence leaves either the original ToFile intact (early failure)
+	; or the .tmp on disk for manual recovery (late failure).
 	Method safeCopyFile(FromFile$, ToFile$)
 
-		If FileType(FromFile$) = 1
-			If FileType(ToFile$) = 1 Then DeleteFile(ToFile$)
-			CopyFile(FromFile$, ToFile$)
+		If FileType(FromFile$) <> 1 Then Return
+
+		Local TmpFile$ = ToFile$ + ".tmp"
+		If FileType(TmpFile$) = 1 Then DeleteFile(TmpFile$)
+
+		CopyFile(FromFile$, TmpFile$)
+		If FileType(TmpFile$) <> 1 Then Return
+		If FileSize(TmpFile$) <> FileSize(FromFile$)
+			DeleteFile(TmpFile$)
+			Return
 		EndIf
+
+		If FileType(ToFile$) = 1 Then DeleteFile(ToFile$)
+		CopyFile(TmpFile$, ToFile$)
+		If FileType(ToFile$) <> 1
+			; Promote failed -- try to roll back from the still-present
+			; temp. Caller's destination is now missing either way.
+			CopyFile(TmpFile$, ToFile$)
+			Return
+		EndIf
+		DeleteFile(TmpFile$)
 
 	End Method
 

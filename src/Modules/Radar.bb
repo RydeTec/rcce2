@@ -88,6 +88,11 @@ Function Load_Radar(AreaName$, X#, Y#, Width#, Height#, Interior, BorderTex$ = "
  	ResizeImage TempImage, Radar_TexSize, Radar_TexSize
 	Radar_Tex1 = CreateTexture(Radar_TexSize, Radar_TexSize, 1)
 	CopyRect 0, 0, Radar_TexSize, Radar_TexSize, 0, 0, ImageBuffer(TempImage), TextureBuffer(Radar_Tex1)
+	; Free the screen-sized scratch image — Load_Radar runs on every zone
+	; change, and TempImage was previously leaked each time (~8 MB at
+	; 1920x1080x32bpp; 20 zones = 160 MB of orphaned image data in a
+	; Blitz3D 2 GB address space).
+	FreeImage TempImage
 
 	; Restore scenery FX
 	For Sc.Scenery = Each Scenery
@@ -208,15 +213,29 @@ Function Save_Radar_Fog(areaname$)
 	Next
 	SetBuffer TextureBuffer(radar_tex2)
 	LockBuffer TextureBuffer(radar_tex2)
-	 sf_radar=WriteFile(radar_thispath$+radarpath$+areaname$+".rdr")
-	  For fx=0 To Radar_TexSize-1
-	   For fy=0 To Radar_TexSize-1
-	     CC=ReadPixelFast(fx,fy)
-	       WriteInt sf_radar, CC
-	    Next
-	    Next
+	; Atomic .rdr save + close the pre-existing CloseFile leak. The
+	; previous code opened sf_radar via WriteFile but never closed it,
+	; leaking one file handle per call. SafeWriteCommit owns the close
+	; and atomic-promotes; previous radar texture is retained as .bak.
+	Local RdrFinalPath$ = radar_thispath$+radarpath$+areaname$+".rdr"
+	Local RdrTempPath$ = SafeWriteOpen$(RdrFinalPath$)
+	sf_radar=WriteFile(RdrTempPath$)
+	If sf_radar = 0
+		UnlockBuffer TextureBuffer(radar_tex2)
+		SetBuffer BackBuffer()
+		Return
+	EndIf
+	For fx=0 To Radar_TexSize-1
+		For fy=0 To Radar_TexSize-1
+			CC=ReadPixelFast(fx,fy)
+			WriteInt sf_radar, CC
+		Next
+	Next
 	UnlockBuffer TextureBuffer(radar_tex2)
-   SetBuffer BackBuffer()
+	SetBuffer BackBuffer()
+	; SafeWriteCommit closes sf_radar; on failure the previous .rdr
+	; survives unchanged.
+	SafeWriteCommit%(RdrTempPath$, RdrFinalPath$, sf_radar)
 End Function
 
 
@@ -302,8 +321,18 @@ Function UpdateRadar(ent,areashow=50)
 If radar_lastx#=EntityX(ent,1) And radar_lasty#=EntityZ(ent,1) Then Return
 radar_lastx#=EntityX(ent,1):radar_lasty#=EntityZ(ent,1)
 
-	plrx# = (Radar_TexSize / (Radar_WorldSize / -EntityX#(ent, 1)))
-	plry# = (Radar_TexSize / (Radar_WorldSize / EntityZ#(ent, 1)))
+	; Guard divides by zero: at exact world origin EntityX/Z is 0 and the
+	; inverted division produces Inf, which propagates into PositionEntity
+	; below and corrupts the player marker. The math was also doubly-
+	; inverted (`tex / (world / -x)` = `-x * tex / world`); inline that
+	; form so we don't blow up on origin spawns.
+	If Radar_WorldSize = 0
+		plrx# = 0.0
+		plry# = 0.0
+	Else
+		plrx# = (-EntityX#(ent, 1) * Radar_TexSize) / Radar_WorldSize
+		plry# = (EntityZ#(ent, 1) * Radar_TexSize) / Radar_WorldSize
+	EndIf
 
 fromfx=plrx#+(Radar_TexSize/2)-areashow
 tofx=plrx#+(Radar_TexSize/2)+areashow

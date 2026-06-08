@@ -1,11 +1,16 @@
 @echo off
 setlocal
 
-set ROOTDIR=%CD%
+set "ROOTDIR=%~dp0"
+if "%ROOTDIR:~-1%"=="\" set "ROOTDIR=%ROOTDIR:~0,-1%"
 
-call .\compile.bat
+call "%ROOTDIR%\compile.bat" || (
+    echo Compilation failed; aborting publish.
+    endlocal
+    exit /b 1
+)
 
-cd %ROOTDIR%
+cd /d "%ROOTDIR%"
 
 if exist "%ROOTDIR%\release" rmdir /S /Q "%ROOTDIR%\release"
 

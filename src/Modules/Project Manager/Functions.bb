@@ -41,12 +41,36 @@ Function GenerateFullInstall()
 		If Len(UpdatesList$(i)) = 0 Then Exit
 		Filesystem::CopyTree(Null, UpdatesList$(i), "Game\" + UpdatesList$(i))
 	Next
-	; Change to non development version
-	local F.BBStream = WriteFile("Game\Data\Game Data\Misc.dat")
-		WriteLine(F, GameName$)
-		WriteLine(F, "Normal")
-		WriteLine(F, "1")
+	; Change to non development version.
+	;
+	; Atomic Misc.dat write: a half-built install (drive-full,
+	; permission denied, process kill) used to leave an empty
+	; destination Misc.dat that the launched client would interpret
+	; as "no game name, no version". This now mirrors the existing
+	; inline temp+swap pattern at Project Manager.bb:451-469 so both
+	; of PM's Misc.dat writers are consistent. SafeWriteOpen /
+	; SafeWriteCommit can't be used here because the PM target doesn't
+	; include Modules\Logging.bb -- moving the canonical helpers into
+	; a Logging-free utility module would be a separate refactor.
+	Local MiscFinal$ = "Game\Data\Game Data\Misc.dat"
+	Local MiscTemp$ = MiscFinal + ".tmp"
+	local F.BBStream = WriteFile(MiscTemp)
+	If F = Null Then Return
+	WriteLine(F, GameName$)
+	WriteLine(F, "Normal")
+	WriteLine(F, "1")
 	CloseFile(F)
+	If FileSize(MiscTemp) > 0
+		If FileType(MiscFinal) = 1
+			If FileType(MiscFinal + ".bak") = 1 Then DeleteFile(MiscFinal + ".bak")
+			CopyFile(MiscFinal, MiscFinal + ".bak")
+			DeleteFile(MiscFinal)
+		EndIf
+		CopyFile(MiscTemp, MiscFinal)
+		DeleteFile(MiscTemp)
+	Else
+		DeleteFile(MiscTemp)
+	EndIf
 	; Complete
 	FUI_CustomMessageBox("Complete! Required files are in the \Game folder.", "Build Client", MB_OK)
 

@@ -1,6 +1,7 @@
 [submodule "compiler/BlitzForge"]
 	path = compiler/BlitzForge
 	url = https://github.com/RydeTec/blitz-forge.git
+	branch = develop
 [submodule "extras/vscode-blitz-forge"]
 	path = extras/vscode-blitz-forge
 	url = https://github.com/RydeTec/vscode-blitz-forge.git

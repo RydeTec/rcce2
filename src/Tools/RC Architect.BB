@@ -119,6 +119,11 @@ If FileType(SAVEPATH$)<>2 Then CreateDir(SAVEPATH$)
 
 
 Include "Modules\media.bb"
+; Logging.bb provides SafeWriteOpen / SafeWriteCommit used by Media.bb's
+; CreateDatabase. Non-Strict tools tolerate the missing MainLog/LogMode
+; globals via implicit-zero semantics (WriteLog's `If LogHandle <> 0`
+; and `If LogMode > 0` short-circuit when the implicit globals are 0).
+Include "Modules\Logging.bb"
 Include "modules\B3dFILE.bb"
 Include "modules\Scene_Export.bb"
 Include "modules\Fix_Sandwichtris.bb"
@@ -1039,8 +1044,14 @@ Case GUI_MENUFILE_SAVE
      tFile = FUI_SaveDialog( "Save architect map", "Data\ARCHITECT\Saves\", "ACT Map (*.act)|*.act")
  	 If tFile = True Then
      savemap$=APP\CURRENTFILE
-       If savemap$<>"" Then 
-	   If Instr( Lower$(savemap$), "act", 1 ) > 1 Then
+       If savemap$<>"" Then
+       ; Only treat the filename as already having an extension when ".act"
+       ; is at the end. The previous Instr-based check matched the substring
+       ; "act" anywhere in the path, so e.g. "practice", "factory", or any
+       ; folder named "act" caused savework() to receive a name without the
+       ; expected ".act" suffix and the resulting file was unreadable to
+       ; the loader.
+	   If Right$( Lower$(savemap$), 4 ) = ".act" Then
                         DebugLog "saving : "+savemap$
 						savework (savemap$)
 						Else
@@ -1096,7 +1107,14 @@ End Function
 
 Function savework(SF$="")
 FN$=sf$
-sfile=WriteFile (fn$)
+; Atomic save: write to a .tmp and only promote it on success, so a crash or
+; a failed/partial write can't truncate the user's existing .act map. Matches
+; the .tmp-protected mesh-pad path already in this file (~:1561) and the
+; CLAUDE.md atomic-write convention. SafeWriteCommit closes the handle and
+; performs the atomic promote (and refuses to clobber the original if the
+; temp is missing/empty).
+Local TmpPath$ = SafeWriteOpen$(fn$)
+sfile=WriteFile (TmpPath$)
 ;find out how many dropmodels there are
 dmc=0
 
@@ -1126,7 +1144,7 @@ WriteByte sfile,dm\cg
 WriteByte sfile,dm\cb
 Next
 
-CloseFile sfile
+SafeWriteCommit%(TmpPath$, fn$, sfile)
 
 ChangeDir thispath$
 
@@ -1544,12 +1562,24 @@ If FileType(fname$)<>1 Then Return -1
  EndIf
 
 ;wite to file
-; Newf=WriteFile(newn$)
-DeleteFile (fname$)
- Fsave=WriteFile(fname$)
- b=PeekByte(thisbank,i)
- WriteBytes thisbank,fsave,0,offset
- CloseFile fsave
+; Write to .tmp first so a failed WriteFile can't wipe the source.
+TmpPath$ = fname$ + ".tmp"
+If FileType(TmpPath$) = 1 Then DeleteFile(TmpPath$)
+Fsave = WriteFile(TmpPath$)
+If Fsave = 0
+	FreeBank thisbank
+	Return -1
+EndIf
+WriteBytes thisbank, fsave, 0, offset
+CloseFile fsave
+If FileSize(TmpPath$) <> offset
+	DeleteFile(TmpPath$)
+	FreeBank thisbank
+	Return -1
+EndIf
+DeleteFile(fname$)
+CopyFile TmpPath$, fname$
+DeleteFile(TmpPath$)
 
 ; WriteBytes thisbank,newf,0,ts
 ; CloseFile newf

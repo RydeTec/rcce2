@@ -1,0 +1,9 @@
+# Generated docs MUST use LF line endings so the generator's --check mode
+# works on Windows clients (where autocrlf would otherwise convert LF -> CRLF
+# on checkout and the regenerated LF-only output would always diff). Without
+# this, scripts/gen_*.sh --check always reports STALE on Windows.
+docs/bvm-reference.md   text eol=lf
+docs/protocol/index.md  text eol=lf
+
+# Bash scripts: LF for shell-script compatibility on Linux/CI.
+scripts/*.sh text eol=lf

@@ -69,7 +69,19 @@ Function CreateEnvironment()
 	Return SaveEnvironment(True)
 End Function
 
-; Loads all environment settings
+; Loads all environment settings.
+;
+; Defensive reads throughout:
+;   * Season/Month names go through ReadBoundedString$ (cap 256) so a
+;     corrupted file's wild length prefix can't hang the server at boot.
+;   * TimeFactor is clamped to a sane minimum (1) on load -- the comment
+;     in SaveEnvironment notes the danger ("TimeFactor=0 then triggers
+;     divide-by-zero in UpdateEnvironment"), but UpdateEnvironment itself
+;     was unguarded. Clamp here so the SaveEnvironment-partial-write
+;     defense is no longer the only line between corruption and a server
+;     crash on the first UpdateEnvironment tick.
+;   * TimeH / TimeM bounded to wall-clock ranges; Year / Day clamped to
+;     non-negative.
 Function LoadEnvironment()
 
 	F = ReadFile("Data\Server Data\Environment.dat")
@@ -80,48 +92,88 @@ Function LoadEnvironment()
 	TimeM = ReadInt(F)
 	TimeFactor = ReadInt(F)
 	For i = 0 To 11
-		SeasonName$(i) = ReadString$(F)
+		SeasonName$(i) = ReadBoundedString$(F, 256)
 		SeasonStartDay(i) = ReadInt(F)
 		SeasonDuskH(i) = ReadInt(F)
 		SeasonDawnH(i) = ReadInt(F)
 	Next
 	For i = 0 To 19
-		MonthName$(i) = ReadString$(F)
+		MonthName$(i) = ReadBoundedString$(F, 256)
 		MonthStartDay(i) = ReadInt(F)
 	Next
 	CloseFile(F)
+
+	; Clamp values that would crash or wedge UpdateEnvironment downstream.
+	If TimeFactor < 1
+		WriteLog(MainLog, "LoadEnvironment: TimeFactor was " + TimeFactor + " (would divide-by-zero); resetting to 10")
+		TimeFactor = 10
+	EndIf
+	If Year < 0 Then Year = 0
+	If Day < 0 Then Day = 0
+	If TimeH < 0 Or TimeH > 23 Then TimeH = 0
+	If TimeM < 0 Or TimeM > 59 Then TimeM = 0
+
 	TimeUpdate = MilliSecs()
 	CurrentSeason = GetSeason()
 	Return True
 
 End Function
 
-; Saves all environment settings
+; Saves all environment settings.
+;
+; Two modes:
+;   FullSave=True  — rewrites the whole file (time fields + season/month
+;                    config tables). Atomic temp+rename to avoid partial
+;                    writes on crash.
+;   FullSave=False — updates only the time fields at the start of the
+;                    existing file (OpenFile, no truncate). Refuse this
+;                    path if the file doesn't already exist OR is too small
+;                    to hold the full config — otherwise LoadEnvironment
+;                    later reads past EOF for TimeFactor/Seasons/Months and
+;                    silently sets them to zero (TimeFactor=0 then triggers
+;                    divide-by-zero in UpdateEnvironment).
 Function SaveEnvironment(FullSave = False)
 
+	Local FinalPath$ = "Data\Server Data\Environment.dat"
+
 	If FullSave = True
-		F = WriteFile("Data\Server Data\Environment.dat")
-	Else
-		F = OpenFile("Data\Server Data\Environment.dat")
+		Local TempPath$ = SafeWriteOpen(FinalPath$)
+		F = WriteFile(TempPath$)
+		If F = 0
+			WriteLog(MainLog, "SaveEnvironment: cannot open " + TempPath$ + " for write")
+			Return False
+		EndIf
+		WriteInt F, Year
+		WriteInt F, Day
+		WriteInt F, TimeH
+		WriteInt F, TimeM
+		WriteInt F, TimeFactor
+		For i = 0 To 11
+			WriteString F, SeasonName$(i)
+			WriteInt F, SeasonStartDay(i)
+			WriteInt F, SeasonDuskH(i)
+			WriteInt F, SeasonDawnH(i)
+		Next
+		For i = 0 To 19
+			WriteString F, MonthName$(i)
+			WriteInt F, MonthStartDay(i)
+		Next
+		Return SafeWriteCommit(TempPath$, FinalPath$, F)
 	EndIf
+
+	; Mid-session time-only update path.
+	If FileType(FinalPath$) <> 1
+		; No full save has ever happened. Refuse to write a half file that
+		; LoadEnvironment would parse as TimeFactor=0 + zeroed Seasons/Months.
+		WriteLog(MainLog, "SaveEnvironment: refusing partial save before a FullSave has been committed")
+		Return False
+	EndIf
+	F = OpenFile(FinalPath$)
 	If F = 0 Then Return False
 		WriteInt F, Year
 		WriteInt F, Day
 		WriteInt F, TimeH
 		WriteInt F, TimeM
-		If FullSave = True
-			WriteInt F, TimeFactor
-			For i = 0 To 11
-				WriteString F, SeasonName$(i)
-				WriteInt F, SeasonStartDay(i)
-				WriteInt F, SeasonDuskH(i)
-				WriteInt F, SeasonDawnH(i)
-			Next
-			For i = 0 To 19
-				WriteString F, MonthName$(i)
-				WriteInt F, MonthStartDay(i)
-			Next
-		EndIf
 	CloseFile(F)
 	Return True
 
@@ -220,25 +272,33 @@ Function LoadSuns()
 
 End Function
 
-; Saves sun settings
+; Saves sun settings atomically. Crash mid-write previously left
+; Suns.dat truncated -- LoadSuns would then read a wrong sun count
+; and either skip suns or read garbage for the trailing entries.
 Function SaveSuns()
 
-	F = WriteFile("Data\Game Data\Suns.dat")
+	Local FinalPath$ = "Data\Game Data\Suns.dat"
+	Local TempPath$ = SafeWriteOpen(FinalPath$)
+	F = WriteFile(TempPath$)
+	If F = 0
+		WriteLog(MainLog, "SaveSuns: cannot open " + TempPath$ + " for write")
+		Return False
+	EndIf
 
 		Count = 0
 		For S.Sun = Each Sun : Count = Count + 1 : Next
 		WriteInt(F, Count)
 		For S.Sun = Each Sun
-		
+
 		;WriteShort(F, S\TexID)
-		
+
 			For i = 0 To 7
 				WriteShort(F, S\TexID[i])
 			Next
-			
+
 			WriteByte(F, S\ShowPhases)
 			WriteByte(F, S\Phase_Length)
-		
+
 			WriteFloat(F, S\Size#)
 			WriteByte(F, S\LightR)
 			WriteByte(F, S\LightG)
@@ -253,7 +313,7 @@ Function SaveSuns()
 			WriteByte(F, S\ShowFlares)
 		Next
 
-	CloseFile(F)
+	Return SafeWriteCommit(TempPath$, FinalPath$, F)
 
 End Function
 

@@ -1,8 +1,23 @@
-<!-- body { color:black background-color:white } a:link{ color:#0070FF } a:visited{ color:#0070FF } --> RealmCrafter: Community Edition Documentation
+# RCCE Documentation
 
-This is the index page for the RealmCrafter: Community Edition source code documentation. Below you can go to the Getting Started page if you are a beginner, the Module Reference to find out about a specific section of code, or the Examples for guides on implementing some smaller features.
+This documentation set is for the current RealmCrafter: Community Edition
+source tree. Use it alongside the repository root
+[`ReadMe.md`](../ReadMe.md) when you are building from source, tracing engine
+behavior, or finding module-level details.
 
-  
+## Start Here
 
-*   [Getting Started](start.md)
-*   [Module Reference](reference.md)
+- [`start.md`](start.md) - contributor/source-build quick start
+- [`reference.md`](reference.md) - module-by-module engine reference
+- [`formats.md`](formats.md) - on-disk data format notes
+
+## What These Docs Cover
+
+- `src/` application entrypoints such as Client, Server, GUE, and Project Manager
+- `src/Modules/` engine and editor modules
+- file formats and scripting-adjacent data surfaces
+
+## What They Do Not Replace
+
+These pages do not replace the packaged-release workflow. If you only want to
+run RCCE, use a GitHub release build instead of the source build path.

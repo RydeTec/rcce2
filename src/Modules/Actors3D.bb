@@ -20,7 +20,10 @@ Function LoadGubbinNames()
 	F = ReadFile("Data\Game Data\Gubbins.dat")
 	If F = 0 Then RuntimeError("File not found: " + "Data\Game Data\Gubbins.dat!")
 		For i = 0 To 5
-			GubbinJoints$(i) = ReadString$(F)
+			; Bound joint names against a corrupted Gubbins.dat. Joints are
+			; short identifiers like "Head", "Hand"; 64 covers any realistic
+			; mesh joint label.
+			GubbinJoints$(i) = ReadBoundedString$(F, 64)
 		Next
 	CloseFile(F)
 
@@ -38,7 +41,15 @@ Function SetActorWeapon(AI.ActorInstance, MeshID)
 
 	If MeshID > -1 And MeshID < 65535
 		AI\WeaponEN = GetMesh(MeshID)
-		If AI\WeaponEN = 0 Then RuntimeError("Could not load weapon mesh!")
+		; Soft-fail: a server (hostile or just out-of-sync) can pick
+		; any MeshID for the actor's weapon. Previously a missing
+		; mesh crashed the entire client via RuntimeError. Log and
+		; leave the slot empty -- the actor appears unarmed until
+		; the next equipment update.
+		If AI\WeaponEN = 0
+			WriteLog(MainLog, "SetActorWeapon: missing weapon mesh ID " + MeshID + " on race '" + AI\Actor\Race$ + "', leaving unequipped")
+			Return
+		EndIf
 		EntityAutoFade(AI\WeaponEN, nearFadeModifier * CameraViewRange, farFadeModifier * CameraViewRange)
 		RHand = FindChild(AI\EN, "R_Hand")
 
@@ -47,7 +58,11 @@ Function SetActorWeapon(AI.ActorInstance, MeshID)
 		RHand = FindChild(AI\EN, "L_Hand")
 		EndIf 
 
-		If RHand = 0 Then RuntimeError(AI\Actor\Race$ + " actor mesh is missing an 'R_Hand' joint!")
+		If RHand = 0
+			WriteLog(MainLog, "SetActorWeapon: race '" + AI\Actor\Race$ + "' mesh missing 'R_Hand' joint, leaving unequipped")
+			FreeEntity(AI\WeaponEN) : AI\WeaponEN = 0
+			Return
+		EndIf
 		EntityParent AI\WeaponEN, RHand, False
 		PositionEntity AI\WeaponEN, LoadedMeshX#(MeshID), LoadedMeshY#(MeshID), LoadedMeshZ#(MeshID)
 		ScaleEntity AI\WeaponEN, LoadedMeshScales#(MeshID), LoadedMeshScales#(MeshID), LoadedMeshScales#(MeshID)
@@ -70,10 +85,17 @@ Function SetActorShield(AI.ActorInstance, MeshID)
 
 	If MeshID > -1 And MeshID < 65535
 		AI\ShieldEN = GetMesh(MeshID)
-		If AI\ShieldEN = 0 Then RuntimeError("Could not load shield mesh!")
+		If AI\ShieldEN = 0
+			WriteLog(MainLog, "SetActorShield: missing shield mesh ID " + MeshID + " on race '" + AI\Actor\Race$ + "', leaving unequipped")
+			Return
+		EndIf
 		EntityAutoFade(AI\ShieldEN, nearFadeModifier * CameraViewRange, farFadeModifier * CameraViewRange)
 		LHand = FindChild(AI\EN, "L_Hand")
-		If LHand = 0 Then RuntimeError(AI\Actor\Race$ + " actor mesh is missing an 'L_Hand' joint!")
+		If LHand = 0
+			WriteLog(MainLog, "SetActorShield: race '" + AI\Actor\Race$ + "' mesh missing 'L_Hand' joint, leaving unequipped")
+			FreeEntity(AI\ShieldEN) : AI\ShieldEN = 0
+			Return
+		EndIf
 		EntityParent AI\ShieldEN, LHand, False
 		PositionEntity AI\ShieldEN, LoadedMeshX#(MeshID), LoadedMeshY#(MeshID), LoadedMeshZ#(MeshID)
 		ScaleEntity AI\ShieldEN, LoadedMeshScales#(MeshID), LoadedMeshScales#(MeshID), LoadedMeshScales#(MeshID)
@@ -96,10 +118,17 @@ Function SetActorChestArmour(AI.ActorInstance, MeshID)
 
 	If MeshID > -1 And MeshID < 65535
 		AI\ChestEN = GetMesh(MeshID)
-		If AI\ChestEN = 0 Then RuntimeError("Could not load chest item mesh!")
+		If AI\ChestEN = 0
+			WriteLog(MainLog, "SetActorChestArmour: missing chest mesh ID " + MeshID + " on race '" + AI\Actor\Race$ + "', leaving unequipped")
+			Return
+		EndIf
 		EntityAutoFade(AI\ChestEN, nearFadeModifier * CameraViewRange, farFadeModifier * CameraViewRange)
 		Chest = FindChild(AI\EN, "Chest")
-		If Chest = 0 Then RuntimeError(AI\Actor\Race$ + " actor mesh is missing a 'Chest' joint!")
+		If Chest = 0
+			WriteLog(MainLog, "SetActorChestArmour: race '" + AI\Actor\Race$ + "' mesh missing 'Chest' joint, leaving unequipped")
+			FreeEntity(AI\ChestEN) : AI\ChestEN = 0
+			Return
+		EndIf
 		EntityParent AI\ChestEN, Chest, False
 		PositionEntity AI\ChestEN, LoadedMeshX#(MeshID), LoadedMeshY#(MeshID), LoadedMeshZ#(MeshID)
 		ScaleEntity AI\ChestEN, LoadedMeshScales#(MeshID), LoadedMeshScales#(MeshID), LoadedMeshScales#(MeshID)
@@ -122,10 +151,17 @@ Function SetActorHat(AI.ActorInstance, MeshID)
 
 	If MeshID > -1 And MeshID < 65535
 		AI\HatEN = GetMesh(MeshID)
-		If AI\HatEN = 0 Then RuntimeError("Could not load hat item mesh!")
+		If AI\HatEN = 0
+			WriteLog(MainLog, "SetActorHat: missing hat mesh ID " + MeshID + " on race '" + AI\Actor\Race$ + "', leaving unequipped")
+			Return
+		EndIf
 		EntityAutoFade(AI\HatEN, nearFadeModifier* CameraViewRange, farFadeModifier * CameraViewRange)
 		Bonce = FindChild(AI\EN, "Head")
-		If Bonce = 0 Then RuntimeError(AI\Actor\Race$ + " actor mesh is missing a 'Head' joint!")
+		If Bonce = 0
+			WriteLog(MainLog, "SetActorHat: race '" + AI\Actor\Race$ + "' mesh missing 'Head' joint, leaving unequipped")
+			FreeEntity(AI\HatEN) : AI\HatEN = 0
+			Return
+		EndIf
 		EntityParent AI\HatEN, Bonce, False
 		PositionEntity AI\HatEN, LoadedMeshX#(MeshID), LoadedMeshY#(MeshID), LoadedMeshZ#(MeshID)
 		ScaleEntity AI\HatEN, LoadedMeshScales#(MeshID), LoadedMeshScales#(MeshID), LoadedMeshScales#(MeshID)
@@ -133,6 +169,13 @@ Function SetActorHat(AI.ActorInstance, MeshID)
 		If AI\TeamID = True Then TurnEntity AI\HatEN, 0, 180, 90
 		CreateEntityEmitters(AI\HatEN)
 	Else
+		; Bound AI\Hair to the [4]-slot Hair-ID arrays (5 entries each).
+		; Hair can arrive from the wire (Asc of one byte = 0..255) or a
+		; saved character (ReadShort = 0..65535); without this guard a
+		; hostile / out-of-range value reads past MaleHairIDs/FemaleHairIDs
+		; into adjacent Actor type fields, corrupting the actor template
+		; in memory on every hair fallback for that race.
+		If AI\Hair < 0 Or AI\Hair > 4 Then Return
 		If AI\Gender = 0
 			ID = AI\Actor\MaleHairIDs[AI\Hair]
 		Else
@@ -140,10 +183,17 @@ Function SetActorHat(AI.ActorInstance, MeshID)
 		EndIf
 		If ID > -1 And ID < 65535
 			AI\HatEN = GetMesh(ID)
-			If AI\HatEN = 0 Then RuntimeError("Could not load hair mesh!")
+			If AI\HatEN = 0
+				WriteLog(MainLog, "SetActorHat: missing hair mesh ID " + ID + " on race '" + AI\Actor\Race$ + "', skipping")
+				Return
+			EndIf
 			EntityAutoFade(AI\HatEN, nearFadeModifier * CameraViewRange, farFadeModifier * CameraViewRange)
 			Bonce = FindChild(AI\EN, "Head")
-			If Bonce = 0 Then RuntimeError(AI\Actor\Race$ + " actor mesh is missing a 'Head' joint!")
+			If Bonce = 0
+				WriteLog(MainLog, "SetActorHat (hair fallback): race '" + AI\Actor\Race$ + "' mesh missing 'Head' joint, skipping")
+				FreeEntity(AI\HatEN) : AI\HatEN = 0
+				Return
+			EndIf
 			EntityParent AI\HatEN, Bonce, False
 			PositionEntity AI\HatEN, LoadedMeshX#(ID), LoadedMeshY#(ID), LoadedMeshZ#(ID)
 			ScaleEntity AI\HatEN, LoadedMeshScales#(ID), LoadedMeshScales#(ID), LoadedMeshScales#(ID)
@@ -167,7 +217,18 @@ Function LoadActorInstance3D(A.ActorInstance, Scale# = 1.0, SkipAttachments = Fa
 		Name$ = GetMeshName$(A\Actor\MeshIDs[0])
 		; CE model
 		If Upper$(Left$(Name$, 10)) = "CE\CESAVES"
-			A\EN = LoadCEMesh(A\Actor\MeshIDs[0], ActorAnimSet\AnimStart[Anim_Idle], ActorAnimSet\AnimStart[Anim_Idle])
+			; ActorAnimSet (the AnimList slot for MAnimationSet) is sparse and can
+			; be Null when the referenced set was deleted from Animations.dat. The
+			; later sequence loop (~line 432) and PlayAnimation (Animations.bb:53)
+			; both guard this, but the CE branch derefs AnimStart[] first -- an
+			; every-frame client crash at actor spawn for any CE-mesh actor whose
+			; animset slot is empty. Guard the idle-frame read; frame 0 is the
+			; consistent degraded state (a Null set extracts no sequences anyway).
+			If ActorAnimSet <> Null
+				A\EN = LoadCEMesh(A\Actor\MeshIDs[0], ActorAnimSet\AnimStart[Anim_Idle], ActorAnimSet\AnimStart[Anim_Idle])
+			Else
+				A\EN = LoadCEMesh(A\Actor\MeshIDs[0], 0, 0)
+			EndIf
 		; Normal model
 		Else
 			A\EN = GetMesh(A\Actor\MeshIDs[0], ActorHasMultipleTextures(A\Actor, 0))
@@ -250,19 +311,41 @@ Function LoadActorInstance3D(A.ActorInstance, Scale# = 1.0, SkipAttachments = Fa
 			UnloadTexture(A\Actor\MaleBodyIDs[BodyTex])
 		EndIf
 
-		; Beard
-		If A\Actor\BeardIDs[A\Beard] > -1 And A\Actor\BeardIDs[A\Beard] < 65535 And SkipAttachments = False
+		; Beard. Bound A\Beard against the [4]-slot BeardIDs array
+		; (5 entries). A\Beard arrives from the wire (Asc of one byte =
+		; 0..255), from a saved character (ReadShort = 0..65535), or
+		; from a script-driven SetActorBeard call; without this guard a
+		; hostile / out-of-range value reads past BeardIDs into adjacent
+		; Actor type fields. Blitz3D's And is not short-circuiting, so
+		; the bounds check has to be a separate If above the array read.
+		Local BeardOK = False
+		If A\Beard >= 0 And A\Beard <= 4
+			If A\Actor\BeardIDs[A\Beard] > -1 And A\Actor\BeardIDs[A\Beard] < 65535 And SkipAttachments = False
+				BeardOK = True
+			EndIf
+		EndIf
+		If BeardOK
 			ID = A\Actor\BeardIDs[A\Beard]
 			BeardEN = GetMesh(ID, True)
 			If BeardEN <> 0
 				Bonce = FindChild(A\EN, "Head")
-				If Bonce = 0 Then RuntimeError(A\Actor\Race$ + " actor mesh is missing a 'Head' joint!")
-				EntityParent BeardEN, Bonce, False
-				PositionEntity BeardEN, LoadedMeshX#(ID), LoadedMeshY#(ID), LoadedMeshZ#(ID)
-				ScaleEntity BeardEN, LoadedMeshScales#(ID), LoadedMeshScales#(ID), LoadedMeshScales#(ID)
-				; Correct rotation for Max models
-				If A\TeamID = True Then TurnEntity BeardEN, 0, 180, 90
-				NameEntity(BeardEN, "Beard")
+				If Bonce = 0
+					; Beard is decorative. If the actor mesh has no Head
+					; joint, just skip it -- no reason to crash the client.
+					; Mirrors the P_AppearanceUpdate "D" soft-fail in
+					; ClientNet.bb (PR #130); LoadActorInstance3D is the
+					; sibling path that runs when an actor first appears
+					; with a beard configured.
+					WriteLog(MainLog, "LoadActorInstance3D: race '" + A\Actor\Race$ + "' mesh missing 'Head' joint, skipping beard")
+					FreeEntity BeardEN
+				Else
+					EntityParent BeardEN, Bonce, False
+					PositionEntity BeardEN, LoadedMeshX#(ID), LoadedMeshY#(ID), LoadedMeshZ#(ID)
+					ScaleEntity BeardEN, LoadedMeshScales#(ID), LoadedMeshScales#(ID), LoadedMeshScales#(ID)
+					; Correct rotation for Max models
+					If A\TeamID = True Then TurnEntity BeardEN, 0, 180, 90
+					NameEntity(BeardEN, "Beard")
+				EndIf
 			EndIf
 		EndIf
 
@@ -275,7 +358,12 @@ Function LoadActorInstance3D(A.ActorInstance, Scale# = 1.0, SkipAttachments = Fa
 		Name$ = GetMeshName$(A\Actor\MeshIDs[1])
 		; CE model
 		If Upper$(Left$(Name$, 10)) = "CE\CESAVES"
-			A\EN = LoadCEMesh(A\Actor\MeshIDs[1], ActorAnimSet\AnimStart[Anim_Idle], ActorAnimSet\AnimStart[Anim_Idle])
+			; Null-animset guard -- see the male branch above (AnimList is sparse).
+			If ActorAnimSet <> Null
+				A\EN = LoadCEMesh(A\Actor\MeshIDs[1], ActorAnimSet\AnimStart[Anim_Idle], ActorAnimSet\AnimStart[Anim_Idle])
+			Else
+				A\EN = LoadCEMesh(A\Actor\MeshIDs[1], 0, 0)
+			EndIf
 		; Normal model
 		Else
 			A\EN = GetMesh(A\Actor\MeshIDs[1], ActorHasMultipleTextures(A\Actor, 1))
@@ -562,15 +650,20 @@ Function ShowGubbin(A.ActorInstance, Num, SuppressError = False)
 		If ID < 65535
 			A\GubbinEN[Num] = GetMesh(ID)
 			If A\GubbinEN[Num] = 0
-				If SuppressError = False
-					RuntimeError("Could not load gubbin mesh for " + A\Actor\Race$ + " actor!")
-				Else
-					Return
-				EndIf
+				; A missing gubbin mesh shouldn't crash the client --
+				; the server controls Race / MeshIDs and could (hostile
+				; or just out-of-sync) point at a deleted ID. Log and
+				; leave the gubbin hidden.
+				WriteLog(MainLog, "ShowGubbin: missing gubbin mesh ID " + ID + " (slot " + Num + ") on race '" + A\Actor\Race$ + "', skipping")
+				Return
 			EndIf
 			EntityAutoFade(A\GubbinEN[Num], nearFadeModifier * CameraViewRange, farFadeModifier * CameraViewRange)
 			Bone = FindChild(A\EN, GubbinJoints$(Num))
-			If Bone = 0 Then RuntimeError(A\Actor\Race$ + " actor mesh is missing a '" + GubbinJoints$(Num) + "' joint!")
+			If Bone = 0
+				WriteLog(MainLog, "ShowGubbin: race '" + A\Actor\Race$ + "' mesh missing joint '" + GubbinJoints$(Num) + "', skipping")
+				FreeEntity(A\GubbinEN[Num]) : A\GubbinEN[Num] = 0
+				Return
+			EndIf
 			EntityParent(A\GubbinEN[Num], Bone, False)
 			PositionEntity A\GubbinEN[Num], LoadedMeshX#(ID), LoadedMeshY#(ID), LoadedMeshZ#(ID)
 			ScaleEntity A\GubbinEN[Num], LoadedMeshScales#(ID), LoadedMeshScales#(ID), LoadedMeshScales#(ID)

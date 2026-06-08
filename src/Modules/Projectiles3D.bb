@@ -59,10 +59,17 @@ Function CreateProjectile(Source.ActorInstance, Target.ActorInstance, MeshID, Ho
 
 End Function
 
-; Updates all projectile instances
+; Updates all projectile instances. After-cursor walk: the destroy branch
+; calls FreeProjectileInstance(P) which Deletes P; a For-Each cursor would
+; then read the freed projectile's next pointer on the following step and
+; either skip the next projectile or crash. Two projectiles arriving at
+; their targets in the same frame is the typical reproducer.
 Function UpdateProjectiles()
 
-	For P.ProjectileInstance = Each ProjectileInstance
+	Local P.ProjectileInstance = First ProjectileInstance
+	Local PNext.ProjectileInstance = Null
+	While P <> Null
+		PNext = After P
 		; Move
 		If P\Target <> Null
 			P\TargetX# = EntityX#(P\Target\CollisionEN)
@@ -77,7 +84,8 @@ Function UpdateProjectiles()
 		If EntityDistance#(P\EN, GPP) < 2.0
 			FreeProjectileInstance(P)
 		EndIf
-	Next
+		P = PNext
+	Wend
 
 End Function
 
@@ -96,5 +104,28 @@ Function FreeProjectileInstance(P.ProjectileInstance)
 	EndIf
 	FreeEntity(P\EN)
 	Delete(P)
+
+End Function
+
+; Frees every in-flight homing projectile whose Target is actor A. MUST be
+; called before A is freed (SafeFreeActorInstance / FreeActorInstance) on any
+; client path, otherwise UpdateProjectiles derefs P\Target\CollisionEN on the
+; next frame against a freed actor. The `If P\Target <> Null` guard there does
+; NOT protect this: Blitz3D Delete does not null other references, so P\Target
+; stays a DANGLING (non-Null) handle, and FreeActorInstance3D has already freed
+; CollisionEN regardless -- a hard crash either way. The P_ActorGone and
+; zone-change handlers in ClientNet.bb already inline this sweep on their paths;
+; the NPC death/fade-out path (Client.bb, the common combat case) did not.
+; After-cursor walk: FreeProjectileInstance Deletes the current element, same
+; idiom as UpdateProjectiles above.
+Function FreeProjectilesTargeting(A.ActorInstance)
+
+	Local P.ProjectileInstance = First ProjectileInstance
+	Local PNext.ProjectileInstance = Null
+	While P <> Null
+		PNext = After P
+		If P\Target = A Then FreeProjectileInstance(P)
+		P = PNext
+	Wend
 
 End Function

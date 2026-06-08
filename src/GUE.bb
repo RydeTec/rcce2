@@ -8,8 +8,10 @@ ChangeDir RootDir$
 
 ; Includes --------------------------------------------------------------------------------------------------------------------------
 
+Include "Modules\Path.bb"
 Include "Modules\RCEnet.bb"
 Include "Modules\Media.bb"
+Include "Modules\MediaImport.bb"
 Include "Modules\MediaDialogs.bb"
 Include "Modules\Projectiles.bb"
 Include "Modules\Language.bb"
@@ -2014,12 +2016,15 @@ FUI_SendMessage(SBubblesB, M_SETVALUE, BubblesB)
 WriteLog(GUELog, "Creating money options")
 F = ReadFile("Data\Game Data\Money.dat")
 If F = 0 Then RuntimeError("Could not open Data\Game Data\Money.dat!")
-	Money1$ = ReadString$(F)
-	Money2$ = ReadString$(F)
+	; Bound currency name reads -- same hardening as the ClientLoaders
+	; Money.dat parse (PR #159). 64-byte cap covers any realistic display
+	; name ("Gold" / "Silver" / etc.).
+	Money1$ = ReadBoundedString$(F, 64)
+	Money2$ = ReadBoundedString$(F, 64)
 	Money2x = ReadShort(F)
-	Money3$ = ReadString$(F)
+	Money3$ = ReadBoundedString$(F, 64)
 	Money3x = ReadShort(F)
-	Money4$ = ReadString$(F)
+	Money4$ = ReadBoundedString$(F, 64)
 	Money4x = ReadShort(F)
 CloseFile(F)
 G = FUI_GroupBox(TOther, 250, 230, 380, 140, "Money")
@@ -3405,21 +3410,26 @@ Cls
 
 			; Other tab events ------------------------------------------------------------------------------------------------------
 
-			; Hosts
+			; Hosts. Wrap the full Hosts.dat rewrite in SafeWrite so a
+			; crash mid-write leaves the previous version intact.
 			Case TServerHost
-				F = WriteFile("Data\Game Data\Hosts.dat")
-				If F = 0 Then RuntimeError("Could not open Data\Game Data\Hosts.dat!")
+				Local HostsFinal$ = "Data\Game Data\Hosts.dat"
+				Local HostsTemp$ = SafeWriteOpen(HostsFinal$)
+				F = WriteFile(HostsTemp$)
+				If F = 0 Then RuntimeError("Could not open " + HostsTemp$ + " for write")
 					WriteLine F, FUI_SendMessage(TServerHost, M_GETCAPTION)
 					WriteLine F, FUI_SendMessage(TUpdatesHost, M_GETCAPTION)
 					WriteLine F, FUI_SendMessage(BNewAccounts, M_GETCHECKED)
-				CloseFile(F)
+				SafeWriteCommit(HostsTemp$, HostsFinal$, F)
 			Case TUpdatesHost
-				F = WriteFile("Data\Game Data\Hosts.dat")
-				If F = 0 Then RuntimeError("Could not open Data\Game Data\Hosts.dat!")
+				HostsFinal$ = "Data\Game Data\Hosts.dat"
+				HostsTemp$ = SafeWriteOpen(HostsFinal$)
+				F = WriteFile(HostsTemp$)
+				If F = 0 Then RuntimeError("Could not open " + HostsTemp$ + " for write")
 					WriteLine F, FUI_SendMessage(TServerHost, M_GETCAPTION)
 					WriteLine F, FUI_SendMessage(TUpdatesHost, M_GETCAPTION)
 					WriteLine F, FUI_SendMessage(BNewAccounts, M_GETCHECKED)
-				CloseFile(F)
+				SafeWriteCommit(HostsTemp$, HostsFinal$, F)
 			Case TServerPort
 				ServerPort = E\EventData
 				F = OpenFile("Data\Server Data\Misc.dat")
@@ -3435,11 +3445,14 @@ Cls
 
 			; Allow new account creation from client
 			Case BNewAccounts
-				F = WriteFile("Data\Game Data\Hosts.dat")
+				HostsFinal$ = "Data\Game Data\Hosts.dat"
+				HostsTemp$ = SafeWriteOpen(HostsFinal$)
+				F = WriteFile(HostsTemp$)
+				If F = 0 Then RuntimeError("Could not open " + HostsTemp$ + " for write")
 					WriteLine F, FUI_SendMessage(TServerHost, M_GETCAPTION)
 					WriteLine F, FUI_SendMessage(TUpdatesHost, M_GETCAPTION)
 					WriteLine F, FUI_SendMessage(BNewAccounts, M_GETCHECKED)
-				CloseFile(F)
+				SafeWriteCommit(HostsTemp$, HostsFinal$, F)
 				F = OpenFile("Data\Server Data\Misc.dat")
 				If F = 0 Then RuntimeError("Could not open Data\Server Data\Misc.dat!")
 					SeekFile F, 15
@@ -3574,7 +3587,10 @@ Cls
 
 			; Money options
 			Case TMoney1Name, TMoney2Name, TMoney3Name, TMoney4Name, SMoney2x, SMoney3x, SMoney4x
-				F = WriteFile("Data\Game Data\Money.dat")
+				Local MoneyFinal$ = "Data\Game Data\Money.dat"
+				Local MoneyTemp$ = SafeWriteOpen(MoneyFinal$)
+				F = WriteFile(MoneyTemp$)
+				If F = 0 Then RuntimeError("Could not open " + MoneyTemp$ + " for write")
 					WriteString F, FUI_SendMessage(TMoney1Name, M_GETTEXT)
 					WriteString F, FUI_SendMessage(TMoney2Name, M_GETTEXT)
 					WriteShort F, FUI_SendMessage(SMoney2x, M_GETVALUE)
@@ -3582,19 +3598,22 @@ Cls
 					WriteShort F, FUI_SendMessage(SMoney3x, M_GETVALUE)
 					WriteString F, FUI_SendMessage(TMoney4Name, M_GETTEXT)
 					WriteShort F, FUI_SendMessage(SMoney4x, M_GETVALUE)
-				CloseFile(F)
+				SafeWriteCommit(MoneyTemp$, MoneyFinal$, F)
 
 			; Gubbin remapping
 			Case TGubbin1, TGubbin2, TGubbin3, TGubbin4, TGubbin5, TGubbin6
 				GubbinNamesChanged = True
-				F = WriteFile("Data\Game Data\Gubbins.dat")
+				Local GubbinsFinal$ = "Data\Game Data\Gubbins.dat"
+				Local GubbinsTemp$ = SafeWriteOpen(GubbinsFinal$)
+				F = WriteFile(GubbinsTemp$)
+				If F = 0 Then RuntimeError("Could not open " + GubbinsTemp$ + " for write")
 					WriteString(F, FUI_SendMessage(TGubbin1, M_GETTEXT))
 					WriteString(F, FUI_SendMessage(TGubbin2, M_GETTEXT))
 					WriteString(F, FUI_SendMessage(TGubbin3, M_GETTEXT))
 					WriteString(F, FUI_SendMessage(TGubbin4, M_GETTEXT))
 					WriteString(F, FUI_SendMessage(TGubbin5, M_GETTEXT))
 					WriteString(F, FUI_SendMessage(TGubbin6, M_GETTEXT))
-				CloseFile(F)
+				SafeWriteCommit(GubbinsTemp$, GubbinsFinal$, F)
 				LoadGubbinNames()
 
 			; Seasons tab events ----------------------------------------------------------------------------------------------------
@@ -6288,29 +6307,18 @@ Cls
 						If (Flags And 1) <> False Then IsAnim = True Else IsAnim = False
 						IsEncrypted = False
 
-						; Remove trailing slash
-						If Right$(App\CurrentFile$, 1) = "\"
-							App\CurrentFile$ = Left$(App\CurrentFile$, Len(App\CurrentFile$) - 1)
-						EndIf
+						App\CurrentFile$ = MediaImportTrimTrailingSlash$(App\CurrentFile$)
+						Filename$ = MediaImportRelativePath$(App\CurrentFile$, "Data\Meshes\", CurrentDir$(), MediaFolder$)
 
 						; Copy file/folder if required
-						If Instr(App\CurrentFile$, "Data\Meshes\") = 0 ;TODO: If RootDir is changed this may break
-							Filename$ = App\CurrentFile$
-							If MediaFolder$ <> "" Then Filename$ = MediaFolder$ + "\" + Filename$
-							For i = Len(App\CurrentFile$) To 1 Step -1
-								If Mid$(App\CurrentFile$, i, 1) = "\" Or Mid$(App\CurrentFile$, i, 1) = "/"
-									Filename$ = Mid$(App\CurrentFile$, i + 1)
-									If MediaFolder$ <> "" Then Filename$ = MediaFolder$ + "\" + Filename$
-									Exit
-								EndIf
-							Next
-							If FileType(App\CurrentFile$) = 1
-								CopyFile(CurrentDir$() + App\CurrentFile$, CurrentDir$() + "Data\Meshes\" + Filename$)
-							ElseIf FileType(App\CurrentFile$) = 2
-								CopyTree(CurrentDir$() + App\CurrentFile$, CurrentDir$() + "Data\Meshes\" + Filename$)
+						If MediaImportShouldCopy(App\CurrentFile$, "Data\Meshes\", CurrentDir$())
+							Local sourcePath$ = MediaImportSourcePath$(App\CurrentFile$, CurrentDir$())
+							Local destinationPath$ = MediaImportSourcePath$("Data\Meshes\" + Filename$, CurrentDir$())
+							If FileType(sourcePath$) = 1
+								CopyFile(sourcePath$, destinationPath$)
+							ElseIf FileType(sourcePath$) = 2
+								CopyTree(sourcePath$, destinationPath$)
 							EndIf
-						Else
-							Filename$ = Right$(App\CurrentFile$, Len(App\CurrentFile$) - Len("Data\Meshes\")) ;TODO: If RootDir is changed this may break
 						EndIf
 
 						; Single file
@@ -6333,29 +6341,18 @@ Cls
 						; Get extra options
 						Flags = TextureDialog()
 
-						; Remove trailing slash
-						If Right$(App\CurrentFile$, 1) = "\"
-							App\CurrentFile$ = Left$(App\CurrentFile$, Len(App\CurrentFile$) - 1)
-						EndIf
+						App\CurrentFile$ = MediaImportTrimTrailingSlash$(App\CurrentFile$)
+						Filename$ = MediaImportRelativePath$(App\CurrentFile$, "Data\Textures\", CurrentDir$(), MediaFolder$)
 
 						; Copy file/folder if required
-						If Instr(App\CurrentFile$, "Data\Textures\") = 0 ;TODO: If RootDir is changed this may break
-							Filename$ = App\CurrentFile$
-							If MediaFolder$ <> "" Then Filename$ = MediaFolder$ + "\" + Filename$
-							For i = Len(App\CurrentFile$) To 1 Step -1
-								If Mid$(App\CurrentFile$, i, 1) = "\" Or Mid$(App\CurrentFile$, i, 1) = "/"
-									Filename$ = Mid$(App\CurrentFile$, i + 1)
-									If MediaFolder$ <> "" Then Filename$ = MediaFolder$ + "\" + Filename$
-									Exit
-								EndIf
-							Next
-							If FileType(App\CurrentFile$) = 1
-								CopyFile(CurrentDir$() + App\CurrentFile$, CurrentDir$() + "Data\Textures\" + Filename$)
-							ElseIf FileType(App\CurrentFile$) = 2
-								CopyTree(CurrentDir$() + App\CurrentFile$, CurrentDir$() + "Data\Textures\" + Filename$)
+						If MediaImportShouldCopy(App\CurrentFile$, "Data\Textures\", CurrentDir$())
+							sourcePath$ = MediaImportSourcePath$(App\CurrentFile$, CurrentDir$())
+							destinationPath$ = MediaImportSourcePath$("Data\Textures\" + Filename$, CurrentDir$())
+							If FileType(sourcePath$) = 1
+								CopyFile(sourcePath$, destinationPath$)
+							ElseIf FileType(sourcePath$) = 2
+								CopyTree(sourcePath$, destinationPath$)
 							EndIf
-						Else
-							Filename$ = Right$(App\CurrentFile$, Len(App\CurrentFile$) - Len("Data\Textures\")) ;TODO: If RootDir is changed this may break
 						EndIf
 
 						; Single file
@@ -6379,29 +6376,18 @@ Cls
 						; Get extra options
 						Is3D = SoundDialog()
 
-						; Remove trailing slash
-						If Right$(App\CurrentFile$, 1) = "\"
-							App\CurrentFile$ = Left$(App\CurrentFile$, Len(App\CurrentFile$) - 1)
-						EndIf
+						App\CurrentFile$ = MediaImportTrimTrailingSlash$(App\CurrentFile$)
+						Filename$ = MediaImportRelativePath$(App\CurrentFile$, "Data\Sounds\", CurrentDir$(), MediaFolder$)
 
 						; Copy file/folder if required
-						If Instr(App\CurrentFile$, "Data\Sounds\") = 0 ;TODO: If RootDir is changed this may break
-							Filename$ = App\CurrentFile$
-							If MediaFolder$ <> "" Then Filename$ = MediaFolder$ + "\" + Filename$
-							For i = Len(App\CurrentFile$) To 1 Step -1
-								If Mid$(App\CurrentFile$, i, 1) = "\" Or Mid$(App\CurrentFile$, i, 1) = "/"
-									Filename$ = Mid$(App\CurrentFile$, i + 1)
-									If MediaFolder$ <> "" Then Filename$ = MediaFolder$ + "\" + Filename$
-									Exit
-								EndIf
-							Next
-							If FileType(App\CurrentFile$) = 1
-								CopyFile(CurrentDir$() + App\CurrentFile$, CurrentDir$() + "Data\Sounds\" + Filename$)
-							ElseIf FileType(App\CurrentFile$) = 2
-								CopyTree(CurrentDir$() + App\CurrentFile$, CurrentDir$() + "Data\Sounds\" + Filename$)
+						If MediaImportShouldCopy(App\CurrentFile$, "Data\Sounds\", CurrentDir$())
+							sourcePath$ = MediaImportSourcePath$(App\CurrentFile$, CurrentDir$())
+							destinationPath$ = MediaImportSourcePath$("Data\Sounds\" + Filename$, CurrentDir$())
+							If FileType(sourcePath$) = 1
+								CopyFile(sourcePath$, destinationPath$)
+							ElseIf FileType(sourcePath$) = 2
+								CopyTree(sourcePath$, destinationPath$)
 							EndIf
-						Else
-							Filename$ = Right$(App\CurrentFile$, Len(App\CurrentFile$) - Len("Data\Sounds\")) ;TODO: If RootDir is changed this may break
 						EndIf
 
 						; Single file
@@ -6424,29 +6410,18 @@ Cls
 					Result = FUI_CustomOpenDialog("Choose file to add...", "Data\Music\", FileTypes$, False, True)
 					If Result = True
 
-						; Remove trailing slash
-						If Right$(App\CurrentFile$, 1) = "\"
-							App\CurrentFile$ = Left$(App\CurrentFile$, Len(App\CurrentFile$) - 1)
-						EndIf
+						App\CurrentFile$ = MediaImportTrimTrailingSlash$(App\CurrentFile$)
+						Filename$ = MediaImportRelativePath$(App\CurrentFile$, "Data\Music\", CurrentDir$(), MediaFolder$)
 
 						; Copy file/folder if required
-						If Instr(App\CurrentFile$, "Data\Music\") = 0 ;TODO: If RootDir is changed this may break
-							Filename$ = App\CurrentFile$
-							If MediaFolder$ <> "" Then Filename$ = MediaFolder$ + "\" + Filename$
-							For i = Len(App\CurrentFile$) To 1 Step -1
-								If Mid$(App\CurrentFile$, i, 1) = "\" Or Mid$(App\CurrentFile$, i, 1) = "/"
-									Filename$ = Mid$(App\CurrentFile$, i + 1)
-									If MediaFolder$ <> "" Then Filename$ = MediaFolder$ + "\" + Filename$
-									Exit
-								EndIf
-							Next
-							If FileType(App\CurrentFile$) = 1
-								CopyFile(CurrentDir$() + App\CurrentFile$, CurrentDir$() + "Data\Music\" + Filename$)
-							ElseIf FileType(App\CurrentFile$) = 2
-								CopyTree(CurrentDir$() + App\CurrentFile$, CurrentDir$() + "Data\Music\" + Filename$)
+						If MediaImportShouldCopy(App\CurrentFile$, "Data\Music\", CurrentDir$())
+							sourcePath$ = MediaImportSourcePath$(App\CurrentFile$, CurrentDir$())
+							destinationPath$ = MediaImportSourcePath$("Data\Music\" + Filename$, CurrentDir$())
+							If FileType(sourcePath$) = 1
+								CopyFile(sourcePath$, destinationPath$)
+							ElseIf FileType(sourcePath$) = 2
+								CopyTree(sourcePath$, destinationPath$)
 							EndIf
-						Else
-							Filename$ = Right$(App\CurrentFile$, Len(App\CurrentFile$) - Len("Data\Music\")) ;TODO: If RootDir is changed this may break
 						EndIf
 
 						; Single file
@@ -6555,11 +6530,14 @@ Cls
 
 			; Save damage types
 			Case BDamageTypesSave
-				F = WriteFile("Data\Server Data\Damage.dat")
+				Local DamageFinal$ = "Data\Server Data\Damage.dat"
+				Local DamageTemp$ = SafeWriteOpen(DamageFinal$)
+				F = WriteFile(DamageTemp$)
+				If F = 0 Then RuntimeError("Could not open " + DamageTemp$ + " for write")
 					For i = 0 To 19
 						WriteString F, DamageTypes$(i)
 					Next
-				CloseFile(F)
+				SafeWriteCommit(DamageTemp$, DamageFinal$, F)
 				DamageTypesSaved = True
 
 			Default
@@ -6668,6 +6646,11 @@ Cls
 		Time# = Time# + DeltaBuffer(i)
 	Next
 	Time# = Time# / 6.0
+	; Divide-by-zero guard -- see Client.bb. Sub-millisecond average frame
+	; time (common on idle preview/editor screens) would yield Inf or a
+	; RuntimeError without this clamp; 1.0ms is the MilliSecs() resolution
+	; floor.
+	If Time# < 1.0 Then Time# = 1.0
 	FPS# = 1000.0 / Time#
 	Delta# = BaseFramerate# / FPS#
 	DeltaTime = MilliSecs()
@@ -9717,15 +9700,9 @@ Function RepositionWaypointLinks(WP, Parent = True)
 
 End Function
 
-; Gets the stripped filename from a path
-Function GetFilename$(Path$)
-
-	For i = Len(Path$) To 1 Step -1
-		If Mid$(Path$, i, 1) = "\" Or Mid$(Path$, i, 1) = "/" Then Return Mid$(Path$, i + 1)
-	Next
-	Return Path$
-
-End Function
+; GetFilename$ moved to Modules\Path.bb (ADR-004 Phase A) so Loom + the
+; shared zone loader can use it without depending on GUE.bb. Included near
+; the top of this file; callers below resolve to it unchanged.
 
 ; Displays the saving dialog
 Function SaveDialog()
@@ -9795,11 +9772,14 @@ Function SaveDialog()
 							Next
 							ParticlesSaved = True
 						Case "Damage types"
-							F = WriteFile("Data\Server Data\Damage.dat")
+							DamageFinal$ = "Data\Server Data\Damage.dat"
+							DamageTemp$ = SafeWriteOpen(DamageFinal$)
+							F = WriteFile(DamageTemp$)
+							If F = 0 Then RuntimeError("Could not open " + DamageTemp$ + " for write")
 								For i = 0 To 19
 									WriteString F, DamageTypes$(i)
 								Next
-							CloseFile(F)
+							SafeWriteCommit(DamageTemp$, DamageFinal$, F)
 							DamageTypesSaved = True
 						Case "Days & seasons"
 							SaveEnvironment(True)
@@ -9842,11 +9822,14 @@ Function SaveDialog()
 						Next
 					EndIf
 					If DamageTypesSaved = False
-						F = WriteFile("Data\Server Data\Damage.dat")
+						DamageFinal$ = "Data\Server Data\Damage.dat"
+						DamageTemp$ = SafeWriteOpen(DamageFinal$)
+						F = WriteFile(DamageTemp$)
+						If F = 0 Then RuntimeError("Could not open " + DamageTemp$ + " for write")
 							For i = 0 To 19
 								WriteString F, DamageTypes$(i)
 							Next
-						CloseFile(F)
+						SafeWriteCommit(DamageTemp$, DamageFinal$, F)
 					EndIf
 					If EnvironmentSaved = False
 						SaveEnvironment(True)
@@ -10058,21 +10041,27 @@ Function FixedAttributeDialog()
 					Done = True
 				; Save
 				Case BSave
-					F = WriteFile("Data\Server Data\Fixed Attributes.dat")
+					Local FixedSrvFinal$ = "Data\Server Data\Fixed Attributes.dat"
+					Local FixedSrvTemp$ = SafeWriteOpen(FixedSrvFinal$)
+					F = WriteFile(FixedSrvTemp$)
+					If F = 0 Then RuntimeError("Could not open " + FixedSrvTemp$ + " for write")
 						WriteShort(F, HealthStat)
 						WriteShort(F, EnergyStat)
 						WriteShort(F, BreathStat)
 						WriteShort(F, ToughnessStat)
 						WriteShort(F, StrengthStat)
 						WriteShort(F, SpeedStat)
-					CloseFile(F)
-					F = WriteFile("Data\Game Data\Fixed Attributes.dat")
+					SafeWriteCommit(FixedSrvTemp$, FixedSrvFinal$, F)
+					Local FixedGameFinal$ = "Data\Game Data\Fixed Attributes.dat"
+					Local FixedGameTemp$ = SafeWriteOpen(FixedGameFinal$)
+					F = WriteFile(FixedGameTemp$)
+					If F = 0 Then RuntimeError("Could not open " + FixedGameTemp$ + " for write")
 						WriteShort(F, HealthStat)
 						WriteShort(F, EnergyStat)
 						WriteShort(F, BreathStat)
 						WriteShort(F, StrengthStat)
 						WriteShort(F, SpeedStat)
-					CloseFile(F)
+					SafeWriteCommit(FixedGameTemp$, FixedGameFinal$, F)
 					Done = True
 				; Change selected attributes
 				Case CHealth
@@ -10645,11 +10634,14 @@ Function menuSaveAll()
 				ParticlesSaved = True
 				
 				; Save combat
-				F = WriteFile("Data\Server Data\Damage.dat")
+				DamageFinal$ = "Data\Server Data\Damage.dat"
+				DamageTemp$ = SafeWriteOpen(DamageFinal$)
+				F = WriteFile(DamageTemp$)
+				If F = 0 Then RuntimeError("Could not open " + DamageTemp$ + " for write")
 					For i = 0 To 19
 						WriteString F, DamageTypes$(i)
 					Next
-				CloseFile(F)
+				SafeWriteCommit(DamageTemp$, DamageFinal$, F)
 				DamageTypesSaved = True
 				
 				; Save projectiles

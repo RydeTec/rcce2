@@ -1,3 +1,52 @@
+; --- MySQL string escape helper -------------------------------------------
+;
+; Every SQL query in this module is built by concatenating values into the
+; query string. Any string field that reaches a query unsanitised lets a
+; player or in-game script close the open single-quote, append arbitrary
+; SQL, and rewrite the database. Reach is broad:
+;
+;   * username / password / email at P_CreateAccount + P_VerifyAccount
+;   * character name at P_CreateCharacter
+;   * actor Area / Tag / Script / DeathScript stored in rc_actorinstance
+;   * ScriptGlobals settable by player scripts via BVM_SETGLOBAL
+;   * Quest entry name + status settable via BVM_ADDQUESTENTRY
+;   * Actionbar slot text settable via BVM_SETACTIONBARSLOT
+;
+; This helper backslash-escapes the characters MySQL treats specially
+; inside a single-quoted string literal. Backslash must be done first so
+; subsequent inserted backslashes don't get double-escaped. NUL, newline,
+; carriage return, and Ctrl-Z are escaped to their literal two-character
+; forms to defend against parsers that strip whitespace before quoting.
+;
+; Numeric fields (Int, Float) are not run through this helper -- Blitz's
+; native value-to-string conversion only emits digits / sign / decimal
+; point and cannot escape the surrounding quotes.
+Function My_Escape$(s$)
+	Local out$ = ""
+	Local i, c
+	For i = 1 To Len(s$)
+		c = Asc(Mid$(s$, i, 1))
+		If c = 0
+			out$ = out$ + "\0"
+		ElseIf c = 10
+			out$ = out$ + "\n"
+		ElseIf c = 13
+			out$ = out$ + "\r"
+		ElseIf c = 26
+			out$ = out$ + "\Z"
+		ElseIf c = 34
+			out$ = out$ + "\" + Chr$(34)
+		ElseIf c = 39
+			out$ = out$ + "\" + Chr$(39)
+		ElseIf c = 92
+			out$ = out$ + "\\"
+		Else
+			out$ = out$ + Chr$(c)
+		EndIf
+	Next
+	Return out$
+End Function
+
 ; Blitz Thread class remake
 Type BBThread
 	Field Hand%		; Handle
@@ -15,14 +64,27 @@ Global BBThreadCount = 0
 
 ; Update all BB Threads
 Function My_UpdateThreads()
-	
-	; Loop through the threads	
-	For T.BBThread = Each BBThread
+
+	; After-cursor walk: the complete-thread branch calls Delete T
+	; mid-iteration. Pre-fix the `For T = Each BBThread / Next` cursor
+	; advanced through the deleted instance's next pointer, so multiple
+	; threads completing in the same tick would skip / deref freed Type
+	; instances.
+	;
+	; This function is currently DORMANT -- its only callsite at
+	; Server.bb:533 is commented out (the MySQL-async path is disabled).
+	; The fix lands as doctrinal hygiene so the bug doesn't re-arm if
+	; someone uncomments the call. Matches the post-PR-#74 Track-E
+	; rewrite intent. See CLAUDE.md "Iterator-during-iteration hazards".
+	Local T.BBThread = First BBThread
+	Local TNext.BBThread = Null
+	While T <> Null
+		TNext = After T
 		If BBThreadComplete(T\Hand) Then
-			
+
 			; Update all the new info!
 			A.ActorInstance = Object.ActorInstance(T\Actor)
-			
+
 			A\My_ID					= BBGetInt(T\Cont,0)
 			A\Attribute_ID			= BBGetInt(T\Cont,1)
 			A\Inventory\My_ID 		= BBGetInt(T\Cont,2)
@@ -32,34 +94,35 @@ Function My_UpdateThreads()
 			A\Script_ID				= BBGetInt(T\Cont,6)
 			A\Memorised_ID			= BBGetInt(T\Cont,7)
 			A\Resistance_ID			= BBGetInt(T\Cont,8)
-			
+
 			; If its a PC
 			If T\isslave = False Then
-			
+
 				; Get their data
 				Q.Questlog = Object.QuestLog(T\Quest)
 				C.ActionBarData = Object.ActionBarData(T\Action)
-				
+
 				Q\My_ID = BBGetInt(T\Cont,8)
 				C\My_ID = BBGetInt(T\Cont,9)
-				
+
 				; Update the client (slaves are stored when they leave,
 				; 	all Human characters will be at this point)
 				RCE_Send(Host, T\MsgID, P_CreateCharacter, "Y", True)
-				
+
 			End If
-			
+
 			; Write to the log
 			WriteLog(MainLog,"SQL Thread Ended: "+T\Hand , True, True)
-			
+
 			; Free Thread Instance information
 			BBFreeThread(T\Hand)
 			Delete T
 			; Test code to correctly report current threads
 			BBThreadCount = BBThreadCount - 1
 		End If
-	Next
-	
+		T = TNext
+	Wend
+
 End Function
 			
 			
@@ -67,7 +130,7 @@ End Function
 Function My_AddAccount(User$, Pass$, Email$)
 	
 	; Add New Account (Revision: Specifiy fieldnames - Tracers Suggstion)
-	Result = SQLQuery(hSQL,"INSERT INTO `rc_accounts` (`username`,`password`,`email`,`isdm`,`isbanned`) VALUES ('"+User$+"','"+Pass$+"','"+Email$+"','0','0')")
+	Result = SQLQuery(hSQL,"INSERT INTO `rc_accounts` (`username`,`password`,`email`,`isdm`,`isbanned`) VALUES ('"+My_Escape$(User$)+"','"+My_Escape$(Pass$)+"','"+My_Escape$(Email$)+"','0','0')")
 	
 	; If the query failed, let people know
 	If Not Result Then
@@ -84,7 +147,7 @@ End Function
 Function My_AccountExists(User$)
 	
 	; Find the account
-	Result = SQLQuery(hSQL,"SELECT `account_id` FROM `rc_accounts` WHERE `username` LIKE '"+User$+"'")
+	Result = SQLQuery(hSQL,"SELECT `account_id` FROM `rc_accounts` WHERE `username` LIKE '"+My_Escape$(User$)+"'")
 	
 	; Grab the row, and free the query
 	Row = SQLFetchRow(Result)
@@ -104,7 +167,7 @@ End Function
 Function My_SaveAccount(A.Account, SaveInstance)
 	
 	; Update the account - Removed - when working, this query causes unneccessary overhead and potentially conflicts with data added to the server via other means (DM/Banned flags)
-	;result = SQLQuery(hSQL, "UPDATE `rc_accounts` SET `username` = '"+A\User$+"', `password` = '"+A\Pass$+"', `email` = '"+A\Email$+"', `isdm` = '"+A\IsDM+"', `isbanned` = '"+A\IsBanned+"', `ignore` = '"+A\Ignore$+"' WHERE `account_id` = '"+A\My_ID+"'")
+	;result = SQLQuery(hSQL, "UPDATE `rc_accounts` SET `username` = '"+My_Escape$(A\User$)+"', `password` = '"+My_Escape$(A\Pass$)+"', `email` = '"+My_Escape$(A\Email$)+"', `isdm` = '"+A\IsDM+"', `isbanned` = '"+A\IsBanned+"', `ignore` = '"+My_Escape$(A\Ignore$)+"' WHERE `account_id` = '"+A\My_ID+"'")
 	;If Not result Then writelog(mainlog, "Save Account for " + Chr(34) + A\User$ + Chr(34) + " failed!",True,True)
 	
 	; Sometimes we aren't required to save the entire account
@@ -132,7 +195,7 @@ Function My_LoadAccount.Account(User$, Pass$, Force)
 	
 	If hSQL = 0 Then writelog(MainLog, "SQL Stream was terminated! Accounts can not be looked up.")
 	; Find the account
-	Result = SQLQuery(hSQL, "SELECT * FROM `rc_accounts` WHERE `username` = '"+User$+"'")
+	Result = SQLQuery(hSQL, "SELECT * FROM `rc_accounts` WHERE `username` = '"+My_Escape$(User$)+"'")
 	
 	; The query itself shouldn't fail, this is just debugging code
 	If Not Result Then WriteLog(MainLog,"Error Executing Query (Loading Account "+Chr(34)+User+Chr(34)+")",True,True)
@@ -222,26 +285,40 @@ Function My_LoadAccount.Account(User$, Pass$, Force)
 	
 	i=0
 	While(True)
-		
+
 		; Fetch the character data and leave if there isn't anything left
 		Row = SQLFetchRow(Result)
 		If Row = 0 Then Exit
-		
+
 		; Get the actor data and clean up
 		ActorId = ReadSQLField(Row, "id")
 		FreeSQLRow(Row)
-		
+
 		; Create a new actionbar and questlog
 		A\ActionBar[i] = New ActionBarData
 		A\Questlog[i] = New Questlog
-		
-		; Load the account, then assign its account
+
+		; Load the character. My_LoadActorInstance now returns Null when
+		; the saved row's actorid no longer references a live template
+		; (Actor was deleted from the project between server restarts) or
+		; the actorid column is out-of-range. Skip the slot in that case
+		; -- the character-select UI tolerates missing slots, and the
+		; alternative is a crash on the next `\Account = Handle(A)`
+		; deref. Free the pre-allocated ActionBar/QuestLog on the
+		; soft-fail path so a corrupt SQL row doesn't leak them per
+		; failed login.
 		A\Character[i] = My_LoadActorInstance(ActorId, A\QuestLog[i], A\ActionBar[i], AccountID)
-		A\Character[i]\Account = Handle(A)
-		
-		; Increment the counter
-		i=i+1
-		
+		If A\Character[i] = Null
+			WriteLog(MainLog, "My_LoadAccount: character actorid=" + ActorId + " soft-failed at template lookup; slot " + i + " left empty")
+			Delete A\ActionBar[i] : A\ActionBar[i] = Null
+			Delete A\Questlog[i] : A\Questlog[i] = Null
+			; Don't bind Account; don't increment i -- the slot remains
+			; unallocated. The next iteration's row will fill this slot.
+		Else
+			A\Character[i]\Account = Handle(A)
+			i=i+1
+		EndIf
+
 	Wend
 	
 	; Clean up
@@ -330,7 +407,7 @@ End Function
 ; Check if an actor exists
 Function My_ActorExists(ActorName$)
 	; Find the account
-	Result = SQLQuery(hSQL,"SELECT * FROM `rc_actorinstance` WHERE `name` LIKE '"+ActorName$+"'")
+	Result = SQLQuery(hSQL,"SELECT * FROM `rc_actorinstance` WHERE `name` LIKE '"+My_Escape$(ActorName$)+"'")
 	
 	; Grab the row, and free the query
 	Local Count% = SQLRowCount(Result)
@@ -357,7 +434,7 @@ Function My_SaveActorInstance(A.ActorInstance, Q.QuestLog, C.ActionbarData, IsSl
 	End If
 	
 	; Update their instance, long query :)
-	FreeSQLQuery(SQLQuery(hSQL, "UPDATE `rc_actorinstance` SET `actorid` = '"+A\Actor\ID+"', `area` = '"+A\Area$+"',`name` = '"+A\Name$+"',`tag` = '"+A\Tag$+"',`teamid` = '"+A\TeamID%+"',`x` = '"+A\X#+"',`y` = '"+A\Y#+"',`z` = '"+A\Z#+"',`gender` = '"+A\Gender+"',`xp` = '"+A\XP+"',`level` = '"+A\Level+"',`face` = '"+A\FaceTex+"',`hair` = '"+A\Hair+"',`beard` = '"+A\Beard+"',`body` = '"+A\BodyTex+"',`script` = '"+A\Script$+"',`dscript` = '"+A\DeathScript$+"',`rep` = '"+A\Reputation+"',`gold` = '"+A\Gold+"',`slaves` = '"+A\NumberOfSlaves+"',`homefaction` = '"+A\HomeFaction+"', `isslave` = '"+IsSlave+"', `slot` = '"+Parent+"', `xpbarlev` = '"+A\XPBarLevel+"' WHERE `id` = '"+A\My_ID+"'"))
+	FreeSQLQuery(SQLQuery(hSQL, "UPDATE `rc_actorinstance` SET `actorid` = '"+A\Actor\ID+"', `area` = '"+My_Escape$(A\Area$)+"',`name` = '"+My_Escape$(A\Name$)+"',`tag` = '"+My_Escape$(A\Tag$)+"',`teamid` = '"+A\TeamID%+"',`x` = '"+A\X#+"',`y` = '"+A\Y#+"',`z` = '"+A\Z#+"',`gender` = '"+A\Gender+"',`xp` = '"+A\XP+"',`level` = '"+A\Level+"',`face` = '"+A\FaceTex+"',`hair` = '"+A\Hair+"',`beard` = '"+A\Beard+"',`body` = '"+A\BodyTex+"',`script` = '"+My_Escape$(A\Script$)+"',`dscript` = '"+My_Escape$(A\DeathScript$)+"',`rep` = '"+A\Reputation+"',`gold` = '"+A\Gold+"',`slaves` = '"+A\NumberOfSlaves+"',`homefaction` = '"+A\HomeFaction+"', `isslave` = '"+IsSlave+"', `slot` = '"+Parent+"', `xpbarlev` = '"+A\XPBarLevel+"' WHERE `id` = '"+A\My_ID+"'"))
 	
 	; Update their attributes
 	For i = 0 To 39
@@ -405,7 +482,7 @@ Function My_SaveActorInstance(A.ActorInstance, Q.QuestLog, C.ActionbarData, IsSl
 	; Update Script Globals and Memorised Spells
 	; Using two querys in one loop saves time
 	For i = 0 To 9
-		FreeSQLQuery(SQLQuery(hSQL, "UPDATE `rc_scripts` SET `glob` = '"+A\ScriptGlobals$[i]+"' WHERE `id` = '"+(A\Script_ID + i)+"'"))
+		FreeSQLQuery(SQLQuery(hSQL, "UPDATE `rc_scripts` SET `glob` = '"+My_Escape$(A\ScriptGlobals$[i])+"' WHERE `id` = '"+(A\Script_ID + i)+"'"))
 		FreeSQLQuery(SQLQuery(hSQL, "UPDATE `rc_memspells` SET `mem` = '"+A\MemorisedSpells[i]+"' WHERE `id` = '"+(A\Memorised_ID + i)+"'"))
 	Next
 	
@@ -413,7 +490,7 @@ Function My_SaveActorInstance(A.ActorInstance, Q.QuestLog, C.ActionbarData, IsSl
 	; Q can be null if the actorinstance is a slave
 	If Q <> Null Then
 		For i = 0 To 499
-			FreeSQLQuery(SQLQuery(hSQL, "UPDATE `rc_questlog` SET `qname` = '"+Q\EntryName$[i]+"', `qstat` = '"+Q\EntryStatus$[i]+"' WHERE `id` = '"+(Q\My_ID + i)+"'"))
+			FreeSQLQuery(SQLQuery(hSQL, "UPDATE `rc_questlog` SET `qname` = '"+My_Escape$(Q\EntryName$[i])+"', `qstat` = '"+My_Escape$(Q\EntryStatus$[i])+"' WHERE `id` = '"+(Q\My_ID + i)+"'"))
 		Next
 	End If
 	
@@ -426,25 +503,25 @@ Function My_SaveActorInstance(A.ActorInstance, Q.QuestLog, C.ActionbarData, IsSl
 			w% = RCE_IntFromStr(Right(C\Slots$[i],2))
 			
 			If aaa$ = "I" Then
+				; aaa$ is locally constrained to "I" here so no escape needed,
+				; but bbb$ / w% come from C\Slots$ which player scripts can set.
 				FreeSQLQuery(SQLQuery(hSQL, "UPDATE `rc_actionbar` SET `slot` = '" + aaa$ + "', `dat` = '" + w% + "' WHERE `id` = '"+(C\My_ID + i)+"'"))
 			Else If aaa$ = "S" Then
-				FreeSQLQuery(SQLQuery(hSQL, "UPDATE `rc_actionbar` SET `slot` = '" + aaa$ + "', `dat` = '" + bbb$ + "' WHERE `id` = '"+(C\My_ID + i)+"'"))
+				FreeSQLQuery(SQLQuery(hSQL, "UPDATE `rc_actionbar` SET `slot` = '" + aaa$ + "', `dat` = '" + My_Escape$(bbb$) + "' WHERE `id` = '"+(C\My_ID + i)+"'"))
 			Else If aaa$ = "" Then
 				FreeSQLQuery(SQLQuery(hSQL, "UPDATE `rc_actionbar` SET `slot` = '', `dat` = '-1' WHERE `id` = '"+(C\My_ID + i)+"'"))
 			End If
 		Next
 	End If
 	
-	; Save Slaves
-	Slaves = A\NumberOfSlaves
-	While Slaves > 0
-		For Slave.ActorInstance = Each ActorInstance
-			If Slave\Leader = A
-				;   Saves Slaves | Instance | Quests | Actionbar | isSlave | AccountNumber | Parent
-				My_SaveActorInstance(Slave,    Null,     Null,       True,    AccountID, A\My_ID)
-				Slaves = Slaves -1
-			End If
-		Next
+	; Save Slaves -- walk A's FirstSlave chain instead of every
+	; ActorInstance. Same shape as the flat-file SaveActor path
+	; in Actors.bb.
+	Local Slave.ActorInstance = A\FirstSlave
+	While Slave <> Null
+		;   Saves Slaves | Instance | Quests | Actionbar | isSlave | AccountNumber | Parent
+		My_SaveActorInstance(Slave,    Null,     Null,       True,    AccountID, A\My_ID)
+		Slave = Slave\NextSlave
 	Wend
 	
 End Function
@@ -526,7 +603,7 @@ Function My_NewActorInstance(A.ActorInstance, Q.Questlog, c.ActionbarData, IsSla
 	End If
 	
 	
-	Result = SQLQuery(hSQL, "SELECT `id` FROM `rc_actorinstance` WHERE `account_id` = '" + AccountID + "' AND `name` = '" + A\Name$ + "'")
+	Result = SQLQuery(hSQL, "SELECT `id` FROM `rc_actorinstance` WHERE `account_id` = '" + AccountID + "' AND `name` = '" + My_Escape$(A\Name$) + "'")
 		
 	; Fetch the character data and leave if there isn't anything left
 	Row = SQLFetchRow(Result)
@@ -560,14 +637,30 @@ Function My_LoadActorInstance.ActorInstance(ActID, Q.Questlog, C.ActionBarData, 
 
 	ActorID = ReadSQLField(Row, "actorid")
 
+	; Soft-fail on missing or out-of-range Actor template. Pre-fix this
+	; branch silently allocated a fresh empty ActorInstance with
+	; A\Actor = Null; downstream `\Actor\` derefs across 15 modules would
+	; crash on the template-less zombie. The audit comment at the
+	; `A\NumberOfSlaves = 0` reset below already documents the post-fix
+	; behavior ("returns Null and the SlaveLink call is skipped via the
+	; `If Slave <> Null` guard") -- that guard's been dead code; this
+	; change makes it reachable. The character-load loop at
+	; My_LoadAccount tolerates the new Null via a sibling guard.
+	;
+	; ActorID is a wire-read integer column. Bound it against
+	; `Dim ActorList(65535)` (Actors.bb) before the registry lookup so a
+	; corrupt SQL row with negative or > 65535 actorid doesn't OOB-walk
+	; the array. Mirrors the bounds-check pattern from CLAUDE.md ->
+	; "Bounds checks before array index".
+	If ActorID < 0 Or ActorID > 65535 Or ActorList(ActorID) = Null Then
+		WriteLog(MainLog, "My_LoadActorInstance: actor template missing or OOB (actorid=" + ActorID + ", actid=" + ActID + "); dropping")
+		FreeSQLRow(Row)
+		FreeSQLQuery(Result)
+		Return Null
+	EndIf
+
 	; Setup Instance
-	If ActorList(ActorID) = Null Then
-		A.ActorInstance = New ActorInstance
-		A\Attributes = New Attributes
-		A\Inventory = New Inventory
-	Else
-		A.ActorInstance = CreateActorInstance(ActorList(ActorID))
-	End If
+	A.ActorInstance = CreateActorInstance(ActorList(ActorID))
 
 	If A\Attributes = Null Then A\Attributes = New Attributes
 	If A\Inventory = Null Then A\Inventory = New Inventory
@@ -592,9 +685,26 @@ Function My_LoadActorInstance.ActorInstance(ActID, Q.Questlog, C.ActionBarData, 
 	A\DeathScript$		= ReadSQLField(Row, "dscript")
 	A\Reputation		= ReadSQLField(Row, "rep")
 	A\Gold				= ReadSQLField(Row, "gold")
-	A\NumberOfslaves	= ReadSQLField(Row, "slaves")
+	A\NumberOfSlaves	= ReadSQLField(Row, "slaves")
+	; SlaveLink (called per slave-row in the loop below) increments
+	; NumberOfSlaves on each call, so the saved count would double-
+	; count if left in place. Reset to 0 here and let SlaveLink rebuild
+	; the count from the actual rows that load successfully -- this
+	; also catches the case where a slave row references a missing
+	; actor and My_LoadActorInstance returns Null (the SlaveLink call
+	; is then skipped via the `If Slave <> Null` guard, and the count
+	; correctly reflects only the slaves that actually loaded).
+	A\NumberOfSlaves	= 0
 	A\HomeFaction		= ReadSQLField(Row, "homefaction")
-	A\XPBarLevel		= ReadSQLField(Row, "xbbarlev")
+	; FactionNames$ / FactionDefaultRatings are Dim'd (99) and
+	; FactionRatings is Field[99]. A corrupt SQL row could carry an
+	; OOB HomeFaction; clamp at load so downstream readers can deref
+	; without bounds-checking.
+	If A\HomeFaction < 0 Or A\HomeFaction > 99 Then A\HomeFaction = 0
+	; Column is `xpbarlev` on the SaveActor side (above); the read here
+	; used to look up `xbbarlev`, which silently returned 0 on every load
+	; and made the XP bar reset to empty on relog.
+	A\XPBarLevel		= ReadSQLField(Row, "xpbarlev")
 	A\Account_ID		= AccountID
 
 	; Query attributes
@@ -764,6 +874,11 @@ Function My_LoadActorInstance.ActorInstance(ActID, Q.Questlog, C.ActionBarData, 
 		
 		If i = 0 Then A\Memorised_ID		= ReadSQLField(MemSpellRow, "id")
 		A\MemorisedSpells[i] = ReadSQLField(MemSpellRow, "mem")
+		; KnownSpells is Field[999]; sentinel is 5000 ("no spell").
+		; Clamp at load so a corrupt SQL row can't drive an OOB read
+		; into KnownSpells[A\MemorisedSpells[i]] on the client.
+		If A\MemorisedSpells[i] < 0 Then A\MemorisedSpells[i] = 5000
+		If A\MemorisedSpells[i] > 999 And A\MemorisedSpells[i] <> 5000 Then A\MemorisedSpells[i] = 5000
 		
 		; Clean up
 		FreeSQLRow(ScriptRow)
@@ -846,10 +961,13 @@ Function My_LoadActorInstance.ActorInstance(ActID, Q.Questlog, C.ActionBarData, 
 		; Get the slaves ID
 		SlavID = ReadSQLField(SlaveRow, "id")
 		
-		; Load the slave
+		; Load the slave. SlaveLink maintains the FirstSlave chain +
+		; NumberOfSlaves count.
 		Slave.ActorInstance = My_LoadActorInstance(SlavID, Null, Null,AccountID)
-		Slave\Leader = A
-		Slave\AIMode = AI_Pet
+		If Slave <> Null
+			SlaveLink(A, Slave)
+			Slave\AIMode = AI_Pet
+		EndIf
 		
 		; Clean up
 		FreeSQLRow(SlaveRow)

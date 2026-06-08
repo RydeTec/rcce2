@@ -4,6 +4,26 @@ Global TradeMsg1$, TradeMsg2$, TradeMsg3$
 Global newEntityX#,newEntityY#,newEntityZ#
 Global oldEntityX#,oldEntityY#,oldEntityZ#
 
+; Track the currently-playing P_Music handles so the next P_Music can
+; release them. Used to leak one sound and one channel per zone change.
+Global CurrentMusicSound = 0
+Global CurrentMusicChannel = 0
+
+; Single entry point for "we lost the server connection" outcomes.
+;
+; Today this is the same `RuntimeError(LS_LostConnection)` that the 12
+; previous in-line callers had -- a controlled crash with a localized
+; message. Consolidating to one function gives a single place to swap
+; in a reconnect dialog (the long-horizon INTENT item) without having
+; to find and modify every disconnect path again.
+;
+; Callers should branch to this immediately on detecting
+; RN_HostHasLeft / RN_Disconnected / PeerToHostNotFound and similar
+; RakNet conditions. The function does not return.
+Function OnLostConnection()
+	RuntimeError(LanguageString$(LS_LostConnection))
+End Function
+
 ; Connects to the server
 Function Connect()
 
@@ -23,10 +43,18 @@ Function Connect()
 
 	; Await reply
 	Done = 0
+	; After-cursor walk: trailing Delete M during For-Each would corrupt
+	; the cursor on the next step when multiple messages are queued
+	; (the server fans out P_StartGame plus any chat/disconnect packets
+	; that crossed the wire in the same tick).
+	Local M.RCE_Message = First RCE_Message
+	Local MNext.RCE_Message = Null
 	While Done < 13
 		Delay 10
 		; We get signal!
-		For M.RCE_Message = Each RCE_Message
+		M = First RCE_Message
+		While M <> Null
+			MNext = After M
 			If M\MessageType = P_StartGame
 				; Error message
 				If M\MessageData$ = "N" Then RuntimeError(LanguageString$(LS_AlreadyInGame))
@@ -83,14 +111,15 @@ Function Connect()
 				EndIf
 				Delete M : Done = Done + 1
 			ElseIf M\MessageType = PeerToHostHasLeft
-				RuntimeError(LanguageString$(LS_LostConnection))
+				OnLostConnection()
 				Delete M
 			EndIf
-		Next
-		
+			M = MNext
+		Wend
+
 		RCE_Update()
 		RCE_CreateMessages()
-		
+
 		Cls
 		Flip VSync
 	Wend
@@ -105,7 +134,16 @@ End Function
 Function UpdateNetwork()
 
 	; Incoming messages
-	For M.RCE_Message = Each RCE_Message
+	; After-cursor walk: the trailing Delete M before Next would corrupt
+	; the For-Each cursor on the next step. This dispatcher runs every
+	; frame and processes the full RCE_Message backlog -- a typical tick
+	; carries many packets (per-actor updates, chat, effects, etc.), so
+	; the For-Each + Delete pattern reliably skips messages and risks a
+	; use-after-free on the cursor advance.
+	Local M.RCE_Message = First RCE_Message
+	Local MNext.RCE_Message = Null
+	While M <> Null
+		MNext = After M
 		; What happen?
 		Select M\MessageType
 
@@ -242,61 +280,127 @@ Function UpdateNetwork()
 							Z# = EntityZ#(AI\CollisionEN)
 							FreeActorInstance3D(AI)
 							Result = LoadActorInstance3D(AI, 0.05)
-							If Result = False Then RuntimeError("Could not load actor mesh for " + AI\Actor\Race$ + "!")
-							AI\Y# = 0.0
-							PositionEntity(AI\CollisionEN, X#, Y#, Z#)
-							ResetEntity(AI\CollisionEN)
-							If AI = Me
-								EntityType(Me\CollisionEN, C_Player)
-								FreeEntity(Me\NametagEN)
-								Me\NametagEN = 0
-								Bonce = FindChild(Me\EN, "Head")
-								If Bonce = 0 Then RuntimeError(Me\Actor\Race$ + " actor mesh is missing a 'Head' joint!")
-								CamHeight# = EntityDistance#(Bonce, Me\CollisionEN)
+							If Result = False
+								; Same DoS surface as P_NewActor (see line ~1432
+								; comment): server picks the Race, missing mesh
+								; here used to crash every observer. For other
+								; actors, drop them; we'll pick them up again on
+								; their next P_NewActor. For Me, the failure is
+								; unrecoverable (no body to control) -- keep the
+								; RuntimeError as the controlled crash.
+								If AI <> Me
+									WriteLog(MainLog, "P_AppearanceUpdate C: missing mesh for race '" + AI\Actor\Race$ + "' (RNID=" + AI\RNID + "), dropping actor")
+									; Sweep homing projectiles first -- dropping this in-zone actor
+									; otherwise leaves a dangling ProjectileInstance\Target (#457).
+									FreeProjectilesTargeting(AI)
+									SafeFreeActorInstance(AI)
+								Else
+									RuntimeError("Could not load actor mesh for " + AI\Actor\Race$ + "!")
+								EndIf
+							Else
+								AI\Y# = 0.0
+								PositionEntity(AI\CollisionEN, X#, Y#, Z#)
+								ResetEntity(AI\CollisionEN)
+								If AI = Me
+									EntityType(Me\CollisionEN, C_Player)
+									FreeEntity(Me\NametagEN)
+									Me\NametagEN = 0
+									Bonce = FindChild(Me\EN, "Head")
+									If Bonce = 0 Then RuntimeError(Me\Actor\Race$ + " actor mesh is missing a 'Head' joint!")
+									CamHeight# = EntityDistance#(Bonce, Me\CollisionEN)
+								EndIf
 							EndIf
 						; Gender
 						Case "G"
 							AI\Gender = Asc(Right$(M\MessageData$, 1))
+							; Wire byte arrives 0..255 but Gender is a 0/1
+							; selector for Male/Female mesh + hair + face +
+							; body lookups in LoadActorInstance3D below.
+							; Clamp at the receive site -- the server's
+							; P_CreateCharacter handler already clamps on
+							; persistence (#199); this mirrors that for the
+							; in-session P_AppearanceUpdate path.
+							If AI\Gender < 0 Or AI\Gender > 1 Then AI\Gender = 0
 							X# = EntityX#(AI\CollisionEN)
 							Y# = EntityY#(AI\CollisionEN)
 							Z# = EntityZ#(AI\CollisionEN)
 							FreeActorInstance3D(AI)
 							Result = LoadActorInstance3D(AI, 0.05)
-							If Result = False Then RuntimeError("Could not load actor mesh for " + AI\Actor\Race$ + "!")
-							AI\Y# = 0.0
-							PositionEntity(AI\CollisionEN, X#, Y#, Z#)
-							ResetEntity(AI\CollisionEN)
+							If Result = False
+								If AI <> Me
+									WriteLog(MainLog, "P_AppearanceUpdate G: missing mesh for race '" + AI\Actor\Race$ + "' (RNID=" + AI\RNID + "), dropping actor")
+									; Sweep homing projectiles first -- dropping this in-zone actor
+									; otherwise leaves a dangling ProjectileInstance\Target (#457).
+									FreeProjectilesTargeting(AI)
+									SafeFreeActorInstance(AI)
+								Else
+									RuntimeError("Could not load actor mesh for " + AI\Actor\Race$ + "!")
+								EndIf
+							Else
+								AI\Y# = 0.0
+								PositionEntity(AI\CollisionEN, X#, Y#, Z#)
+								ResetEntity(AI\CollisionEN)
+							EndIf
 						; Beard
 						Case "D"
 							AI\Beard = Asc(Right$(M\MessageData$, 1))
+							; Beard indexes BeardIDs[4]; clamp the wire byte
+							; (0..255) at the receive site so the BeardOK
+							; gate below (and any LoadActorInstance3D
+							; reload) sees a valid index.
+							If AI\Beard < 0 Or AI\Beard > 4 Then AI\Beard = 0
 
 							Bonce = FindChild(AI\EN, "Head")
-							If Bonce = 0 Then RuntimeError(AI\Actor\Race$ + " actor mesh is missing a 'Head' joint!")
+							If Bonce = 0
+								; Beard is decorative. If the actor mesh has
+								; no Head joint, just skip the update -- no
+								; reason to crash the client.
+								WriteLog(MainLog, "P_AppearanceUpdate D: race '" + AI\Actor\Race$ + "' mesh missing 'Head' joint, skipping beard")
+							Else
+								; Remove old beard
+								BeardEN = FindChild(Bonce, "Beard")
+								If BeardEN <> 0 Then FreeEntity(BeardEN)
 
-							; Remove old beard
-							BeardEN = FindChild(Bonce, "Beard")
-							If BeardEN <> 0 Then FreeEntity(BeardEN)
-
-							; Apply new beard
-							If AI\Actor\BeardIDs[AI\Beard] > -1 And AI\Actor\BeardIDs[AI\Beard] < 65535
-								ID = AI\Actor\BeardIDs[AI\Beard]
-								BeardEN = GetMesh(ID, True)
-								If BeardEN <> 0
-									EntityParent(BeardEN, Bonce, False)
-									PositionEntity(BeardEN, LoadedMeshX#(ID), LoadedMeshY#(ID), LoadedMeshZ#(ID))
-									ScaleEntity(BeardEN, LoadedMeshScales#(ID), LoadedMeshScales#(ID), LoadedMeshScales#(ID))
-									; Correct rotation for Max models
-									If AI\TeamID = True Then TurnEntity(BeardEN, 0, 180, 90)
-									NameEntity(BeardEN, "Beard")
+								; Apply new beard. Same bounds + short-circuit-safe
+								; guard as the Actors3D LoadActorInstance3D path.
+								Local BeardOK = False
+								If AI\Beard >= 0 And AI\Beard <= 4
+									If AI\Actor\BeardIDs[AI\Beard] > -1 And AI\Actor\BeardIDs[AI\Beard] < 65535
+										BeardOK = True
+									EndIf
+								EndIf
+								If BeardOK
+									ID = AI\Actor\BeardIDs[AI\Beard]
+									BeardEN = GetMesh(ID, True)
+									If BeardEN <> 0
+										EntityParent(BeardEN, Bonce, False)
+										PositionEntity(BeardEN, LoadedMeshX#(ID), LoadedMeshY#(ID), LoadedMeshZ#(ID))
+										ScaleEntity(BeardEN, LoadedMeshScales#(ID), LoadedMeshScales#(ID), LoadedMeshScales#(ID))
+										; Correct rotation for Max models
+										If AI\TeamID = True Then TurnEntity(BeardEN, 0, 180, 90)
+										NameEntity(BeardEN, "Beard")
+									EndIf
 								EndIf
 							EndIf
 						; Hair
 						Case "H"
 							AI\Hair = Asc(Right$(M\MessageData$, 1))
+							; Hair indexes Male/FemaleHairIDs[4]; clamp the
+							; wire byte (0..255) before SetActorHat's
+							; fallback path uses it as an array index.
+							If AI\Hair < 0 Or AI\Hair > 4 Then AI\Hair = 0
 							If AI\Inventory\Items[SlotI_Hat] = Null Then SetActorHat(AI, -1)
 						; Face
 						Case "F"
 							AI\FaceTex = Asc(Right$(M\MessageData$, 1))
+							; Wire arrives as Asc (0..255) but MaleFaceIDs /
+							; FemaleFaceIDs are Field [4] (5 slots). Out of
+							; range reads past the array into adjacent Actor
+							; fields. Clamp at the receive site so every
+							; downstream lookup is safe. Similar reasoning
+							; for AI\BodyTex which is also indexed below.
+							If AI\FaceTex < 0 Or AI\FaceTex > 4 Then AI\FaceTex = 0
+							If AI\BodyTex < 0 Or AI\BodyTex > 4 Then AI\BodyTex = 0
 							; Repaint
 							If AI\Gender = 0
 								FaceTex = AI\Actor\MaleFaceIDs[AI\FaceTex]
@@ -333,6 +437,12 @@ Function UpdateNetwork()
 						; Body
 						Case "B"
 							AI\BodyTex = Asc(Right$(M\MessageData$, 1))
+							; Same bounds as the Face case above -- BodyTex
+							; is Asc 0..255 but MaleBodyIDs / FemaleBodyIDs
+							; are Field [4]. FaceTex may already be valid
+							; from a prior packet; bound it defensively too.
+							If AI\BodyTex < 0 Or AI\BodyTex > 4 Then AI\BodyTex = 0
+							If AI\FaceTex < 0 Or AI\FaceTex > 4 Then AI\FaceTex = 0
 							; Repaint
 							If AI\Gender = 0
 								FaceTex = AI\Actor\MaleFaceIDs[AI\FaceTex]
@@ -392,7 +502,9 @@ Function UpdateNetwork()
 				ElseIf Left$(M\MessageData$, 1) = "E"
 					Att = RCE_IntFromStr(Mid$(M\MessageData$, 2, 1))
 					Amount = RCE_IntFromStr(Mid$(M\MessageData$, 3, 4))
-					Me\Attributes\Value[Att] = Me\Attributes\Value[Att] + Amount
+					If Att >= 0 And Att < 40 And Me <> Null
+						Me\Attributes\Value[Att] = Me\Attributes\Value[Att] + Amount
+					EndIf
 				; Removed
 				ElseIf Left$(M\MessageData$, 1) = "R"
 					ID = RCE_IntFromStr(Mid$(M\MessageData$, 2, 4))
@@ -403,10 +515,18 @@ Function UpdateNetwork()
 							Exit
 						EndIf
 					Next
-					For i = 0 To 39
-						Amount = RCE_IntFromStr(Mid$(M\MessageData$, 6 + (i * 4), 4))
-						Me\Attributes\Value[i] = Me\Attributes\Value[i] - Amount
-					Next
+					; The "R" payload must carry 40*4=160 bytes of per-attribute
+					; deltas starting at offset 6. A hostile or truncated server
+					; packet could send fewer bytes; Mid$ would return zero-
+					; padded reads and the loop would silently zero attributes
+					; on the client. Bail the per-attribute walk unless the
+					; full delta block is present.
+					If Me <> Null And Len(M\MessageData$) >= 6 + 40 * 4
+						For i = 0 To 39
+							Amount = RCE_IntFromStr(Mid$(M\MessageData$, 6 + (i * 4), 4))
+							Me\Attributes\Value[i] = Me\Attributes\Value[i] - Amount
+						Next
+					EndIf
 				EndIf
 
 			; Trading updated
@@ -522,6 +642,12 @@ Function UpdateNetwork()
 							Num = 0
 							LockTextures()
 							While Offset < Len(M\MessageData$)
+								; TradeItems / TradeAmounts / ServerTradeIDs /
+								; BSlotsHis are all Dim'd (31) = 32 slots. A
+								; malformed P_OpenTrading payload longer than
+								; 32 items would Dim-OOB the client. Stop
+								; walking once the slot table is full.
+								If Num < 0 Or Num > 31 Then Exit
 								Item.ItemInstance = ItemInstanceFromString(Mid$(M\MessageData$, Offset, ItemInstanceStringLength()))
 								TradeItems(Num) = Item
 								Offset = Offset + ItemInstanceStringLength()
@@ -625,13 +751,22 @@ Function UpdateNetwork()
 					If Channel <> 0 Then ChannelVolume(Channel, DefaultVolume#)
 				EndIf
 
-			; Music
+			; Music. Each P_Music packet loads and starts looping a sound;
+			; the previous code never stopped the prior channel or freed
+			; the prior sound handle, so every zone-transition leaked one
+			; sound and one channel for the life of the session.
 			Case P_Music
 				Name$ = GetMusicName$(RCE_IntFromStr(Mid$(M\MessageData$, 1, 2)))
-				Loaded = LoadSound("Data\Music\" + Name$, False)
-				LoopSound Loaded
-				Channel = PlaySound(Loaded)
-				If Channel <> 0 Then ChannelVolume(Channel, DefaultVolume#)
+				If CurrentMusicChannel <> 0 Then StopChannel CurrentMusicChannel
+				If CurrentMusicSound <> 0 Then FreeSound CurrentMusicSound
+				CurrentMusicChannel = 0
+				CurrentMusicSound = 0
+				CurrentMusicSound = LoadSound("Data\Music\" + Name$, False)
+				If CurrentMusicSound <> 0
+					LoopSound CurrentMusicSound
+					CurrentMusicChannel = PlaySound(CurrentMusicSound)
+					If CurrentMusicChannel <> 0 Then ChannelVolume(CurrentMusicChannel, DefaultVolume#)
+				EndIf
 
 			; Particles effect
 			Case P_CreateEmitter
@@ -642,30 +777,70 @@ Function UpdateNetwork()
 				YPos# = RCE_FloatFromStr#(Mid$(M\MessageData$, 13, 4))
 				ZPos# = RCE_FloatFromStr#(Mid$(M\MessageData$, 17, 4))
 				Name$ = Mid$(M\MessageData$, 21)
-				Em.ScriptedEmitter = New ScriptedEmitter
-				Em\Length = Time
-				Em\StartTime = MilliSecs()
-				Config = RP_LoadEmitterConfig("Data\Emitter Configs\" + Name$ + ".rpc", GetTexture(TexID), Cam)
-				If Config = 0 Then RuntimeError("Could not load emitter: " + Name$ + "!")
-				Em\EN = RP_CreateEmitter(Config)
-				AI.ActorInstance = RuntimeIDList(RuntimeID)
-				If AI <> Null
-					EntityParent(Em\EN, AI\CollisionEN)
-					RotateEntity(Em\EN, EntityPitch#(AI\CollisionEN), EntityYaw#(AI\CollisionEN), EntityRoll#(AI\CollisionEN))
-					If AI = Me Then Em\AttachedToPlayer = True
+				; Reject path-traversal names from a hostile / compromised
+				; server. Without these checks, a server could pass "..\..\<x>"
+				; to navigate out of Data\Emitter Configs, and a non-existent
+				; file would RuntimeError the client (DoS by any malicious
+				; server sending one packet).
+				ValidEmitter = True
+				If Len(Name$) < 1 Or Len(Name$) > 240 Then ValidEmitter = False
+				If ValidEmitter
+					For nameI = 1 To Len(Name$)
+						Local nameCh = Asc(Mid$(Name$, nameI, 1))
+						; Reject control bytes, drive-letter ':', and slashes.
+						If nameCh < 32 Or nameCh > 126 Or nameCh = 58 Or nameCh = 47 Or nameCh = 92
+							ValidEmitter = False
+							Exit
+						EndIf
+					Next
 				EndIf
-				PositionEntity Em\EN, XPos#, YPos#, ZPos#
+				If ValidEmitter And Instr(Name$, "..") > 0 Then ValidEmitter = False
+				If ValidEmitter
+					Em.ScriptedEmitter = New ScriptedEmitter
+					Em\Length = Time
+					Em\StartTime = MilliSecs()
+					Config = RP_LoadEmitterConfig("Data\Emitter Configs\" + Name$ + ".rpc", GetTexture(TexID), Cam)
+					; Soft-fail (log + drop) instead of RuntimeError on missing
+					; or unloadable emitter -- any server can otherwise hard-
+					; kill clients with one packet referencing a non-existent
+					; name.
+					If Config = 0
+						WriteLog(MainLog, "P_CreateEmitter: failed to load " + Name$)
+						Delete Em
+					Else
+						Em\EN = RP_CreateEmitter(Config)
+						AI.ActorInstance = RuntimeIDList(RuntimeID)
+						If AI <> Null
+							EntityParent(Em\EN, AI\CollisionEN)
+							RotateEntity(Em\EN, EntityPitch#(AI\CollisionEN), EntityYaw#(AI\CollisionEN), EntityRoll#(AI\CollisionEN))
+							If AI = Me Then Em\AttachedToPlayer = True
+						EndIf
+						PositionEntity Em\EN, XPos#, YPos#, ZPos#
+					EndIf
+				EndIf
 
 			; Known spell update
 			Case P_KnownSpellUpdate
 				; Spell added
 				If Left$(M\MessageData$, 1) = "A"
-					If Me\SpellLevels[Spells] = 0
+					; KnownSpells / SpellLevels are Field[999] (1000 slots).
+					; The global `Spells` counter grew unchecked from the
+					; previous handler; a malformed or hostile server could
+					; spam P_KnownSpellUpdate "A" past 999 and OOB-write the
+					; client. Drop further adds once the slot table is full.
+					If Spells >= 0 And Spells <= 999 And Me\SpellLevels[Spells] = 0
 						DebugLog "Spell creation entered"
 						Offset = 2
 						Me\SpellLevels[Spells] = RCE_IntFromStr(Mid$(M\MessageData$, Offset, 2))
 						Sp.Spell = New Spell
 						Sp\ID = RCE_IntFromStr(Mid$(M\MessageData$, Offset + 2, 2))
+						; SpellsList is Dim'd 65534. Wire field carries 0..65535;
+						; clamp Sp\ID before the Dim write to avoid an OOB
+						; assignment that would corrupt adjacent globals.
+						If Sp\ID < 0 Or Sp\ID > 65534
+							Delete Sp
+							Goto SkipKnownSpellAdd
+						EndIf
 						SpellsList(Sp\ID) = Sp
 						Me\KnownSpells[Spells] = Sp\ID
 						Sp\ThumbnailTexID = RCE_IntFromStr(Mid$(M\MessageData$, Offset + 4, 2))
@@ -683,6 +858,7 @@ Function UpdateNetwork()
 						EndIf
 						Spells = Spells + 1
 						SortSpells()
+						.SkipKnownSpellAdd
 					EndIf
 				; Spell removed
 				ElseIf Left$(M\MessageData$, 1) = "D"
@@ -697,15 +873,22 @@ Function UpdateNetwork()
 					For i = 0 To 11
 						slot = i + offset
 						If ActionBarSlots(slot) < 0
+							; MemorisedSpells is Field[9]; KnownSpells is Field[999];
+							; ClientSpellNameMatches bound-checks SpellsList[65534]
+							; + Null-checks the slot. Stale slot would otherwise
+							; deref SpellsList(...)\Name$ on a Null and crash.
 							If RequireMemorise
 								Num = ActionBarSlots(slot) + 10
-								If Upper$(SpellsList(Me\KnownSpells[Me\MemorisedSpells[Num]])\Name$) = Name$
-									found = True
+								If Num >= 0 And Num <= 9
+									Mem = Me\MemorisedSpells[Num]
+									If Mem >= 0 And Mem <= 999
+										If ClientSpellNameMatches%(Me\KnownSpells[Mem], Name$) Then found = True
+									EndIf
 								EndIf
 							Else
 								Num = ActionBarSlots(slot) + 1000
-								If Upper$(SpellsList(Me\KnownSpells[Num])\Name$) = Name$
-									found = True
+								If Num >= 0 And Num <= 999
+									If ClientSpellNameMatches%(Me\KnownSpells[Num], Name$) Then found = True
 								EndIf
 							EndIf
 							If found = True
@@ -717,17 +900,20 @@ Function UpdateNetwork()
 							found = False
 						EndIf
 					Next
-					
+
 					; Remove memorised
 					For i = 0 To 9
 						If Me\MemorisedSpells[i] <> 5000
-							If Upper$(SpellsList(Me\KnownSpells[Me\MemorisedSpells[i]])\Name$) = Name$ Then Me\MemorisedSpells[i] = 5000
+							Mem = Me\MemorisedSpells[i]
+							If Mem >= 0 And Mem <= 999
+								If ClientSpellNameMatches%(Me\KnownSpells[Mem], Name$) Then Me\MemorisedSpells[i] = 5000
+							EndIf
 						EndIf
 					Next
 					; Remove known
 					For i = 0 To 999
 						If Me\SpellLevels[i] > 0
-							If Upper$(SpellsList(Me\KnownSpells[i])\Name$) = Name$
+							If ClientSpellNameMatches%(Me\KnownSpells[i], Name$)
 								Me\KnownSpells[i] = 0
 								Me\SpellLevels[i] = 0
 							EndIf
@@ -740,7 +926,7 @@ Function UpdateNetwork()
 					Name$ = Upper$(Mid$(M\MessageData$, 6))
 					For i = 0 To 999
 						If Me\SpellLevels[i] > 0
-							If Upper$(SpellsList(Me\KnownSpells[i])\Name$) = Name$ Then Me\SpellLevels[i] = Level
+							If ClientSpellNameMatches%(Me\KnownSpells[i], Name$) Then Me\SpellLevels[i] = Level
 						EndIf
 					Next
 					If SpellsVisible Then UpdateSpellbook()
@@ -809,14 +995,25 @@ Function UpdateNetwork()
 			; Character stat update
 			Case P_StatUpdate
 				A.ActorInstance = RuntimeIDList(RCE_IntFromStr(Mid$(M\MessageData$, 2, 2)))
-				If Left$(M\MessageData$, 1) = "A"
-					Attribute = RCE_IntFromStr(Mid$(M\MessageData$, 4, 1))
-					A\Attributes\Value[Attribute] = RCE_IntFromStr(Mid$(M\MessageData$, 5, 2))
-				ElseIf Left$(M\MessageData$, 1) = "M"
-					Attribute = RCE_IntFromStr(Mid$(M\MessageData$, 4, 1))
-					A\Attributes\Maximum[Attribute] = RCE_IntFromStr(Mid$(M\MessageData$, 5, 2))
-				ElseIf Left$(M\MessageData$, 1) = "R"
-					A\Reputation = RCE_IntFromStr(Mid$(M\MessageData$, 4, 2))
+				; A can be Null if the server names a RuntimeID we haven't
+				; created yet (race on actor spawn) -- guard before any
+				; field access. Attribute index also comes off the wire
+				; as a 1-byte 0..255 value; bound against the 40-entry
+				; Attributes\Value / Maximum arrays.
+				If A <> Null
+					If Left$(M\MessageData$, 1) = "A"
+						Attribute = RCE_IntFromStr(Mid$(M\MessageData$, 4, 1))
+						If Attribute >= 0 And Attribute < 40
+							A\Attributes\Value[Attribute] = RCE_IntFromStr(Mid$(M\MessageData$, 5, 2))
+						EndIf
+					ElseIf Left$(M\MessageData$, 1) = "M"
+						Attribute = RCE_IntFromStr(Mid$(M\MessageData$, 4, 1))
+						If Attribute >= 0 And Attribute < 40
+							A\Attributes\Maximum[Attribute] = RCE_IntFromStr(Mid$(M\MessageData$, 5, 2))
+						EndIf
+					ElseIf Left$(M\MessageData$, 1) = "R"
+						A\Reputation = RCE_SignedShortFromStr(Mid$(M\MessageData$, 4, 2))  ; signed: reputation can be negative
+					EndIf
 				EndIf
 
 			; Scripted text input dialog
@@ -924,7 +1121,12 @@ Function UpdateNetwork()
 						AnimateActorAttack(Me)
 						PlayActorSound(Me, Rand(Speech_Attack1, Speech_Attack2))
 						Damage = RCE_IntFromStr(Mid$(M\MessageData$, 4, 2)) - 1
-						DType$ = DamageTypes$(RCE_IntFromStr(Mid$(M\MessageData$, 6, 1)))
+						; DamageTypes$ is Dim'd (19); wire byte is 0..255.
+						; Clamp before indexing -- avoids Blitz Dim OOB
+						; from a malformed P_AttackUpdate "H".
+						Local DTI = RCE_IntFromStr(Mid$(M\MessageData$, 6, 1))
+						If DTI < 0 Or DTI > 19 Then DTI = 0
+						DType$ = DamageTypes$(DTI)
 						; And hit them
 						If Damage > 0
 							CombatDamageOutput(A, Damage, DType$)
@@ -947,7 +1149,12 @@ Function UpdateNetwork()
 					; Someone else attacked me
 					ElseIf Left$(M\MessageData$, 1) = "Y"
 						Damage = RCE_IntFromStr(Mid$(M\MessageData$, 4, 2)) - 1
-						DType$ = DamageTypes$(RCE_IntFromStr(Mid$(M\MessageData$, 6, 1)))
+						; DamageTypes$ is Dim'd (19); wire byte is 0..255.
+						; Clamp before indexing -- avoids Blitz Dim OOB
+						; from a malformed P_AttackUpdate "Y".
+						Local DTI2 = RCE_IntFromStr(Mid$(M\MessageData$, 6, 1))
+						If DTI2 < 0 Or DTI2 > 19 Then DTI2 = 0
+						DType$ = DamageTypes$(DTI2)
 						PointEntity A\CollisionEN, Me\CollisionEN
 						RotateEntity A\CollisionEN, 0.0, EntityYaw#(A\CollisionEN) + 180.0, 0.0
 						; And hit me
@@ -1216,10 +1423,13 @@ Function UpdateNetwork()
 							If A\Inventory\Items[SlotI_Shield] <> Null Then FreeItemInstance(A\Inventory\Items[SlotI_Shield])
 							If A\Inventory\Items[SlotI_Chest] <> Null Then FreeItemInstance(A\Inventory\Items[SlotI_Chest])
 							If A\Inventory\Items[SlotI_Hat] <> Null Then FreeItemInstance(A\Inventory\Items[SlotI_Hat])
-							If WeaponID < 65535 Then A\Inventory\Items[SlotI_Weapon] = CreateItemInstance(ItemList(WeaponID))
-							If ShieldID < 65535 Then A\Inventory\Items[SlotI_Shield] = CreateItemInstance(ItemList(ShieldID))
-							If ChestID < 65535 Then A\Inventory\Items[SlotI_Chest] = CreateItemInstance(ItemList(ChestID))
-							If HatID < 65535 Then A\Inventory\Items[SlotI_Hat] = CreateItemInstance(ItemList(HatID))
+							; ItemList is Dim'd 65534; 65535 is the "no item" sentinel.
+							; Range-check + Null-check the slot before CreateItemInstance --
+							; the constructor faults on a Null Item (I\Item\Attributes deref).
+							If WeaponID >= 0 And WeaponID < 65535 And ItemList(WeaponID) <> Null Then A\Inventory\Items[SlotI_Weapon] = CreateItemInstance(ItemList(WeaponID))
+							If ShieldID >= 0 And ShieldID < 65535 And ItemList(ShieldID) <> Null Then A\Inventory\Items[SlotI_Shield] = CreateItemInstance(ItemList(ShieldID))
+							If ChestID >= 0 And ChestID < 65535 And ItemList(ChestID) <> Null Then A\Inventory\Items[SlotI_Chest] = CreateItemInstance(ItemList(ChestID))
+							If HatID >= 0 And HatID < 65535 And ItemList(HatID) <> Null Then A\Inventory\Items[SlotI_Hat] = CreateItemInstance(ItemList(HatID))
 							UpdateActorItems(A)
 							For i = 0 To 5
 								If RCE_IntFromStr(Mid$(M\MessageData$, 12 + i, 1)) = True
@@ -1233,6 +1443,13 @@ Function UpdateNetwork()
 					Case "G"
 						ItemID = RCE_IntFromStr(Mid$(M\MessageData$, 6, 2))
 						Amount = RCE_IntFromStr(Mid$(M\MessageData$, 8, 2))
+						; ItemList is Dim'd 65534. A wire ItemID outside
+						; 0..65534 or pointing at a Null slot would crash
+						; CreateItemInstance (I\Item\Attributes deref on a
+						; Null Item). Drop the packet on any of those.
+						If ItemID < 0 Or ItemID > 65534 Or ItemList(ItemID) = Null
+							WriteLog(MainLog, "P_InventoryUpdate G: bad ItemID " + ItemID + ", dropping")
+						Else
 						; Find free slot
 						Found = False
 						II.ItemInstance = CreateItemInstance(ItemList(ItemID))
@@ -1271,6 +1488,7 @@ Function UpdateNetwork()
 						If Found = False
 							FreeItemInstance(II)
 							RCE_Send(Connection, PeerToHost, P_InventoryUpdate, "GN" + Mid$(M\MessageData$, 2, 4), True)
+						EndIf
 						EndIf
 				End Select
 
@@ -1355,7 +1573,18 @@ Function UpdateNetwork()
 						; Free actor instance
 						SafeFreeActorInstance(A)
 					Else
-						RuntimeError("Serious error: player object was deleted")
+						; Soft-fail (was a RuntimeError that took down the
+						; client whenever the server sent P_ActorGone for
+						; Me's own RuntimeID). The server should never
+						; send this -- if Me genuinely needs to leave the
+						; current area, the canonical packet is a warp /
+						; disconnect. P_ActorGone for Me is an indicator
+						; of server-side inconsistency or a malicious
+						; server. Log and ignore: the next consistent
+						; state update will resync. (No cleanup work to
+						; do for Me anyway -- projectiles, shadows, etc.
+						; live elsewhere for the local player.)
+						WriteLog(MainLog, "P_ActorGone: server announced Me's own RuntimeID " + RuntimeID + " left the area; ignoring (server-side inconsistency)")
 					EndIf
 				EndIf
 
@@ -1363,30 +1592,40 @@ Function UpdateNetwork()
 			Case P_NewActor
 				A.ActorInstance = ActorInstanceFromString(M\MessageData$)
 				If A <> Null
-				
+
 					FreeShadowCaster% (A\EN)
-					
+
 					Result = LoadActorInstance3D(A, 0.05)
-					If Result = False Then RuntimeError("Could not load actor mesh for " + A\Actor\Race$ + "!")
-					PositionEntity A\CollisionEN, A\X#, A\Y#, A\Z#
-					If A\Actor\Environment <> Environment_Fly
-						SetPickModes()
-						Height# = LoadedMeshScales#(A\Actor\MeshIDs[A\Gender]) * A\Actor\Scale# * MeshHeight#(A\EN) * 0.05
-						Result = LinePick(A\X#, A\Y# + 5.0, A\Z#, 0.0, -10000.0, 0.0)
-						If Result <> 0
-							PositionEntity A\CollisionEN, A\X#, PickedY#() + Height#, A\Z#
-						Else
-							Result = LinePick(A\X#, A\Y# + 10000.0, A\Z#, 0.0, -20000.0, 0.0)
+					If Result = False
+						; Previously RuntimeError'd, which let a malicious or
+						; out-of-sync server crash the entire client by
+						; announcing a new actor whose race resolved to a
+						; missing or broken mesh. Drop the actor instead;
+						; the player just won't be visible to us until they
+						; leave + re-enter the zone.
+						WriteLog(MainLog, "P_NewActor: could not load mesh for race '" + A\Actor\Race$ + "' (RNID=" + A\RNID + "), dropping actor")
+						SafeFreeActorInstance(A)
+					Else
+						PositionEntity A\CollisionEN, A\X#, A\Y#, A\Z#
+						If A\Actor\Environment <> Environment_Fly
+							SetPickModes()
+							Height# = LoadedMeshScales#(A\Actor\MeshIDs[A\Gender]) * A\Actor\Scale# * MeshHeight#(A\EN) * 0.05
+							Result = LinePick(A\X#, A\Y# + 5.0, A\Z#, 0.0, -10000.0, 0.0)
 							If Result <> 0
 								PositionEntity A\CollisionEN, A\X#, PickedY#() + Height#, A\Z#
+							Else
+								Result = LinePick(A\X#, A\Y# + 10000.0, A\Z#, 0.0, -20000.0, 0.0)
+								If Result <> 0
+									PositionEntity A\CollisionEN, A\X#, PickedY#() + Height#, A\Z#
+								EndIf
 							EndIf
 						EndIf
-					EndIf
-					RotateEntity(A\CollisionEN, 0, A\Yaw#, 0)
-					A\Y# = 0.0
-					ResetEntity(A\CollisionEN)
-					If A\RNID = True And MilliSecs() - ZonedMS > 5000
-						Output(LanguageString$(LS_PlayerEnteredZone) + " " + A\Name$, 0, 100, 255)
+						RotateEntity(A\CollisionEN, 0, A\Yaw#, 0)
+						A\Y# = 0.0
+						ResetEntity(A\CollisionEN)
+						If A\RNID = True And MilliSecs() - ZonedMS > 5000
+							Output(LanguageString$(LS_PlayerEnteredZone) + " " + A\Name$, 0, 100, 255)
+						EndIf
 					EndIf
 				EndIf
 
@@ -1408,7 +1647,14 @@ Function UpdateNetwork()
 				Yaw# = RCE_FloatFromStr#(Mid$(M\MessageData$, 13, 4))
 				PvPEnabled = RCE_IntFromStr(Mid$(M\MessageData$, 17, 1))
 				Grav = RCE_IntFromStr(Mid$(M\MessageData$, 18, 2))
-				Gravity# = 0.05 * Float#((Grav - 200) / 100)
+				; The original `Float#((Grav - 200) / 100)` did integer
+				; division before promotion, so Grav = 250 rounded to 0
+				; (instead of 0.5) and Grav = 0 produced -0.1 (negative
+				; gravity, players launched skyward). Convert to float
+				; before division and clamp to a sane physical range.
+				Gravity# = 0.05 * (Float#(Grav - 200) / 100.0)
+				If Gravity# < -2.0 Then Gravity# = -2.0
+				If Gravity# > 2.0 Then Gravity# = 2.0
 				CurrentAreaID = RCE_IntFromStr(Mid$(M\MessageData$, 20, 4))
 				NameLen = RCE_IntFromStr(Mid$(M\MessageData$, 25, 1))
 				AreaName$ = Mid$(M\MessageData$, 26, NameLen)
@@ -1442,16 +1688,30 @@ Function UpdateNetwork()
 					If OldAreaName$ <> "" Then Save_Radar_Fog(RadarPath$ + Me\Name$ + "-" + OldAreaName$ + ".rdr")
 
 					; Remove old actor instances
-					For A.ActorInstance = Each ActorInstance
-						If A <> Me Then SafeFreeActorInstance(A)
-					Next
+					; After-cursor walk: SafeFreeActorInstance Deletes A
+					; via FreeActorInstance. The original For-Each form
+					; corrupted the cursor for any zone with multiple
+					; remote actors (which is every populated zone).
+					; Documented in CLAUDE.md (#247).
+					Local Acac.ActorInstance = First ActorInstance
+					Local AcacNext.ActorInstance = Null
+					While Acac <> Null
+						AcacNext = After Acac
+						If Acac <> Me Then SafeFreeActorInstance(Acac)
+						Acac = AcacNext
+					Wend
 				EndIf
 
-				; Remove dropped loot
-				For DItem.DroppedItem = Each DroppedItem
-					FreeEntity DItem\EN
-					Delete DItem
-				Next
+				; Remove dropped loot -- After-cursor walk for the same
+				; reason as above.
+				Local DItemR.DroppedItem = First DroppedItem
+				Local DItemRNext.DroppedItem = Null
+				While DItemR <> Null
+					DItemRNext = After DItemR
+					FreeEntity DItemR\EN
+					Delete DItemR
+					DItemR = DItemRNext
+				Wend
 
 				; Unload old and load new zone if necessary
 				If AreaName$ <> OldAreaName$
@@ -1519,13 +1779,14 @@ Function UpdateNetwork()
 			; Host disconnected
 			Case P_KickedPlayer
 				RCE_Disconnect()
-				RuntimeError(LanguageString$(LS_LostConnection))
+				OnLostConnection()
 
 		End Select
 		Delete M
-	Next
-	
-	
+		M = MNext
+	Wend
+
+
 	; Send update packet
 	
 	newEntityY#=EntityY#(Me\CollisionEN)
@@ -1553,4 +1814,14 @@ Function UpdateNetwork()
 		
 	EndIf
 
+End Function
+; Returns True if SpellsList(SpellID) exists and its name matches
+; MatchUpper$. Bound-checks SpellID and Null-checks the slot before any
+; deref so a stale KnownSpells entry or out-of-range index can't crash
+; the client during P_KnownSpellUpdate handlers.
+Function ClientSpellNameMatches%(SpellID, MatchUpper$)
+	If SpellID < 0 Or SpellID > 65534 Then Return False
+	If SpellsList(SpellID) = Null Then Return False
+	If Upper$(SpellsList(SpellID)\Name$) = MatchUpper$ Then Return True
+	Return False
 End Function

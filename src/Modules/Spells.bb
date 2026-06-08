@@ -38,6 +38,41 @@ Function CreateSpell.Spell()
 
 End Function
 
+; Delete a Spell template. Used by Loom's entity-delete path. Strict
+; callers can't write to SpellsList directly per the Dim-inside-Method trap,
+; so this lives here in the non-Strict module.
+Function DeleteSpellTemplate(ID)
+	If ID < 0 Or ID > 65534 Then Return False
+	S.Spell = SpellsList(ID)
+	If S = Null Then Return False
+	SpellsList(ID) = Null
+	Delete S
+	Return True
+End Function
+
+; Duplicate a Spell template. Allocate a new ID, copy every field, append
+; " (copy)" to the name. Returns the new ID or -1 if SpellsList full /
+; source missing.
+Function DuplicateSpellTemplate(srcID)
+	If srcID < 0 Or srcID > 65534 Then Return -1
+	Src.Spell = SpellsList(srcID)
+	If Src = Null Then Return -1
+
+	Dst.Spell = CreateSpell()
+	If Dst = Null Then Return -1
+
+	Dst\Name$           = Src\Name$ + " (copy)"
+	Dst\Description$    = Src\Description$
+	Dst\ThumbnailTexID  = Src\ThumbnailTexID
+	Dst\ExclusiveRace$  = Src\ExclusiveRace$
+	Dst\ExclusiveClass$ = Src\ExclusiveClass$
+	Dst\RechargeTime    = Src\RechargeTime
+	Dst\Script$         = Src\Script$
+	Dst\SMethod$        = Src\SMethod$
+
+	Return Dst\ID
+End Function
+
 ; Loads all spells from file
 Function LoadSpells(Filename$)
 
@@ -48,15 +83,28 @@ Function LoadSpells(Filename$)
 		While Not Eof(F)
 			S.Spell = New Spell
 			S\ID = ReadShort(F)
+			; Same defensive bound as LoadItems: ReadShort is signed, the list is
+			; dimensioned 0..65534, and a malformed Spells.dat with a negative ID
+			; corrupts memory via Dim out-of-range write.
+			If S\ID < 0 Or S\ID > 65534
+				Delete S
+				Exit
+			EndIf
 			SpellsList(S\ID) = S
-			S\Name$ = ReadString$(F)
-			S\Description$ = ReadString$(F)
+			; Bound every length-prefixed string to keep a corrupted /
+			; tampered Spells.dat from hanging the server at boot
+			; allocating gigabytes on a wild ReadInt prefix (same shape
+			; as ReadActorInstance / LoadSuperGlobals / LoadEnvironment).
+			; 256 for display names + race/class restrictions; 1024 for
+			; script paths (matches ReadActorInstance's Script$ cap).
+			S\Name$ = ReadBoundedString$(F, 256)
+			S\Description$ = ReadBoundedString$(F, 1024)
 			S\ThumbnailTexID = ReadShort(F)
-			S\ExclusiveRace$ = ReadString$(F)
-			S\ExclusiveClass$ = ReadString$(F)
+			S\ExclusiveRace$ = ReadBoundedString$(F, 256)
+			S\ExclusiveClass$ = ReadBoundedString$(F, 256)
 			S\RechargeTime = ReadInt(F)
-			S\Script$ = ReadString$(F)
-			S\SMethod$ = ReadString$(F)
+			S\Script$ = ReadBoundedString$(F, 1024)
+			S\SMethod$ = ReadBoundedString$(F, 1024)
 			Number = Number + 1
 		Wend
 
@@ -65,10 +113,11 @@ Function LoadSpells(Filename$)
 
 End Function
 
-; Saves all spells to file
+; Saves all spells to file via SafeWriteOpen/Commit (atomic).
 Function SaveSpells(Filename$)
 
-	F = WriteFile(Filename$)
+	Local Temp$ = SafeWriteOpen$(Filename$)
+	F = WriteFile(Temp$)
 	If F = 0 Then Return False
 
 		For S.Spell = Each Spell
@@ -83,7 +132,6 @@ Function SaveSpells(Filename$)
 			WriteString F, S\SMethod$
 		Next
 
-	CloseFile(F)
-	Return True
+	Return SafeWriteCommit%(Temp$, Filename$, F)
 
 End Function

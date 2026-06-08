@@ -1,0 +1,38 @@
+[package]
+name = "rcce-net"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "RCCE2 wire protocol: pure-Rust ENet transport + packet codec (drop-in client)."
+
+[dependencies]
+thiserror = "2"
+# Password hashing — the client sends MD5(password) on the wire (see MD5.bb).
+md5 = "0.7"
+# Transpiled-from-C ENet. NOTE: the shipped RCEnet.dll is a CUSTOM ENet fork
+# (8-byte header) so stock rusty_enet does NOT interop — kept only for the
+# diagnostic bins and a future fork-matched pure-Rust backend. Optional so the
+# 32-bit FFI crate (rcenet-ffi-probe) doesn't compile it.
+rusty_enet = { version = "0.4", optional = true }
+
+[features]
+default = ["enet-rs"]
+# Pulls rusty_enet; required by the connect-probe/loopback-test/wire-probe bins.
+enet-rs = ["dep:rusty_enet"]
+
+[[bin]]
+name = "connect-probe"
+path = "src/bin/connect_probe.rs"
+
+[[bin]]
+name = "loopback-test"
+path = "src/bin/loopback_test.rs"
+
+[[bin]]
+name = "wire-probe"
+path = "src/bin/wire_probe.rs"
+
+[[bin]]
+name = "capture-listener"
+path = "src/bin/capture_listener.rs"

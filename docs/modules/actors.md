@@ -2,6 +2,110 @@
 
 **Actors.bb**
 
+The actor-data substrate. Holds the `Actor` (template) and `ActorInstance` (live entity) Types, the global registries (`ActorList[]`, `RuntimeIDList[]`), the chain-walk infrastructure for high-traffic broadcast paths (`FirstOnlinePlayer`, `FirstSlave`, `FirstInZone`), the canonical lifecycle helpers (`CreateActorInstance`, `FreeActorInstance`, `SafeFreeActorInstance`), the 40-attribute schema, the AI-mode constants, and the 100-slot faction system.
+
+[`GameServer.bb`](gameserver.md) owns the per-tick simulation that consumes this data; [`Server.bb`](../../src/Server.bb) hosts the `Update*` broadcast helpers (`UpdateAttribute` / `UpdateAttributeMax` / `UpdateReputation`) that emit `P_StatUpdate` from this data; [`ServerAreas.bb`](serverareas.md) owns `Area` / `AreaInstance` (which holds the per-Area `FirstInZone` chain head).
+
+This page interleaves a **modern conceptual overview** with the legacy function-by-function reference below.
+
+## Conceptual overview
+
+### Actor vs. ActorInstance — the key Type distinction
+
+This is the most confused thing about the codebase for new contributors:
+
+- **`Actor`** (Type) — the **template**. One per race/class combination (e.g. "Goblin Shaman"). Defines default attributes, mesh IDs per gender, scripts, animations, sounds, faction defaults. Loaded from `Data\Server Data\Actors.dat` at server boot into the global `ActorList[0..65535]` array, keyed by `ID`. **Static data** — never mutated after load.
+- **`ActorInstance`** (Type) — the **live entity**. One per spawned NPC, one per logged-in player character. Holds its current X/Y/Z, runtime attributes (live HP, energy, etc.), AI state, inventory, faction ratings (per-instance, modifiable), `Account` link if a player, etc. Created via `CreateActorInstance(template)` which copies template defaults into the new instance. **Mutable** — every per-tick update writes to fields here.
+
+Fields on `ActorInstance` that link back:
+- `Actor.Actor` — the template this instance was made from. NPC variants of the same race/class share one template; each instance has its own runtime state.
+- `Account` — Handle to the logged-in `Account` (Null for NPCs and unloaded characters).
+- `ServerArea` — Handle to the current `AreaInstance`. **Stale-mid-warp** can be Null; use `Object.AreaInstance(AI\ServerArea) <> Null` discipline (CLAUDE.md → "Handle-lookup Null discipline").
+
+### Registries
+
+| Global | Type | Purpose |
+|---|---|---|
+| `ActorList(65535)` | `Actor` | Template registry. Index by `Actor\ID` (assigned at template load). |
+| `RuntimeIDList(65535)` | `ActorInstance` | Wire-address registry. Index by `RuntimeID` (assigned at instance create; player RNIDs are `> 0`, NPC RuntimeIDs are usually `0`-ish). The packet protocol's `RuntimeID` field bottoms out in `RuntimeIDList(rid)`. |
+| `LastRuntimeID` | int | Monotonic counter for next RuntimeID assignment. |
+| `FactionNames$(99)` | string | 100-slot faction name table (`""` = unused slot). |
+| `FactionDefaultRatings(99, 99)` | int | Default cross-faction rating matrix. `Actor\HomeFaction` indexes the first dimension; rating against any faction `i` is `FactionDefaultRatings(HomeFaction, i)`. |
+
+### Chain-walk infrastructure
+
+Three per-purpose linked lists replace `For Each ActorInstance` walks with `O(N-filtered)` walks in broadcast hot paths. See [`gameserver.md`](gameserver.md) → "Chain-walk patterns" for the broadcast-loop replacement story.
+
+| Chain head | Stored where | Invariant | Insertion / removal |
+|---|---|---|---|
+| `FirstOnlinePlayer` | Global in `Actors.bb`; `NextOnlinePlayer` Field on `ActorInstance` | Only players with `RNID > 0` (enforced at call sites, not in the helper) | `OnlinePlayerInsert(AI)` at login / spawn; `OnlinePlayerRemove(AI)` at `FreeActorInstance` |
+| `FirstSlave` | Field on the leader `ActorInstance`; `NextSlave` Field on each slave | Only actors with `Leader = leader_handle` | `SlaveLink(leader, slave)` at pet recruitment; `SlaveUnlink(slave)` at pet release / leader death |
+| `FirstInZone` | Field on `AreaInstance` (in [`ServerAreas.bb`](serverareas.md)); `NextInZone` Field on `ActorInstance` | All actors currently in that `AreaInstance` | Maintained by `SetArea` (engine-tick rebinder) and `CreateActorInstance` / `FreeActorInstance` |
+
+Regression tests for the chain semantics: [`src/Tests/Modules/OnlinePlayerChainTest.bb`](../../src/Tests/Modules/OnlinePlayerChainTest.bb) and [`SlaveChainTest.bb`](../../src/Tests/Modules/SlaveChainTest.bb). Strict-only (no EnableGC) because Type-heavy chain walks hit a runtime stack overflow under GC.
+
+### Lifecycle: `CreateActorInstance` / `FreeActorInstance` / `SafeFreeActorInstance`
+
+- **`CreateActorInstance(Actor.Actor) -> ActorInstance`** — allocates `New ActorInstance`, copies template fields, picks a `RuntimeID`, registers in `RuntimeIDList`. Per PR #306, returns `Null` on `Actor = Null` input (was `RuntimeError`) — production callers all guard upstream with `If ActorList(...) = Null` from the PR #138-#144 soft-fail sweep; the Null return is defense-in-depth for future callers that forget the guard.
+- **`FreeActorInstance(AI)`** — the canonical actor-free path. Cleans up:
+  - `OnlinePlayerRemove(AI)` (always — safe on never-online actors)
+  - `SlaveUnlink(AI)` (always — safe on never-linked actors)
+  - `FirstSlave` chain orphan handling (any actors leading this one transfer to the orphan chain)
+  - `RuntimeIDList(AI\RuntimeID) = Null`
+  - `Delete(AI)`
+
+  Callers that need `FirstInZone` unlinking are expected to call `SetArea(AI, Null)` *before* `FreeActorInstance` (the per-tick lifecycle path does this). `FreeActorInstance` itself does not call `SetArea` — the `NextInZone` pointer is left in place and orphaned on the in-list `Delete`.
+- **`SafeFreeActorInstance(AI)`** (in [`Actors3D.bb`](../../src/Modules/Actors3D.bb), not this file) — every-frame wrapper that ALSO clears the global `PlayerTarget` if it pointed at `AI`. The client renders `PlayerTarget` every frame; a stale handle there crashes the renderer. Always call this from per-tick code paths (`UpdateActorInstances`, `P_ActorGone`, etc.); the bare `FreeActorInstance` is for paths that don't risk stale `PlayerTarget`.
+
+### 40-attribute schema
+
+`ActorInstance\Attributes` is a sub-Type with `Field Value[39]` and `Field Maximum[39]` — **40 slots** indexed `0..39` (Blitz3D `Field[N]` is inclusive — see CLAUDE.md "Gotchas"). Per-attribute metadata in the global `AttributeNames$(39)` / `AttributeIsSkill(39)` / `AttributeHidden(39)` arrays (same 40-slot space).
+
+The three "important" attribute indices that drive broadcast routing in [`P_StatUpdate`](../protocol/packets/P_StatUpdate.md):
+
+- `HealthStat` — every change broadcasts via `UpdateAttribute` (area-wide).
+- `SpeedStat` — same.
+- `EnergyStat` — same.
+
+All other attributes broadcast single-recipient (only the target's HUD needs them). See [`P_StatUpdate.md`](../protocol/packets/P_StatUpdate.md) → "Two emit patterns".
+
+### AI mode constants
+
+`Const AI_Wait / AI_Patrol / AI_Engage / ...` define `ActorInstance\AIMode` values consumed by [`GameServer.bb`](gameserver.md)'s `UpdateActorInstances` per-tick AI loop. NPCs use these; player actors ignore them (no AI loop runs for `RNID > 0` actors).
+
+### Faction system
+
+100-slot `FactionNames$(99)`; per-instance `Actor\FactionRatings[99]` Field. `FactionRatings[faction_id] > 150` = friendly; `< 150` = neutral/hostile (combat gate at [`GameServer.bb`](gameserver.md)'s `ActorAttack` uses this threshold). Defaults come from the 2D `FactionDefaultRatings` matrix at instance create.
+
+`HomeFaction` is the actor's "team" for AI engagement decisions. Note: `TeamID` (separate field) is the guild/party identifier used by [`P_ChatMessage`](../protocol/packets/P_ChatMessage.md)'s `/g` (guild chat) routing.
+
+## Conventions for new code touching this module
+
+- **Always call `SafeFreeActorInstance(AI)` in per-tick code, not `FreeActorInstance(AI)`** — the `PlayerTarget` clear is non-optional in render paths.
+- **Bounds-check before `ActorList(N)` / `RuntimeIDList(N)` / `Attributes\Value[N]`** — the arrays are `Dim`ed at the upper bound and Blitz3D doesn't bounds-check `Dim` access.
+- **`Object.ActorInstance(handle) <> Null` guard before deref** — stale handles return Null without erroring (CLAUDE.md → "Handle-lookup Null discipline").
+- **New chain — add insertion/removal helpers, call them from `FreeActorInstance`** — every chain that doesn't have its head pointer cleared at free time leaks references through the actor's afterlife.
+- **Strict tests, no EnableGC** — Type-heavy chain tests hit a runtime stack overflow under GC. Strict-only is sufficient for chain-correctness assertions.
+
+## Related modules
+
+- [`Server.bb`](../../src/Server.bb) — hosts `UpdateAttribute` / `UpdateAttributeMax` / `UpdateReputation` (the canonical broadcast helpers that emit `P_StatUpdate` from `ActorInstance\Attributes` mutations).
+- [`GameServer.bb`](gameserver.md) — per-tick consumer of this module's data. AI loop, combat engine, water tick, spawn machinery.
+- [`ServerAreas.bb`](serverareas.md) — owns `Area` / `AreaInstance` Types; `AreaInstance` holds the per-area `FirstInZone` chain head Field and the `Spawned[]` / `SpawnMax[]` arrays the spawn machinery touches.
+- [`ServerNet.bb`](servernet.md) — packet handlers that mutate `ActorInstance` (chat-driven `/setattribute`, `/warpother`, etc.).
+- [`ScriptingCommands.bb`](scriptingcommands.md) — BVM functions that mutate actor state from script context (`BVM_SETATTRIBUTE`, `BVM_KILLACTOR`, etc.). The privilege-gating sweep at PR #300 / #301 / #311 lives here.
+- [`MySQL.bb`](mysql.md) — character load/save persistence; `LoadCharacter` is one of the soft-fail-discipline callers of `CreateActorInstance`.
+
+## See also
+
+- [`P_AttackActor` detail](../protocol/packets/P_AttackActor.md) — combat that reads / writes this module's state.
+- [`P_StatUpdate` detail](../protocol/packets/P_StatUpdate.md) — broadcast channel for attribute changes.
+- [`P_ChatMessage` detail](../protocol/packets/P_ChatMessage.md) — `/g` routing uses `TeamID`; per-tick chat broadcast walks `FirstOnlinePlayer`.
+- CLAUDE.md → "Handle-lookup Null discipline" — the canonical pattern.
+- CLAUDE.md → "Iterator-during-iteration hazards" — relevant when `FreeActorInstance` is called from inside a `For Each ActorInstance` walk (use `DeferKillActor` instead).
+
+* * *
+
 This module contains the following constants:  
 
 *   [AI\_...](#CAI)

@@ -67,15 +67,17 @@ Function LoadGame()
 		ShadowR = ReadByte(F)
 	CloseFile(F)
 
-	; Money settings
+	; Money settings. Bound currency name reads -- Money.dat is a 4-line
+	; admin-edited config; a wild length prefix would hang the client at
+	; startup. Same shape as the other admin-editable data loaders.
 	F = ReadFile("Data\Game Data\Money.dat")
 	If F = 0 Then RuntimeError("Could not open Data\Game Data\Money.dat!")
-		Money1$ = ReadString$(F)
-		Money2$ = ReadString$(F)
+		Money1$ = ReadBoundedString$(F, 64)
+		Money2$ = ReadBoundedString$(F, 64)
 		Money2x = ReadShort(F)
-		Money3$ = ReadString$(F)
+		Money3$ = ReadBoundedString$(F, 64)
 		Money3x = ReadShort(F)
-		Money4$ = ReadString$(F)
+		Money4$ = ReadBoundedString$(F, 64)
 		Money4x = ReadShort(F)
 	CloseFile(F)
 

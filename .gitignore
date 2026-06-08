@@ -40,6 +40,25 @@ bin/GUE.exe
 
 bin/Server.exe
 
+# Rust client (compile.bat -r / compile.sh -r)
+bin/ClientRS.exe
+bin/ClientRS
+
+# macOS / Linux engine outputs (compile.sh)
+bin/Client
+bin/GUE
+bin/Server
+bin/tools/Gubbin Tool
+bin/tools/RC Architect
+bin/tools/RC Caves Editor
+bin/tools/RC Rock Editor
+bin/tools/RC Terrain Editor
+bin/tools/RC Tree Editor
+
+# Match the no-extension Project Manager binary that compile.sh emits at the
+# repo root on macOS / Linux.
+/Project Manager
+
 data/Logs/
 
 data/RCTE/RCTE_SAVED/
@@ -66,6 +85,8 @@ data/Server Data/Accounts.dat
 
 data/Server Data/Environment.dat
 
+data/Server Data/MySQL.dat
+
 .vscode/settings.json
 
 Game/
@@ -90,6 +111,14 @@ bin/ReShade.ini
 
 compiler/BlitzPlus/
 
+# Claude Code session ephemera. Track .claude/skills/ and the
+# .claude/INTENT.md north-star doc; ignore everything else (per-session
+# state, locks, local config the runtime drops here).
+.claude/*
+!.claude/skills/
+!.claude/INTENT.md
+.claude/settings.local.json
+
 scripts/msbuild_blitzrcplus.bat
 Gubbin Tool.exe
 .gitignore
@@ -100,3 +129,19 @@ RCEnet.dll
 data/Last Username.dat
 data/Last Username.dat
 data/Areas/Radar/
+
+# Cygwin/MSYS crash dumps
+*.stackdump
+
+# Editor/runtime backup snapshots
+*.bak
+
+# Loom local build (parallels the ignored Client/Server/GUE exes above)
+bin/Loom.exe
+
+# Dated debug/test screenshots dropped directly in bin/ by the engine
+# (top-level only; bin/reshade-shaders/Textures/*.png stay tracked)
+bin/*.png
+
+# Loom runtime cache (atlas/chrome layout written on launch)
+data/Loom/

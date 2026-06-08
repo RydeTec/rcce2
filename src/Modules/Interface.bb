@@ -40,6 +40,22 @@ Global Key_MoveTo, Key_TalkTo, Key_Select
 Global AlwaysRun = False
 Global InvertAxis1 = 1, InvertAxis3 = 1
 
+; Joystick-hat edge-detection state for ControlHit's hat-direction
+; Cases (1009-1012). Each flag latches True when the hat enters its
+; direction zone; ControlHit returns True ONCE per entry, suppresses
+; further "hit" until the hat leaves the zone, then resets the flag
+; on the next call when the hat is no longer in the zone.
+;
+; Pre-fix these four variables were undeclared at file scope, so
+; non-Strict semantics initialized them to function-local 0 on every
+; ControlHit call. The intended `If JoyHatUp = False Then JoyHatUp =
+; True : Return True` edge-detection collapsed to "always return True
+; while in zone" -- identical to ControlDown's continuous-press
+; behavior. Closes the third instance of the
+; feedback_blitz_nonstrict_undeclared_zero hazard pattern (PR #323
+; closed the two Language.bb / ServerNet.bb instances).
+Global JoyHatUp = False, JoyHatDown = False, JoyHatLeft = False, JoyHatRight = False
+
 ; Action bar
 Global XPEN ; Experience progress bar
 Global BChat, BMap, BInventory, BSpells, BCharStats, BQuestLog, BParty, BHelp
@@ -336,10 +352,11 @@ Function LoadInterfaceSettings(Filename$)
 
 End Function
 
-; Saves the interface settings to a file
+; Saves the interface settings via SafeWriteOpen/Commit (atomic).
 Function SaveInterfaceSettings(Filename$)
 
-	F = WriteFile(Filename$)
+	Local Temp$ = SafeWriteOpen$(Filename$)
+	F = WriteFile(Temp$)
 	If F = 0 Then Return False
 
 		; Main game screen
@@ -362,8 +379,7 @@ Function SaveInterfaceSettings(Filename$)
 			WriteInterfaceComponent(InventoryButtons(i), F)
 		Next
 
-	CloseFile(F)
-	Return True
+	Return SafeWriteCommit%(Temp$, Filename$, F)
 
 End Function
 
@@ -403,21 +419,39 @@ Function ControlHit(Ctrl)
 	; Joystick hat/axes
 	Else
 		Select Ctrl
+			; Joystick-hat edge-detection: each Case latches True on
+			; entry into its direction zone, suppresses further hits
+			; while held, and resets the flag when the hat leaves the
+			; zone so the NEXT entry fires True again. The reset is
+			; new -- pre-fix the four flags were undeclared globals
+			; reading as function-local 0 on every call, so the
+			; intended edge-detection never persisted across calls
+			; (effectively continuous "hit" while held; equivalent to
+			; ControlDown). See feedback_blitz_nonstrict_undeclared_zero
+			; memory + the file-scope Global declarations above.
 			Case 1009
 				If JoyHat() = 0 Or JoyHat() = 45 Or JoyHat() = 315
 					If JoyHatUp = False Then JoyHatUp = True : Return True
+				Else
+					JoyHatUp = False
 				EndIf
 			Case 1010
 				If JoyHat() = 180 Or JoyHat() = 135 Or JoyHat() = 225
 					If JoyHatDown = False Then JoyHatDown = True : Return True
+				Else
+					JoyHatDown = False
 				EndIf
 			Case 1011
 				If JoyHat() = 90 Or JoyHat() = 45 Or JoyHat() = 135
 					If JoyHatRight = False Then JoyHatRight = True : Return True
+				Else
+					JoyHatRight = False
 				EndIf
 			Case 1012
 				If JoyHat() = 270 Or JoyHat() = 225 Or JoyHat() = 315
 					If JoyHatLeft = False Then JoyHatLeft = True : Return True
+				Else
+					JoyHatLeft = False
 				EndIf
 			Case 1013 : If JoyYDir() = -1 Then Return True
 			Case 1014 : If JoyYDir() = 1 Then Return True

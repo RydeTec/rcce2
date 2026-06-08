@@ -1,0 +1,12 @@
+[package]
+name = "rcce-data"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "On-disk format parsers for RCCE2 project files (drop-in client port)."
+
+[dependencies]
+thiserror = "2"
+png = "0.17"           # PNG textures (BMP decoded in-crate)
+jpeg-decoder = "0.3"   # JPG textures (e.g. animal skins)

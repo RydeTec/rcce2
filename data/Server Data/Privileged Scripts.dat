@@ -1,0 +1,40 @@
+; rcce2 privileged-script allowlist
+;
+; One script name per line (the basename of the .rsl file, no extension).
+; Lines starting with `;` are comments. Blank lines are ignored. Lookup
+; is case-insensitive.
+;
+; Scripts named here get their `Privileged` flag elevated to True at
+; ThreadScript spawn time, regardless of the caller's privilege. This
+; lets shipped content scripts that need privileged BVMs (ChangeMoney,
+; WriteFile, SetName, SetActorTarget, SetActorAIState, SetTag,
+; GiveItem, ...) keep working when invoked from non-privileged spawn
+; paths (chat-command fallback, spell-cast, right-click).
+;
+; Elevation only -- never demotes. A caller that passes Privileged=1
+; explicitly keeps that privilege regardless of allowlist membership.
+;
+; TRUST MODEL: this file is in `Data\Server Data\`, which is
+; server-controlled (not editable by network clients). Adding a name
+; here grants that script full privilege for the duration of every
+; invocation -- it can call ANY priv-gated BVM (Ban, Kick, Warp,
+; SetGold, ...), not just the four (SETACTORAISTATE, SETACTORTARGET,
+; SETNAME, SETTAG) that motivated the carve-out. Read the script
+; end-to-end before adding it.
+;
+; The five shipped entries below have all been audited (PR #329):
+;   - In-game Commands.rsl: ItemPack/Assist/Wave/Heal; demo /-commands
+;   - AOE Damage Spell Template.rsl: AOE spell template; runs from spell-cast
+;   - marriage.rsl + Click_marriage.rsl: marriage workflow (rename + gold cost)
+;   - Spawn_Test.rsl: NPC spawn-init demo (renames + tags test NPCs)
+;
+; All five were ALREADY broken under the existing gates -- they call
+; other priv-gated BVMs (ChangeMoney, WriteFile, GiveItem,
+; SetAttribute) that silently refused. The allowlist restores their
+; intended behavior AND lets us close the four deferred BVM gates.
+
+In-game Commands
+AOE Damage Spell Template
+marriage
+Click_marriage
+Spawn_Test

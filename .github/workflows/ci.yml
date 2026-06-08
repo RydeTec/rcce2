@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+      - develop
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build and test
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          # BlitzForge submodule; nested reshade deps are not needed for
+          # compile/test so we skip recursive to keep the checkout fast.
+          submodules: true
+
+      # Cache the BlitzForge runtime binaries keyed on the submodule SHA.
+      # rcce2 PRs rarely change the BlitzForge pointer, so the common-case
+      # CI run avoids the ~3min MSBuild step entirely.
+      - name: Resolve BlitzForge submodule SHA
+        id: bf
+        shell: bash
+        run: echo "sha=$(git -C compiler/BlitzForge rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore BlitzForge bin from cache
+        id: bf-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            compiler/BlitzForge/bin/blitzcc.exe
+            compiler/BlitzForge/bin/runtime.dll
+            compiler/BlitzForge/bin/linker.dll
+            compiler/BlitzForge/bin/debugger.dll
+          key: blitzforge-bin-${{ runner.os }}-${{ steps.bf.outputs.sha }}
+
+      - name: Add MSBuild to PATH
+        if: steps.bf-cache.outputs.cache-hit != 'true'
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build BlitzForge compiler
+        if: steps.bf-cache.outputs.cache-hit != 'true'
+        shell: cmd
+        working-directory: compiler/BlitzForge
+        run: |
+          call compile.bat
+          if errorlevel 1 exit /b %errorlevel%
+
+      - name: Verify BlitzForge binaries are present
+        shell: cmd
+        run: |
+          if not exist compiler\BlitzForge\bin\blitzcc.exe (
+            echo blitzcc.exe missing after build/restore
+            exit /b 1
+          )
+
+      - name: Compile project
+        shell: cmd
+        run: |
+          call compile.bat
+          if errorlevel 1 exit /b %errorlevel%
+
+      - name: Run test suite
+        shell: cmd
+        run: test.bat
+
+      # The Rust client (client-rs/) ships its own deterministic unit + parser
+      # robustness tests. windows-latest has the Rust toolchain preinstalled.
+      # Gate the pure-logic crates (rcce-data parsers + rcce-net wire codec) on
+      # every PR — these read server-controlled files and packets, so their
+      # "soft-fail, never panic on hostile input" invariant is exactly what must
+      # not regress. The GUI crates (rcce-render/rcce-client) are skipped here:
+      # they pull the full wgpu/winit toolchain and have no headless tests.
+      - name: Cache Rust build (client-rs)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            client-rs/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('client-rs/Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ runner.os }}-
+
+      - name: Run Rust client tests (pure-logic crates)
+        shell: bash
+        working-directory: client-rs
+        run: cargo test -p rcce-data -p rcce-net --locked
+
+      # Two reference docs (the wire-protocol packet catalog and the BVM
+      # scripting-API catalog) are produced by generator scripts that read
+      # line numbers + signatures out of the source. Their `--check` mode
+      # exits non-zero when the committed doc no longer matches a fresh
+      # regeneration. Without this gate, every PR that shifts a packet
+      # handler or BVM function silently leaves stale `:LINE` references
+      # in the docs -- and the line numbers look authoritative because the
+      # docs carry a "Do not edit by hand -- rerun the generator" banner.
+      # Contributors who touch ServerNet.bb / ClientNet.bb / Packets.bb /
+      # RC_Standard_Invoker.bb / ScriptingCommands.bb must rerun the two
+      # generators (`bash scripts/gen_packet_index.sh` +
+      # `bash scripts/gen_bvm_reference.sh`) and commit the regenerated
+      # output, or this step fails the PR with a diff message pointing at
+      # the regeneration command.
+      - name: Verify generated docs are up to date
+        shell: bash
+        run: |
+          bash scripts/gen_packet_index.sh --check
+          bash scripts/gen_bvm_reference.sh --check

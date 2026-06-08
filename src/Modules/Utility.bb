@@ -95,6 +95,10 @@ End Function
 Function UpdateFPS()
 	If debugBanner = Null
 		timeDiff = MilliSecs() - lastFPSUpdate
+		; Divide-by-zero guard -- two UpdateFPS calls in the same
+		; millisecond yield timeDiff = 0; same class as the main-loop
+		; FPS = 1000.0 / Time# clamps in Client.bb / GUE.bb / MainMenu.bb.
+		If timeDiff < 1 Then timeDiff = 1
 		FPS = 1000.0/timeDiff
 		lastFPSUpdate = MilliSecs()
 		Return

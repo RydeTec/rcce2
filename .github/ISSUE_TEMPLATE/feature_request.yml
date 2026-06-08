@@ -1,0 +1,60 @@
+name: Feature request
+description: Propose a new capability or improvement.
+title: "[feature] <short summary>"
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. For roadmap-scale conversations, start in
+        [Discussions](https://github.com/RydeTec/rcce2/discussions) first —
+        issues are best for proposals that are already scoped and ready for
+        implementation discussion.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What can't be done today, or what's painful about how it's done now?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Concrete shape of the change — what would land in the codebase or docs?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What other approaches did you weigh, and why is this one preferred?
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which surface would this touch?
+      multiple: true
+      options:
+        - Server gameplay logic
+        - Client / UI
+        - World editor (GUE) or other Tools
+        - BVM scripting API
+        - Wire protocol
+        - Save format
+        - Build / CI
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope / out of scope
+      description: |
+        What does this NOT try to do? Helps reviewers gauge effort and avoid
+        scope creep during implementation.

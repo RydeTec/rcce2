@@ -185,7 +185,14 @@ Function UpdateFiles()
 	While Done = False
 		Delay 10
 		If KeyHit(1) Then RCE_Disconnect() : End
-		For M.RCE_Message = Each RCE_Message
+		; After-cursor walk: the trailing Delete M (and the inner
+		; Done = True : Exit branch) would corrupt a For-Each cursor when
+		; multiple RCE_Messages are queued; the next Next would step from
+		; the freed M's next pointer. Walk explicitly via First/After.
+		Local M.RCE_Message = First RCE_Message
+		Local MNext.RCE_Message = Null
+		While M <> Null
+			MNext = After M
 			If M\MessageType = P_FetchUpdateFiles
 				Pa$ = M\MessageData$
 				Offset = 1
@@ -196,23 +203,48 @@ Function UpdateFiles()
 					U.UpdateFile = New UpdateFile
 					U\Checksum = RCE_IntFromStr(Mid$(Pa$, Offset, 4))
 					NameLen = RCE_IntFromStr(Mid$(Pa$, Offset + 4, 1))
+					; Validate that the announced NameLen actually fits inside
+					; the remaining payload. A server that lies about NameLen
+					; (or a truncated final entry) would otherwise silently
+					; produce a short Name$ and desync the parser on the next
+					; iteration.
+					If Offset + 5 + NameLen > Len(Pa$) + 1
+						Delete U
+						WriteLog(MainLog, "P_FetchUpdateFiles: NameLen overruns payload, stopping parse")
+						Exit
+					EndIf
 					U\Name$ = Mid$(Pa$, Offset + 5, NameLen)
 					Offset = Offset + 5 + NameLen
-					; It's the last packet with the total required files number in it
-					If Len(Pa$) = Offset + 1
+					; Path-containment: refuse any name that would let the server
+					; write outside the game directory. Without this the client
+					; would happily CopyFile("Temp2.dat", "..\Windows\...") or
+					; replace the running executable on a server's say-so. The
+					; checksum further down is also forgeable (32-bit additive
+					; sum), so name validation is the only structural defence.
+					If Not UpdateFileNameIsSafe(U\Name$)
+						WriteLog(MainLog, "Refusing unsafe update filename from server: " + U\Name$)
+						U\Name$ = ""
+					EndIf
+					; Last-packet length-equality check used to read 2 bytes when
+					; only 1 byte remained (Len(Pa$) = Offset + 1 means exactly
+					; one byte left); a crafted final packet with that exact
+					; length corrupted RequiredFiles and froze the update loop.
+					; Require at least 2 bytes for the count.
+					If Len(Pa$) >= Offset + 1
 						RequiredFiles = RCE_IntFromStr(Mid$(Pa$, Offset, 2))
 						Offset = Offset + 2
 					EndIf
 				Wend
 				If CreatedFiles = RequiredFiles Then Delete M : Done = True : Exit
 			ElseIf M\MessageType = RN_HostHasLeft Or M\MessageType = RN_Disconnected
-				RuntimeError(LanguageString$(LS_LostConnection))
+				OnLostConnection()
 			EndIf
 			Delete M
-		Next
+			M = MNext
+		Wend
 		RCE_Update()
 		RCE_CreateMessages()
-		
+
 		GY_Update()
 		UpdateWorld()
 		RenderWorld()
@@ -226,6 +258,9 @@ Function UpdateFiles()
 	ThisFile = 0
 	GY_UpdateLabel(TStatus, LanguageString$(LS_CheckingFiles))
 	For U.UpdateFile = Each UpdateFile
+		; Skip entries the announcement path already rejected as unsafe.
+		If U\Name$ = "" Then NeedFile = False : Goto skipUpdateApply
+
 		NeedFile = False
 		; I don't have it at all
 		If FileType(U\Name$) = 0
@@ -254,11 +289,26 @@ Function UpdateFiles()
 			bz2(1, 0, "Temp.dat", "Temp2.dat")
 			DeleteFile("Temp.dat")
 
+			; Verify the downloaded payload matches the announced checksum.
+			; The checksum itself is a 32-bit additive sum (forgeable by anyone
+			; who can swap the HTTP body); a proper signature check needs a
+			; pinned key + SHA-256. Until that lands, at least refuse to apply
+			; a bz2 that decompressed to something other than what the server
+			; said it would. See docs/UPDATE-CHANNEL-HARDENING.md.
+			If CountChecksum("Temp2.dat") <> U\Checksum
+				DeleteFile("Temp2.dat")
+				WriteLog(MainLog, "Update for " + U\Name$ + " failed post-download checksum; refusing to apply.")
+				Goto skipUpdateApply
+			EndIf
+
 			; Ensure that the folder tree for the file actually exists
 			For i = 2 To Len(U\Name$)
 				If Mid$(U\Name$, i, 1) = "\"
 					Folder$ = Left$(U\Name$, i - 1)
-					If FileType(Folder$) <> 2 Then CreateDir(Folder$)
+					; Belt-and-braces: never create a directory whose path
+					; contains a `..` segment, regardless of how the file
+					; name reached this point.
+					If Instr(Folder$, "..") = 0 And FileType(Folder$) <> 2 Then CreateDir(Folder$)
 				EndIf
 			Next
 ;---------------------------------------------
@@ -270,16 +320,20 @@ Function UpdateFiles()
 				EndGraphics()
 				ExecFile("Data\Patch.exe " + GameName$)
 				End
-			; Copy file to overwrite old version
+			; Copy file to overwrite old version. (U\Name without the
+			; sigil resolved to a different/zero handle field; both calls
+			; here used to mis-target their path on the first apply cycle
+			; until subsequent Mid$ access populated the field.)
 			Else
-				If FileType(U\Name) = 1 Then DeleteFile(U\Name$)
-				CopyFile("Temp2.dat", U\Name)
+				If FileType(U\Name$) = 1 Then DeleteFile(U\Name$)
+				CopyFile("Temp2.dat", U\Name$)
 				Delay(40)
 				DeleteFile("Temp2.dat")
 			EndIf
 
 			GY_UpdateProgressBar(GDLBar, 0)
 		EndIf
+		.skipUpdateApply
 
 		Delete(U)
 		ThisFile = ThisFile + 1
@@ -757,12 +811,21 @@ Function LogIn()
 			While Done = False
 				Delay 10
 				If KeyHit(1) Then RCE_Disconnect() : End
-				For M.RCE_Message = Each RCE_Message
+				; After-cursor walk: trailing Delete M during For-Each would
+				; corrupt the cursor on the next step when multiple messages
+				; are queued (RCE_CreateMessages fans out everything pending).
+				Local M.RCE_Message = First RCE_Message
+				Local MNext.RCE_Message = Null
+				While M <> Null
+					MNext = After M
 
 					If M\MessageType = P_VerifyAccount
-						If Left$(M\MessageData$, 1) = "N"
-							Result = -2
-						ElseIf Left$(M\MessageData$, 1) = "P"
+						; "N" is no longer emitted by the post-collapse server
+						; (P_VerifyAccount enumeration-leak fix); fold it into
+						; the same "invalid credentials" branch as "P" so the
+						; new client paired with a legacy server still shows
+						; a non-enumerating message.
+						If Left$(M\MessageData$, 1) = "N" Or Left$(M\MessageData$, 1) = "P"
 							Result = -1
 						ElseIf Left$(M\MessageData$, 1) = "B"
 							Result = 0
@@ -773,10 +836,11 @@ Function LogIn()
 						EndIf
 						Delete M : Done = True : Exit
 					ElseIf M\MessageType = RN_HostHasLeft Or M\MessageType = RN_Disconnected
-						RuntimeError(LanguageString$(LS_LostConnection))
+						OnLostConnection()
 					EndIf
 					Delete M
-				Next
+					M = MNext
+				Wend
 				
 			
 				RCE_Update()
@@ -789,11 +853,19 @@ Function LogIn()
 			Wend
 			; If successful, download Actor/Attributes lists and go to character selection
 			If Result = 1
-				; Save username/password
-				F = WriteFile("Data\Last Username.dat")
+				; Save username/password. Atomic via SafeWriteOpen/
+				; SafeWriteCommit -- a WriteFile failure mid-write would
+				; leave the cache file empty, locking the user out of
+				; pre-fill on next login. The previous cache (if any)
+				; is retained as .bak.
+				Local LUFinal$ = "Data\Last Username.dat"
+				Local LUTemp$ = SafeWriteOpen$(LUFinal$)
+				F = WriteFile(LUTemp$)
+				If F <> 0
 					WriteLine F, GY_TextFieldText$(TName)
 					WriteLine F, Encrypt$(GY_TextFieldText$(TPass), -1)
-				CloseFile F
+					SafeWriteCommit%(LUTemp$, LUFinal$, F)
+				EndIf
 				UName$ = GY_TextFieldText$(TName) : PWord$ = MD5$(GY_TextFieldText$(TPass))
 
 				; Request actors list
@@ -808,7 +880,13 @@ Function LogIn()
 				While Done = False
 					Delay 10
 					If KeyHit(1) Then RCE_Disconnect() : End
-					For M.RCE_Message = Each RCE_Message
+					; After-cursor walk (M / MNext declared above at first site).
+					; P_FetchActors streams many actor/item blocks per tick; each
+					; internal Delete M without an Exit would otherwise corrupt
+					; the For-Each cursor and silently skip subsequent blocks.
+					M = First RCE_Message
+					While M <> Null
+						MNext = After M
 						If M\MessageType = P_FetchActors
 							Pa$ = M\MessageData$
 							; Attributes block
@@ -890,6 +968,17 @@ Function LogIn()
 									It.Item = New Item
 									It\Attributes = New Attributes
 									It\ID = RCE_IntFromStr(Mid$(Pa$, Offset, 2))
+									; ItemList is Dim'd 65534. A 2-byte wire field
+									; carries 0..65535 -- clamp before the Dim
+									; write to avoid corrupting the adjacent
+									; global. Same shape as #209's read-side
+									; bound check on the P_AppearanceUpdate "X"
+									; / P_InventoryUpdate "G" / ActorInstance
+									; rehydrate paths.
+									If It\ID < 0 Or It\ID > 65534
+										Delete It\Attributes : Delete It
+										Exit
+									EndIf
 									ItemList(It\ID) = It
 									It\ItemType = RCE_IntFromStr(Mid$(Pa$, Offset + 2, 1))
 									It\TakesDamage = RCE_IntFromStr(Mid$(Pa$, Offset + 3, 1))
@@ -923,6 +1012,10 @@ Function LogIn()
 										Case I_Weapon
 											It\WeaponDamage = RCE_IntFromStr(Mid$(Pa$, Offset, 2))
 											It\WeaponDamageType = RCE_IntFromStr(Mid$(Pa$, Offset + 2, 2))
+											; DamageTypes$ is Dim'd (19); wire field is 0..65535.
+											; Clamp before downstream readers (Interface3D tooltips,
+											; BVM_DAMAGETYPE$) index DamageTypes$(WeaponDamageType).
+											If It\WeaponDamageType < 0 Or It\WeaponDamageType > 19 Then It\WeaponDamageType = 0
 											It\WeaponType = RCE_IntFromStr(Mid$(Pa$, Offset + 4, 2))
 											It\Range# = RCE_FloatFromStr#(Mid$(Pa$, Offset + 6, 4))
 											Offset = Offset + 10
@@ -998,8 +1091,17 @@ Function LogIn()
 									A\InventorySlots = RCE_IntFromStr(Mid$(Pa$, Offset + 7, 2))
 									A\MAnimationSet  = RCE_IntFromStr(Mid$(Pa$, Offset + 9, 2))
 									A\FAnimationSet  = RCE_IntFromStr(Mid$(Pa$, Offset + 11, 2))
+									; AnimList is Dim'd 0..999. The 2-byte wire
+									; field carries 0..65535 -- clamp before any
+									; AnimList(A\MAnimationSet) read.
+									If A\MAnimationSet < 0 Or A\MAnimationSet > 999 Then A\MAnimationSet = 0
+									If A\FAnimationSet < 0 Or A\FAnimationSet > 999 Then A\FAnimationSet = 0
 									A\Scale#         = RCE_FloatFromStr#(Mid$(Pa$, Offset + 13, 4))
 									A\DefaultFaction = RCE_IntFromStr(Mid$(Pa$, Offset + 17, 1))
+									; DefaultFaction propagates to HomeFaction
+									; on every new ActorInstance. FactionNames$
+									; / FactionDefaultRatings are Dim'd (99).
+									If A\DefaultFaction < 0 Or A\DefaultFaction > 99 Then A\DefaultFaction = 0
 									Offset = Offset + 18
 									For i = 0 To 39
 										A\Attributes\Value[i] = RCE_IntFromStr(Mid$(Pa$, Offset, 2))
@@ -1026,20 +1128,21 @@ Function LogIn()
 								EndIf
 							EndIf
 						ElseIf M\MessageType = RN_HostHasLeft Or M\MessageType = RN_Disconnected
-							RuntimeError(LanguageString$(LS_LostConnection))
+							OnLostConnection()
 						EndIf
-					Next
-					
+						M = MNext
+					Wend
+
 					RCE_Update()
 					RCE_CreateMessages()
-					
+
 					GY_Update()
 					UpdateWorld()
 					RenderWorld()
 					Flip(VSync)
 				Wend
-	
-	
+
+
 				; Clear window and exit
 				
 				FreeEntity(Background)
@@ -1053,12 +1156,19 @@ Function LogIn()
 				If AccountsEnabled = True Then GY_FreeGadget(BNew)
 				Return
 			ElseIf Result = 0
+				; Banned: only reachable after the server has verified the
+				; password (post-collapse P_VerifyAccount), so it's safe to
+				; surface ban status to the legitimate owner here.
 				GY_MessageBox("Attention!", LanguageString$(LS_YouAreBanned)) : Goto Invld
 			ElseIf Result = -1
+				; Catch-all "invalid credentials" -- absorbs no-such-account
+				; (legacy "N"), wrong-password ("P"), and the throttled path.
+				; LS_AccountDoesNotExist is intentionally never shown anymore;
+				; surfacing it would re-open the username-enumeration oracle.
 				GY_MessageBox("Attention!", LanguageString$(LS_InvalidPassword)) : Goto Invld
-			ElseIf Result = -2
-				GY_MessageBox("Attention!", LanguageString$(LS_AccountDoesNotExist)) : Goto Invld
 			Else
+				; Result = -3: already-logged-in. Same auth-before-disclosure
+				; reasoning as the banned branch above.
 				GY_MessageBox("Attention!", LanguageString$(LS_AccountAlreadyConnected)) : Goto Invld
 			EndIf
 		EndIf
@@ -1092,15 +1202,19 @@ Function LogIn()
 			While Done = False
 				Delay 10
 				If KeyHit(1) Then RCE_Disconnect() : End
-				For M.RCE_Message = Each RCE_Message
+				; After-cursor walk (M / MNext declared above at first site).
+				M = First RCE_Message
+				While M <> Null
+					MNext = After M
 					If M\MessageType = P_CreateAccount
 						If M\MessageData$ = "Y" Then Result = True Else Result = False
 						Delete M : Done = True : Exit
 					ElseIf M\MessageType = RN_HostHasLeft Or M\MessageType = RN_Disconnected
-						RuntimeError(LanguageString$(LS_LostConnection))
+						OnLostConnection()
 					EndIf
 					Delete M
-				Next
+					M = MNext
+				Wend
 				
 				RCE_Update()
 				RCE_CreateMessages()
@@ -1121,14 +1235,18 @@ Function LogIn()
 		EndIf
 
 		; Check connection is still alive
-		For M.RCE_Message = Each RCE_Message
+		; After-cursor walk (M / MNext declared above at first site).
+		M = First RCE_Message
+		While M <> Null
+			MNext = After M
 			Select M\MessageType
 				Case RN_Disconnected, RN_HostHasLeft
-					RuntimeError(LanguageString$(LS_LostConnection))
+					OnLostConnection()
 			End Select
 			Delete M
-		Next
-		
+			M = MNext
+		Wend
+
 
 ;-------------------------------
 ;OPTIONS
@@ -1386,12 +1504,20 @@ Function LogIn()
 			; Music update
 			If GY_CheckBoxDown(BUpdateMusic) <> 1 - UpdateMusic
 				UpdateMusic = 1 - GY_CheckBoxDown(BUpdateMusic)
-				; Update file
-				F = WriteFile("Data\Game Data\Misc.dat")
+				; Update file atomically. A crash mid-write would
+				; leave Misc.dat empty, which the next launch would
+				; interpret as "no game name, no version" -- locking
+				; the user out of the project. SafeWriteCommit demotes
+				; the previous Misc.dat to .bak for recovery.
+				Local MMFinal$ = "Data\Game Data\Misc.dat"
+				Local MMTemp$ = SafeWriteOpen$(MMFinal$)
+				F = WriteFile(MMTemp$)
+				If F <> 0
 					WriteLine F, GameName$
 					WriteLine F, UpdateGame$
 					WriteLine F, UpdateMusic
-				CloseFile F
+					SafeWriteCommit%(MMTemp$, MMFinal$, F)
+				EndIf
 			EndIf
 		EndIf
 				
@@ -1474,6 +1600,11 @@ Function CharSelect()
 	; Character buttons (max of 10 characters)
 	Offset = 1 : Number = 0
 	While Offset < Len(CharList$)
+		; CharNames$/CharActors/CharGender/CharFaceTex/CharHair/CharBeard/
+		; CharBodyTex are all Dim'd (9) -- 10 slots. A malformed CharList$
+		; longer than 10 chars would Dim-OOB the client. Stop walking once
+		; the slot table is full.
+		If Number < 0 Or Number > 9 Then Exit
 		; Extract data
 		Length = RCE_IntFromStr(Mid$(CharList$, Offset, 1))
 		CharNames$(Number) = Mid$(CharList$, Offset + 1, Length)
@@ -1529,11 +1660,15 @@ Function CharSelect()
 			Time# = Time# + DeltaBuffer(i)
 		Next
 		Time# = Time# / Float#(DeltaFrames)
+		; Divide-by-zero guard -- see Client.bb. MainMenu does not seed
+		; DeltaTime before the loop (unlike Client.bb:188), so a fast
+		; first frame can produce a near-zero Time# average.
+		If Time# < 1.0 Then Time# = 1.0
 		FPS# = 1000.0 / Time#
 		Delta# = BaseFramerate# / FPS#
 		DeltaTime = MilliSecs()
 		If Delta# > 3.5 Then Delta# = 3.5 ; Don't let delta go too OTT
-	
+
 		Local targetTime%
 		Local lastUpdateTime%
 		Local targetEntity%
@@ -1543,9 +1678,13 @@ Function CharSelect()
 		; Check for existing character buttons being pressed
 		For i = 0 To LastChar - 1
 			If GY_ButtonHit(CharButtons(i)) = True
-				setup = True
+				; Defer setup=True until we know we have a usable preview
+				; entity. Without this guard the camera animation block at
+				; ~line 1880 dereferences PreviewA\EN unconditionally and
+				; crashes if PreviewA ended up Null below.
+				setup = False
 				targetEntity = 0
-								
+
 				; Untoggle old button
 				If SelectedChar > -1 Then GY_SetButtonState(CharButtons(SelectedChar), False)
 				SelectedChar = i
@@ -1553,19 +1692,42 @@ Function CharSelect()
 
 				A.Actor = ActorList(CharActors(i))
 				If PreviewA <> Null Then SafeFreeActorInstance(PreviewA)
+				PreviewA = Null
+				If A = Null
+					; Race no longer exists client-side (admin deleted from
+					; Actors.dat after this character was saved, or update
+					; channel is out of sync). CreateActorInstance would
+					; RuntimeError on Null; leave the preview empty instead
+					; so the player can still pick another character. The
+					; Press Start path below catches the same gap before
+					; entering the game.
+					WriteLog(MainLog, "Character preview: ActorID " + CharActors(i) + " for '" + CharNames$(i) + "' not in client ActorList; skipping preview")
+				Else
 				PreviewA = CreateActorInstance(A)
 				PreviewA\Gender = CharGender(i)
 				PreviewA\FaceTex = CharFaceTex(i)
 				PreviewA\Hair = CharHair(i)
 				PreviewA\Beard = CharBeard(i)
 				PreviewA\BodyTex = CharBodyTex(i)
-				
+
 				Result = LoadActorInstance3D(PreviewA, 1, False, False)
-				If Result = False Then RuntimeError("Could not load actor mesh for " + A\Race$ + "!")
+				If Result = False
+					; Mesh file missing/corrupt for this race. Drop the
+					; partial instance; player can still pick another
+					; character. (Press Start later validates the race
+					; itself; this catches the post-template mesh-load
+					; failure that the unknown-ActorID guard above doesn't.)
+					WriteLog(MainLog, "Character preview: could not load actor mesh for race '" + A\Race$ + "' (CharID " + i + " '" + CharNames$(i) + "'); skipping preview")
+					SafeFreeActorInstance(PreviewA)
+					PreviewA = Null
+				Else
 				;If PreviewA\ShadowEN <> 0 Then HideEntity(PreviewA\ShadowEN) [###]
 				;If PreviewA\NametagEN <> 0 Then HideEntity(PreviewA\NametagEN)
 				PlayAnimation(PreviewA, 1, 0.001, Anim_Idle)
 				PositionEntity PreviewA\CollisionEN, 30, -(35.0 + EntityY#(PreviewA\EN, True)), 100
+				setup = True
+				EndIf
+				EndIf
 				Exit
 			EndIf
 		Next
@@ -1590,8 +1752,14 @@ Function CharSelect()
 		; Delete character button
 		If GY_ButtonHit(BDelete) = True And SelectedChar > -1
 		;Fix increased Animation speed bug when a error message appears cysis145 [234]
-			Animate(PreviewA\EN, 0)
-			PlayAnimation(PreviewA, 1, 0.0001, Anim_Idle)
+			; PreviewA may be Null if the selected character's race / mesh
+			; failed to resolve at click time (see the click handler above).
+			; The delete itself still proceeds; only the animation tweak is
+			; skipped.
+			If PreviewA <> Null
+				Animate(PreviewA\EN, 0)
+				PlayAnimation(PreviewA, 1, 0.0001, Anim_Idle)
+			EndIf
 
 			If GY_RequestBox("Warning!", LanguageString$(LS_ReallyDeleteChar)) ;LanguageString$(LS_Warning)
 				Pa$ = RCE_StrFromInt$(Len(UName$), 1) + UName$ + RCE_StrFromInt$(Len(PWord$), 1) + PWord$
@@ -1606,7 +1774,13 @@ Function CharSelect()
 				Done = False
 				While Done = False
 				;	Delay 10
-					For M.RCE_Message = Each RCE_Message
+					; After-cursor walk: the trailing Delete M (and the
+					; Goto-out branch) would corrupt the For-Each cursor on
+					; the next step when multiple messages are queued.
+					Local M.RCE_Message = First RCE_Message
+					Local MNext.RCE_Message = Null
+					While M <> Null
+						MNext = After M
 						If M\MessageType = P_DeleteCharacter
 							CharList$ = M\MessageData$
 							Delete M
@@ -1616,15 +1790,18 @@ Function CharSelect()
 							GY_FreeGadget(BStart) : GY_FreeGadget(BDelete)
 						;	;GY_FreeGadget(BLeft) : GY_FreeGadget(BRight)
 							If PreviewA <> Null Then SafeFreeActorInstance(PreviewA)
-							
-							
-							
+							PreviewA = Null
+							setup = False
+
+
+
 							Goto RestartCharSelection
 						ElseIf M\MessageType = RN_HostHasLeft Or M\MessageType = RN_Disconnected
-							RuntimeError(LanguageString$(LS_LostConnection))
+							OnLostConnection()
 						EndIf
 						Delete M
-					Next
+						M = MNext
+					Wend
 										
 					RCE_Update()
 					RCE_CreateMessages()
@@ -1640,21 +1817,35 @@ Function CharSelect()
 			EndIf
 			
 			;[234]
-			Animate(PreviewA\EN, 0)
-			PlayAnimation(PreviewA, 1, 0.003, Anim_Idle)
-			
+			If PreviewA <> Null
+				Animate(PreviewA\EN, 0)
+				PlayAnimation(PreviewA, 1, 0.003, Anim_Idle)
+			EndIf
+
 		EndIf
 
 		; Start game button
 		If GY_ButtonHit(BStart) = True And SelectedChar > -1
-		
-		RP_Clear(SnowEmitter1)	
+			; Validate the selected character's race before committing to the
+			; start sequence. CreateActorInstance below would RuntimeError on
+			; a Null Actor template -- this happens when the server's
+			; Actors.dat had the race deleted since this account's character
+			; was saved, or when the update channel is out of sync. Refuse
+			; cleanly so the player can pick another character.
+			If ActorList(CharActors(SelectedChar)) = Null
+				WriteLog(MainLog, "Press Start: ActorID " + CharActors(SelectedChar) + " for character '" + CharNames$(SelectedChar) + "' not in client ActorList; cannot enter game")
+				GY_SetButtonState(CharButtons(SelectedChar), False)
+				SelectedChar = -1
+				Goto StartGameAborted
+			EndIf
+
+		RP_Clear(SnowEmitter1)
 		RP_Clear(SnowEmitter2)
 		RP_Clear(SnowEmitter3)
 		RP_Clear(SnowEmitter4)
 		RP_Clear(SnowEmitter5)
 		RP_Clear(SnowEmitter6)
-					
+
 			GY_LockGadget(BStart) : GY_LockGadget(BDelete)
 			For i = 0 To LastChar + 1 : GY_LockGadget(CharButtons(i)) : Next
 
@@ -1678,19 +1869,35 @@ Function CharSelect()
 			Done = False
 			While Done = False
 				Delay 10
-				For M.RCE_Message = Each RCE_Message
+				; After-cursor walk (M / MNext declared above at first site).
+				; P_FetchCharacter streams many blocks in one tick -- iterator
+				; corruption here would silently skip character data on login.
+				M = First RCE_Message
+				While M <> Null
+					MNext = After M
 					If M\MessageType = P_FetchCharacter
 						; Character information
 						If Left$(M\MessageData$, 1) = "C"
 							; Block 1
 							If Mid$(M\MessageData$, 2, 1) = "1"
 								Me\Gold = RCE_IntFromStr(Mid$(M\MessageData$, 3, 4))
-								Me\Reputation = RCE_IntFromStr(Mid$(M\MessageData$, 7, 2))
+								Me\Reputation = RCE_SignedShortFromStr(Mid$(M\MessageData$, 7, 2))  ; signed: reputation can be negative
 								Me\Level = RCE_IntFromStr(Mid$(M\MessageData$, 9, 2))
 								Me\XP = RCE_IntFromStr(Mid$(M\MessageData$, 11, 4))
 								Me\HomeFaction = RCE_IntFromStr(Mid$(M\MessageData$, 15, 1))
+								; Client-side faction tables are Dim'd (99).
+								; Wire byte can hold 100..255 -- clamp before
+								; any read of FactionRatings[Me\HomeFaction]
+								; or FactionNames$(Me\HomeFaction).
+								If Me\HomeFaction < 0 Or Me\HomeFaction > 99 Then Me\HomeFaction = 0
 								Offset = 16
 								While Offset < Len(M\MessageData$)
+									; Me\Attributes\Value/Maximum are Field[39]
+									; (40 slots). A malformed P_FetchCharacter
+									; "C1" payload longer than the legitimate
+									; 40 attribute pairs would Field-OOB the
+									; client. Stop walking once full.
+									If AttributesDone < 0 Or AttributesDone > 39 Then Exit
 									Me\Attributes\Value[AttributesDone] = RCE_IntFromStr(Mid$(M\MessageData$, Offset, 2))
 									Me\Attributes\Maximum[AttributesDone] = RCE_IntFromStr(Mid$(M\MessageData$, Offset + 2, 2))
 									AttributesDone = AttributesDone + 1
@@ -1720,9 +1927,18 @@ Function CharSelect()
 						ElseIf Left$(M\MessageData$, 1) = "S"
 							Offset = 2
 							While Offset < Len(M\MessageData$)
+								; KnownSpells / SpellLevels are Field[999]; SpellsList
+								; is Dim'd 65534. A malformed P_FetchCharacter "S"
+								; block could push past either bound -- drain the
+								; remaining bytes once full.
+								If Spells < 0 Or Spells > 999 Then Exit
 								Me\SpellLevels[Spells] = RCE_IntFromStr(Mid$(M\MessageData$, Offset, 2))
 								Sp.Spell = New Spell
 								Sp\ID = RCE_IntFromStr(Mid$(M\MessageData$, Offset + 2, 2))
+								If Sp\ID < 0 Or Sp\ID > 65534
+									Delete Sp
+									Exit
+								EndIf
 								SpellsList(Sp\ID) = Sp
 								Me\KnownSpells[Spells] = Sp\ID
 								Sp\ThumbnailTexID = RCE_IntFromStr(Mid$(M\MessageData$, Offset + 4, 2))
@@ -1745,6 +1961,11 @@ Function CharSelect()
 						ElseIf Left$(M\MessageData$, 1) = "Q"
 							Offset = 2
 							While Offset < Len(M\MessageData$)
+								; QuestLog\EntryName$/EntryStatus$ are Field[499]
+								; (500 slots). A malformed P_FetchCharacter "Q"
+								; block longer than 500 quests would Field-OOB
+								; the client. Stop walking once full.
+								If Quests < 0 Or Quests > 499 Then Exit
 								NameLen = RCE_IntFromStr(Mid$(M\MessageData$, Offset, 1))
 								QuestLog\EntryName$[Quests] = Mid$(M\MessageData$, Offset + 1, NameLen)
 								Offset = Offset + 1 + NameLen
@@ -1766,14 +1987,15 @@ Function CharSelect()
 							Done = True : Exit
 						EndIf
 					ElseIf M\MessageType = RN_HostHasLeft Or M\MessageType = RN_Disconnected
-						RuntimeError(LanguageString$(LS_LostConnection))
+						OnLostConnection()
 						Delete M
 					EndIf
-				Next
-				
+					M = MNext
+				Wend
+
 				RCE_Update()
 				RCE_CreateMessages()
-				
+
 				GY_Update()
 				UpdateWorld(Delta#)
 				RenderWorld()
@@ -1783,11 +2005,12 @@ Function CharSelect()
 			; Start the game!
 			RCE_Disconnect()
 			SelectedCharacter = SelectedChar
-			
-			
+
+
 			Exit
 		EndIf
-		
+		.StartGameAborted
+
 		; Camera
 		;If GY_ButtonDown(BRight)
 		;	CamAngle# = CamAngle# + 90/fps
@@ -1864,18 +2087,22 @@ Function CharSelect()
 		EndIf		
 
 		; Check connection is still alive
-		For M.RCE_Message = Each RCE_Message
+		; After-cursor walk (M / MNext declared above at first site).
+		M = First RCE_Message
+		While M <> Null
+			MNext = After M
 			Select M\MessageType
 				Case RN_Disconnected, RN_HostHasLeft
-					RuntimeError(LanguageString$(LS_LostConnection))
+					OnLostConnection()
 			End Select
 			Delete M
-		Next
+			M = MNext
+		Wend
 
 		; Update everything
 		RCE_Update()
 		RCE_CreateMessages()
-		
+
 		GY_Update()
 		RP_Update()
 		UpdateWorld(delta#)
@@ -2047,16 +2274,28 @@ Function CreateChar()
 		EndIf
 	Next
 
-	; Set preview to first playable actor
+	; Set preview to first playable actor whose mesh loads. Walk the
+	; Actor list looking for a candidate; if a race's mesh fails to
+	; load (corrupt mesh file, missing asset, hostile content update),
+	; skip it and try the next playable race rather than crash the
+	; entire character-creation flow on a single bad race. Only bail
+	; with a RuntimeError if NO playable race has a loadable mesh --
+	; an unrecoverable project state.
 	A.Actor = First Actor
 	If A = Null Then RuntimeError("No actors in project!")
-	While A\Playable = False
+	Preview.ActorInstance = Null
+	While A <> Null
+		If A\Playable = True
+			Preview = CreateActorInstance(A)
+			Result = LoadActorInstance3D(Preview, 1.0, False, False)
+			If Result <> False Then Exit
+			WriteLog(MainLog, "CharCreation: skipping race '" + A\Race$ + "' (mesh load failed)")
+			SafeFreeActorInstance(Preview)
+			Preview = Null
+		EndIf
 		A = After A
-		If A = Null Then RuntimeError("No playable actors in project!")
 	Wend
-	Preview.ActorInstance = CreateActorInstance(A)
-	Result = LoadActorInstance3D(Preview, 1.0, False, False)
-	If Result = False Then RuntimeError("Could not load actor mesh for " + A\Race$ + "!")
+	If Preview = Null Then RuntimeError("No playable race with a loadable mesh!")
 	PlayAnimation(Preview, 1, 0.003, Anim_Idle)
 	PositionEntity Preview\CollisionEN, 30, -(35.0 + EntityY#(Preview\EN, True)), 100
 	;HideEntity Preview\ShadowEN [###]
@@ -2081,11 +2320,15 @@ Function CreateChar()
 			Time# = Time# + DeltaBuffer(i)
 		Next
 		Time# = Time# / Float#(DeltaFrames)
+		; Divide-by-zero guard -- parity with the other MainMenu loop above
+		; and Client.bb. Sub-millisecond average frame time on menu screens
+		; (common on modern hardware) would otherwise produce Inf Delta#.
+		If Time# < 1.0 Then Time# = 1.0
 		FPS# = 1000.0 / Time#
 		Delta# = BaseFramerate# / FPS#
 		DeltaTime = MilliSecs()
 		If Delta# > 3.5 Then Delta# = 3.5 ; Don't let delta go too OTT
-	
+
 		; Escape pressed or cancel pressed
 		If KeyHit(1) Or GY_ButtonHit(BCancel)
 			SafeFreeActorInstance(Preview)
@@ -2151,7 +2394,13 @@ Function CreateChar()
 					Done = False : Result = 0
 					While Done = False
 						Delay 10
-						For M.RCE_Message = Each RCE_Message
+						; After-cursor walk: trailing Delete M during For-Each
+						; would corrupt the cursor on the next step when
+						; multiple messages are queued.
+						Local M.RCE_Message = First RCE_Message
+						Local MNext.RCE_Message = Null
+						While M <> Null
+							MNext = After M
 							If M\MessageType = P_CreateCharacter
 								If M\MessageData$ = "Y"
 									Result = 2
@@ -2160,10 +2409,11 @@ Function CreateChar()
 								EndIf
 								Delete(M) : Done = True : Exit
 							ElseIf M\MessageType = RN_HostHasLeft Or M\MessageType = RN_Disconnected
-								RuntimeError(LanguageString$(LS_LostConnection))
+								OnLostConnection()
 							EndIf
 							Delete(M)
-						Next
+							M = MNext
+						Wend
 
 						RCE_Update()
 						RCE_CreateMessages()
@@ -2255,12 +2505,42 @@ Function CreateChar()
 			PointsToSpend = AttributeAssignment
 			For i = 0 To 39 : PointSpends(i) = 0 : Next
 			ChosenRace$ = Upper$(GY_ComboBoxItem$(CRace))
+			Chosen.Actor = Null  ; reset before the search so a no-match leaves Null
 			For A.Actor = Each Actor
 				If Upper$(A\Race$) = ChosenRace$ Then Chosen.Actor = A : Exit
 			Next
-			Preview.ActorInstance = CreateActorInstance(Chosen)
-			Result = LoadActorInstance3D(Preview, 1.0, False, False)
-			If Result = False Then RuntimeError("Could not load actor mesh for " + Chosen\Race$ + "!")
+			; If the combo-box race no longer exists in the client's
+			; Actors table (project updated, race deleted, or update-
+			; channel skew), Chosen stays Null. CreateActorInstance
+			; (Null) used to RuntimeError-crash the client; now soft-
+			; fails to Null. Skip the preview swap and leave the
+			; previous Preview in place rather than render an empty
+			; character-creation screen.
+			If Chosen = Null
+				WriteLog(MainLog, "CharCreation race-change: combo-box race '" + ChosenRace$ + "' not in client Actors table; keeping previous preview")
+			Else
+				Preview.ActorInstance = CreateActorInstance(Chosen)
+				If Preview = Null
+					WriteLog(MainLog, "CharCreation race-change: CreateActorInstance returned Null for race '" + Chosen\Race$ + "'; keeping previous preview")
+				Else
+					Result = LoadActorInstance3D(Preview, 1.0, False, False)
+					If Result = False
+						; Mesh-load failure: log + free + bail rather
+						; than RuntimeError-crash the client. Mirrors
+						; the same recovery pattern as the initial
+						; character-pick at line 2292.
+						WriteLog(MainLog, "CharCreation race-change: mesh load failed for race '" + Chosen\Race$ + "'; freeing preview")
+						SafeFreeActorInstance(Preview)
+						Preview = Null
+					EndIf
+				EndIf
+			EndIf
+			; The follow-on code (PositionEntity Preview\CollisionEN,
+			; SetUpPreview(Preview\Actor), ...) requires Preview to be
+			; non-Null. Skip when the preview wasn't created.
+			If Preview = Null
+				Goto SkipPreviewSetup
+			EndIf
 			;PlayAnimation(Preview, 1, 0.003, Anim_Idle)
 			PositionEntity Preview\CollisionEN, 30, -(35.0 + EntityY#(Preview\EN, True)), 100
 			;If Preview\ShadowEN <> 0 Then HideEntity(Preview\ShadowEN) [###]
@@ -2271,23 +2551,47 @@ Function CreateChar()
 			GY_LockGadget(BNextHair, Not ActorHasHair(Preview\Actor, Preview\Gender + 1)) : GY_LockGadget(BPrevHair, Not ActorHasHair(Preview\Actor, Preview\Gender + 1))
 			GY_LockGadget(BNextBeard, Not ActorHasBeard(Preview\Actor)) : GY_LockGadget(BPrevBeard, Not ActorHasBeard(Preview\Actor))
 			GY_LockGadget(BNextGender, Preview\Actor\Genders) : GY_LockGadget(BPrevGender, Preview\Actor\Genders)
+			.SkipPreviewSetup
 		EndIf
 
 		; Next/Previous class
 		If GY_ButtonHit(BNextClass) = True
 			Gender = Preview\Gender
 			A.Actor = Preview\Actor
+			; Hoist the loop's target-race comparison value above the
+			; Repeat. The original code re-read Preview\Actor\Race$ on
+			; every iteration; combined with the soft-fail Preview =
+			; Null below, that would Null-deref or (in release builds,
+			; per BlitzForge zero-sentinel semantics) silently empty-
+			; string and never re-match a real race -- infinite spin.
+			Local TargetRaceN$ = Upper$(Preview\Actor\Race$)
 			Repeat
 				A = After A
 				If A = Null Then A = First Actor
-				If Upper$(A\Race$) = Upper$(Preview\Actor\Race$) And A\Playable = True
+				If Upper$(A\Race$) = TargetRaceN$ And A\Playable = True
 					SafeFreeActorInstance(Preview)
 					Preview.ActorInstance = CreateActorInstance(A)
 					If (Gender = 0 And A\Genders <> 2) Or (Gender = 1 And A\Genders <> 1 And A\Genders <> 3)
 						Preview\Gender = Gender
 					EndIf
 					Result = LoadActorInstance3D(Preview, 1.0, False, False)
-					If Result = False Then RuntimeError("Could not load actor mesh for " + A\Race$ + "!")
+					; Mesh-load failure soft-fail (was RuntimeError, crashing
+					; the client on any class-with-broken-mesh button press).
+					; Free the half-loaded preview, log, and continue
+					; searching -- another playable Actor variant may have
+					; a working mesh. Loop comparison uses the hoisted
+					; TargetRaceN$ above so Preview = Null is safe across
+					; iterations. If every Playable variant of the race
+					; fails to load, the loop spins (pre-existing
+					; Repeat/Forever-without-counter risk; not introduced
+					; by this fix).
+					If Result = False
+						WriteLog(MainLog, "CharCreation BNextClass: mesh load failed for race '" + A\Race$ + "'; freeing preview, continuing search")
+						SafeFreeActorInstance(Preview)
+						Preview = Null
+						; Continue the Repeat -- no Exit. Next iteration
+						; tries the next Actor variant.
+					Else
 					PlayAnimation(Preview, 1, 0.003, Anim_Idle)
 					PositionEntity Preview\CollisionEN, 30, -(35.0 + EntityY#(Preview\EN, True)), 100
 					;If Preview\ShadowEN <> 0 Then HideEntity(Preview\ShadowEN) [###]
@@ -2304,22 +2608,31 @@ Function CreateChar()
 					GY_LockGadget(BPrevBeard, Not ActorHasBeard(Preview\Actor))
 					GY_LockGadget(BNextGender, Preview\Actor\Genders) : GY_LockGadget(BPrevGender, Preview\Actor\Genders)
 					Exit
+					EndIf
 				EndIf
 			Forever
 		ElseIf GY_ButtonHit(BPrevClass) = True
 			Gender = Preview\Gender
 			A.Actor = Preview\Actor
+			; Same hoisting rationale as BNextClass above -- Preview =
+			; Null in the soft-fail branch makes per-iteration
+			; Preview\Actor\Race$ reads unsafe.
+			Local TargetRaceP$ = Upper$(Preview\Actor\Race$)
 			Repeat
 				A = Before A
 				If A = Null Then A = Last Actor
-				If Upper$(A\Race$) = Upper$(Preview\Actor\Race$) And A\Playable = True
+				If Upper$(A\Race$) = TargetRaceP$ And A\Playable = True
 					SafeFreeActorInstance(Preview)
 					Preview.ActorInstance = CreateActorInstance(A)
 					If (Gender = 0 And A\Genders <> 2) Or (Gender = 1 And A\Genders <> 1 And A\Genders <> 3)
 						Preview\Gender = Gender
 					EndIf
 					Result = LoadActorInstance3D(Preview, 1.0, False, False)
-					If Result = False Then RuntimeError("Could not load actor mesh for " + A\Race$ + "!")
+					If Result = False
+						WriteLog(MainLog, "CharCreation BPrevClass: mesh load failed for race '" + A\Race$ + "'; freeing preview, continuing search")
+						SafeFreeActorInstance(Preview)
+						Preview = Null
+					Else
 					PlayAnimation(Preview, 1, 0.003, Anim_Idle)
 					PositionEntity Preview\CollisionEN, 30, -(35.0 + EntityY#(Preview\EN, True)), 100
 					;If Preview\ShadowEN <> 0 Then HideEntity(Preview\ShadowEN) [###]
@@ -2336,6 +2649,7 @@ Function CreateChar()
 					GY_LockGadget(BPrevBeard, Not ActorHasBeard(Preview\Actor))
 					GY_LockGadget(BNextGender, Preview\Actor\Genders) : GY_LockGadget(BPrevGender, Preview\Actor\Genders)
 					Exit
+					EndIf
 				EndIf
 			Forever
 		EndIf
@@ -2516,14 +2830,18 @@ Function CreateChar()
        PointEntity Cam, GPP 
        MoveEntity Cam, 10.0, 0.0, 0.0 
 
-       ; Check connection is still alive 
-       For M.RCE_Message = Each RCE_Message 
-          Select M\MessageType 
-             Case RN_Disconnected, RN_HostHasLeft 
-                RuntimeError(LanguageString$(LS_LostConnection)) 
-          End Select 
-          Delete M 
-       Next
+       ; Check connection is still alive
+       ; After-cursor walk (M / MNext declared above at first site).
+       M = First RCE_Message
+       While M <> Null
+          MNext = After M
+          Select M\MessageType
+             Case RN_Disconnected, RN_HostHasLeft
+                OnLostConnection()
+          End Select
+          Delete M
+          M = MNext
+       Wend
 
 		; Update everything
 		RCE_Update()
@@ -3452,12 +3770,20 @@ Function GameOptionsMenu()
 			; Music update
 			If GY_CheckBoxDown(BUpdateMusic) <> 1 - UpdateMusic
 				UpdateMusic = 1 - GY_CheckBoxDown(BUpdateMusic)
-				; Update file
-				F = WriteFile("Data\Game Data\Misc.dat")
+				; Update file atomically. A crash mid-write would
+				; leave Misc.dat empty, which the next launch would
+				; interpret as "no game name, no version" -- locking
+				; the user out of the project. SafeWriteCommit demotes
+				; the previous Misc.dat to .bak for recovery.
+				Local MMFinal$ = "Data\Game Data\Misc.dat"
+				Local MMTemp$ = SafeWriteOpen$(MMFinal$)
+				F = WriteFile(MMTemp$)
+				If F <> 0
 					WriteLine F, GameName$
 					WriteLine F, UpdateGame$
 					WriteLine F, UpdateMusic
-				CloseFile F
+					SafeWriteCommit%(MMTemp$, MMFinal$, F)
+				EndIf
 			EndIf
 		EndIf
 
@@ -3605,8 +3931,14 @@ Function DownloadFile(URL$, SaveTo$ = "", GYProgress = 0)
 
 		If BytesToRead = 0 Then CloseTCPStream WWW : Return 0
 
-		; Create new file to write downloaded bytes into
-		Save = WriteFile(SaveTo$)
+		; Create new file to write downloaded bytes into.
+		; Atomic: write to .tmp, only promote to final on completion
+		; (BytesIn = BytesToRead). Mid-download cancellation, EOF
+		; before content-length, or any error path abort the temp
+		; without touching the prior on-disk file (if any). The prior
+		; download is retained as .bak.
+		Local DLTemp$ = SafeWriteOpen$(SaveTo$)
+		Save = WriteFile(DLTemp$)
 		If Save = 0 Then CloseTCPStream(WWW) : Return 0
 
 		; Incredibly complex download-to-file routine...
@@ -3631,8 +3963,16 @@ Function DownloadFile(URL$, SaveTo$ = "", GYProgress = 0)
 			If BytesIn = BytesToRead Then Exit
 		Forever
 
-		; Done
-		CloseFile(Save)
+		; Done. Promote to production only if the full content-length
+		; arrived; partial downloads abort the temp and leave the
+		; previous file (if any) intact. SafeWriteCommit closes Save
+		; internally on success; we close + abort on the partial path.
+		If BytesIn = BytesToRead
+			SafeWriteCommit%(DLTemp$, SaveTo$, Save)
+		Else
+			CloseFile(Save)
+			SafeWriteAbort(DLTemp$)
+		EndIf
 		CloseTCPStream(WWW)
 	EndIf
 
@@ -3651,6 +3991,34 @@ Function CountChecksum(File$)
 	CloseFile F
 	Return Result
 
+End Function
+
+; Path-containment check for server-supplied update filenames.
+;
+; Refuses any name that could write outside the game directory:
+;   - empty string
+;   - contains `..` (parent-directory traversal in any form)
+;   - starts with `\` or `/` (absolute path on Windows)
+;   - second character is `:` (drive-letter absolute, e.g. `C:\...`)
+;   - contains a NUL byte or other non-printable control characters
+;
+; Without this guard the P_FetchUpdateFiles handler would write to
+; whatever path the server provided, including the running game .exe
+; (which is then ExecFile'd) and arbitrary system paths via `..`.
+Function UpdateFileNameIsSafe%(Name$)
+	If Len(Name$) = 0 Then Return False
+	If Len(Name$) > 240 Then Return False
+	If Left$(Name$, 1) = "\" Then Return False
+	If Left$(Name$, 1) = "/" Then Return False
+	If Len(Name$) >= 2
+		If Mid$(Name$, 2, 1) = ":" Then Return False
+	EndIf
+	If Instr(Name$, "..") > 0 Then Return False
+	For i = 1 To Len(Name$)
+		Local c = Asc(Mid$(Name$, i, 1))
+		If c < 32 Or c = 127 Then Return False
+	Next
+	Return True
 End Function
 
 ; Loads an up texture for a menu button

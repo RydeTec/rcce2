@@ -8,12 +8,16 @@ Test testRandom()
 
     local seed% = r\seed
     Assert(seed%)
-    Assert(NOT Random::i(r) = Random::i(r))
+    ; Two consecutive draws from the same RNG should almost never collide.
+    ; The previous form `NOT Random::i(r) = Random::i(r)` parsed as
+    ; `(NOT Random::i(r)) = Random::i(r)` and asserted a tautology --
+    ; the test passed for the wrong reason and never exercised the RNG.
+    Assert(Random::i(r) <> Random::i(r))
     Assert(seed = r\seed)
 
     Assert(Random::i())
-    Assert(NOT Random::f() = 0)
-    Assert(NOT Random::f() = Random::f())
+    Assert(Random::f() <> 0)
+    Assert(Random::f() <> Random::f())
 
     DebugLog("Random int: " + Random::i())
     DebugLog("Random float: " + Random::f())

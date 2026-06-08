@@ -5,11 +5,11 @@ Include "Modules\Helpers\Random.bb"
 Type IdentifierTrait
     Field id$
 
-    Method create.IdentifierTrait(id$=0)
-        If (NOT id)
+    Method create.IdentifierTrait(id$="")
+        If (id$ = "")
             self\id = Random::i() + "-" + Random::i() + "-" + Random::i()
         Else
-            self\id = id
+            self\id = id$
         End If
 
         return self

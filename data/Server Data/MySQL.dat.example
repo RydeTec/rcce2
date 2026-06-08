@@ -1,0 +1,20 @@
+; MySQL connection settings for the rcce2 server. Copy this file to
+; `MySQL.dat` in this same directory and fill in your own credentials.
+;
+; The actual `MySQL.dat` is .gitignored so per-operator secrets don't
+; leak into the repo. The legacy default that shipped here was
+; `localhost / root / (empty password) / rc2 / 3306` -- replace with a
+; dedicated MySQL user that has only the privileges the rcce2 server
+; needs, never `root`.
+;
+; Format (one value per line, in order):
+;   1. Host
+;   2. User
+;   3. Password
+;   4. Database
+;   5. Port
+localhost
+rcce_user
+CHANGE_ME
+rc2
+3306

@@ -10,9 +10,9 @@ Type Component
     Field pos.PositionTrait
     Field scale.ScaleTrait
 
-    Method create.Component(componentType$, id$=0)
-        self\id = new IdentifierTrait(id)
-        
+    Method create.Component(componentType$, id$="")
+        self\id = new IdentifierTrait(id$)
+
         self\componentType = componentType
 
         return self

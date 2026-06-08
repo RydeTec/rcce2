@@ -1,29 +1,32 @@
 @echo off
-setlocal
+setlocal EnableDelayedExpansion
 
-set ROOTDIR=%1
-set BLITZPATH=%ROOTDIR%\compiler\%2
-set SRCPATH=%3
-set SRCFILE=%4
+set "ROOTDIR=%~1"
+set "COMPILERNAME=%~2"
+set "SRCPATH=%~3"
+set "SRCFILE=%~4"
 
-IF NOT EXIST "%ROOTDIR%\compiler\BlitzForge\bin\blitzcc.exe" (
-    echo "%ROOTDIR%\compiler\BlitzForge\bin\blitzcc.exe not found!"
+set "BLITZPATH=%ROOTDIR%\compiler\%COMPILERNAME%"
+
+if not exist "%BLITZPATH%\bin\blitzcc.exe" (
+    echo "%BLITZPATH%\bin\blitzcc.exe not found!"
     echo "Compile source or download binaries from https://github.com/RydeTec/blitz-forge/releases"
-    exit 1;
+    endlocal
+    exit /b 1
 )
 
-cd %SRCPATH%
+cd /d "%SRCPATH%"
 
-:: Shift the arguments so %1 now refers to what %2 was originally, etc.
+:: Shift past the first four positional arguments so %1 now refers to the first
+:: trailing flag (e.g. -c, -d, -d -t).
 shift
 shift
 shift
 shift
 
-:: Initialize an empty string to collect the remaining arguments
+:: Collect any remaining trailing flags into ARGS verbatim.
 set "ARGS="
 
-:: Loop through the remaining arguments and append them to ARGS
 :loop
 if "%~1"=="" goto endloop
 set "ARGS=%ARGS% %1"
@@ -32,9 +35,9 @@ goto loop
 
 :endloop
 
-:: Now ARGS contains all the arguments except for the first one
-"%BLITZPATH%\bin\blitzcc.exe" %ARGS% -w "%ROOTDIR%\src" %SRCFILE%
+"%BLITZPATH%\bin\blitzcc.exe"%ARGS% -w "%ROOTDIR%\src" "%SRCFILE%"
+set "EXITCODE=%ERRORLEVEL%"
 
-cd %ROOTDIR%
+cd /d "%ROOTDIR%"
 
-endlocal
+endlocal & exit /b %EXITCODE%

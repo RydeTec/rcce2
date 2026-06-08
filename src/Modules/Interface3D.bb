@@ -103,6 +103,11 @@ End Function
 Function DialogOutput(Han, T$, R = 255, G = 255, B = 255, Opt = 0)
 
 	D.Dialog = Object.Dialog(Han)
+	; Stale dialog handle: server can send P_Dialog "T" / "O" against
+	; a dialog the client has already freed (window-close race, dialog
+	; reuse). The unguarded D\TextLines[0] deref below was a crash on
+	; the next message in that flow.
+	If D = Null Then Return
 
 	; Word wrap
 	Gad.GY_Gadget = Object.GY_Gadget(D\TextLines[0])
@@ -224,13 +229,20 @@ Function BubbleOutput(Label$, R, G, B, AI.ActorInstance, NoText = False)
 		EndIf
 	EndIf
 
-	; Remove any chat bubbles already attached to this actor instance
-	For Bb.Bubble = Each Bubble
+	; Remove any chat bubbles already attached to this actor instance.
+	; After-cursor walk: the body Deletes Bb, which would corrupt
+	; the For-Each cursor on the next iteration. Documented in
+	; CLAUDE.md (#247).
+	Local Bb.Bubble = First Bubble
+	Local BbNext.Bubble = Null
+	While Bb <> Null
+		BbNext = After Bb
 		If Bb\ActorInstance = AI
 			FreeEntity(Bb\EN)
 			Delete(Bb)
 		EndIf
-	Next
+		Bb = BbNext
+	Wend
 
 	; Create new bubble
 	Bb.Bubble = New Bubble
@@ -352,6 +364,37 @@ Function GetTarget$(EN)
 End Function
 
 ; Updates the standard components and handles player input
+; --- Spell cooldown helpers ------------------------------------------
+; SpellCharge[] is keyed by spell ID (0..999) -- see the field comment in
+; Actors.bb and the authoritative server (ServerNet.bb P_SpellUpdate "F"
+; gates on AI\SpellCharge[SpellID]; GameServer.bb decrements 0..999 by
+; spell ID). The client action bar and spellbook previously keyed
+; SpellCharge by a KnownSpells index (action bar non-memorise / spellbook)
+; or a memorise slot (action bar memorise), so the client's predictive
+; cooldown lived in a different slot than the server's authority and than
+; the other client surface -- casting from one surface left the other
+; reading "ready" (spurious LS_AbilityNotRecharged, or a click the server
+; silently drops). Centralise the spell-ID-keyed, bound-checked access so
+; every client cast site matches the server.
+;
+; A spell ID outside 0..999 is not castable server-side (the server wraps
+; its cast path in the same 0..999 guard), so treat it as "ready" here --
+; the cast packet is still sent and the authoritative server is the final
+; arbiter. The bound check lives in a nested If inside the helper because
+; BlitzForge `And` is non-short-circuit: `If id <= 999 And arr[id] ...`
+; would still evaluate arr[id] for an out-of-range id.
+Function SpellChargeReady(M.ActorInstance, SpellID)
+	If SpellID < 0 Or SpellID > 999 Then Return True
+	If M\SpellCharge[SpellID] <= 0 Then Return True
+	Return False
+End Function
+
+Function SetSpellCharge(M.ActorInstance, SpellID, Charge)
+	If SpellID < 0 Or SpellID > 999 Then Return
+	M\SpellCharge[SpellID] = Charge
+End Function
+; ---------------------------------------------------------------------
+
 Function UpdateInterface()
 
 	; Gooey system
@@ -685,22 +728,28 @@ Function UpdateInterface()
 		; Talk to button was clicked
 		If ControlHit(Key_TalkTo) And TradingVisible = False And MilliSecs() - RightDownTime < 500
 			ClickedTarget = False
-			; Selected target actor, show interaction window
+			; Selected target actor, show interaction window.
+			; Stale PlayerTarget handle: clear and fall through to the
+			; click-target-pick branch below rather than crash on
+			; AI\CollisionEN.
 			If PlayerTarget > 0
 				AI.ActorInstance = Object.ActorInstance(PlayerTarget)
-				
-				If CharInteractVisible
-					UpdateCharInteractionWindow()
+				If AI = Null
+					PlayerTarget = 0
 				Else
-					CreateCharInteractionWindow( AI )
-					;CysisLibs Outline
-					;Outline ActorSelectEN
+					If CharInteractVisible
+						UpdateCharInteractionWindow()
+					Else
+						CreateCharInteractionWindow( AI )
+						;CysisLibs Outline
+						;Outline ActorSelectEN
+					EndIf
+					If EntityDistance#(AI\CollisionEN, Me\CollisionEN) < InteractRange
+						RCE_Send(Connection, PeerToHost, P_RightClick, RCE_StrFromInt$(AI\RuntimeID, 2), True)
+					EndIf
+					QuitActive = False
+					ClickedTarget = True
 				EndIf
-				If EntityDistance#(AI\CollisionEN, Me\CollisionEN) < InteractRange
-					RCE_Send(Connection, PeerToHost, P_RightClick, RCE_StrFromInt$(AI\RuntimeID, 2), True)
-				EndIf
-				QuitActive = False
-				ClickedTarget = True
 			EndIf
 			If ClickedTarget = False
 				SetPickModes(-1, 3, True)
@@ -711,22 +760,29 @@ Function UpdateInterface()
 					If Target$ = "A"
 						PlayerTarget = EntityName$(Result)
 						AI.ActorInstance = Object.ActorInstance(PlayerTarget)
-						MaxLength# = MeshWidth#(AI\EN)
-						If MeshDepth#(AI\EN) > MaxLength# Then MaxLength# = (MeshDepth#(AI\EN) + MeshWidth#(AI\EN)) / 2.0
-						ScaleEntity(ActorSelectEN, MaxLength# * 0.03, 1.0, MaxLength# * 0.03)
-						ShowEntity(ActorSelectEN)
-						If CharInteractVisible
-							UpdateCharInteractionWindow()
-						ElseIf CharInteract = Null
-							CreateCharInteractionWindow(AI)
-							;CysisLibs Outline
-							;Outline ActorSelectEN
+						; EntityName$ resolved to a non-actor handle, or
+						; the actor was freed between pick and now. Drop
+						; the selection rather than crash on AI\EN.
+						If AI = Null
+							PlayerTarget = 0
+						Else
+							MaxLength# = MeshWidth#(AI\EN)
+							If MeshDepth#(AI\EN) > MaxLength# Then MaxLength# = (MeshDepth#(AI\EN) + MeshWidth#(AI\EN)) / 2.0
+							ScaleEntity(ActorSelectEN, MaxLength# * 0.03, 1.0, MaxLength# * 0.03)
+							ShowEntity(ActorSelectEN)
+							If CharInteractVisible
+								UpdateCharInteractionWindow()
+							ElseIf CharInteract = Null
+								CreateCharInteractionWindow(AI)
+								;CysisLibs Outline
+								;Outline ActorSelectEN
+							EndIf
+							; If friendly and in range, close interact window and execute right click
+							If AI\FactionRatings[Me\HomeFaction] > 99 And EntityDistance#(AI\CollisionEN, Me\CollisionEN) < InteractRange
+								RCE_Send(Connection, PeerToHost, P_RightClick, RCE_StrFromInt$(AI\RuntimeID, 2), True)
+							EndIf
+							QuitActive = False
 						EndIf
-						; If friendly and in range, close interact window and execute right click
-						If AI\FactionRatings[Me\HomeFaction] > 99 And EntityDistance#(AI\CollisionEN, Me\CollisionEN) < InteractRange
-							RCE_Send(Connection, PeerToHost, P_RightClick, RCE_StrFromInt$(AI\RuntimeID, 2), True)
-						EndIf
-						QuitActive = False
 					EndIf
 				EndIf
 			EndIf
@@ -759,6 +815,13 @@ Function UpdateInterface()
 					OldTarget = PlayerTarget
 					PlayerTarget = EntityName$(Result)
 					AI.ActorInstance = Object.ActorInstance(PlayerTarget)
+					; Stale Object lookup (actor picked but freed before
+					; we resolved). Drop the selection rather than crash
+					; on AI\EN / AI\Actor / AI\FactionRatings below.
+					If AI = Null
+						PlayerTarget = 0
+						Goto SkipActorSelect
+					EndIf
 					MaxLength# = MeshWidth#(AI\EN)
 					If MeshDepth#(AI\EN) > MaxLength# Then MaxLength# = (MeshDepth#(AI\EN) + MeshWidth#(AI\EN)) / 2.0
 					ScaleEntity(ActorSelectEN, MaxLength# * 0.03, 1.0, MaxLength# * 0.03)
@@ -815,6 +878,7 @@ Function UpdateInterface()
 
 						AttackTarget = False
 					EndIf
+					.SkipActorSelect
 					;HideEntity(ClickMarkerEN) ;{@@@~}
 				; Target is a dropped item
 				ElseIf Target$ = "D"
@@ -823,19 +887,25 @@ Function UpdateInterface()
 						UsedClick = True
 
 						DItem.DroppedItem = Object.DroppedItem(EntityName$(Result))
+						; Stale handle: the dropped-item entity was picked but
+						; its Object lookup resolved to Null (entity name lost,
+						; server-side cleanup race). Skip the pickup flow rather
+						; than crash on DItem\Item below. The sibling scenery
+						; path at ~line 854 already has this guard.
 						FoundSlot = -1
-
-						For i = 0 To Slots_Inventory
-							If Me\Inventory\Items[i] = Null
-								If DItem\Item <> Null
-									If SlotsMatch(DItem\Item\Item, i) And ActorHasSlot(Me\Actor, i, DItem\Item\Item) Then FoundSlot = i : Exit
+						If DItem <> Null
+							For i = 0 To Slots_Inventory
+								If Me\Inventory\Items[i] = Null
+									If DItem\Item <> Null
+										If SlotsMatch(DItem\Item\Item, i) And ActorHasSlot(Me\Actor, i, DItem\Item\Item) Then FoundSlot = i : Exit
+									EndIf
+								ElseIf (ItemInstancesIdentical(DItem\Item, Me\Inventory\Items[i]) And  DItem\Item <> Null And i >= SlotI_Backpack)
+									If DItem\Item\Item\Stackable = True
+										If SlotsMatch(DItem\Item\Item, i) And ActorHasSlot(Me\Actor, i, DItem\Item\Item) Then FoundSlot = i : Exit
+									EndIf
 								EndIf
-							ElseIf (ItemInstancesIdentical(DItem\Item, Me\Inventory\Items[i]) And  DItem\Item <> Null And i >= SlotI_Backpack)
-								If DItem\Item\Item\Stackable = True
-									If SlotsMatch(DItem\Item\Item, i) And ActorHasSlot(Me\Actor, i, DItem\Item\Item) Then FoundSlot = i : Exit
-								EndIf
-							EndIf
-						Next
+							Next
+						EndIf
 						; Room, request it from server
 						If FoundSlot > -1
 							RCE_Send(Connection, PeerToHost, P_InventoryUpdate, "P" + RCE_StrFromInt$(DItem\ServerHandle, 4) + RCE_StrFromInt$(FoundSlot, 1), True)
@@ -985,11 +1055,19 @@ Function UpdateInterface()
 	; Update selection highlight mesh
 	If PlayerTarget > 0
 		AI.ActorInstance = Object.ActorInstance(PlayerTarget)
-		SetPickModes()
-		Result = LinePick(EntityX#(AI\CollisionEN), EntityY#(AI\CollisionEN), EntityZ#(AI\CollisionEN), 0.0, -5000.0, 0.0)
-		If Result <> 0
-			PositionEntity(ActorSelectEN, PickedX#(), PickedY#() + 0.2, PickedZ#())
-			AlignToVector(ActorSelectEN, PickedNX#(), PickedNY#(), PickedNZ#(), 2)
+		; Stale handle (target freed without PlayerTarget being cleared)
+		; would crash this every-frame LinePick. Clear the highlight and
+		; bail; the next interaction picks a fresh target.
+		If AI = Null
+			PlayerTarget = 0
+			HideEntity(ActorSelectEN)
+		Else
+			SetPickModes()
+			Result = LinePick(EntityX#(AI\CollisionEN), EntityY#(AI\CollisionEN), EntityZ#(AI\CollisionEN), 0.0, -5000.0, 0.0)
+			If Result <> 0
+				PositionEntity(ActorSelectEN, PickedX#(), PickedY#() + 0.2, PickedZ#())
+				AlignToVector(ActorSelectEN, PickedNX#(), PickedNY#(), PickedNZ#(), 2)
+			EndIf
 		EndIf
 	Else
 		HideEntity(ActorSelectEN)
@@ -1017,24 +1095,39 @@ Function UpdateInterface()
 			If MouseSlotSource = -1
 				; Spell
 				If ActionBarSlots(Slot) < 0
+					; Resolve to a Spell with bound checks at every hop
+					; (MemorisedSpells is Field[9]; KnownSpells is Field[999];
+					; SpellsList is Dim'd 65534). A stale ActionBarSlots
+					; reference (deleted spell, corrupt save) otherwise
+					; crashes on the Sp\RechargeTime deref.
+					Local SpId = -1
+					Num = 0
 					If RequireMemorise
 						Num = ActionBarSlots(Slot) + 10
-						RechargeTime = SpellsList(Me\KnownSpells[Me\MemorisedSpells[Num]])\RechargeTime
-						Pa$ = RCE_StrFromInt$(Me\KnownSpells[Me\MemorisedSpells[Num]], 2)
+						If Num >= 0 And Num <= 9
+							Local Mem = Me\MemorisedSpells[Num]
+							If Mem >= 0 And Mem <= 999 Then SpId = Me\KnownSpells[Mem]
+						EndIf
 					Else
 						Num = ActionBarSlots(Slot) + 1000
-						RechargeTime = SpellsList(Me\KnownSpells[Num])\RechargeTime
-						Pa$ = RCE_StrFromInt$(Me\KnownSpells[Num], 2)
+						If Num >= 0 And Num <= 999 Then SpId = Me\KnownSpells[Num]
 					EndIf
+					Local SpClick.Spell = Null
+					If SpId >= 0 And SpId <= 65534 Then SpClick = SpellsList(SpId)
+					If SpClick = Null
+						ActionBarSlots(Slot) = 0  ; stale -- clear + skip cast
+					Else
+					RechargeTime = SpClick\RechargeTime
+					Pa$ = RCE_StrFromInt$(SpId, 2)
 					; Recharged
-					If Me\SpellCharge[Num] <= 0
+					If SpellChargeReady(Me, SpId)
 						If PlayerTarget > 0
 							AI.ActorInstance = Object.ActorInstance(PlayerTarget)
-							Pa$ = Pa$ + RCE_StrFromInt$(AI\RuntimeID, 2)
+							If AI <> Null Then Pa$ = Pa$ + RCE_StrFromInt$(AI\RuntimeID, 2)
 						EndIf
 						RCE_Send(Connection, PeerToHost, P_SpellUpdate, "F" + Pa$, True)
-						Me\SpellCharge[Num] = RechargeTime
-						
+						SetSpellCharge(Me, SpId, RechargeTime)
+
 						;[654]
 						RechargeTime = RechargeTime - 1000
 						;Output ("RechargeTime = "+RechargeTime/1000)
@@ -1054,6 +1147,7 @@ Function UpdateInterface()
 			;		Else
 			;			Output(LanguageString$(LS_AbilityNotRecharged), 255, 50, 50)
 					EndIf
+					EndIf  ; SpClick = Null fall-through
 				; Item
 				ElseIf ActionBarSlots(Slot) < 65535
 					For i = 0 To Slots_Inventory
@@ -1129,24 +1223,41 @@ Function UpdateInterface()
 			EndIf
 			; Spell
 			If ActionBarSlots(Slot) < 0
+				; Same defensive resolve as the mouse-click branch above:
+				; bound-check every hop, fall back to clearing the slot
+				; if the referenced spell is stale.
+				Local SpId2 = -1
+				Num = 0
 				If RequireMemorise
 					Num = ActionBarSlots(Slot) + 10
-					RechargeTime = SpellsList(Me\KnownSpells[Me\MemorisedSpells[Num]])\RechargeTime
-					Pa$ = RCE_StrFromInt$(Me\KnownSpells[Me\MemorisedSpells[Num]], 2)
+					If Num >= 0 And Num <= 9
+						Local Mem2 = Me\MemorisedSpells[Num]
+						If Mem2 >= 0 And Mem2 <= 999 Then SpId2 = Me\KnownSpells[Mem2]
+					EndIf
 				Else
 					Num = ActionBarSlots(Slot) + 1000
-					RechargeTime = SpellsList(Me\KnownSpells[Num])\RechargeTime
-					Pa$ = RCE_StrFromInt$(Me\KnownSpells[Num], 2)
+					If Num >= 0 And Num <= 999 Then SpId2 = Me\KnownSpells[Num]
 				EndIf
+				Local SpKey.Spell = Null
+				If SpId2 >= 0 And SpId2 <= 65534 Then SpKey = SpellsList(SpId2)
+				If SpKey = Null
+					ActionBarSlots(Slot) = 0
+				Else
+				RechargeTime = SpKey\RechargeTime
+				Pa$ = RCE_StrFromInt$(SpId2, 2)
 				; Recharged
-				If Me\SpellCharge[Num] <= 0
+				If SpellChargeReady(Me, SpId2)
 					If PlayerTarget > 0
 						AI.ActorInstance = Object.ActorInstance(PlayerTarget)
-						Pa$ = Pa$ + RCE_StrFromInt$(AI\RuntimeID, 2)
+						; Stale target handle: send the cast untargeted
+						; rather than crash on AI\RuntimeID. Server's
+						; P_SpellUpdate "F" handler tolerates a missing
+						; target (Context = Null).
+						If AI <> Null Then Pa$ = Pa$ + RCE_StrFromInt$(AI\RuntimeID, 2)
 					EndIf
 					RCE_Send(Connection, PeerToHost, P_SpellUpdate, "F" + Pa$, True)
-					Me\SpellCharge[Num] = RechargeTime
-					
+					SetSpellCharge(Me, SpId2, RechargeTime)
+
 				;[654] fixing cooldown reset bug in action bar
 						RechargeTime = RechargeTime - 1000
 					;	Output ("RechargeTime = "+RechargeTime/1000)
@@ -1166,6 +1277,7 @@ Function UpdateInterface()
 			;	Else
 			;		Output(LanguageString$(LS_AbilityNotRecharged), 255, 50, 50)
 			;	EndIf
+				EndIf  ; SpKey = Null fall-through
 			; Item
 			ElseIf ActionBarSlots(Slot) < 65535
 				For i = 0 To Slots_Inventory
@@ -1222,17 +1334,15 @@ Function UpdateInterface()
 	; Update compass direction
 	UpdateCompass()
 
-	; Recharge spells
+	; Recharge spells -- cooldowns are keyed by spell ID (0..999), matching
+	; the server's GameServer.bb decrement. The old code split on
+	; RequireMemorise and walked the wrong index spaces (0..9 memorise slots
+	; / 0..999 KnownSpells indices), desyncing from SpellCharge's spell-ID
+	; contract; a single uniform 0..999 pass is correct for both modes.
 	If MilliSecs() - LastSpellRecharge > 100
-		If RequireMemorise
-			For i = 0 To 9
-				If Me\SpellCharge[i] > 0 Then Me\SpellCharge[i] = Me\SpellCharge[i] - 100
-			Next
-		Else
-			For i = 0 To 999
-				If Me\SpellCharge[i] > 0 Then Me\SpellCharge[i] = Me\SpellCharge[i] - 100
-			Next
-		EndIf
+		For i = 0 To 999
+			If Me\SpellCharge[i] > 0 Then Me\SpellCharge[i] = Me\SpellCharge[i] - 100
+		Next
 		LastSpellRecharge = MilliSecs()
 	EndIf
 
@@ -1410,15 +1520,29 @@ Function UpdateInterface()
 				; Left click to fire spell
 				ElseIf GY_ButtonHit(BSpellImgs(i))
 					Num = KnownSpellSort(FirstSpell + i) - 1
-					; Recharged
-					If Me\SpellCharge[Num] <= 0
-						Pa$ = RCE_StrFromInt$(Me\KnownSpells[Num], 2)
+					; KnownSpells is Field[999]; bail if KnownSpellSort gave
+					; us an OOB Num (corrupt sort table or 0-known-spells).
+					If Num < 0 Or Num > 999
+						; nothing to cast
+					ElseIf SpellChargeReady(Me, Me\KnownSpells[Num])
+						; Spell may have been deleted between sessions while
+						; still in KnownSpells; SpellsList(...) returns Null
+						; and the bare \RechargeTime deref crashes. Resolve
+						; safely + skip cast if Null.
+						Local SIDBk = Me\KnownSpells[Num]
+						Local SpBk.Spell = Null
+						If SIDBk >= 0 And SIDBk <= 65534 Then SpBk = SpellsList(SIDBk)
+						If SpBk <> Null
+						Pa$ = RCE_StrFromInt$(SIDBk, 2)
 						If PlayerTarget > 0
 							AI.ActorInstance = Object.ActorInstance(PlayerTarget)
-							Pa$ = Pa$ + RCE_StrFromInt$(AI\RuntimeID, 2)
+							; Mirror the action-bar cast path: stale target
+							; handle means cast untargeted, not crash.
+							If AI <> Null Then Pa$ = Pa$ + RCE_StrFromInt$(AI\RuntimeID, 2)
 						EndIf
 						RCE_Send(Connection, PeerToHost, P_SpellUpdate, "F" + Pa$, True)
-						Me\SpellCharge[Num] = SpellsList(Me\KnownSpells[Num])\RechargeTime
+						SetSpellCharge(Me, SIDBk, SpBk\RechargeTime)
+						EndIf  ; SpBk <> Null
 					; Not recharged
 					Else
 						Output(LanguageString$(LS_AbilityNotRecharged), 255, 50, 50)
@@ -1461,12 +1585,18 @@ Function UpdateInterface()
 		EndIf
 	Next
 	; Update text input dialogs
-	For TI.TextInput = Each TextInput
+	; After-cursor walk: FreeTextInput Deletes TI. Documented in
+	; CLAUDE.md (#247).
+	Local TI.TextInput = First TextInput
+	Local TINext.TextInput = Null
+	While TI <> Null
+		TINext = After TI
 		If GY_TextFieldHit(TI\TextBox) Or GY_ButtonHit(TI\AcceptButton) And Len(GY_TextFieldText$(TI\TextBox)) > 0
 			RCE_Send(Connection, PeerToHost, P_ScriptInput, RCE_StrFromInt$(TI\ScriptHandle, 4) + GY_TextFieldText$(TI\TextBox), True)
 			FreeTextInput(Handle(TI))
 		EndIf
-	Next
+		TI = TINext
+	Wend
 	If First Dialog = Null And First TextInput = Null And MouseDown(2) = False Then InDialog = False : FlushMouse()
 
 	;- Update chat bubbles
@@ -2865,11 +2995,17 @@ EndIf
 	EndIf
 	;***********************************************************************************************
 
-	; Attribute displays
+	; Attribute displays. Guard divide-by-zero on Me\Attributes\Maximum
+	; -- this loop runs every frame; a single attribute with Maximum=0
+	; (mid-session stat reload, corrupted save, or a script that wrote 0)
+	; otherwise crashes the client on the next HUD update tick.
 	For i = 0 To 39
 		If AttributeDisplays(i)\Component <> 0
-			GY_UpdateProgressBar(AttributeDisplays(i)\Component, (Float#(Me\Attributes\Value[i]) / Float#(Me\Attributes\Maximum[i])) * 100.0)
-			GY_UpdateLabel(AttributeDisplayNumbers(i), Str$(Me\Attributes\Value[i]) + " / " + Str$(Me\Attributes\Maximum[i]))	
+			Local AttrMax = Me\Attributes\Maximum[i]
+			Local AttrBar# = 0.0
+			If AttrMax > 0 Then AttrBar# = (Float#(Me\Attributes\Value[i]) / Float#(AttrMax)) * 100.0
+			GY_UpdateProgressBar(AttributeDisplays(i)\Component, AttrBar#)
+			GY_UpdateLabel(AttributeDisplayNumbers(i), Str$(Me\Attributes\Value[i]) + " / " + Str$(Me\Attributes\Maximum[i]))
 		EndIf
 	Next
 
@@ -3101,9 +3237,19 @@ Function CreateCharInteractionWindow(AI.ActorInstance)
 		WCharInteract = GY_CreateWindow(Name$, 0.60, 0.03, 0.27, 0.15, True, True, False, LoadTexture("Data\Textures\GUI\PartyBG.png"))
 	EndIf
 	GY_CreateLabel(WCharInteract, 0.05, 0.1, AttributeNames$(HealthStat) + ":")
-	HealthVal = (Float#(AI\Attributes\Value[HealthStat]) / Float#(AI\Attributes\Maximum[HealthStat])) * 500.0
+	; Same divide-by-zero + faction-OOB guards as UpdateCharInteractionWindow
+	; (PR #179) -- the create path computes the initial values from the
+	; same fields and crashes on the same shape of bad input.
+	Local CharCreateHealthMax = AI\Attributes\Maximum[HealthStat]
+	If CharCreateHealthMax > 0
+		HealthVal = (Float#(AI\Attributes\Value[HealthStat]) / Float#(CharCreateHealthMax)) * 500.0
+	Else
+		HealthVal = 500.0
+	EndIf
 	SCharInteractHealth = GY_CreateProgressBar(WCharInteract, 0.3, 0.1, 0.6, 0.18, HealthVal, 500, 255, 0, 0)
-	LCharInteractFaction = GY_CreateLabel(WCharInteract, 0.05, 0.35, LanguageString$(LS_Faction) + " " + FactionNames$(AI\HomeFaction))
+	Local CharCreateFactionIdx = AI\HomeFaction
+	If CharCreateFactionIdx < 0 Or CharCreateFactionIdx > 99 Then CharCreateFactionIdx = 0
+	LCharInteractFaction = GY_CreateLabel(WCharInteract, 0.05, 0.35, LanguageString$(LS_Faction) + " " + FactionNames$(CharCreateFactionIdx))
 	LCharInteractLevel = GY_CreateLabel(WCharInteract, 0.05, 0.55, LanguageString$(LS_Level) + " " + AI\Level)
 	LCharInteractReputation = GY_CreateLabel(WCharInteract, 0.05, 0.75, LanguageString$(LS_Reputation) + " " + AI\Reputation)
 
@@ -3117,11 +3263,25 @@ End Function
 
 Function UpdateCharInteractionWindow()
 	If CharInteract = Null Then Return
-	
+
 	Local AI.ActorInstance = CharInteract
-	HealthVal = (Float#(AI\Attributes\Value[HealthStat]) / Float#(AI\Attributes\Maximum[HealthStat])) * 500.0
+	; Guard divide-by-zero. An actor with HealthStat\Maximum = 0
+	; (misconfigured template, ghost / immortal NPC, or a target whose
+	; Maximum got zeroed mid-session) would otherwise crash the client
+	; the moment its info window updates -- this runs every frame the
+	; window is open. Fall back to a full bar so the UI stays usable.
+	Local HealthMax = AI\Attributes\Maximum[HealthStat]
+	If HealthMax > 0
+		HealthVal = (Float#(AI\Attributes\Value[HealthStat]) / Float#(HealthMax)) * 500.0
+	Else
+		HealthVal = 500.0
+	EndIf
 	GY_UpdateProgressBar( SCharInteractHealth, HealthVal )
-	GY_UpdateLabel( LCharInteractFaction, LanguageString$(LS_Faction) + " " + FactionNames$(AI\HomeFaction) )
+	; HomeFaction is Dim'd 0..99; bound the array read so a misconfigured
+	; HomeFaction value can't read past the end into adjacent memory.
+	Local FactionIdx = AI\HomeFaction
+	If FactionIdx < 0 Or FactionIdx > 99 Then FactionIdx = 0
+	GY_UpdateLabel( LCharInteractFaction, LanguageString$(LS_Faction) + " " + FactionNames$(FactionIdx) )
 	GY_UpdateLabel( LCharInteractLevel, LanguageString$(LS_Level) + " " + AI\Level )
 	GY_UpdateLabel( LCharInteractReputation, LanguageString$(LS_Reputation) + " " + AI\Reputation )
 
@@ -3912,22 +4072,53 @@ Function UpdateActionBarIcons()
    EndIf
    
    For i = 0 To 11
+      Sp.Spell = Null
+      It.Item = Null
       ; Spell
-      If ActionBarSlots(i + Offset) < 0 And ActionBarSlots(i + Offset) <> 0   
+      If ActionBarSlots(i + Offset) < 0 And ActionBarSlots(i + Offset) <> 0
          If RequireMemorise
             Num = ActionBarSlots(i + Offset) + 10
-            Sp.Spell = SpellsList(Me\KnownSpells[Me\MemorisedSpells[Num]])
+            ; MemorisedSpells is Field[9] (sentinel 5000); KnownSpells
+            ; is Field[999]; SpellsList is Dim'd 65534. Bound + Null-
+            ; guard at every hop -- a stale ActionBarSlots reference
+            ; (deleted spell, corrupt save) would otherwise crash on
+            ; Sp\ThumbnailTexID below.
+            If Num >= 0 And Num <= 9
+               Local Mem = Me\MemorisedSpells[Num]
+               If Mem >= 0 And Mem <= 999
+                  Local SID = Me\KnownSpells[Mem]
+                  If SID >= 0 And SID <= 65534 Then Sp = SpellsList(SID)
+               EndIf
+            EndIf
          Else
             Num = ActionBarSlots(i + Offset) + 1000
-            Sp.Spell = SpellsList(Me\KnownSpells[Num])
+            If Num >= 0 And Num <= 999
+               Local SID2 = Me\KnownSpells[Num]
+               If SID2 >= 0 And SID2 <= 65534 Then Sp = SpellsList(SID2)
+            EndIf
          EndIf
          GYG.GY_Gadget = Object.GY_Gadget(BActionBar(i))
-         EntityTexture(GYG\EN, GetTexture(Sp\ThumbnailTexID))
+         If Sp <> Null
+            EntityTexture(GYG\EN, GetTexture(Sp\ThumbnailTexID))
+         Else
+            ; Stale slot -- clear it and show the default button face.
+            ActionBarSlots(i + Offset) = 0
+            GYB.GY_Button = Object.GY_Button(GYG\TypeHandle)
+            EntityTexture GYG\EN, GYB\UserTexture
+         EndIf
       ; Item
-      ElseIf ActionBarSlots(i + Offset) < 65535 And ActionBarSlots(i + Offset) <> 0   
-         It.Item = ItemList(ActionBarSlots(i + Offset))
+      ElseIf ActionBarSlots(i + Offset) < 65535 And ActionBarSlots(i + Offset) <> 0
+         Local IID = ActionBarSlots(i + Offset)
+         If IID >= 0 And IID < 65535 Then It = ItemList(IID)
          GYG.GY_Gadget = Object.GY_Gadget(BActionBar(i))
-         EntityTexture GYG\EN, GetTexture(It\ThumbnailTexID)
+         If It <> Null
+            EntityTexture GYG\EN, GetTexture(It\ThumbnailTexID)
+         Else
+            ; Stale slot -- clear and show the default button face.
+            ActionBarSlots(i + Offset) = 0
+            GYB.GY_Button = Object.GY_Button(GYG\TypeHandle)
+            EntityTexture GYG\EN, GYB\UserTexture
+         EndIf
       Else
          GYG.GY_Gadget = Object.GY_Gadget(BActionBar(i))
          GYB.GY_Button = Object.GY_Button(GYG\TypeHandle)
@@ -4017,7 +4208,10 @@ Function UseItem(SlotIndex, Amount)
 				Pa$ = RCE_StrFromInt$(SlotIndex, 1)
 				If PlayerTarget > 0
 					AI.ActorInstance = Object.ActorInstance(PlayerTarget)
-					Pa$ = Pa$ + RCE_StrFromInt$(AI\RuntimeID, 2)
+					; Stale target handle: send the script untargeted
+					; rather than crash on AI\RuntimeID. The server's
+					; P_ItemScript handler tolerates A2 = Null.
+					If AI <> Null Then Pa$ = Pa$ + RCE_StrFromInt$(AI\RuntimeID, 2)
 				EndIf
 				RCE_Send(Connection, PeerToHost, P_ItemScript, Pa$, True)
 ;-------------------------------------------------------------------------------------------------
@@ -4106,11 +4300,17 @@ Function FreeInterface()
 	FreeEntity(Compass\Component); = GY_CreateQuad(GY_Cam)	;entity
 	FreeEntity(CompassBackground); = GY_CreateQuad(GY_Cam)	;entity
 
-	; Actor effect icons
-	For EIS.EffectIconSlot = Each EffectIconslot
+	; Actor effect icons.
+	; After-cursor walk: the body Deletes EIS. Documented in
+	; CLAUDE.md (#247).
+	Local EIS.EffectIconSlot = First EffectIconslot
+	Local EISNext.EffectIconSlot = Null
+	While EIS <> Null
+		EISNext = After EIS
 		FreeEntity(EIS\EN)
 		Delete EIS
-	Next
+		EIS = EISNext
+	Wend
 
 	; Action bar
 	FreeEntity(ActionEN); = GY_CreateQuad(GY_Cam)	;entity

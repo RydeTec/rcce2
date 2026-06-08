@@ -128,6 +128,11 @@ Include "modules\weld.bb"
 Include "modules\VertexLight_cave.bb"
 Include "modules\smoothuv.bb"
 Include "modules\Media.bb"
+; Logging.bb provides SafeWriteOpen / SafeWriteCommit used by Media.bb's
+; CreateDatabase. Non-Strict tools tolerate the missing MainLog/LogMode
+; globals via implicit-zero semantics (WriteLog's `If LogHandle <> 0`
+; and `If LogMode > 0` short-circuit when the implicit globals are 0).
+Include "Modules\Logging.bb"
 Include "modules\B3dFILE.bb"
 Include "modules\Scene_Export.bb"
 
@@ -2146,7 +2151,7 @@ For e.Event = Each event
        oldpath$=CurrentDir()
        rd$=""
 
-  	   tFile = FUI_SaveDialog( "Load saved geometry", "Data\RCCAVES\", "Blitz basic format (*.b3d)|*.b3d")
+  	   tFile = FUI_SaveDialog( "Save Cave", "Data\RCCAVES\", "Blitz basic format (*.b3d)|*.b3d")
        If tfile=True Then rd$ = app\currentfile
        rd$=strip_path$(rd$) 
        ChangeDir oldpath$ 
@@ -2157,13 +2162,18 @@ For e.Event = Each event
                Return  
                EndIf
        If Right$(rd$,4)<> ".b3d" Then rd$=rd$+".b3d"
-       If FileType(CurrentDir()+"Data\RCCAVES\"+rd$)=1 Then 
+       If FileType(CurrentDir()+"Data\RCCAVES\"+rd$)=1 Then
             FCheck=Fui_Confirm("Overwrite File?","Yes","No")
-            If Fcheck=1 Then  SAVEWORK(rd$) 
+            If Fcheck=1 Then  SAVEWORK(rd$)
     	    ChangeDir thispath$
         Else
-		  SAVEWORK(rd$) 
-       EndIf         
+		  SAVEWORK(rd$)
+		  ; Mirror the file-existed branch above so the new-file path also
+		  ; ends back at the app working directory. SAVEWORK can chdir into
+		  ; Data\RCCAVES; without this restore the next file op uses that as
+		  ; the relative root and silently mis-resolves.
+		  ChangeDir thispath$
+       EndIf
        EndIf
 ;-----------------
        Case GUI_MENUFILE_OPEN
@@ -2651,15 +2661,31 @@ ChangeDir thispath$
 THISFOLD$=strip_path$(SF$)
 ;mysave=cave_copymesh(cube,1)
 savemultimesh (cube,"Data\RCCAVES\"+thisfold$,"Data\RCCAVES\",7)
-FreeEntity mysave
+; (mysave was set by a now-removed cave_copymesh path; the FreeEntity that
+; used to live here read an undefined local and was a no-op anyway.)
 lightf$=Left$(thisfold$,Len(thisfold$)-3)
 lightf$=lightf$+"LGT"
 ChangeDir thispath$
-sfl=WriteFile("Data\RCCAVES\"+lightf$)
+; Atomic save of the .LGT light file: write to .tmp, promote on success, so a
+; crash/partial write can't truncate the user's existing light data.
+; (CLAUDE.md atomic writes; matches the .tmp-protected path at ~:2932 here.)
+; No ChangeDir occurs between here and the commit, so the relative temp/final
+; paths resolve consistently from thispath$.
+Local CaveLightPath$ = "Data\RCCAVES\"+lightf$
+Local TmpPath$ = SafeWriteOpen$(CaveLightPath$)
+sfl=WriteFile(TmpPath$)
 
  
  
+; Count lights as written. Zero lights is a legitimate state, but the .LGT
+; save writes nothing outside this loop, so zero lights => a 0-byte temp that
+; SafeWriteCommit refuses to promote -- which would leave the stale old .LGT
+; and resurrect deleted lights on reload. Track the count and, when empty,
+; clear the .LGT directly at the commit site below. (The loader at ~:2750
+; treats a missing .LGT as "no lights".)
+Local lightCount = 0
 For dm.dropmodel=Each DropModel
+   lightCount = lightCount + 1
 
    WriteInt sfl,dm\islight
    WriteInt sfl,dm\meshid
@@ -2684,7 +2710,17 @@ For dm.dropmodel=Each DropModel
 
 Next
 
-CloseFile sfl
+If lightCount = 0
+	; No lights to save. SafeWriteCommit refuses a 0-byte temp (its
+	; write-failure guard), which would keep the previous .LGT and bring
+	; deleted lights back on reload. Persist the cleared state by removing
+	; the .LGT directly -- the loader treats a missing .LGT as "no lights".
+	CloseFile sfl
+	SafeWriteAbort(TmpPath$)
+	If FileType(CaveLightPath$) = 1 Then DeleteFile(CaveLightPath$)
+Else
+	SafeWriteCommit%(TmpPath$, CaveLightPath$, sfl)
+EndIf
 
 ChangeDir thispath$
 fui_notify("Cave Saved.")
@@ -2698,8 +2734,16 @@ YN=fui_confirm("Load Cave ?","Yes","No")
 If yn=0 Then Return
 
 If FileType ("Data\RCCAVES\"+thisfold$)<>1 Then Return
+; Load the replacement BEFORE freeing the current cube. If LoadMesh fails
+; (e.g. file present but corrupt) we keep the prior geometry instead of
+; leaving the editor with a null cube that every later op dereferences.
+newcube=LoadMesh("Data\RCCAVES\"+thisfold$)
+If newcube=0 Then
+	FUI_Notify("Failed to load cave geometry.")
+	Return
+EndIf
 FreeEntity cube
-cube=LoadMesh("Data\RCCAVES\"+thisfold$)
+cube=newcube
 UpdateNormals (cube)
 
 ;cube_old=CopyMesh(cube)
@@ -2907,12 +2951,24 @@ If FileType(fname$)<>1 Then Return -1
  EndIf
 
 ;wite to file
-; Newf=WriteFile(newn$)
-DeleteFile (fname$)
- Fsave=WriteFile(fname$)
- b=PeekByte(thisbank,i)
- WriteBytes thisbank,fsave,0,offset
- CloseFile fsave
+; Write to .tmp first so a failed WriteFile can't wipe the source.
+TmpPath$ = fname$ + ".tmp"
+If FileType(TmpPath$) = 1 Then DeleteFile(TmpPath$)
+Fsave = WriteFile(TmpPath$)
+If Fsave = 0
+	FreeBank thisbank
+	Return -1
+EndIf
+WriteBytes thisbank, fsave, 0, offset
+CloseFile fsave
+If FileSize(TmpPath$) <> offset
+	DeleteFile(TmpPath$)
+	FreeBank thisbank
+	Return -1
+EndIf
+DeleteFile(fname$)
+CopyFile TmpPath$, fname$
+DeleteFile(TmpPath$)
 
 ; WriteBytes thisbank,newf,0,ts
 ; CloseFile newf

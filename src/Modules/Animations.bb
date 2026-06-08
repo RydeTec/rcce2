@@ -45,6 +45,16 @@ Function PlayAnimation(AI.ActorInstance, Mode, Speed#, Seq, FixedSpeed = True)
 	Else
 		A.AnimSet = AnimList(AI\Actor\FAnimationSet)
 	EndIf
+	; AnimList is sparse: a slot is Null when the referenced animation
+	; set was deleted from Animations.dat (typical content-editing drift
+	; -- admin deletes an animset while existing actors still reference
+	; it). The unguarded deref below was an every-frame crash since
+	; PlayAnimation is called from the actor render / movement code.
+	If A = Null Then Return
+	; Bound Seq against the animation arrays (declared [149]). Defensive
+	; even though callers use the Anim_* constants -- one bad caller or
+	; an Asc()-derived index from the wire shouldn't crash.
+	If Seq < 0 Or Seq > 149 Then Return
 	If A\AnimEnd[Seq] = 0 Or A\AnimStart[Seq] > A\AnimEnd[Seq] Then Return
 	If FixedSpeed = True
 		Length# = A\AnimEnd[Seq] - A\AnimStart[Seq]
@@ -115,10 +125,20 @@ Function LoadAnimSets(Filename$)
 		While Not Eof(F)
 			A.AnimSet = New AnimSet
 			A\ID = ReadShort(F)
+			; AnimList is Dim'd 0..999. ReadShort is signed, so a malformed
+			; AnimSets.dat (or a mod with ID >= 1000) would write past the
+			; array via Blitz's unchecked Dim write. Reject + stop loading.
+			If A\ID < 0 Or A\ID > 999
+				Delete A
+				Exit
+			EndIf
 			AnimList(A\ID) = A
-			A\Name$ = ReadString$(F)
+			; Bound length-prefixed strings against corrupted AnimSets.dat.
+			; Set names and per-animation names are short editor labels;
+			; 256 leaves comfortable headroom.
+			A\Name$ = ReadBoundedString$(F, 256)
 			For i = 0 To 149
-				A\AnimName$[i] = ReadString$(F)
+				A\AnimName$[i] = ReadBoundedString$(F, 256)
 				A\AnimStart[i] = ReadShort(F)
 				A\AnimEnd[i] = ReadShort(F)
 				A\AnimSpeed#[i] = ReadFloat#(F)
@@ -131,10 +151,48 @@ Function LoadAnimSets(Filename$)
 
 End Function
 
-; Saves all animation sets
+; Delete an AnimSet template. Used by Loom's entity-delete path. Walks
+; AnimList for the matching slot and clears it; Strict callers can't write
+; the Dim'd AnimList directly per the Dim-inside-Method trap.
+Function DeleteAnimSetTemplate(ID)
+	If ID < 0 Or ID > 999 Then Return False
+	A.AnimSet = AnimList(ID)
+	If A = Null Then Return False
+	AnimList(ID) = Null
+	Delete A
+	Return True
+End Function
+
+; Duplicate an AnimSet template. Allocate via CreateAnimSet (which
+; returns -1 if AnimList is full), copy name + every clip slot.
+; Returns the new ID or -1.
+Function DuplicateAnimSetTemplate(srcID)
+	If srcID < 0 Or srcID > 999 Then Return -1
+	Src.AnimSet = AnimList(srcID)
+	If Src = Null Then Return -1
+
+	Local newID = CreateAnimSet()
+	If newID = -1 Then Return -1
+
+	Dst.AnimSet = AnimList(newID)
+	If Dst = Null Then Return -1
+
+	Dst\Name$ = Src\Name$ + " (copy)"
+	For i = 0 To 149
+		Dst\AnimName$[i] = Src\AnimName$[i]
+		Dst\AnimStart[i] = Src\AnimStart[i]
+		Dst\AnimEnd[i]   = Src\AnimEnd[i]
+		Dst\AnimSpeed#[i] = Src\AnimSpeed#[i]
+	Next
+
+	Return newID
+End Function
+
+; Saves all animation sets via SafeWriteOpen/Commit (atomic).
 Function SaveAnimSets(Filename$)
 
-	F = WriteFile(Filename$)
+	Local Temp$ = SafeWriteOpen$(Filename$)
+	F = WriteFile(Temp$)
 	If F = 0 Then Return False
 
 		For A.AnimSet = Each AnimSet
@@ -148,10 +206,12 @@ Function SaveAnimSets(Filename$)
 			Next
 		Next
 
-	CloseFile(F)
+	If Not SafeWriteCommit%(Temp$, Filename$, F) Then Return False
+
 	;Allows for animation sets to be recovered or something... cysis145
+	; The debug dump is not load-critical; direct write is fine.
 	G = WriteFile("Data\Game Data\Animations_debug.txt")
-	If G = 0 Then Return False  
+	If G = 0 Then Return True
 	For A.AnimSet = Each AnimSet
 		WriteLine(G, "Anim ID: " + A\ID)
 		WriteLine(G, "Anim Set: " + A\Name$)
@@ -163,7 +223,6 @@ Function SaveAnimSets(Filename$)
 	Next
 	CloseFile(G)
 
-	
 	Return True
 
 End Function

@@ -414,11 +414,15 @@ Function InitPostprocess% ()
 		If InitPostprocess_ (BackBuffer(), TextureBuffer(FE_PostprocessTexture1), TextureBuffer(FE_PostprocessTexture2), TextureBuffer(FE_PostprocessTexture3), TextureBuffer(FE_PostprocessTexture4), TextureBuffer(FE_PostprocessTexture5))<>0 Then
 			FE_InitPostprocessFlag = 1
 		Else
-			If FE_PostprocessTexture1<>0 Then FreeTexture FE_PostprocessTexture1
-			If FE_PostprocessTexture2<>0 Then FreeTexture FE_PostprocessTexture2
-			If FE_PostprocessTexture3<>0 Then FreeTexture FE_PostprocessTexture3
-			If FE_PostprocessTexture4<>0 Then FreeTexture FE_PostprocessTexture4
-			If FE_PostprocessTexture5<>0 Then FreeTexture FE_PostprocessTexture5
+			; Clear the texture handles after FreeTexture so a retry call to
+			; InitPostprocess doesn't try to free the same (already-freed)
+			; IDs and DeInitPostprocess doesn't double-free stale handles
+			; that have since been reassigned.
+			If FE_PostprocessTexture1<>0 Then FreeTexture FE_PostprocessTexture1 : FE_PostprocessTexture1 = 0
+			If FE_PostprocessTexture2<>0 Then FreeTexture FE_PostprocessTexture2 : FE_PostprocessTexture2 = 0
+			If FE_PostprocessTexture3<>0 Then FreeTexture FE_PostprocessTexture3 : FE_PostprocessTexture3 = 0
+			If FE_PostprocessTexture4<>0 Then FreeTexture FE_PostprocessTexture4 : FE_PostprocessTexture4 = 0
+			If FE_PostprocessTexture5<>0 Then FreeTexture FE_PostprocessTexture5 : FE_PostprocessTexture5 = 0
 		EndIf
 		SetBuffer CurrentBuffer
 	EndIf

@@ -1513,7 +1513,23 @@ If sfilename3$<>""
 FN$=sFileName3$+".rct"
 ChangeDir thispath$+savepath$
 
-sfile=WriteFile (SF$)
+; Write to the .rct-suffixed FN$ we just computed, not the raw dialog
+; result SF$. Otherwise saving "foo" produces a file literally named
+; "foo" with no extension while the debug log claims the .rct path.
+;
+; Atomic save via SafeWriteOpen / SafeWriteCommit: write the full
+; .rct contents to a sibling .tmp, then atomic-promote on success.
+; A crash mid-write previously left users with a half-written terrain
+; file (the editor's primary work product) and no recovery. Now the
+; previous version is preserved as .bak and any failure leaves the
+; original intact.
+Local SaveWorkTempPath$ = SafeWriteOpen$(FN$)
+sfile=WriteFile (SaveWorkTempPath$)
+If sfile = 0 Then
+	DebugLog "savework: WriteFile failed for " + SaveWorkTempPath$
+	ChangeDir thispath$
+	Return
+EndIf
 DebugLog "FINAL RCT SAVE !!!!!!!!!!!!!!!!!!!!! "+FN$
 DebugLog "Number of layers: " + numlayers + " and number of segments: " + lsegments
  WriteInt sfile, numlayers
@@ -1586,7 +1602,15 @@ Next
 
 
 
-CloseFile sfile
+; SafeWriteCommit closes sfile, refuses empty temps, demotes prior
+; production to .bak, and promotes the temp atomically.
+If SafeWriteCommit%(SaveWorkTempPath$, FN$, sfile) = False
+	DebugLog "savework: commit failed for " + FN$ + " -- previous version retained (see .bak)"
+	ChangeDir thispath$
+	system_messagetimer#=MilliSecs()+2000
+	system_message$="Work NOT Saved (commit failed)."
+	Return
+EndIf
 
 system_messagetimer#=MilliSecs()+1000
 system_message$="Work Saved."
@@ -2151,7 +2175,17 @@ Delete Each opvert
 		optimizedLayer(i) = optimizelayer(i)
 	Next
 
-	file=WriteFile( f_name$ )
+	; Atomic mesh export via SafeWriteOpen/SafeWriteCommit. Previous
+	; direct WriteFile left users with a partial .b3d on any failure
+	; mid chunk-walk -- the b3d format is structurally interpreted, so
+	; a truncated chunk header reads as zero size and downstream
+	; importers either crash or silently produce an empty mesh.
+	Local Bb3dTempPath$ = SafeWriteOpen$(f_name$)
+	file=WriteFile( Bb3dTempPath$ )
+	If file = 0
+		DebugLog "WriteBB3D: WriteFile failed for " + Bb3dTempPath$
+		Return
+	EndIf
 
 	b3dSetFile( file )
 	
@@ -2260,8 +2294,12 @@ Next
 ;
 
 	b3dEndChunk()	;end of BB3D chunk
-	
-	CloseFile file
+
+	; SafeWriteCommit closes `file`, refuses empty temps, demotes any
+	; prior export to .bak, and atomic-promotes the temp.
+	If SafeWriteCommit%(Bb3dTempPath$, f_name$, file) = False
+		DebugLog "WriteBB3D: commit failed for " + f_name$ + " -- previous version retained (see .bak)"
+	EndIf
 End Function
 
 Function WriteMESH(omesh,mi)
@@ -2578,7 +2616,7 @@ vrty# = (VertexY(S,aaa) + VertexY(S,aaa1) + VertexY(S,aaa2) + VertexY(S,aaa3)) *
 If H1 > H2 Or MinSlope > MaxSlope Then Goto skip_continue
 
 ;Slopeval#=dp#;Abs(VertexNZ(S,AAA)*1.1)
-If slopeval#=<0 Then slopeval=0.1
+If slopeval#=<0 Then slopeval#=0.1
  If vrty#=>h1# And vrty#=<h2# Then 
  If minslope#<=slopeval# And maxslope#>=slopeval# Then
   bringup 1,0,ax,az
@@ -4308,14 +4346,23 @@ For e.Event = Each event
 Select e\EventID
 Case GUI_MENUFILE_Exit
 yn=Fui_confirm("Quit program","Yes","No")
-If yn=1 Then 
+If yn=1 Then
 ChangeDir thispath$
-f=WriteFile("DATA\RCTE\Settings.dat")
-WriteInt (f,BillBoardMode)
-CloseFile(f)
+; Atomic Settings.dat write on Quit. A WriteFile failure here used
+; to leave an empty settings file (next launch's load would silently
+; reset BillBoardMode). SafeWriteCommit refuses to promote an empty
+; temp and demotes the prior settings to .bak.
+Local SettingsTempPath$ = SafeWriteOpen$("DATA\RCTE\Settings.dat")
+f=WriteFile(SettingsTempPath$)
+If f <> 0
+	WriteInt (f,BillBoardMode)
+	If SafeWriteCommit%(SettingsTempPath$, "DATA\RCTE\Settings.dat", f) = False
+		DebugLog "RCTE Quit: Settings.dat commit failed -- previous settings retained (see .bak)"
+	EndIf
+EndIf
 ClearWorld(True,True)
 EndGraphics()
-End 
+End
 EndIf
 ;-------
 Case GUI_MENUFILE_SaveHmap
@@ -5074,12 +5121,22 @@ EndIf
 End Function
 
 Function savemodelbrush(mfilename$)
-f=WriteFile(mfilename$)
+; Atomic save of the model-brush palette. A crash mid-write used to
+; corrupt the palette file; the next LoadModelBrush would read a
+; truncated record list and either crash on ReadString$ off EOF or
+; silently lose brushes. SafeWriteCommit demotes the previous palette
+; to .bak for one-cycle recovery.
+Local MbTempPath$ = SafeWriteOpen$(mfilename$)
+f=WriteFile(MbTempPath$)
+If f = 0
+	DebugLog "savemodelbrush: WriteFile failed for " + MbTempPath$
+	Return
+EndIf
  WriteInt f,Int(FUI_SendMessage(GUI_MBWIN_SCALE,M_GETVALUE))
  WriteInt f,Int(FUI_SendMessage(GUI_MBWIN_SCALEV,M_GETVALUE))
  thiscount=0
  For mbr.modelbrush=Each ModelBrush
-   thiscount=thiscount+1 
+   thiscount=thiscount+1
    Next
    WriteInt f,thiscount
  For mbr.modelbrush=Each ModelBrush
@@ -5090,7 +5147,9 @@ f=WriteFile(mfilename$)
    WriteFloat f,mbr\sy#
    WriteFloat f,mbr\sz#
    Next
-CloseFile F
+If SafeWriteCommit%(MbTempPath$, mfilename$, f) = False
+	DebugLog "savemodelbrush: commit failed for " + mfilename$ + " -- previous palette retained (see .bak)"
+EndIf
 End Function
 
 Function LoadModelBrush(mfilename$)
@@ -5437,11 +5496,35 @@ If FileType(fname$)<>1 Then Return -1
 
 ;wite to file
 ; Newf=WriteFile(newn$)
-DeleteFile (fname$)
- Fsave=WriteFile(fname$)
- b=PeekByte(thisbank,i)
- WriteBytes thisbank,fsave,0,offset
- CloseFile fsave
+; Atomic mesh write via SafeWriteOpen/SafeWriteCommit. The previous
+; inline temp+swap (manual .tmp, CopyFile, DeleteFile) lacked the
+; SafeWriteCommit guarantees: it didn't retain a .bak, didn't refuse
+; empty temps explicitly, and didn't roll back from .bak if the
+; promote half-completed. Consolidating to the canonical helper picks
+; all three up for free and keeps this site consistent with the rest
+; of the SafeWrite migration sweep.
+Local PadOptTempPath$ = SafeWriteOpen$(fname$)
+Fsave=WriteFile(PadOptTempPath$)
+If Fsave = 0 Then
+	FreeBank thisbank
+	Return -1
+EndIf
+WriteBytes thisbank,fsave,0,offset
+; Pre-promote size sanity: SafeWriteCommit already refuses empty
+; temps, but we explicitly want to catch a partial WriteBytes too
+; (offset mismatch indicates the WriteBytes didn't land what we
+; intended). Close + verify before handing off to SafeWriteCommit.
+CloseFile fsave
+If FileSize(PadOptTempPath$) <> offset Then
+	SafeWriteAbort(PadOptTempPath$)
+	FreeBank thisbank
+	Return -1
+EndIf
+If SafeWriteCommit%(PadOptTempPath$, fname$, 0) = False
+	DebugLog "pad_or_optimize: commit failed for " + fname$ + " -- previous version retained (see .bak)"
+	FreeBank thisbank
+	Return -1
+EndIf
 
 ; WriteBytes thisbank,newf,0,ts
 ; CloseFile newf

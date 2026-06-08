@@ -14,6 +14,8 @@ This module contains the following types:
 
 This module contains the following functions:  
 
+*   [FindAccountByListID](#FFindAccountByListID)
+*   [FormatAccountListEntry](#FFormatAccountListEntry)
 *   [SetLoginStatus](#FSetLoginStatus)
 *   [SetAccountDMStatus](#FSetAccountDMStatus)
 *   [SetAccountBanStatus](#FSetAccountBanStatus)
@@ -63,6 +65,40 @@ This type represents a player character's current action bar settings. It contai
   
   
 
+**FindAccountByListID.Account(ListID)**  
+  
+Return value: The matching [Account](#TAccount) object, or Null if no account has the supplied ListID.  
+  
+Parameters:  
+
+*   _ListID_ - The list-box index of the desired account, as returned by `SelectedGadgetItem(Accounts\List)`
+
+  
+This function looks up the [Account](#TAccount) currently displayed at the given row of the server's Accounts list box. It is used by the GM, ban, and delete buttons on the Accounts window to resolve the selected row to the underlying account. It returns Null for any negative ListID and for any positive ListID that does not match an existing account, so callers can safely guard against an empty selection.
+
+  
+  
+  
+
+**FormatAccountListEntry$(IsDM, IsBanned, LoggedOn, User$, Email$)**  
+  
+Return value: The display string used by the server's Accounts list box for the given account state.  
+  
+Parameters:  
+
+*   _IsDM_ - True/False flag for whether the account is flagged as GM
+*   _IsBanned_ - True/False flag for whether the account is banned
+*   _LoggedOn_ - The account's login status: -1 for logged out, or a character ID (0-9) when a character is logged in
+*   _User$_ - The account's username
+*   _Email$_ - The account's email address
+
+  
+This is a pure helper function used by [SetLoginStatus](#FSetLoginStatus) and [LoadAccounts](#FLoadAccounts) to build the user-visible row text shown for each account. The format is `[*] [[BAN]][[GM]] User  (Email)`, where the leading `*` marker indicates the account is currently logged in, `[BAN]` indicates a banned account, and `[GM]` indicates a GM account. Markers are omitted when their corresponding flag is unset.
+
+  
+  
+  
+
 **SetLoginStatus(A.Account, Status)**  
   
 Return value: None  
@@ -73,7 +109,7 @@ Parameters:
 *   _Status_ - The new status
 
   
-This function sets an account's login status. The value of the Status parameter should be -1 to mean that the account is logged out, or otherwise a character ID (from 0 to 9) specifying which character has been logged in on the account. The server's Accounts window is updated to show the new status.
+This function sets an account's login status. The value of the Status parameter should be -1 to mean that the account is logged out, or otherwise a character ID (from 0 to 9) specifying which character has been logged in on the account. The server's Accounts window is updated to show the new status (see [FormatAccountListEntry](#FFormatAccountListEntry) for the row format).
 
   
   

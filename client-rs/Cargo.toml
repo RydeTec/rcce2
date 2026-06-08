@@ -1,0 +1,29 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/rcce-data",
+    "crates/rcce-net",
+    "crates/rcenet-ffi-probe",
+    "crates/rcce-client",
+    "crates/rcce-render",
+    "crates/enet-sys",
+]
+
+# Phase plan (see docs/rust-client/PLAN.md):
+#   rcce-data   — pure on-disk format parsers (.dat catalogs, B3D, area, saves)   [Phase 1, current]
+#   rcce-net    — wire protocol codec + RCEnet.dll FFI transport, swappable        [Phase 0/5]
+#   rcce-render — wgpu renderer (mesh/skeletal/particles/fog/RTT)                  [Phase 2+]
+#   rcce-ui     — custom-draw 2D UI (Gooey parity)                                 [Phase 2+]
+#   rcce-world  — zone/actor/animation/environment state                          [Phase 2+]
+#   rcce-audio  — rodio over OGG                                                   [Phase 3+]
+#   client      — binary, drop-in Client.exe                                       [Phase 6]
+# Crates are added to `members` as each phase begins so the workspace always builds.
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+rust-version = "1.85"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

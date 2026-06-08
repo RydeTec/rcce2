@@ -24,8 +24,10 @@ Include "Modules\briskvm.bb"
 Include "Modules\Actors.bb"               ; Actors module
 Include "Modules\Inventories.bb"          ; Inventory module
 Include "Modules\ServerAreas.bb"          ; Areas module
+Include "Modules\SpawnTracking.bb"        ; Spawn bookkeeping helpers
 Include "Modules\Scripting.bb"            ; Script language module
 Include "Modules\Logging.bb"              ; Logging module
+Include "Modules\PasswordHash.bb"         ; Password hashing (SHA-256 + salted v1 format)
 Include "Modules\AccountsServer.bb"       ; Accounts server module
 Include "Modules\GameServer.bb"           ; Game server module
 Include "Modules\UpdatesServer.bb"        ; Updates server module
@@ -210,6 +212,7 @@ Number = LoadProjectiles("Data\Server Data\Projectiles.dat") : WriteLog(MainLog,
 If Number = -1 Then RuntimeError("Could not open Data\Server Data\Projectiles.dat!")
 Number = LoadAccounts() : WriteLog(MainLog, "Loaded " + Str$(Number) + " accounts...")
 Number = LoadScripts() : WriteLog(MainLog, "Loaded " + Str$(Number) + " scripts...")
+LoadPrivilegedScripts() ; Server-controlled allowlist; gates BVM priv elevation at ThreadScript boundary. See Scripting.bb's `LoadPrivilegedScripts` header for the trust model.
 Number = CompileModules(): WriteLog(MainLog, "Compiled " + Str$(Number) + " Modules...")
 Result = LoadSuperGlobals("Data\Server Data\Superglobals.dat") : WriteLog(MainLog, "Loaded superglobal variables...")
 ; Load zones
@@ -353,7 +356,7 @@ Repeat
 					For AI.ActorInstance = Each ActorInstance
 						If AI\RNID > 0
 							AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea)
-							If AInstance\Area = GameArea
+							If AInstance <> Null And AInstance\Area = GameArea
 								If AI\Name$ + " (" + AInstance\ID + ")" = Name$
 									DataAux$ = RCE_StrFromInt(AI\RNID)
 									RCE_FSend(0, RCE_PlayerKicked, DataAux$, True, Len(DataAux$))
@@ -395,7 +398,7 @@ Repeat
 				For AI.ActorInstance = Each ActorInstance
 					If AI\RNID > 0
 						AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea)
-						If AInstance\Area = GameArea
+						If AInstance <> Null And AInstance\Area = GameArea
 							AddListBoxItem(Game\PlayersList, AI\Name$ + " (" + AInstance\ID + ")")
 						EndIf
 					EndIf
@@ -411,19 +414,22 @@ Repeat
 				WriteLog(ChatLog, "** Log flushed **", True, True)
 			; Toggle DM status
 			Case Accounts\DMButton
-				A.Account = First Account
-				For i = 1 To SelectedGadgetItem(Accounts\List) : A = After A : Next
-				If A <> Null Then SetAccountDMStatus(A, Not A\IsDM)
+				A.Account = FindAccountByListID(SelectedGadgetItem(Accounts\List))
+				If A <> Null
+					SetAccountDMStatus(A, Not A\IsDM)
+					WriteLog(MainLog, "Toggled DM Status: " + A\User$ + " it is now " + Str(A\IsDM))
+				EndIf
 			; Toggle ban status
 			Case Accounts\BanButton
-				A.Account = First Account
-				For i = 1 To SelectedGadgetItem(Accounts\List) : A = After A : Next
-				If A <> Null Then SetAccountBanStatus(A, Not A\IsBanned)
+				A.Account = FindAccountByListID(SelectedGadgetItem(Accounts\List))
+				If A <> Null
+					SetAccountBanStatus(A, Not A\IsBanned)
+					WriteLog(MainLog, "Toggled Ban Status: " + A\User$ + " it is now " + Str(A\IsBanned))
+				EndIf
 			; Remove account
 			Case Accounts\DeleteButton
 				If Confirm("Really remove account?") = True
-					A.Account = First Account
-					For i = 1 To SelectedGadgetItem(Accounts\List) : A = After A : Next
+					A.Account = FindAccountByListID(SelectedGadgetItem(Accounts\List))
 					If A <> Null
 						; Remove from counters
 						Accounts\TotalAccounts = Accounts\TotalAccounts - 1
@@ -496,6 +502,10 @@ Repeat
 					SetGadgetText Updates\LockButton, "Lock Updates Server"
 					SetPanelImage(Updates\ImageBox, CurrentDir() + "Data\Server Data\GreenLight.bmp")
 
+					; Rebuild spawn occupancy from the actors that actually survived the
+					; lock cycle so stale counts cannot block future respawns.
+					SyncAreaSpawnCounts()
+
 					; Reload files list
 					Delete Each UpdateFile
 					Number = LoadUpdateFiles() : WriteLog(MainLog, "Loaded " + Str$(Number) + " files for update system...")
@@ -535,7 +545,12 @@ Repeat
 						If UpdateArea\Instances[j]\SpawnLast[i] = 0
 							UpdateArea\Instances[j]\SpawnLast[i] = MilliSecs()
 						ElseIf MilliSecs() - UpdateArea\Instances[j]\SpawnLast[i] > UpdateArea\SpawnFrequency[i] * 1000
-							 If ActorList(UpdateArea\SpawnActor[i]) <> Null
+							; ActorList is Dim'd 0..65535. SpawnActor[i] is
+							; loaded as ReadShort (signed) -- a corrupt area
+							; file would drive ActorList(SpawnActor[i]) OOB
+							; before the existing `<> Null` guard runs. Skip
+							; the spawn slot rather than crash the live world.
+							If UpdateArea\SpawnActor[i] >= 0 And UpdateArea\SpawnActor[i] <= 65535 And ActorList(UpdateArea\SpawnActor[i]) <> Null
 							WriteLog(MainLog, "Spawning AI actor: " + ActorList(UpdateArea\SpawnActor[i])\Race$ + " in zone: " + UpdateArea\Name$)
 							AI.ActorInstance = CreateActorInstance.ActorInstance(ActorList(UpdateArea\SpawnActor[i]))
 							AI\RNID = -1
@@ -561,7 +576,7 @@ Repeat
 				For AI.ActorInstance = Each ActorInstance
 					If AI\RuntimeID > -1 And AI\RNID > 0
 						AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea)
-						If AInstance\Area = UpdateArea
+						If AInstance <> Null And AInstance\Area = UpdateArea
 							; Portals
 							For i = 0 To 99
 								If Len(UpdateArea\PortalName$[i]) > 0
@@ -573,7 +588,26 @@ Repeat
 										DistZ# = Abs(AI\Z# - UpdateArea\PortalZ#[i])
 										Dist# = (DistX# * DistX#) + (DistY# * DistY#) + (DistZ# * DistZ#)
 										; Inside portal area
-										If Dist# < Size# And (AI\LastPortal <> i Or (MilliSecs() - AI\LastPortalTime > PortalLockTime))
+										; Lock keys on the (Area, index) pair: a stale
+										; LastPortal index left over from a different
+										; area must not block a same-index portal in the
+										; current one, and the time floor still bars
+										; immediate re-entry of the exact portal the
+										; actor was just placed on.
+										;
+										; Lazy resolve LastPortalAreaName$ -> Handle.
+										; The persisted form is the area NAME (Handles
+										; are process-local); first time we see this
+										; actor in a portal area after login, re-bind
+										; the area handle. If the area was renamed /
+										; deleted between sessions, leave the handle
+										; at 0 and the lock just stays clear -- safe
+										; direction.
+										If AI\LastPortalArea = 0 And AI\LastPortalAreaName$ <> ""
+											Local LpAr.Area = FindArea(AI\LastPortalAreaName$)
+											If LpAr <> Null Then AI\LastPortalArea = Handle(LpAr)
+										EndIf
+										If Dist# < Size# And (AI\LastPortal <> i Or AI\LastPortalArea <> Handle(UpdateArea) Or (MilliSecs() - AI\LastPortalTime > PortalLockTime))
 											InPortal = False
 											Name$ = Upper$(UpdateArea\PortalLinkArea$[i])
 											For Ar.Area = Each Area
@@ -665,17 +699,33 @@ Repeat
 	EndIf
 	UpdateEnvironment()
 
-	; Update spell memorisation progress
+	; Update spell memorisation progress.
+	;
+	; Bug fix: SpellCharge[] is keyed by spell ID 0..999 across the rest
+	; of the codebase (see Actors.bb field comment and the unified
+	; cooldown handling in ServerNet.bb's P_SpellUpdate "F" branch).
+	; The old line `MS\AI\SpellCharge[i] = 0` indexed by the
+	; memorise-slot 0..9, so completing any memorisation zeroed the
+	; cooldown for spell IDs 0..9 -- making low-ID spells instantly
+	; recastable. Zero the cooldown for the spell that was actually
+	; learned instead.
+	;
+	; Also guard against the owning actor having been freed mid-
+	; memorise (e.g. logout race): MemorisingSpell records were not
+	; previously reaped on FreeActorInstance, so a stale MS\AI here
+	; would null-deref on SpellLevels.
 	For MS.MemorisingSpell = Each MemorisingSpell
 		If MilliSecs() - MS\CreatedTime > 6000
-			If MS\AI\SpellLevels[MS\KnownNum] > 0
-				For i = 0 To 9
-					If MS\AI\MemorisedSpells[i] = 5000
-						MS\AI\MemorisedSpells[i] = MS\KnownNum
-						MS\AI\SpellCharge[i] = 0
-						Exit
-					EndIf
-				Next
+			If MS\AI <> Null And MS\KnownNum >= 0 And MS\KnownNum <= 999
+				If MS\AI\SpellLevels[MS\KnownNum] > 0
+					For i = 0 To 9
+						If MS\AI\MemorisedSpells[i] = 5000
+							MS\AI\MemorisedSpells[i] = MS\KnownNum
+							MS\AI\SpellCharge[MS\KnownNum] = 0
+							Exit
+						EndIf
+					Next
+				EndIf
 			EndIf
 			Delete MS
 		EndIf
@@ -696,6 +746,20 @@ For j = 0 To 99
 If ua\Instances[j] <> Null
 For i = 0 To 999
 If ua\Instances[j]\Spawned[i] < ua\SpawnMax[i]
+; Skip spawn points whose actor race no longer exists in Actors.dat.
+; CreateActorInstance(Null) RuntimeError's; the live spawner at the
+; main game loop already guards this (Server.bb:547) but PreLoadSpawns
+; -- called once at startup as an optimisation -- skipped the check.
+; A single misconfigured area (admin deleted the race but left
+; SpawnActor pointing at it) prevented the server from booting.
+; Bound-check SpawnActor[i] before the ActorList read -- ReadShort
+; can carry a negative or >65535 value from a corrupt area file,
+; which would Dim-OOB before the `= Null` branch is even reached.
+If ua\SpawnActor[i] < 0 Or ua\SpawnActor[i] > 65535
+WriteLog(MainLog, "PreLoadSpawns: skipping spawn point " + i + " in '" + ua\Name$ + "' (instance " + j + "): ActorID " + ua\SpawnActor[i] + " out of range")
+ElseIf ActorList(ua\SpawnActor[i]) = Null
+WriteLog(MainLog, "PreLoadSpawns: skipping spawn point " + i + " in '" + ua\Name$ + "' (instance " + j + "): ActorID " + ua\SpawnActor[i] + " not in Actors.dat")
+Else
 For h = 0 To ua\SpawnMax[i] - 1
 Delay 10
 AI.ActorInstance = CreateActorInstance.ActorInstance(ActorList(ua\SpawnActor[i]))
@@ -714,6 +778,7 @@ AI\DeathScript$ = ua\SpawnDeathScript$[i]
 If Len(ua\SpawnScript$[i]) > 0 Then ThreadScript(ua\SpawnScript$[i], "Main", Handle(AI), 0)
 Count = Count + 1
 Next
+EndIf
 EndIf
 Next
 EndIf
@@ -789,8 +854,16 @@ Function LoadDroppedItems(Filename$)
 
 		While Eof(F) = False
 			D.DroppedItem = New DroppedItem
-			Zone$ = ReadString$(F)
+			; Bound Zone$ (area name) -- corrupted DroppedItems.dat with
+			; a wild length prefix would hang the server at boot. Same
+			; shape as the broader data-loader sweep.
+			Zone$ = ReadBoundedString$(F, 256)
 			Instance = ReadByte(F)
+			; AreaInstance Instances is Dim'd 0..99. ReadByte returns 0..255;
+			; a corrupted DroppedItems.dat with Instance >= 100 triggers OOB
+			; on every server boot. Treat out-of-range as instance 0 (the
+			; default instance that always exists).
+			If Instance < 0 Or Instance > 99 Then Instance = 0
 			For Ar.Area = Each Area
 				If Ar\Name$ = Zone$
 					If Ar\Instances[Instance] = Null Then ServerCreateAreaInstance(Ar, Instance)
@@ -798,12 +871,22 @@ Function LoadDroppedItems(Filename$)
 					Exit
 				EndIf
 			Next
-			D\Item = ItemInstanceFromString(ReadString$(F))
+			; Item-instance binary is 83 bytes today (ItemInstanceStringLength);
+			; cap to 256 to cover the current format with comfortable
+			; headroom and still reject a wild length prefix.
+			D\Item = ItemInstanceFromString(ReadBoundedString$(F, 256))
 			D\Amount = ReadShort(F)
 			D\X# = ReadFloat#(F)
 			D\Y# = ReadFloat#(F)
 			D\Z# = ReadFloat#(F)
-			Items = Items + 1
+			; Drop entries with no resolvable item (item ID removed from
+			; data files between sessions). The next pickup would otherwise
+			; null-deref D\Item\Item\Stackable.
+			If D\Item = Null
+				Delete D
+			Else
+				Items = Items + 1
+			EndIf
 		Wend
 
 	CloseFile F
@@ -811,14 +894,27 @@ Function LoadDroppedItems(Filename$)
 
 End Function
 
-; Saves dropped items to file
+; Saves dropped items to file atomically.
+; See SafeWriteOpen / SafeWriteCommit in Logging.bb.
 Function SaveDroppedItems(Filename$)
 
-	F = WriteFile(Filename$)
-	If F = 0 Then Return False
+	Local TempPath$ = SafeWriteOpen(Filename$)
+	F = WriteFile(TempPath$)
+	If F = 0
+		WriteLog(MainLog, "SaveDroppedItems: cannot open " + TempPath$ + " for write")
+		Return False
+	EndIf
 
 		For D.DroppedItem = Each DroppedItem
 			AInstance.AreaInstance = Object.AreaInstance(D\ServerHandle)
+			; Skip dropped items whose host area instance is gone (zone
+			; unload race, freed area). Writing AInstance\Area\Name$ on
+			; a Null handle previously crashed the server during the
+			; periodic SaveDroppedItems flush -- the entire save aborts
+			; and dropped item state is lost.
+			If AInstance = Null Then Continue
+			If AInstance\Area = Null Then Continue
+			If D\Item = Null Then Continue
 			WriteString F, AInstance\Area\Name$
 			WriteByte F, AInstance\ID
 			WriteString F, ItemInstanceToString$(D\Item)
@@ -828,14 +924,41 @@ Function SaveDroppedItems(Filename$)
 			WriteFloat F, D\Z#
 		Next
 
-	CloseFile(F)
-	Return True
+	Return SafeWriteCommit(TempPath$, Filename$, F)
 
 End Function
 
-; Assigns a new runtime ID to an actor instance
+; Assigns a new runtime ID to an actor instance.
+;
+; RuntimeIDList is Dim'd 0..65535. The original implementation
+; auto-incremented LastRuntimeID and wrapped to 0 after 65534
+; without checking whether the candidate slot was already in use --
+; so on a long-running server (one that's churned more than 65535
+; actors across its lifetime), the wrap reassigns the RuntimeID
+; of a still-live actor, and every subsequent wire packet
+; referencing the old ID hits the new actor instead. This shows up
+; as cross-target damage, mis-targeted spells, or apparent state
+; corruption that's actually packet routing.
+;
+; Scan forward from LastRuntimeID to find the next genuinely-free
+; slot. The 65536-slot table makes a worst-case full sweep cheap
+; (the body is a Null comparison); we early-exit on the first hit.
+; If the table is somehow full, log + reuse the original slot --
+; the wrap-clobber bug above, but at least it's now visible.
 Function AssignRuntimeID(A.ActorInstance)
 
+	Local Start = LastRuntimeID
+	Local Tried = 0
+	While RuntimeIDList(LastRuntimeID) <> Null
+		LastRuntimeID = LastRuntimeID + 1
+		If LastRuntimeID > 65534 Then LastRuntimeID = 0
+		Tried = Tried + 1
+		If Tried > 65535
+			WriteLog(MainLog, "AssignRuntimeID: RuntimeIDList full (65536 actors); reusing slot " + Start)
+			LastRuntimeID = Start
+			Exit
+		EndIf
+	Wend
 	A\RuntimeID = LastRuntimeID
 	RuntimeIDList(LastRuntimeID) = A
 	LastRuntimeID = LastRuntimeID + 1
@@ -849,14 +972,16 @@ Function UpdateAttribute(AI.ActorInstance, Att, Value)
 	If AI\Attributes\Value[Att] > AI\Attributes\Maximum[Att]
 		AI\Attributes\Value[Att] = AI\Attributes\Maximum[Att]
 	EndIf
-	If AI\RNID > 0 Or AI\RNID = -1 
+	If AI\RNID > 0 Or AI\RNID = -1
 		Pa$ = "A" + RCE_StrFromInt$(AI\RuntimeID, 2) + RCE_StrFromInt$(Att, 1) + RCE_StrFromInt$(AI\Attributes\Value[Att], 2)
 		AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea)
-		A2.ActorInstance = AInstance\FirstInZone
-		While A2 <> Null
-			If A2\RNID > 0 Then RCE_Send(Host, A2\RNID, P_StatUpdate, Pa$, True)
-			A2 = A2\NextInZone
-		Wend
+		If AInstance <> Null
+			A2.ActorInstance = AInstance\FirstInZone
+			While A2 <> Null
+				If A2\RNID > 0 Then RCE_Send(Host, A2\RNID, P_StatUpdate, Pa$, True)
+				A2 = A2\NextInZone
+			Wend
+		EndIf
 	EndIf
 End Function
 
@@ -864,14 +989,16 @@ End Function
 Function UpdateAttributeMax(AI.ActorInstance, Att, Value)
 	AI\Attributes\Maximum[Att] = Value
 
-	If AI\RNID > 0 Or AI\RNID = -1 
+	If AI\RNID > 0 Or AI\RNID = -1
 		Pa$ = "M" + RCE_StrFromInt$(AI\RuntimeID, 2) + RCE_StrFromInt$(Att, 1) + RCE_StrFromInt$(Value, 2)
 		AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea)
-		A2.ActorInstance = AInstance\FirstInZone
-		While A2 <> Null
-			If A2\RNID > 0 Then RCE_Send(Host, A2\RNID, P_StatUpdate, Pa$, True)
-			A2 = A2\NextInZone
-		Wend
+		If AInstance <> Null
+			A2.ActorInstance = AInstance\FirstInZone
+			While A2 <> Null
+				If A2\RNID > 0 Then RCE_Send(Host, A2\RNID, P_StatUpdate, Pa$, True)
+				A2 = A2\NextInZone
+			Wend
+		EndIf
 	EndIf
 End Function
 
@@ -882,10 +1009,12 @@ Function UpdateReputation(AI.ActorInstance, Value)
 	If AI\RNID > 0
 		Pa$ = "R" + RCE_StrFromInt$(AI\RuntimeID, 2) + RCE_StrFromInt$(Value, 2)
 		AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea)
-		A2.ActorInstance = AInstance\FirstInZone
-		While A2 <> Null
-			If A2\RNID > 0 Then RCE_Send(Host, A2\RNID, P_StatUpdate, Pa$, True)
-			A2 = A2\NextInZone
-		Wend
+		If AInstance <> Null
+			A2.ActorInstance = AInstance\FirstInZone
+			While A2 <> Null
+				If A2\RNID > 0 Then RCE_Send(Host, A2\RNID, P_StatUpdate, Pa$, True)
+				A2 = A2\NextInZone
+			Wend
+		EndIf
 	EndIf
 End Function

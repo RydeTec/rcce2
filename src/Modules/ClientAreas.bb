@@ -91,6 +91,15 @@ End Type
 ; Creates a subdivided plane (used for water)
 Function CreateSubdividedPlane(XDivs, ZDivs, UScale# = 1.0, VScale# = 1.0, Parent = 0)
 
+	; Clamp divisions to a sane minimum. A water with ScaleX or ScaleZ
+	; below the Ceil/15.0 threshold (or a misconfigured area data file)
+	; would arrive here with XDivs / ZDivs = 1, then divide-by-zero on
+	; the XPos / ZPos normalization below. Below 2 there's no actual
+	; subdivision; force at least a 2x2 grid so the mesh has a real
+	; surface and the normalization divisor is non-zero.
+	If XDivs < 2 Then XDivs = 2
+	If ZDivs < 2 Then ZDivs = 2
+
 	EN = CreateMesh(Parent)
 	Surf = CreateSurface(EN)
 
@@ -319,9 +328,11 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 			
 			
 			Collides = ReadByte(F)
-			; Lightmap information and RCTE data
-			S\Lightmap$ = ReadString$(F)
-			S\RCTE$ = ReadString$(F)
+			; Lightmap information and RCTE data. Bound the asset paths
+			; so a corrupted Area data file can't hang the loader on a
+			; wild ReadInt length prefix (260 = Windows MAX_PATH).
+			S\Lightmap$ = ReadBoundedString$(F, 260)
+			S\RCTE$ = ReadBoundedString$(F, 260)
 			
 			;v1.104 options cysis145 [010]
 			S\CastShadow = ReadByte(F)
@@ -509,11 +520,14 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 				EndIf
 			; Mesh has been deleted or removed from the database!
 			Else
-				If DisplayItems = True
-					Delete(S)
-				Else
-					RuntimeError("Could not find model with ID " + S\MeshID)
-				EndIf
+				; Soft-fail (matching ClientAreas_FE.bb fix): log + drop.
+				; In GUE this previously took the Delete-only branch
+				; silently; in any caller that passes DisplayItems=False
+				; it RuntimeError'd. Unified to log + drop so neither
+				; admin nor live player gets a crash from missing world
+				; meshes.
+				WriteLog(MainLog, "LoadArea: scenery MeshID " + S\MeshID + " not found in model database; dropping scenery (zone: " + Name$ + ")")
+				Delete(S)
 			EndIf
 			.CancelScenery
 
@@ -637,8 +651,8 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 				E\EN = CreatePivot()
 			EndIf
 								
-			; Read in emitter data
-			E\ConfigName$ = ReadString$(F)
+			; Read in emitter data. Same length-prefix DoS hardening.
+			E\ConfigName$ = ReadBoundedString$(F, 260)
 			E\TexID = ReadShort(F)
 			Texture = GetTexture(E\TexID)
 			X# = ReadFloat#(F) : Y# = ReadFloat#(F) : Z# = ReadFloat#(F)
@@ -655,9 +669,9 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 				; Position/rotation
 				PositionEntity E\EN, X#, Y#, Z#
 				RotateEntity E\EN, Pitch#, Yaw#, Roll# 
-			; Failed to load config, remove the emitter and display an error message if running on client
+			; Failed to load config -- soft-fail matching the FE variant.
 			Else
-				If DisplayItems = False Then RuntimeError("Could not load emitter: " + E\ConfigName$)
+				WriteLog(MainLog, "LoadArea: emitter config '" + E\ConfigName$ + "' could not load; dropping emitter (zone: " + Name$ + ")")
 				HideEntity(E\EN)
 				FreeEntity(E\EN)
 				Delete(E)
@@ -800,10 +814,14 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 
 End Function
 
-; Saves the current area back to file
+; Saves the current area back to file. Atomic rewrite via SafeWrite:
+; a crash mid-flush previously truncated the area file and broke load
+; on the next area entry.
 Function SaveArea(Name$)
 
-	F = WriteFile("Data\Areas\" + Name$ + ".dat")
+	Local FinalPath$ = "Data\Areas\" + Name$ + ".dat"
+	Local TempPath$ = SafeWriteOpen(FinalPath$)
+	F = WriteFile(TempPath$)
 	If F = 0 Then Return False
 
 		; Loading screen
@@ -953,8 +971,7 @@ Function SaveArea(Name$)
 			WriteByte F, SZ\Volume
 		Next
 
-	CloseFile(F)
-	Return True
+	Return SafeWriteCommit(TempPath$, FinalPath$, F)
 
 End Function
 
@@ -968,7 +985,15 @@ Function UnloadArea()
 
 	UnloadTrees(False)
 
-	For S.Scenery = Each Scenery
+	; Six After-cursor walks. Each For-Each below Deletes the
+	; current element inside the body -- the original For/Next
+	; shape corrupted the cursor on every multi-element area
+	; unload (which is every legitimate zone transition).
+	; Documented in CLAUDE.md (#247).
+	Local S.Scenery = First Scenery
+	Local SNext.Scenery = Null
+	While S <> Null
+		SNext = After S
 		If S\TextureID < 65535 Then UnloadTexture(S\TextureID)
 		;Dynamic Lights
 		If S\LightID>0 Then FreeEntity(S\LightID)
@@ -976,44 +1001,65 @@ Function UnloadArea()
 		UnloadMesh(S\MeshID)
 		FreeEntity(S\EN)
 		Delete(S)
-	Next
+		S = SNext
+	Wend
 
-	For W.Water = Each Water
+	Local W.Water = First Water
+	Local WNext.Water = Null
+	While W <> Null
+		WNext = After W
 		UnloadTexture(W\TexID)
 		FreeTexture(W\TexHandle)
 		FreeEntity(W\EN)
-		
-		;FreeTexture(W\BumpTexA)
-		
-		Delete(W)
-	Next
 
-	For C.ColBox = Each ColBox
+		;FreeTexture(W\BumpTexA)
+
+		Delete(W)
+		W = WNext
+	Wend
+
+	Local C.ColBox = First ColBox
+	Local CNext.ColBox = Null
+	While C <> Null
+		CNext = After C
 		FreeEntity(C\EN)
 		Delete(C)
-	Next
+		C = CNext
+	Wend
 
-	For E.Emitter = Each Emitter
+	Local E.Emitter = First Emitter
+	Local ENext.Emitter = Null
+	While E <> Null
+		ENext = After E
 		RP_FreeEmitter(GetChild(E\EN, 1), True, False)
 		UnloadTexture(E\TexID)
 		FreeEntity(E\EN)
 		Delete(E)
-	Next
+		E = ENext
+	Wend
 
-	For SZ.SoundZone = Each SoundZone
+	Local SZ.SoundZone = First SoundZone
+	Local SZNext.SoundZone = Null
+	While SZ <> Null
+		SZNext = After SZ
 		If SZ\Channel <> 0 Then StopChannel(SZ\Channel)
 		If SZ\SoundID > 0 And SZ\SoundID < 65535 Then UnloadSound(SZ\SoundID)
 		FreeEntity(SZ\EN)
 		Delete(SZ)
-	Next
+		SZ = SZNext
+	Wend
 
-	For T.Terrain = Each Terrain
+	Local T.Terrain = First Terrain
+	Local TNext.Terrain = Null
+	While T <> Null
+		TNext = After T
 		FreeEntity T\EN
 		UnloadTexture(T\BaseTexID)
 		If T\DetailTex <> 0 Then FreeTexture(T\DetailTex)
 		If T\DetailTexID < 65535 Then UnloadTexture(T\DetailTexID)
 		Delete(T)
-	Next
+		T = TNext
+	Wend
 
 	Delete Each CatchPlane
 

@@ -30,6 +30,22 @@ Const SlotI_Backpack = 14
 
 Const Slots_Inventory = 45
 
+; Maximum stack count a single inventory slot may hold. The save format
+; (Actors.bb WriteShort/ReadShort) is SIGNED 16-bit and the wire field
+; (RCE_StrFromInt$(x, 2)) is 2 bytes, so a count past 32767 corrupts on
+; save->load: WriteShort 40000 -> ReadShort -25536, which the `<= 0` slot
+; cleanup treats as empty and DELETES the whole stack. Clamp every
+; accumulation to this ceiling so the authoritative 32-bit Amounts[] field
+; never outgrows what it can be serialised as.
+Const MaxStackAmount = 32767
+
+; Clamp a stack total to the 16-bit serialisation ceiling. Pure (no logging)
+; so it is unit-testable in isolation.
+Function ClampStackAmount(Total)
+	If Total > MaxStackAmount Then Return MaxStackAmount
+	Return Total
+End Function
+
 ; Inventory object
 Type Inventory
 	Field Items.ItemInstance[Slots_Inventory]
@@ -100,6 +116,24 @@ Function InventoryAdd(A.ActorInstance, SlotFrom, SlotTo, Amount, TellServer = Tr
 		Return False
 	EndIf
 	If ItemInstancesIdentical(A\Inventory\Items[SlotFrom], A\Inventory\Items[SlotTo]) = False Then Return False
+	; Reject negative / oversized amounts. The server-side wire
+	; bounds-check (ServerNet.bb P_InventoryUpdate "A") used
+	; `Amount <= Amounts[SlotA]`, which passes for ANY negative value
+	; (any negative is <= a non-negative count). InventoryAdd then
+	; did `Amounts[SlotTo] += Amount` and `Amounts[SlotFrom] -= Amount`
+	; unchecked, so a negative Amount inflated SlotFrom and deflated
+	; SlotTo into negative — an unbounded item-duplication path.
+	; Mirrors the partial-amount guard in InventorySwap (~line 152).
+	If Amount < 1 Or Amount > A\Inventory\Amounts[SlotFrom] Then Return False
+
+	; Cap the moved amount so SlotTo never exceeds the stack ceiling
+	; (MaxStackAmount); the remainder stays in SlotFrom rather than being
+	; lost or overflowing into a value the save format can't represent.
+	; Non-lossy merge -- only as much as fits is moved.
+	Local Movable = MaxStackAmount - A\Inventory\Amounts[SlotTo]
+	If Movable < 0 Then Movable = 0
+	If Amount > Movable Then Amount = Movable
+	If Amount < 1 Then Return False
 
 	; Do it
 	A\Inventory\Amounts[SlotTo] = A\Inventory\Amounts[SlotTo] + Amount
@@ -144,6 +178,12 @@ Function InventorySwap(A.ActorInstance, SlotA, SlotB, Amount = 0, TellServer = T
 		A\Inventory\Amounts[SlotB] = AmountA
 	; Move a certain amount only
 	Else
+		; Reject moves that try to relocate more than the source actually holds.
+		; The earlier code accepted client-supplied Amount unconditionally and
+		; then went into the SlotA-<1 branch below, which moved the original
+		; ItemInstance into SlotB while leaving Amounts[SlotB] = Amount — a free
+		; item dupe with no upper cap.
+		If Amount < 1 Or Amount > A\Inventory\Amounts[SlotA] Then Return False
 		A\Inventory\Amounts[SlotB] = Amount
 		A\Inventory\Amounts[SlotA] = A\Inventory\Amounts[SlotA] - Amount
 		If A\Inventory\Amounts[SlotA] < 1

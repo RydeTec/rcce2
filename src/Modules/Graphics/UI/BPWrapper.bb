@@ -133,8 +133,11 @@ Function GadgetHeight(parent%)
 End Function
 
 Function AddTextAreaText(parent%, text$)
-    Local current_text = FUI_SendMessage(parent, M_GETTEXT)
-    FUI_SendMessage(parent, M_SETTEXT, current_text + text$)
+    ; M_GETTEXT returns a string; the local must carry the $ sigil or Blitz
+    ; quietly receives the int form (0) and the concatenation becomes
+    ; "0" + text$, wiping any existing textarea contents.
+    Local current_text$ = FUI_SendMessage(parent, M_GETTEXT)
+    FUI_SendMessage(parent, M_SETTEXT, current_text$ + text$)
 End Function
 
 Function GadgetGroup(parent%)

@@ -22,7 +22,11 @@ Type Random
                 End If
             End If
         Else
-            If (NOT self\seed = seed)
+            ; Re-seed only when the value differs. The previous form
+            ; `If (NOT self\seed = seed)` parses as `(NOT self\seed) = seed`
+            ; (operator precedence), so re-seeding silently never fired
+            ; for any non-zero seed value.
+            If self\seed <> seed
                 self\seed = seed
                 SeedRnd(self\seed)
             End If

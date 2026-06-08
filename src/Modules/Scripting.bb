@@ -50,6 +50,14 @@ Type ThreadScript
 	Field AI.ActorInstance
 	Field AIContext.ActorInstance
 	Field Param$
+	; Privileged scripts are allowed to invoke admin-only BVM commands
+	; (BanPlayer, KickPlayer, GiveItem, Warp, SetGold, SetActorLevel, etc).
+	; Default 0; the chat `/script` command and any explicit ThreadScript
+	; call from a code path that has already verified GM status set this
+	; to 1. NPC scripts triggered by player interaction (Examine, Trade,
+	; RightClick, ItemUse) MUST stay non-privileged so they can't be used
+	; to ban/kick the clicker.
+	Field Privileged%
 End Type
 
 Type ScriptInstance
@@ -61,18 +69,38 @@ Type ScriptInstance
 	Field Param$
 
 	Field Persistent%
-	
+
 	Field Waiting%
 	Field WaitStart%, WaitTime%
 	Field WaitHour%, WaitMinute%
 	Field WaitResult$
-	
+
 	Field Ended%
 	Field Thread%
+
+	; Propagated from the ThreadScript that spawned this instance.
+	; See BVM_RequirePrivileged().
+	Field Privileged%
 End Type
 
+; Returns True if the given ScriptInstance is currently waiting on behalf of
+; the actor whose runtime ID is the supplied wire FromID. Used by the
+; P_Dialog / P_ProgressBar / P_ScriptInput handlers to confirm that the
+; reply came from the player the script is actually addressed to.
+;
+; Without this check, ScriptInstance handles (4-byte int) were brute-
+; forceable: any connected peer could pick another player's live script and
+; answer its dialog/progress/input prompt, hijacking quest flow, loot
+; assignments, or NPC choices the other player was making.
+Function ScriptHandleBelongsTo(S.ScriptInstance, FromID)
+	If S = Null Then Return False
+	Local Sender.ActorInstance = FindActorInstanceFromRNID(FromID)
+	If Sender = Null Then Return False
+	Return S\AI = Handle(Sender)
+End Function
+
 ; Maps a script and places it on the execution stack
-Function RunScript(SS.ScriptSource, Func$, AI.ActorInstance, AIContext.ActorInstance, Param$ = "")
+Function RunScript(SS.ScriptSource, Func$, AI.ActorInstance, AIContext.ActorInstance, Param$ = "", Privileged% = 0)
 	; This function maps the module to the execution context in preperation to being run
 		If BVM_FindFunction(SS\hModule, Func$) <> -1
 			S.ScriptInstance = New ScriptInstance
@@ -82,6 +110,7 @@ Function RunScript(SS.ScriptSource, Func$, AI.ActorInstance, AIContext.ActorInst
 			S\AIContext = Handle(AIContext.ActorInstance)
 			S\Param = Param
 			S\Thread = -1 ;Every script gets one pass through the VM before being threaded
+			S\Privileged = Privileged%
 			BVM_MapModule(S\hContext, SS\hModule)
 			Local hEntryPoint% = BVM_FindEntryPoint(S\hContext, SS\hModule, Func$)
 			BVM_SelectContext(S\hContext)
@@ -95,11 +124,124 @@ Function RunScript(SS.ScriptSource, Func$, AI.ActorInstance, AIContext.ActorInst
 		EndIf
 End Function
 
-Function ThreadScript(Name$, Func$, Actor%, CActor%, Param$ = "")
+; Soft cap on simultaneously-pending script work. The threader (Order())
+; can scale across this without missing scheduling deadlines, but if a
+; runaway script keeps ThreadScript-ing itself we want to refuse rather
+; than allocate ScriptInstance forever. Tune up if legitimate workloads
+; ever bump the ceiling.
+Const ScriptPendingMax = 2048
+
+; Returns True iff a ScriptSource with this name is registered.
+; Used by the chat-command Default branch to detect whether to hand off
+; an unknown command to the project's "In-game Commands" user script,
+; or surface a "Unknown command" message to the player. ThreadScript
+; itself logs and silently returns on a missing source, so callers
+; that want to fall back to a different response must check first.
+Function ScriptExists%(Name$)
+	Local NameU$ = Upper(Name$)
+	For SS.ScriptSource = Each ScriptSource
+		If Upper(SS\Name$) = NameU Then Return True
+	Next
+	Return False
+End Function
+
+; -Privileged-script allowlist ----------------------------------------------------
+;
+; Some shipped content scripts (Spawn_Test.rsl, marriage.rsl,
+; AOE Damage Spell Template.rsl, In-game Commands.rsl, Click_marriage.rsl)
+; need to call privileged BVMs (ChangeMoney, WriteFile, SetName,
+; SetActorTarget, SetActorAIState, SetTag, GiveItem, SetAttribute, ...)
+; to do their actual job, but they're invoked from non-privileged spawn
+; paths (chat-command fallback for `/Assist`, spell-cast for the AOE
+; template, right-click for marriage, NPC spawn-init for Spawn_Test).
+;
+; Pre-PR the affected calls silently refused, leaving each script in a
+; partially-applied state (e.g. marriage debited 10k gold but never
+; renamed the players). The fix path documented in CLAUDE.md "Known
+; ungated brick / griefing surface" was to introduce a privilege
+; carve-out at the spawn boundary rather than at each BVM gate. This is
+; that carve-out.
+;
+; **Trust model:** the allowlist is keyed by script Name$ (the file
+; basename without extension, as registered in ScriptSource). The data
+; file lives in server-controlled `Data\Server Data\` — only the
+; project owner can edit it. A custom NPC's `Script$` field can name
+; any script, but only allowlisted names get the privilege elevation.
+;
+; **Elevation only, never demote.** ThreadScript's existing Privileged%
+; arg is the caller-provided baseline; the allowlist can only raise it
+; to True. A caller that explicitly passes Privileged=1 keeps that
+; privilege regardless of allowlist membership (engine-tick spawns
+; like LoginScript / DeathScript / `/script` DM command still work as
+; before).
+;
+; **Closes the deferred BVMs** SETACTORAISTATE, SETACTORTARGET, SETNAME,
+; SETTAG. With the allowlist in place those four can be gated to
+; RequirePrivileged without breaking the shipped scripts.
+
+Const PrivilegedScriptListMax% = 64
+Dim PrivilegedScriptList$(PrivilegedScriptListMax% - 1)
+Global PrivilegedScriptCount% = 0
+
+; Loads the allowlist from Data\Server Data\Privileged Scripts.dat.
+; One script Name per line; comments (lines starting with `;`) and
+; blank lines are ignored. Tolerates a missing file (zero entries =
+; preserves pre-allowlist behavior). Called once at server boot;
+; idempotent so a later /reloadscripts could rerun it.
+Function LoadPrivilegedScripts()
+	Local Path$ = "Data\Server Data\Privileged Scripts.dat"
+	PrivilegedScriptCount = 0
+	Local F = ReadFile(Path)
+	If F = 0
+		WriteLog(MainLog, "LoadPrivilegedScripts: " + Path + " not found; allowlist is empty")
+		Return
+	EndIf
+	While Eof(F) = False
+		Local Line$ = Trim(ReadLine(F))
+		If Len(Line) > 0
+			If Left(Line, 1) <> ";"
+				If PrivilegedScriptCount < PrivilegedScriptListMax
+					PrivilegedScriptList(PrivilegedScriptCount) = Line
+					PrivilegedScriptCount = PrivilegedScriptCount + 1
+				Else
+					WriteLog(MainLog, "LoadPrivilegedScripts: list full at " + PrivilegedScriptListMax + " entries; dropping `" + Line + "`")
+				EndIf
+			EndIf
+		EndIf
+	Wend
+	CloseFile(F)
+	WriteLog(MainLog, "LoadPrivilegedScripts: loaded " + PrivilegedScriptCount + " entries from " + Path)
+End Function
+
+; Case-insensitive lookup against the loaded allowlist. Returns True
+; iff Name$ matches an entry (exact match after Upper). Empty list
+; always returns False (= safe default).
+Function IsPrivilegedScript%(Name$)
+	If PrivilegedScriptCount = 0 Then Return False
+	Local NameU$ = Upper(Name$)
+	Local i%
+	For i = 0 To PrivilegedScriptCount - 1
+		If Upper(PrivilegedScriptList(i)) = NameU Then Return True
+	Next
+	Return False
+End Function
+
+Function ThreadScript(Name$, Func$, Actor%, CActor%, Param$ = "", Privileged% = 0)
 	; This function only adds the scripts to the ScriptInstance type and maps the module
 	Local Found = False
 	AI.ActorInstance = Object.ActorInstance(Actor)
 	AIContext.ActorInstance = Object.ActorInstance(CActor)
+
+	; Refuse the enqueue if we're already deep in pending work. Otherwise a
+	; script that ThreadScripts itself every tick (or a tight loop calling
+	; BVM_THREADEXECUTE) drives ScriptInstance allocation without bound and
+	; exhausts memory before any throttle kicks in.
+	Local pending% = CountScriptInstances() + CountThreadScripts()
+	If pending >= ScriptPendingMax
+		WriteLog(MainLog, "ThreadScript refused (pending=" + pending + " >= " + ScriptPendingMax + "): " + Name$ + " / " + Func$)
+		Return
+	EndIf
+
 	For SS.ScriptSource = Each ScriptSource
 		If Upper(SS\Name$) = Upper(Name$)
 			Found = 1
@@ -107,6 +249,32 @@ Function ThreadScript(Name$, Func$, Actor%, CActor%, Param$ = "")
 		EndIf
 	Next
 	If Found = True
+		; Elevate privilege if the script name is on the allowlist AND this
+		; spawn was initiated by the engine (not by another script via
+		; BVM_THREADEXECUTE).
+		;
+		; Elevation only -- the caller's explicit Privileged% baseline is
+		; preserved if it was already True. See LoadPrivilegedScripts()
+		; above for the trust model and rationale. The deferred BVMs
+		; (SETACTORAISTATE / SETACTORTARGET / SETNAME / SETTAG) gate on
+		; RequirePrivileged() and rely on this carve-out to keep working
+		; from shipped content.
+		;
+		; **Engine-initiated check (`hSI = 0`):** without this, a hostile
+		; non-priv script could call BVM_THREADEXECUTE("In-game Commands",
+		; "ItemPack", victim_handle, ...) and the spawn would elevate
+		; because the script name is on the list. BVM_THREADEXECUTE runs
+		; from inside another script's body, so hSI is set (the currently-
+		; running script's instance). The chat-command / spell-cast /
+		; right-click / NPC-init spawn paths in ServerNet.bb / GameServer.bb
+		; are all invoked from engine code outside any running script, so
+		; hSI is 0 at the call site. Gating elevation on `hSI = 0` cleanly
+		; separates the two -- engine-initiated spawns get the carve-out,
+		; script-chained spawns do not.
+		Local EffectivePriv% = Privileged%
+		If EffectivePriv = 0 And hSI = 0
+			If IsPrivilegedScript(Name$) Then EffectivePriv = 1
+		EndIf
 		TS.ThreadScript = New ThreadScript
 		TS\Name$ = Name$
 		TS\Func$ = Func$
@@ -114,24 +282,59 @@ Function ThreadScript(Name$, Func$, Actor%, CActor%, Param$ = "")
 		TS\AI.ActorInstance = AI.ActorInstance
 		TS\AIContext.ActorInstance = AIContext.ActorInstance
 		TS\Param$ = Param$
+		TS\Privileged = EffectivePriv
 	Else
 		 WriteLog(Mainlog, "Script " + Name$ + " does not exist.")
 	EndIf
 End Function
 
+Function CountScriptInstances%()
+	Local n% = 0
+	For SI.ScriptInstance = Each ScriptInstance : n = n + 1 : Next
+	Return n
+End Function
+
+Function CountThreadScripts%()
+	Local n% = 0
+	For TS.ThreadScript = Each ThreadScript : n = n + 1 : Next
+	Return n
+End Function
+
 ; Updates running scripts
 Function UpdateScripts()
 	If Pass = 0 Then Pass = Order()
-	; Handle threaded scripts
-	For TS.ThreadScript = Each ThreadScript
-		RunScript(TS\SS.ScriptSource, TS\Func$, TS\AI.ActorInstance, TS\AIContext.ActorInstance, TS\Param$)
-		Delete TS
-	Next
 
-	; Update paused scripts if necessary
-	For PS.PausedScript = Each PausedScript
+	; Each For-Each loop below is rewritten as a manual `After`-cursor walk
+	; because the bodies may Delete the iterator instance — the legacy
+	; `For X = Each Y ... Delete X` form re-reads the freed instance's next
+	; pointer on the following iteration step, intermittently skipping or
+	; crashing on bursts of simultaneous events. The fix matches the
+	; pattern Track E introduced for the water-damage KillActor sweep.
+
+	; Handle threaded scripts.
+	Local TS.ThreadScript = First ThreadScript
+	Local TSNext.ThreadScript = Null
+	While TS <> Null
+		TSNext = After TS
+		RunScript(TS\SS.ScriptSource, TS\Func$, TS\AI.ActorInstance, TS\AIContext.ActorInstance, TS\Param$, TS\Privileged)
+		Delete TS
+		TS = TSNext
+	Wend
+
+	; Update paused scripts if necessary.
+	Local PS.PausedScript = First PausedScript
+	Local PSNext.PausedScript = Null
+	While PS <> Null
+		PSNext = After PS
+		; Defense in depth: drop any PausedScript whose ScriptInstance
+		; is Null. The BVM_SETWAIT* setters now early-return on Null SI
+		; (#228), but a stale queue entry from a pre-#228 boot or a
+		; future code path that bypasses the SI guard would otherwise
+		; deref PS\S\WaitResult$ below and crash the server.
+		If PS\S = Null
+			Delete PS
 		; Check whether waited for items are available
-		If PS\Reason = 3
+		ElseIf PS\Reason = 3
 			If PS\ReasonActor <> Null
 				If InventoryHasItem(PS\ReasonActor\Inventory, PS\ReasonItem$, PS\ReasonAmount)
 					PS\S\WaitResult$ = "1"
@@ -148,32 +351,37 @@ Function UpdateScripts()
 				Delete PS
 			EndIf
 		EndIf
-	Next
+		PS = PSNext
+	Wend
+
 	Scripts = 0
-	For S.ScriptInstance = Each ScriptInstance
-			;Clean up of prematurely exited scripts
-			If S\Ended = False
-				; Update waiting scripts
-				If S\Waiting = 1
-					If Len(S\WaitResult$) > 0
+	Local S.ScriptInstance = First ScriptInstance
+	Local SNext.ScriptInstance = Null
+	While S <> Null
+		SNext = After S
+		;Clean up of prematurely exited scripts
+		If S\Ended = False
+			; Update waiting scripts
+			If S\Waiting = 1
+				If Len(S\WaitResult$) > 0
+					S\Waiting = 0
+				EndIf
+			ElseIf S\Waiting = 2
+				If MilliSecs() - S\WaitStart >= S\WaitTime
+					S\Waiting = 0
+				EndIf
+			; Waiting for a certain game time
+			ElseIf S\Waiting = 3
+				If TimeH >= S\WaitHour
+					If TimeM >= S\WaitMinute
 						S\Waiting = 0
-					EndIf
-				ElseIf S\Waiting = 2
-					If MilliSecs() - S\WaitStart >= S\WaitTime
-						S\Waiting = 0
-					EndIf
-				; Waiting for a certain game time
-				ElseIf S\Waiting = 3
-					If TimeH >= S\WaitHour
-						If TimeM >= S\WaitMinute
-							S\Waiting = 0
-							S\WaitResult$ = "1"
-						EndIf
+						S\WaitResult$ = "1"
 					EndIf
 				EndIf
+			EndIf
 			;Threading Code
-				Scripts = Scripts + 1
-				If S\Thread = Pass Or S\Thread = -1
+			Scripts = Scripts + 1
+			If S\Thread = Pass Or S\Thread = -1
 				If S\Waiting = 0
 					hSI = Handle(S)
 					BVM_SelectContext(S\hContext)
@@ -181,7 +389,15 @@ Function UpdateScripts()
 					Local invokeRet% = BVM_Invoke(True) ; IMPORTANT: pass True To enable timeout
 					Select invokeRet
 						Case 0
-							RuntimeError("The script function aborted due to an error: " + BVM_GetLastErrorMsg())
+							; Script aborted with a VM error. Previously called
+							; RuntimeError() which halts the entire server
+							; process — a single buggy script then took the
+							; whole game down. Log the error, clean up the
+							; offending script's VM context, and continue.
+							WriteLog(MainLog, "Script '" + S\Name + "' aborted: " + BVM_GetLastErrorMsg())
+							BVM_ScriptLog("Script '" + S\Name + "' aborted: " + BVM_GetLastErrorMsg())
+							BVM_DeleteContext(S\hContext)
+							Delete S
 						Case 1
 							;Cleanup scripts which have finished executing
 							BVM_PopInt()
@@ -191,20 +407,44 @@ Function UpdateScripts()
 							; The execution timed out.
 							; We just do nothing (keep running the loop)
 					End Select
-					 BVM_CheckError()
+					BVM_CheckError()
 					;BVM_EndDebug(S\hContext)
 				EndIf
-				EndIf
-			Else
-					BVM_DeleteContext(S\hContext)
-					Delete S
 			EndIf
-	Next
+		Else
+			BVM_DeleteContext(S\hContext)
+			Delete S
+		EndIf
+		S = SNext
+	Wend
+	; No script is executing once the invoke loop exits, so restore the
+	; "engine, not script" invariant: hSI = 0. hSI was set to each invoked
+	; script's handle at the BVM_Invoke call above and, without this reset,
+	; lingered as a stale (often freed) handle between ticks. The main loop
+	; runs RCE_Update() (packet dispatch -> engine-initiated ThreadScript for
+	; chat / spell / right-click / NPC-init) BEFORE the next UpdateScripts(),
+	; so every engine-initiated spawn after the first script ran saw hSI <> 0
+	; and looked script-initiated -- silently defeating ThreadScript's
+	; privileged-script allowlist elevation (the `hSI = 0` gate, #329) for
+	; exactly the shipped content scripts the carve-out exists for. The gate's
+	; own comment documents the assumed invariant ("hSI is 0 at the call
+	; site"); this establishes it. Elevation only denies on stale hSI (never
+	; grants), so the regression was inert allowlist, not privilege escalation.
+	hSI = 0
 	If Pass <> 0 Then Pass = Pass - 1 Else Pass = Threads
 
 End Function
 
-; Loads the superglobal variables
+; Loads the superglobal variables.
+;
+; Each slot is read via ReadBoundedString$ (cap 8192 bytes) so a
+; corrupted or tampered Superglobals.dat with a wild length prefix
+; can't hang the server at startup allocating gigabytes or silently
+; zero-padding past EOF. The 8 KiB cap is generously larger than
+; any realistic gameplay-state string a script would stuff in a
+; superglobal -- BVM_SETSUPERGLOBAL doesn't enforce a per-call cap
+; today, but real-world content uses superglobals for short flags,
+; quest state, counters, and the like.
 Function LoadSuperGlobals(File$)
 
 	F = ReadFile(File$)
@@ -212,25 +452,29 @@ Function LoadSuperGlobals(File$)
 		F = WriteFile(File$)
 	Else
 		For i = 0 To 99
-			SuperGlobals$(i) = ReadString$(F)
+			SuperGlobals$(i) = ReadBoundedString$(F, 8192)
 		Next
 	EndIf
 	CloseFile(F)
 
 End Function
 
-; Saves the superglobal variables
+; Saves the superglobal variables atomically.
+; See SafeWriteOpen / SafeWriteCommit in Logging.bb.
 Function SaveSuperGlobals(File$)
 
-	F = WriteFile(File$)
-	If F = 0 Then Return False
+	Local TempPath$ = SafeWriteOpen(File$)
+	F = WriteFile(TempPath$)
+	If F = 0
+		WriteLog(MainLog, "SaveSuperGlobals: cannot open " + TempPath$ + " for write")
+		Return False
+	EndIf
 
 		For i = 0 To 99
 			WriteString F, SuperGlobals$(i)
 		Next
 
-	CloseFile F
-	Return True
+	Return SafeWriteCommit(TempPath$, File$, F)
 
 End Function
 
@@ -281,11 +525,17 @@ End Function
 Function FreeActorScripts(A.ActorInstance)
 		For S.ScriptInstance = Each ScriptInstance
 			If S\AI = Handle(A) Or S\AIContext = Handle(A)
-				For PS.PausedScript = Each PausedScript
+				; After-cursor walk: the body Deletes PS, which would corrupt
+				; a For-Each cursor on the next iteration step. Walk explicitly.
+				Local PS.PausedScript = First PausedScript
+				Local PSNext.PausedScript = Null
+				While PS <> Null
+					PSNext = After PS
 					If PS\Reason <> 1
 						If PS\S = S Then Delete PS
 					EndIf
-				Next
+					PS = PSNext
+				Wend
 				FreeScriptInstance(S)
 			EndIf
 		Next
@@ -508,15 +758,23 @@ End Function
 Function CreateCore()
 ;Consider also generating Core.rcm (Core.bvm)
 filename$ = RCScripts$ + "RC_Core.rcm"
+	; Route through SafeWriteOpen / SafeWriteCommit. The previous
+	; DeleteFile-then-WriteFile sequence opened the exact truncate-
+	; then-crash window Logging.bb's SafeWrite helpers exist to close:
+	; a crash between Delete and CloseFile leaves no RC_Core.rcm, and
+	; the engine fails to compile any script on next launch. Atomic
+	; wrapper demotes the existing copy to .bak first, so even a
+	; promote-failure leaves a recoverable copy.
+	Local TempPath$ = SafeWriteOpen(filename)
 	Restore Core
-	DeleteFile(filename)
-	W = WriteFile(filename)
+	W = WriteFile(TempPath$)
+	If W = 0 Then Return
 	Read count
 	For i = 1 To count
 		Read Dat
 		WriteByte(W, Dat)
 	Next
-	CloseFile(W)
+	SafeWriteCommit(TempPath$, filename, W)
 End Function
 
 

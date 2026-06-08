@@ -237,34 +237,32 @@ End Function
 ; Updates the whole environment
 Function UpdateEnvironment3D()
 
-	; Scripted emitters
-	For SEm.ScriptedEmitter = Each ScriptedEmitter
+	; Scripted emitters.
+	; After-cursor walk: the body Deletes SEm when its lifetime
+	; expires. The original For-Each form intermittently skipped
+	; emitters or crashed on bursts of simultaneous expirations
+	; (multiple emitters scheduled for the same Length will all
+	; trigger on the same tick). Documented in CLAUDE.md (#247).
+	Local SEm.ScriptedEmitter = First ScriptedEmitter
+	Local SEmNext.ScriptedEmitter = Null
+	While SEm <> Null
+		SEmNext = After SEm
 		If MilliSecs() - SEm\StartTime >= SEm\Length
 			RP_KillEmitter(SEm\EN, True, False)
 			Delete SEm
 		EndIf
-	Next
+		SEm = SEmNext
+	Wend
 
 ;Add Animated water to options menu Cysis145
-		F = ReadFile("Data\Options.dat")
-		If F = 0 Then RuntimeError("Could not open Data\Options.dat!")
-		Width = ReadShort(F)
-		Height = ReadShort(F)
-		Depth = ReadByte(F)
-		AA = ReadByte(F)
-		DefaultVolume# = ReadFloat#(F)
-		GrassEnabled = ReadByte(F)
-		AnisotropyLevel = ReadByte(F)
-		FullScreen = ReadByte(F)
-		VSync = ReadByte(F)
-		Bloom = ReadByte(F)
-		Rays = ReadByte(F)
-		AWater = ReadByte(F)
-		ShadowC = ReadByte(F)
-		ShadowQ = ReadByte(F)
-		ShadowR = ReadByte(F)
-		CloseFile(F)
-		
+		; Options are loaded once at startup by LoadGame() in ClientLoaders.bb
+		; and populate the same globals (AWater, ShadowC, etc.) read below. A
+		; previous version of this block re-opened Data\Options.dat every
+		; frame just to refresh AWater — a needless file open/read/close on
+		; the hot render path. Same fix as Track F applied to Client.bb.
+		; Settings dialogs that mutate these globals are responsible for
+		; re-running LoadGame() (or equivalent) on apply.
+
 	Select AWater
 	Case 0
 	; Water
@@ -318,7 +316,12 @@ Next
 	; Lightning
 	If CurrentWeather = W_Storm
 		If LightningToDo = 0
-			If Rand(1, Int(500.0 / Delta#)) = 1 Then LightningToDo = Rand(1, 3)
+			; Guard Delta=0 (first frame after pause / window-restore makes
+			; Int(500/0) panic). When Delta isn't usable, just skip this
+			; frame's lightning roll.
+			If Delta# > 0.0
+				If Rand(1, Int(500.0 / Delta#)) = 1 Then LightningToDo = Rand(1, 3)
+			EndIf
 		ElseIf Rand(1, 50) = 1
 			LightningToDo = LightningToDo - 1
 			ScreenFlash(255, 255, 255, 65535, Rand(200, 1000), 0.9)
@@ -463,9 +466,18 @@ Next
 		
 			;	Updates phase texture
 
-			If (S\ShowPhases = True) And (TimeH = S\StartH[CurrentSeason]) And (TimeM = S\StartM[CurrentSeason])
+			; Guard Phase_Length > 0: the phase-index calc below does an integer
+			; `Day Mod (8 * S\Phase_Length)` and `/ S\Phase_Length`, and
+			; Phase_Length is read unclamped from the area .dat (Environment.bb)
+			; independently of ShowPhases. A sun with ShowPhases=1 and
+			; Phase_Length=0 (hand-edited / placeholder content) would hit
+			; Mod-by-zero / divide-by-zero, which BlitzForge surfaces as a
+			; "Stack overflow!" crash on the render tick -- the same class the
+			; adjacent PathLength block below already guards. Zero-length phases
+			; simply don't advance.
+			If (S\ShowPhases = True) And (S\Phase_Length > 0) And (TimeH = S\StartH[CurrentSeason]) And (TimeM = S\StartM[CurrentSeason])
 				; Convert day to phase index
-				S\CurrentPhase = Int((Day Mod (8 * S\Phase_Length)) / S\Phase_Length - 0.05) ;8 = number of phases			
+				S\CurrentPhase = Int((Day Mod (8 * S\Phase_Length)) / S\Phase_Length - 0.05) ;8 = number of phases
 
 				Tex = GetTexture(S\TexID[S\CurrentPhase])			
 				If Tex <> 0 Then EntityTexture(S\EN, Tex)
@@ -473,13 +485,22 @@ Next
 				UnloadTexture(S\TexID[S\CurrentPhase])	
 			EndIf
 					
-			; Sun position
+			; Sun position. Guard divide-by-zero on PathLength: a sun
+			; configured with the same Start and End time for the
+			; current season (zero-duration phase, often a placeholder
+			; in custom content) would otherwise crash the client on
+			; every render tick. Treat zero-duration as "no path" and
+			; pin the sun at its start position.
 			ShowEntity(S\EN)
 			PathLength = TimeDelta(S\StartH[CurrentSeason], S\StartM[CurrentSeason], S\EndH[CurrentSeason], S\EndM[CurrentSeason])
 			DoneLengthM = TimeDelta(S\StartH[CurrentSeason], S\StartM[CurrentSeason], TimeH, TimeM)
 			AmountOfMinuteDone# = Float#(MilliSecs() - TimeUpdate) / Float#(60000 / TimeFactor)
 			DoneLength# = Float#(DoneLengthM) + AmountOfMinuteDone#
-			Pitch# = (DoneLength# / Float#(PathLength)) * 220.0 ;180
+			If PathLength > 0
+				Pitch# = (DoneLength# / Float#(PathLength)) * 220.0 ;180
+			Else
+				Pitch# = 0.0
+			EndIf
 			PositionEntity(S\EN, EntityX#(Cam), EntityY#(Cam) + 100, EntityZ#(Cam))
 			RotateEntity(S\EN, -Pitch#, S\PathAngle#, 0)
 			MoveEntity(S\EN, 0, 0, 100.0)
@@ -566,8 +587,16 @@ Function UpdateLensFlare()
 							vX# = ProjectedX#() - ScreenX#
 							vY# = ProjectedY#() - ScreenY#
 							Length# = Sqr#((vX# * vX#) + (vY# * vY#))
-							vX# = vX# / Length#
-							vY# = vY# / Length#
+							; Guard against the sun projecting exactly onto the
+							; screen centre: Length=0 made vX/vY NaN, which then
+							; poisoned every flare entity's PositionEntity below.
+							If Length# > 0.0
+								vX# = vX# / Length#
+								vY# = vY# / Length#
+							Else
+								vX# = 0.0
+								vY# = 0.0
+							EndIf
 							Scale# = 1.0
 							cR = S\LightR - (TotalFlares * 10)
 							cG = S\LightG

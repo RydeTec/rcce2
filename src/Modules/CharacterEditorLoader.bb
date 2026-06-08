@@ -42,10 +42,14 @@ Function LoadCEMesh(ThisID, IdleStart, IdleEnd)
         Shine# = ReadFloat#(f)
         Alpha# = ReadFloat#(f)
 
-        NewTex$ = ReadString$(f)
-        NSphereMap$ = ReadString$(f)
-		Bone$ = ReadString$(F)
-		Name$ = ReadString$(F)
+        ; Bound length-prefixed strings against corrupted .RCE files.
+        ; 260 = Windows MAX_PATH covers any realistic texture / mesh / bone
+        ; name. Same shape as the broader data-loader sweep
+        ; (PRs #149 / #156 / #160 / #161 / #162 / #171).
+        NewTex$ = ReadBoundedString$(f, 260)
+        NSphereMap$ = ReadBoundedString$(f, 260)
+		Bone$ = ReadBoundedString$(F, 64)
+		Name$ = ReadBoundedString$(F, 256)
 
 		EN = GetMesh(ID)
 		If EN <> -1

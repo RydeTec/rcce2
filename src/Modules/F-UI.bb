@@ -37,6 +37,8 @@
 
 ;Strict
 
+Include "Modules\Helpers\FUIResizeMetrics.bb"
+
 ;#Region ---------- Types ----------------------
 Type CHOOSEFONT
 	
@@ -1315,6 +1317,7 @@ Function FUI_ResizeApp( W, H )
 	app\OldH = app\H
 	app\W = W
 	app\H = H
+	FUI_UpdateProjection()
 	
 	;Normal window border
 	If (FUI_API_GetWindowLong( app\hWnd,-16 ) And $40000) = $40000
@@ -1331,6 +1334,24 @@ Function FUI_ResizeApp( W, H )
 	FreeBank bnkRECT
 	bnkRECT = Null
 	
+End Function
+
+; Rebuild the GUI projection after any window size change so pointer picking
+; and layout scaling stay aligned with the resized client area.
+Function FUI_UpdateProjection()
+	If app = Null Or app\Cam = Null Or app\Pivot = Null
+		Return
+	EndIf
+	If app\W <= 0 Or app\H <= 0
+		Return
+	EndIf
+
+	app\Aspect = FUI_WindowAspect#(app\W, app\H)
+	app\Scale = FUI_WindowScale#(app\W)
+
+	CameraViewport app\Cam, 0, 0, app\W, app\H
+	PositionEntity app\Pivot,-1.0, app\Aspect, 1.0
+	ScaleEntity app\Pivot, app\Scale,-app\Scale,-app\Scale
 End Function
 
 Function FUI_CenterApp(  )
@@ -1529,8 +1550,19 @@ Function FUI_CustomMessageBox( msg$, title$="", style=0 )
 	Repeat
 
 		FUI_Update
-		
-		For e.Event = Each Event
+
+		; After-cursor walk: the body unconditionally Delete's e after
+		; the Select Case. Pre-fix `For e = Each Event / ... / Next`
+		; advanced the cursor via the deleted instance's next pointer,
+		; so a multi-event tick (window-resize + button-click delivered
+		; in the same frame) lost the second event -- modal hangs on
+		; missed input. Sibling Architect_Gui_Shell_Fui.bb's event loop
+		; already uses this after-cursor shape (PR #76 / #247). See
+		; CLAUDE.md "Iterator-during-iteration hazards".
+		Local e.Event = First Event
+		Local eNext.Event = Null
+		While e <> Null
+			eNext = After e
 			Select e\EventID
 				;Window Events
 				Case win
@@ -1587,10 +1619,11 @@ Function FUI_CustomMessageBox( msg$, title$="", style=0 )
 					EndIf
 					DlgClose = True
 			End Select
-			
+
 			;Remove event from queue
 			Delete e
-		Next
+			e = eNext
+		Wend
 		
 		RenderWorld
 		Flip
@@ -1660,10 +1693,17 @@ Function FUI_CustomOpenDialog( title$ = "", initdir$ = "", filter$ = "", BackHac
 	DlgDir$ = initdir$
 	DlgFile$ = ""
 	Repeat
-		
+
 		FUI_Update
 
-		For e.Event = Each Event
+		; After-cursor walk: the body unconditionally Delete's e. Same
+		; multi-event-tick hazard as the MessageBox event-pump above
+		; (CLAUDE.md "Iterator-during-iteration hazards"). PR #330
+		; reviewer caught this sibling that the initial pass missed.
+		Local e.Event = First Event
+		Local eNext.Event = Null
+		While e <> Null
+			eNext = After e
 			Select e\EventID
 				;Window Events
 				Case win
@@ -1779,19 +1819,20 @@ Function FUI_CustomOpenDialog( title$ = "", initdir$ = "", filter$ = "", BackHac
 						EndIf
 					EndIf
 			End Select
-			
+
 			;Remove event from queue
 			Delete e
-		Next
+			e = eNext
+		Wend
 
 		RenderWorld
 		Flip
 
 ;		FUI_SetCursor app\Win32Mouse
-		
+
 	Until DlgClose = True
 	DlgClose = False
-	
+
 ;	FUI_SetCursor IDCArrow
 	
 	FUI_DeleteGadget win
@@ -1857,10 +1898,17 @@ Function FUI_CustomSaveDialog( title$ = "", initdir$ = "", filter$ = "", index =
 	DlgDir$ = initdir$
 	DlgFile$ = ""
 	Repeat
-		
+
 		FUI_Update
-		
-		For e.Event = Each Event
+
+		; After-cursor walk: same multi-event-tick hazard as the
+		; MessageBox / FUI_CustomOpenDialog event-pumps above. PR #330
+		; reviewer caught this third sibling that the initial pass
+		; missed. See CLAUDE.md "Iterator-during-iteration hazards".
+		Local e.Event = First Event
+		Local eNext.Event = Null
+		While e <> Null
+			eNext = After e
 			Select e\EventID
 				;Window Events
 				Case win
@@ -1912,7 +1960,7 @@ Function FUI_CustomSaveDialog( title$ = "", initdir$ = "", filter$ = "", index =
 						FILTER_CURRENT_INDEX = Int( e\EventData ) - 1
 						FUI_GetFiles lst, DlgDir$
 					EndIf
-					
+
 				Case ok
 					app\currentFile = DlgDir$ + DlgFile$
 					DlgResult = True
@@ -1921,16 +1969,17 @@ Function FUI_CustomSaveDialog( title$ = "", initdir$ = "", filter$ = "", index =
 					DlgResult = False
 					DlgClose = True
 			End Select
-			
+
 			;Remove event from queue
 			Delete e
-		Next
-		
+			e = eNext
+		Wend
+
 		RenderWorld
 		Flip
-		
+
 ;		FUI_SetCursor app\Win32Mouse
-		
+
 	Until DlgClose = True
 	DlgClose = False
 	
@@ -2747,10 +2796,12 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 					EndIf
 				EndIf
 			Case M_SETIMAGE
+				; Free the prior icon before replacing it; otherwise the
+				; old image handle leaks every time M_SETIMAGE is sent.
+				If tabp\Icon <> 0 Then FreeImage tabp\Icon
+				tabp\Icon = Null
 				If FUI_IsImageSource( Param1$ ) = True
 					tabp\Icon = LoadImage( Param1$ )
-				Else
-					tabp\Icon = Null
 				EndIf
 				FUI_BuildTabPage tabp
 				
@@ -2930,10 +2981,12 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 			Case M_SETID
 				btn\ID = Int(Param1)
 			Case M_SETIMAGE
+				; Free the prior icon before replacing it; otherwise the
+				; old image handle leaks every time M_SETIMAGE is sent.
+				If btn\Icon <> 0 Then FreeImage btn\Icon
+				btn\Icon = Null
 				If FUI_IsImageSource( Param1$ ) = True
 					btn\Icon = LoadImage( Param1$ )
-				Else
-					btn\Icon = Null
 				EndIf
 				FUI_BuildButton btn
 				
@@ -3331,11 +3384,17 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 			Case M_SETSIZE_H
 				img\H = Int Param1
 				FUI_BuildImageBox img
-			Case M_SETIMAGE 
+			Case M_SETIMAGE
+				; Free the prior image before replacing it; sending
+				; M_SETIMAGE repeatedly to the same ImageBox would
+				; otherwise leak one image handle per call.
+				If img\Image <> 0 Then FreeImage img\Image
 				img\Image = LoadImage(Param1)
-				If (img\Flags And CS_RESIZE) = CS_RESIZE 
-				   ResizeImage img\Image, img\W, img\H 
-				EndIf 
+				If img\Image <> 0
+					If (img\Flags And CS_RESIZE) = CS_RESIZE
+					   ResizeImage img\Image, img\W, img\H
+					EndIf
+				EndIf
 				FUI_BuildImageBox img
 				
 			Case M_GETPOS
@@ -3531,14 +3590,28 @@ Function FUI_SendMessage$( ID, Message, Param1$="", Param2$="" )
 					EndIf
 				Next
 			Case M_RESET
-				For lsti.ListBoxItem = Each ListBoxItem
-					If lsti\Owner = lst
-						FreeEntity lsti\IconMesh
-						FreeEntity lsti\Mesh
-						Delete lsti
-;						FUI_DeleteGadget Handle( lsti )
+				; After-cursor walk: the body Deletes the iter, which
+				; would corrupt the For-Each cursor on the next
+				; iteration. A listbox with multiple items would Delete
+				; the first match and either skip the rest (orphan
+				; ListBoxItems leak) or crash on freed-next-pointer
+				; deref. Documented in CLAUDE.md (#247).
+				; Local renamed to lstiR / lstiRNext to avoid collision
+				; with the implicitly-declared lsti from sibling
+				; `For lsti.ListBoxItem = Each ListBoxItem` loops at
+				; the function scope above.
+				Local lstiR.ListBoxItem = First ListBoxItem
+				Local lstiRNext.ListBoxItem = Null
+				While lstiR <> Null
+					lstiRNext = After lstiR
+					If lstiR\Owner = lst
+						FreeEntity lstiR\IconMesh
+						FreeEntity lstiR\Mesh
+						Delete lstiR
+;						FUI_DeleteGadget Handle( lstiR )
 					EndIf
-				Next
+					lstiR = lstiRNext
+				Wend
 				lst\CY = 0
 			Case M_ENABLE
 				FUI_EnableGadget Handle( lst )
@@ -16640,8 +16713,6 @@ Function FUI_Initialise( W, H, D, M, Resizable=False, Border=True, Caption$="", 
 	MoveEntity	(app\Cam, 0, 0, -500)
 	
 	app\Pivot		= CreatePivot( app\Cam )
-	app\Aspect		= Float( H ) / W
-	app\Scale		= 2.0 / W
 	
 	app\currentFont	= New Font
 	;Fixed camera bug in zone editor cysis145
@@ -16651,8 +16722,7 @@ Function FUI_Initialise( W, H, D, M, Resizable=False, Border=True, Caption$="", 
 	ClearTextureFilters
 	AmbientLight 255, 255, 255
 	
-	PositionEntity app\Pivot,-1.0, app\Aspect, 1.0
-	ScaleEntity app\Pivot, app\Scale,-app\Scale,-app\Scale
+	FUI_UpdateProjection()
 	
 	app\A = 255
 	app\A2 = 255
@@ -16766,8 +16836,11 @@ Function FUI_Update( Idle = False )
 			winCH = PeekInt( bnkRECT, 12 ) - PeekInt( bnkRECT, 4 )
 	
 			If winCW <> app\W Or winCH <> app\H
+				app\OldW = app\W
+				app\OldH = app\H
 				app\W = winCW
 				app\H = winCH
+				FUI_UpdateProjection()
 			EndIf
 			
 			FreeBank bnkRECT
@@ -23977,14 +24050,25 @@ Function FUI_FreeEntity( mesh.BBEntity )
 End Function
 
 Function FUI_FreeAllEntities( ID=2 )
-	
-	For m.Mesh = Each Mesh
+
+	; After-cursor walk: selective Delete with no Exit -- multiple
+	; meshes match the filter (ID=0 matches all; ID=2 default matches
+	; every F-UI-owned mesh) and the deleted instance's next pointer
+	; was the iterator's hop target. The sibling FUI_FreeEntity at
+	; ~line 24013 is safe because it has `Exit` after the Delete; this
+	; bulk-free path was the only multi-match variant left unfixed.
+	; See CLAUDE.md "Iterator-during-iteration hazards".
+	Local m.Mesh = First Mesh
+	Local mNext.Mesh = Null
+	While m <> Null
+		mNext = After m
 		If m\ID = ID Or ID = 0
 			FreeEntity m\Mesh
 			Delete m
 		EndIf
-	Next
-	
+		m = mNext
+	Wend
+
 End Function
 
 Function FUI_WireFrame.BBEntity( mesh.BBEntity, Value=True )

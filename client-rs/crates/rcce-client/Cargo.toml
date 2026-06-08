@@ -1,0 +1,76 @@
+[package]
+name = "rcce-client"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "RCCE2 game client (drop-in Client.exe replacement) — state model, login, main loop."
+
+# Built for i686-pc-windows-msvc while the transport is FFI to the 32-bit
+# RCEnet.dll. Goes 64-bit once a fork-matched pure-Rust ENet lands.
+
+[dependencies]
+rcce-net = { path = "../rcce-net", default-features = false }
+enet-sys = { path = "../enet-sys" }
+rcce-render = { path = "../rcce-render" }
+rcce-data = { path = "../rcce-data" }
+
+# Real-time window (client_window bin). winit 0.30 pairs with wgpu 22
+# (both on raw-window-handle 0.6).
+winit = "0.30"
+wgpu = "22"
+pollster = "0.3"
+bytemuck = { version = "1", features = ["derive"] }
+glam = "0.29"
+png = "0.17"
+# Audio: zone music + SFX. Default features include the Vorbis (.ogg) decoder,
+# which is the format the game ships. cpal backend links system audio.
+rodio = "0.19"
+
+[lib]
+name = "rcce_client"
+path = "src/lib.rs"
+
+[[bin]]
+name = "rcce-client"
+path = "src/main.rs"
+
+[[bin]]
+name = "move-test"
+path = "src/bin/move_test.rs"
+
+[[bin]]
+name = "client-window"
+path = "src/bin/client_window.rs"
+
+[[bin]]
+name = "overlay-test"
+path = "src/bin/overlay_test.rs"
+
+[[bin]]
+name = "gen-test-zone"
+path = "src/bin/gen_test_zone.rs"
+
+[[bin]]
+name = "chat-test"
+path = "src/bin/chat_test.rs"
+
+[[bin]]
+name = "combat-test"
+path = "src/bin/combat_test.rs"
+
+[[bin]]
+name = "sound-test"
+path = "src/bin/sound_test.rs"
+
+[[bin]]
+name = "fetch-test"
+path = "src/bin/fetch_test.rs"
+
+[[bin]]
+name = "interact-test"
+path = "src/bin/interact_test.rs"
+
+[[bin]]
+name = "jump-test"
+path = "src/bin/jump_test.rs"

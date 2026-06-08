@@ -83,7 +83,12 @@ Const testing=False
     ChangeDir thispath$    
 ;#Region Load Modules
 	Include "Modules\media.bb"
-    
+	; Logging.bb provides SafeWriteOpen / SafeWriteCommit used by Media.bb's
+	; CreateDatabase. Non-Strict tools tolerate the missing MainLog/LogMode
+	; globals via implicit-zero semantics (WriteLog's `If LogHandle <> 0`
+	; and `If LogMode > 0` short-circuit when the implicit globals are 0).
+	Include "Modules\Logging.bb"
+
 ChangeDir thispath$
 ;;;;;;; NEW ADDITIONS VIA SOLSTAR REQUESTw
 ;#Region Load Modules
@@ -1106,7 +1111,13 @@ cb=0
  Next
 
  ChangeDir BRANCHPATH$
-sfile=WriteFile (fn$)
+; Atomic save: write to a .tmp under BRANCHPATH$ and only promote on success
+; so a crash/partial write can't truncate the user's existing tree file.
+; (CLAUDE.md atomic writes; matches the .tmp-protected path at ~:2671 here.)
+; No ChangeDir occurs between here and the commit below, so the relative
+; temp/final paths resolve consistently.
+Local TmpPath$ = SafeWriteOpen$(fn$)
+sfile=WriteFile (TmpPath$)
 ;new
  WriteFloat sfile, barkscale#
  WriteInt sfile, maxtrunks
@@ -1163,7 +1174,7 @@ If FileType(newpath$+lt$)<>1 Then Savetexture  t,newpath$+lt$
  Next
 
 
-CloseFile sfile
+SafeWriteCommit%(TmpPath$, fn$, sfile)
 
 End Function
 
@@ -2660,12 +2671,24 @@ If FileType(fname$)<>1 Then Return -1
  EndIf
 
 ;wite to file
-; Newf=WriteFile(newn$)
-DeleteFile (fname$)
- Fsave=WriteFile(fname$)
- b=PeekByte(thisbank,i)
- WriteBytes thisbank,fsave,0,offset
- CloseFile fsave
+; Write to .tmp first so a failed WriteFile can't wipe the source.
+TmpPath$ = fname$ + ".tmp"
+If FileType(TmpPath$) = 1 Then DeleteFile(TmpPath$)
+Fsave = WriteFile(TmpPath$)
+If Fsave = 0
+	FreeBank thisbank
+	Return -1
+EndIf
+WriteBytes thisbank, fsave, 0, offset
+CloseFile fsave
+If FileSize(TmpPath$) <> offset
+	DeleteFile(TmpPath$)
+	FreeBank thisbank
+	Return -1
+EndIf
+DeleteFile(fname$)
+CopyFile TmpPath$, fname$
+DeleteFile(TmpPath$)
 
 ; WriteBytes thisbank,newf,0,ts
 ; CloseFile newf

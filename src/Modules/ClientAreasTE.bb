@@ -80,6 +80,12 @@ End Type
 ; Creates a subdivided plane (used for water)
 Function CreateSubdividedPlane(XDivs, ZDivs, UScale# = 1.0, VScale# = 1.0, Parent = 0)
 
+	; Clamp divisions to a sane minimum (see ClientAreas.bb for the
+	; full reasoning). XDivs/ZDivs of 1 would divide-by-zero on the
+	; XPos/ZPos normalization. Below 2 has no actual subdivision.
+	If XDivs < 2 Then XDivs = 2
+	If ZDivs < 2 Then ZDivs = 2
+
 	EN = CreateMesh(Parent)
 	Surf = CreateSurface(EN)
 
@@ -280,9 +286,11 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 			; Collision/picking
 			S\CatchRain = ReadByte(F)
 			Collides = ReadByte(F)
-			; Lightmap information and RCTE data
-			S\Lightmap$ = ReadString$(F)
-			S\RCTE$ = ReadString$(F)
+			; Lightmap information and RCTE data. Bound the asset paths
+			; so a corrupted Area data file can't hang the loader on a
+			; wild ReadInt length prefix (260 = Windows MAX_PATH).
+			S\Lightmap$ = ReadBoundedString$(F, 260)
+			S\RCTE$ = ReadBoundedString$(F, 260)
 
 			If S\EN <> 0
 				; Toolbox extras
@@ -378,11 +386,13 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 				EndIf
 			; Mesh has been deleted or removed from the database!
 			Else
-				If DisplayItems = True
-					Delete(S)
-				Else
-					RuntimeError("Could not find model with ID " + S\MeshID)
-				EndIf
+				; Soft-fail matching the FE / GUE variants -- log + drop.
+				; Terrain Editor previously took the silent-Delete
+				; branch in normal use; the RuntimeError fallback now
+				; logs instead so any caller passing DisplayItems=False
+				; doesn't crash mid-zone-load.
+				WriteLog(MainLog, "LoadArea: scenery MeshID " + S\MeshID + " not found in model database; dropping scenery (zone: " + Name$ + ")")
+				Delete(S)
 			EndIf
 			.CancelScenery
 
@@ -501,8 +511,8 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 			Else
 				E\EN = CreatePivot()
 			EndIf
-			; Read in emitter data
-			E\ConfigName$ = ReadString$(F)
+			; Read in emitter data. Same length-prefix DoS hardening.
+			E\ConfigName$ = ReadBoundedString$(F, 260)
 			E\TexID = ReadShort(F)
 			Texture = GetTexture(E\TexID)
 			X# = ReadFloat#(F) : Y# = ReadFloat#(F) : Z# = ReadFloat#(F)
@@ -518,9 +528,12 @@ Function LoadArea(Name$, CameraEN, DisplayItems = False, UpdateRottNet = False)
 				; Position/rotation
 				PositionEntity E\EN, X#, Y#, Z#
 				RotateEntity E\EN, Pitch#, Yaw#, Roll#
-			; Failed to load config, remove the emitter and display an error message if running on client
+			; Failed to load config -- soft-fail matching the FE / GUE
+			; variants. Note this variant lacks the HideEntity call
+			; the others have (TE doesn't hide before free); preserving
+			; the existing TE-specific cleanup shape.
 			Else
-				If DisplayItems = False Then RuntimeError("Could not load emitter: " + E\ConfigName$)
+				WriteLog(MainLog, "LoadArea: emitter config '" + E\ConfigName$ + "' could not load; dropping emitter (zone: " + Name$ + ")")
 				FreeEntity(E\EN)
 				Delete(E)
 			EndIf
@@ -703,8 +716,9 @@ Function LoadAreaTE(Name$)
 		dm\TextureID = ReadShort(F)
 		dm\CatchRain = ReadByte(F)
 		dm\Collides = ReadByte(F)
-		dm\Lightmap$ = ReadString$(F)
-		dm\rcTe$ = ReadString$(F)
+		; Bound the asset paths (260 = Windows MAX_PATH).
+		dm\Lightmap$ = ReadBoundedString$(F, 260)
+		dm\rcTe$ = ReadBoundedString$(F, 260)
 		
 		If Left$(dm\rcTe$,5)<>"_TRRN"
 			dm\ent = GetMesh(dm\id)
@@ -717,7 +731,12 @@ Function LoadAreaTE(Name$)
 				RotateEntity dm\ent,dm\pitch,dm\yaw,dm\roll
 				EntityFX dm\ent,2
 			Else
-				RuntimeError("Could not find model with ID " + dm\id)
+				; Soft-fail (Terrain-Editor-specific scenery load path):
+				; log + skip placement. Refusing to load the entire
+				; zone for one missing mesh used to require restarting
+				; the editor; logging instead lets the author notice
+				; and fix the bad reference.
+				WriteLog(MainLog, "LoadAreaTE: scenery dm\id " + dm\id + " could not load mesh; skipping placement")
 			EndIf
 		Else
 			loadworkpath$ = dm\rcTe$
@@ -755,7 +774,7 @@ Function LoadAreaTE(Name$)
 	Emitters = ReadShort(F)
 	For i = 1 To Emitters
 		E.Emitter = New Emitter
-		E\ConfigName$ = ReadString$(F)
+		E\ConfigName$ = ReadBoundedString$(F, 260)
 		E\TexID = ReadShort(F)
 		E\X# = ReadFloat#(F) : E\Y# = ReadFloat#(F) : E\Z# = ReadFloat#(F)
 		E\Pitch# = ReadFloat#(F) : E\Yaw# = ReadFloat#(F) : E\Roll# = ReadFloat#(F)
@@ -784,9 +803,17 @@ Function LoadAreaTE(Name$)
 End Function
 
 ; Saves the current area back to file
+; Routes through SafeWriteOpen / SafeWriteCommit so a crash mid-flush
+; doesn't leave the previous (good) area dat truncated. RC Terrain
+; Editor authors hand-build areas over hours; without the atomic
+; wrapper a single mistimed crash loses every waypoint, spawn, and
+; portal in the zone. Mirrors the canonical GUE SaveArea migration
+; in ClientAreas.bb (PR audit at line ~817 there).
 Function SaveAreaTE(Name$)
-	
-	F = WriteFile("Data\Areas\" + Name$ + ".dat")
+
+	Local FinalPath$ = "Data\Areas\" + Name$ + ".dat"
+	Local TempPath$ = SafeWriteOpen(FinalPath$)
+	F = WriteFile(TempPath$)
 	If F = 0 Then Return False
 	
 		; Loading screen
@@ -906,17 +933,21 @@ Function SaveAreaTE(Name$)
 		WriteInt F, SZ\RepeatTime
 		WriteByte F, SZ\Volume
 	Next
-	
-	CloseFile(F)
-	Return True
-	
+
+	Return SafeWriteCommit(TempPath$, FinalPath$, F)
+
 End Function
 
 
 ; Saves the current area back to file
+; Atomic-write parity with SaveAreaTE above and the canonical
+; ClientAreas.bb SaveArea. Same threat model: hand-authored area
+; dat lost on a crash mid-write.
 Function SaveArea(Name$)
 
-	F = WriteFile("Data\Areas\" + Name$ + ".dat")
+	Local FinalPath$ = "Data\Areas\" + Name$ + ".dat"
+	Local TempPath$ = SafeWriteOpen(FinalPath$)
+	F = WriteFile(TempPath$)
 	If F = 0 Then Return False
 
 		; Loading screen
@@ -1060,8 +1091,7 @@ Function SaveArea(Name$)
 			WriteByte F, SZ\Volume
 		Next
 
-	CloseFile(F)
-	Return True
+	Return SafeWriteCommit(TempPath$, FinalPath$, F)
 
 End Function
 
@@ -1075,46 +1105,75 @@ Function UnloadArea()
 
 	UnloadTrees(False)
 
-	For S.Scenery = Each Scenery
+	; Six After-cursor walks; same bug class as #254 (GUE
+	; ClientAreas.bb sibling). RC Terrain Editor's UnloadArea
+	; ran six For-Each + Delete loops in sequence -- the
+	; original shape corrupted the cursor for any multi-element
+	; resource type. Documented in CLAUDE.md (#247).
+	Local S.Scenery = First Scenery
+	Local SNext.Scenery = Null
+	While S <> Null
+		SNext = After S
 		If S\TextureID < 65535 Then UnloadTexture(S\TextureID)
 		UnloadMesh(S\MeshID)
 		FreeEntity(S\EN)
 		Delete(S)
-	Next
+		S = SNext
+	Wend
 
-	For W.Water = Each Water
+	Local W.Water = First Water
+	Local WNext.Water = Null
+	While W <> Null
+		WNext = After W
 		UnloadTexture(W\TexID)
 		FreeTexture(W\TexHandle)
 		FreeEntity(W\EN)
 		Delete(W)
-	Next
+		W = WNext
+	Wend
 
-	For C.ColBox = Each ColBox
+	Local C.ColBox = First ColBox
+	Local CNext.ColBox = Null
+	While C <> Null
+		CNext = After C
 		FreeEntity(C\EN)
 		Delete(C)
-	Next
+		C = CNext
+	Wend
 
-	For E.Emitter = Each Emitter
+	Local E.Emitter = First Emitter
+	Local ENext.Emitter = Null
+	While E <> Null
+		ENext = After E
 		RP_FreeEmitter(GetChild(E\EN, 1), True, False)
 		UnloadTexture(E\TexID)
 		FreeEntity(E\EN)
 		Delete(E)
-	Next
+		E = ENext
+	Wend
 
-	For SZ.SoundZone = Each SoundZone
+	Local SZ.SoundZone = First SoundZone
+	Local SZNext.SoundZone = Null
+	While SZ <> Null
+		SZNext = After SZ
 		If SZ\Channel <> 0 Then StopChannel(SZ\Channel)
 		If SZ\SoundID > 0 And SZ\SoundID < 65535 Then UnloadSound(SZ\SoundID)
 		FreeEntity(SZ\EN)
 		Delete(SZ)
-	Next
+		SZ = SZNext
+	Wend
 
-	For T.Terrain = Each Terrain
+	Local T.Terrain = First Terrain
+	Local TNext.Terrain = Null
+	While T <> Null
+		TNext = After T
 		FreeEntity T\EN
 		UnloadTexture(T\BaseTexID)
 		If T\DetailTex <> 0 Then FreeTexture(T\DetailTex)
 		If T\DetailTexID < 65535 Then UnloadTexture(T\DetailTexID)
 		Delete(T)
-	Next
+		T = TNext
+	Wend
 
 	Delete Each CatchPlane
 

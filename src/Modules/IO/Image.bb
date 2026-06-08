@@ -23,8 +23,15 @@ Type Image.File
     End Method
 
     Method unload()
-        FreeImage(self\img)
-        self\loaded = false
+        ; Guard against unload-before-load (or double unload). Without it,
+        ; FreeImage runs on a stale or zero BBImage handle. Clearing img
+        ; afterwards also prevents a second unload from re-freeing the same
+        ; handle if the BBImage slot is recycled.
+        If self\loaded
+            FreeImage(self\img)
+            self\img = Null
+            self\loaded = false
+        End If
     End Method
 
     Method setDefault(uri$)

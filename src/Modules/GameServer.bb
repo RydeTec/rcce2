@@ -71,13 +71,29 @@ Function GiveXP(A.ActorInstance, XP, IgnoreParty = 0)
 					If Party\Player[i]\ServerArea = A\ServerArea Then Members = Members + 1
 				EndIf
 			Next
-			PartyXP = XP / Members
-			For i = 0 To 7
-				If Party\Player[i] <> Null And Party\Player[i] <> A
-					If Party\Player[i]\ServerArea = A\ServerArea Then GiveXP(Party\Player[i], PartyXP, True)
-				EndIf
-			Next
-			XP = PartyXP + (XP Mod Party\Members)
+			; Skip the share path entirely if no in-area members were
+			; counted. Previously `XP / Members` and `XP Mod Party\Members`
+			; could fire with Members or Party\Members = 0 (everyone in the
+			; party in different zones, or a desynced party state), crashing
+			; the server on every kill that yielded XP.
+			If Members > 0 And Party\Members > 0
+				PartyXP = XP / Members
+				For i = 0 To 7
+					If Party\Player[i] <> Null And Party\Player[i] <> A
+						If Party\Player[i]\ServerArea = A\ServerArea Then GiveXP(Party\Player[i], PartyXP, True)
+					EndIf
+				Next
+				; The recipient (A) keeps its share plus the division remainder.
+				; The remainder MUST use the SAME divisor as the split above --
+				; the in-area `Members`, not the total-party `Party\Members`.
+				; Each of the (Members-1) other in-area members received
+				; PartyXP = XP / Members, so for the distributed total to equal
+				; XP exactly, A must keep PartyXP + (XP Mod Members). Using
+				; Party\Members here fabricated or dropped XP whenever the party
+				; spanned zones (Members <> Party\Members): e.g. XP=10, Members=2,
+				; Party\Members=3 gave 5 + (10 Mod 3)=6, total 11 from a 10 award.
+				XP = PartyXP + (XP Mod Members)
+			EndIf
 		EndIf
 	EndIf
 
@@ -93,18 +109,48 @@ Function GiveXP(A.ActorInstance, XP, IgnoreParty = 0)
 End Function
 
 ; Kills off an actor instance
+; Deferred-kill queue. KillActor can FreeActorInstance(A), and when KillActor
+; is invoked from inside `For AI.ActorInstance = Each ActorInstance` (e.g.
+; water-damage death in UpdateActorInstances), freeing the current iterator
+; leaves Blitz's For-Each next-pointer pointing into freed memory. The
+; iteration sites use DeferKillActor instead, then call ProcessPendingKills
+; after the loop completes.
+Type PendingKill
+	Field Actor.ActorInstance
+	Field Killer.ActorInstance
+End Type
+
+Function DeferKillActor(A.ActorInstance, Killer.ActorInstance)
+	If A = Null Then Return
+	PK.PendingKill = New PendingKill
+	PK\Actor = A
+	PK\Killer = Killer
+End Function
+
+Function ProcessPendingKills()
+	For PK.PendingKill = Each PendingKill
+		If PK\Actor <> Null Then KillActor(PK\Actor, PK\Killer)
+	Next
+	Delete Each PendingKill
+End Function
+
 Function KillActor(A.ActorInstance, Killer.ActorInstance)
 
-	; Tell players in the same area if it was an AI actor dying
+	; Tell players in the same area if it was an AI actor dying. If the
+	; actor's ServerArea is stale (warp-in-progress, freed area, or any
+	; cleanup race), Object.AreaInstance returns Null -- skip the
+	; broadcast rather than crash on AInstance\FirstInZone.
 	If A\RNID < 0
 		Pa$ = RCE_StrFromInt$(A\RuntimeID, 2)
 		If Killer <> Null Then Pa$ = Pa$ + RCE_StrFromInt$(Killer\RuntimeID, 2)
 		AInstance.AreaInstance = Object.AreaInstance(A\ServerArea)
-		A2.ActorInstance = AInstance\FirstInZone
-		While A2 <> Null
-			If A2\RNID > 0 Then RCE_Send(Host, A2\RNID, P_ActorDead, Pa$, True)
-			A2 = A2\NextInZone
-		Wend
+		If AInstance <> Null
+			A2.ActorInstance = AInstance\FirstInZone
+			While A2 <> Null
+				If A2\RNID > 0 Then RCE_Send(Host, A2\RNID, P_ActorDead, Pa$, True)
+				A2 = A2\NextInZone
+			Wend
+		EndIf
 	EndIf
 
 	If Killer <> Null
@@ -119,9 +165,20 @@ Function KillActor(A.ActorInstance, Killer.ActorInstance)
 		GiveXP(Killer, XP)
 	EndIf
 
-	; Continue any paused scripts waiting for this event
-	For PS.PausedScript = Each PausedScript
-		If PS\Reason = 2
+	; Continue any paused scripts waiting for this event. After-cursor walk:
+	; the body Deletes PS, which would corrupt a For-Each cursor on the
+	; next iteration step if two WaitKill scripts resume in the same kill.
+	Local PS.PausedScript = First PausedScript
+	Local PSNext.PausedScript = Null
+	While PS <> Null
+		PSNext = After PS
+		; Defense in depth: drop any PausedScript with Null PS\S so the
+		; deref below can't fault. The BVM_SETWAIT* setters early-return
+		; on Null SI (#228), but a stale queue entry or future code path
+		; that bypasses the SI guard would otherwise crash the server.
+		If PS\S = Null
+			Delete PS
+		ElseIf PS\Reason = 2
 			If PS\ReasonActor = Killer And PS\ReasonKillActor = A\Actor
 				PS\ReasonCount = PS\ReasonCount + 1
 				If PS\ReasonCount >= PS\ReasonAmount
@@ -130,7 +187,8 @@ Function KillActor(A.ActorInstance, Killer.ActorInstance)
 				EndIf
 			EndIf
 		EndIf
-	Next
+		PS = PSNext
+	Wend
 
 	; Human death
 	If A\RNID > 0
@@ -149,23 +207,31 @@ Function KillActor(A.ActorInstance, Killer.ActorInstance)
 			Params$ = Params$ + "," + A\ScriptGlobals$[i]
 		Next
 		If A\DeathScript$ <> "" Then ThreadScript(A\DeathScript$, "Main", Handle(Killer), 0, Params$)
-		; Remove from zone linked list
+		; Remove from zone linked list. If the area instance is already
+		; gone (zone unload race, mid-warp), there's nothing to detach
+		; from and the existing NextInZone pointers will be dangling
+		; anyway -- skip rather than crash.
 		If A\NextInZone <> Null
 			AInstance.AreaInstance = Object.AreaInstance(A\ServerArea)
-			A2.ActorInstance = AInstance\FirstInZone
-			If A2 = A
-				AInstance\FirstInZone = A\NextInZone
-			Else
-				While A2\NextInZone <> A
-					A2 = A2\NextInZone
-				Wend
-				A2\NextInZone = A\NextInZone
+			If AInstance <> Null
+				A2.ActorInstance = AInstance\FirstInZone
+				If A2 = A
+					AInstance\FirstInZone = A\NextInZone
+				Else
+					While A2\NextInZone <> A
+						A2 = A2\NextInZone
+					Wend
+					A2\NextInZone = A\NextInZone
+				EndIf
 			EndIf
 		EndIf
-		; Remove from spawn point if attached to one
+		; Remove from spawn point if attached to one. Same Null guard --
+		; if AInstance is gone, the Spawned counter is already orphaned.
 		If A\SourceSP > -1
 			AInstance.AreaInstance = Object.AreaInstance(A\ServerArea)
-			AInstance\Spawned[A\SourceSP] = AInstance\Spawned[A\SourceSP] - 1
+			If AInstance <> Null
+				AInstance\Spawned[A\SourceSP] = AInstance\Spawned[A\SourceSP] - 1
+			EndIf
 		EndIf
 		FreeActorScripts(A)
 		FreeActorInstance(A)
@@ -182,16 +248,22 @@ Function FireProjectile(P.Projectile, A1.ActorInstance, A2.ActorInstance)
 	; Check faction ratings
 	If A1\FactionRatings[A2\HomeFaction] > 150 Then Return
 
-	; Tell all players about the projectile so they can display it
+	; Tell all players about the projectile so they can display it. If
+	; the source's area lookup fails (stale ServerArea after a warp),
+	; skip the broadcast -- mid-flight projectiles whose source actor
+	; is in transit just don't get a visual ping; the damage logic
+	; below still resolves authoritatively on the server.
 	Pa$ = RCE_StrFromInt$(A1\RuntimeID, 2) + RCE_StrFromInt$(A2\RuntimeID, 2) + RCE_StrFromInt$(P\MeshID, 2)
 	Pa$ = Pa$ + RCE_StrFromInt$(P\Emitter1TexID, 2) + RCE_StrFromInt$(P\Emitter2TexID, 2) + RCE_StrFromInt$(P\Homing, 1) + RCE_StrFromInt$(P\Speed, 1)
 	Pa$ = Pa$ + RCE_StrFromInt$(Len(P\Emitter1$), 1) + P\Emitter1$ + P\Emitter2$
 	AInstance.AreaInstance = Object.AreaInstance(A1\ServerArea)
-	A3.ActorInstance = AInstance\FirstInZone
-	While A3 <> Null
-		If A3\RNID > 0 Then RCE_Send(Host, A3\RNID, P_Projectile, Pa$, True)
-		A3 = A3\NextInZone
-	Wend
+	If AInstance <> Null
+		A3.ActorInstance = AInstance\FirstInZone
+		While A3 <> Null
+			If A3\RNID > 0 Then RCE_Send(Host, A3\RNID, P_Projectile, Pa$, True)
+			A3 = A3\NextInZone
+		Wend
+	EndIf
 
 	; Does the projectile hit the target?
 	ToHit = Rand(100)
@@ -236,6 +308,14 @@ End Function
 ; Makes one actor instance attack another
 Function ActorAttack(A1.ActorInstance, A2.ActorInstance)
 
+	; Bail on null and on already-dead targets. Two attackers landing
+	; in the same tick previously both saw HP>0, both subtracted, both
+	; called KillActor -- second call ran against freed (NPC) memory
+	; for double XP + a use-after-free crash window. Also guards
+	; against script-spawned attacks racing the death broadcast.
+	If A1 = Null Or A2 = Null Then Return False
+	If A2\Attributes\Value[HealthStat] <= 0 Then Return False
+
 	; Get distance between the actor instances
 	XDist# = A1\X# - A2\X#
 	ZDist# = A1\Z# - A2\Z#
@@ -252,16 +332,19 @@ Function ActorAttack(A1.ActorInstance, A2.ActorInstance)
 					CheckDist# = A1\Inventory\Items[SlotI_Weapon]\Item\Range# + A1\Actor\Radius# + A2\Actor\Radius#
 					If Dist# > CheckDist# * CheckDist# Then Return False
 
-					; Tell other players in the same area
+					; Tell other players in the same area. Skip if
+					; the attacker's area lookup is Null (warp race).
 					Pa$ = "O" + RCE_StrFromInt$(A1\RuntimeID, 2) + RCE_StrFromInt$(A2\RuntimeID, 2)
 					AInstance.AreaInstance = Object.AreaInstance(A1\ServerArea)
-					A3.ActorInstance = AInstance\FirstInZone
-					While A3 <> Null
-						If A3\RNID > 0
-							If A3 <> A1 And A3 <> A2 Then RCE_Send(Host, A3\RNID, P_AttackActor, Pa$, True)
-						EndIf
-						A3 = A3\NextInZone
-					Wend
+					If AInstance <> Null
+						A3.ActorInstance = AInstance\FirstInZone
+						While A3 <> Null
+							If A3\RNID > 0
+								If A3 <> A1 And A3 <> A2 Then RCE_Send(Host, A3\RNID, P_AttackActor, Pa$, True)
+							EndIf
+							A3 = A3\NextInZone
+						Wend
+					EndIf
 
 					; Launch projectile
 					P.Projectile = ProjectileList(A1\Inventory\Items[SlotI_Weapon]\Item\RangedProjectile)
@@ -494,34 +577,39 @@ Function ActorAttack(A1.ActorInstance, A2.ActorInstance)
 		RCE_Send(Host, A2\RNID, P_AttackActor, "Y" + RCE_StrFromInt$(A1\RuntimeID, 2) + Pa$, True)
 	EndIf
 
-	; Tell other players in the same area
+	; Tell other players in the same area. Skip if the attacker's
+	; area lookup is Null (warp race / freed area).
 	Pa$ = "O" + RCE_StrFromInt$(A1\RuntimeID, 2) + RCE_StrFromInt$(A2\RuntimeID, 2)
 
 	AInstance.AreaInstance = Object.AreaInstance(A1\ServerArea)
-	A3.ActorInstance = AInstance\FirstInZone
-	While A3 <> Null
-		If A3\RNID > 0
-			If A3 <> A1 And A3 <> A2 Then RCE_Send(Host, A3\RNID, P_AttackActor, Pa$, True)
-		EndIf
-		A3 = A3\NextInZone
-	Wend
+	If AInstance <> Null
+		A3.ActorInstance = AInstance\FirstInZone
+		While A3 <> Null
+			If A3\RNID > 0
+				If A3 <> A1 And A3 <> A2 Then RCE_Send(Host, A3\RNID, P_AttackActor, Pa$, True)
+			EndIf
+			A3 = A3\NextInZone
+		Wend
+	EndIf
 
 	.SkipAttackNet
 
-	; If target was a player with pets, make pets attack too
+	; If target was a player with pets, make pets attack too.
+	; Walk A1's FirstSlave chain instead of every ActorInstance.
+	; Local-name is `PetCur` because A3 is implicit-declared at
+	; function scope by a `For A3.ActorInstance = Each` earlier in
+	; this function (BlitzForge Local + For-Each collision -- see
+	; the feedback_blitz_local_for_each_collision memory).
 	If A1\RNID > 0
 		If A1\NumberOfSlaves > 0
-			Found = 0
-			For A3.ActorInstance = Each ActorInstance
-				If A3\Leader = A1
-					Found = Found + 1
-					If A3\Actor\Aggressiveness < 3 And A3\AITarget = Null
-						A3\AITarget = A2
-						A3\AIMode = AI_PetChase
-					EndIf
-					If Found = A1\NumberOfSlaves Then Exit
+			Local PetCur.ActorInstance = A1\FirstSlave
+			While PetCur <> Null
+				If PetCur\Actor\Aggressiveness < 3 And PetCur\AITarget = Null
+					PetCur\AITarget = A2
+					PetCur\AIMode = AI_PetChase
 				EndIf
-			Next
+				PetCur = PetCur\NextSlave
+			Wend
 		EndIf
 	EndIf
 
@@ -535,9 +623,19 @@ End Function
 ; Updates position, etc. of all actor instances
 Function UpdateActorInstances(Broadcast)
 
-	; Update actor effects
+	; Update actor effects.
+	;
+	; After-cursor walk: the body Deletes AE in two branches (owner gone,
+	; effect time expired). Blitz3D's For-Each advances via the deleted
+	; element's "next" pointer, so the original `For AE = Each ActorEffect
+	; / Delete AE / Next` shape intermittently skipped effects or crashed
+	; on bursts of simultaneous expirations. Documented in CLAUDE.md
+	; ("Iterator-during-iteration hazards", #247).
 	T = MilliSecs()
-	For AE.ActorEffect = Each ActorEffect
+	Local AE.ActorEffect = First ActorEffect
+	Local AENext.ActorEffect = Null
+	While AE <> Null
+		AENext = After AE
 		; Owner has gone
 		If AE\Owner = Null
 			Delete AE\Attributes
@@ -565,7 +663,8 @@ Function UpdateActorInstances(Broadcast)
 				EndIf
 			EndIf
 		EndIf
-	Next
+		AE = AENext
+	Wend
 
 	; Recharging this frame?
 	Recharge = False
@@ -577,26 +676,47 @@ Function UpdateActorInstances(Broadcast)
 	For AI.ActorInstance = Each ActorInstance
 		If AI\RuntimeID > -1
 			AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea)
+			; If the actor's area lookup fails (stale ServerArea, mid-warp,
+			; or freed zone), skip this entire per-tick update -- the body
+			; below derefs AInstance\Area for waypoint movement, water
+			; damage, AI aggression, and the broadcast loops. Each of those
+			; was a one-tick crash; rather than guard each site individually
+			; the whole pass is gated on AInstance. The actor's position,
+			; HP, and other intrinsic state are still preserved for when
+			; SetArea re-establishes the zone link.
+			If AInstance <> Null
 
-			; Recharge spells
+			; Recharge spells. SpellCharge is now uniformly indexed by
+			; spell ID (matches the unified P_SpellUpdate "F" handler in
+			; ServerNet.bb). The previous split (memorise-slot 0..9 vs
+			; known-spell-index 0..999) let a player double-cast by
+			; toggling RequireMemorise or re-memorising into a different
+			; slot.
 			If Recharge = True
-				If RequireMemorise
-					For i = 0 To 9
-						If AI\SpellCharge[i] > 0 Then AI\SpellCharge[i] = AI\SpellCharge[i] - 100
-					Next
-				Else
-					For i = 0 To 999
-						If AI\SpellCharge[i] > 0 Then AI\SpellCharge[i] = AI\SpellCharge[i] - 100
-					Next
-				EndIf
+				For i = 0 To 999
+					If AI\SpellCharge[i] > 0 Then AI\SpellCharge[i] = AI\SpellCharge[i] - 100
+				Next
 			EndIf
 
-			; Move (except mounts)
+			; Move (except mounts). Guard divide-by-zero on SpeedStat
+			; Maximum: a misconfigured actor template (or a script that
+			; zeroed the cap mid-session) would otherwise crash the
+			; per-tick movement update for every actor in the world.
+			; Fall back to a full-speed ratio (1.0) so the actor still
+			; moves; speed-tuning content is a softer failure mode.
 			If AI\Rider = Null
 				If AI\Mount = Null
-					Speed# = 1.5 * (Float#(AI\Attributes\Value[SpeedStat]) / Float#(AI\Attributes\Maximum[SpeedStat]))
+					If AI\Attributes\Maximum[SpeedStat] > 0
+						Speed# = 1.5 * (Float#(AI\Attributes\Value[SpeedStat]) / Float#(AI\Attributes\Maximum[SpeedStat]))
+					Else
+						Speed# = 1.5
+					EndIf
 				Else
-					Speed# = 1.5 * (Float#(AI\Mount\Attributes\Value[SpeedStat]) / Float#(AI\Mount\Attributes\Maximum[SpeedStat]))
+					If AI\Mount\Attributes\Maximum[SpeedStat] > 0
+						Speed# = 1.5 * (Float#(AI\Mount\Attributes\Value[SpeedStat]) / Float#(AI\Mount\Attributes\Maximum[SpeedStat]))
+					Else
+						Speed# = 1.5
+					EndIf
 				EndIf
 				If AI\WalkingBackward = True Then Speed# = Speed# / 2.0
 				If AI\IsRunning = True
@@ -624,23 +744,30 @@ Function UpdateActorInstances(Broadcast)
 				AI\Z# = AI\Rider\Z#
 			EndIf
 
-			; Underwater damage
+			; Underwater damage. Walks the per-Area chain off
+			; AInstance\Area\FirstWater (built in ServerLoadArea above)
+			; rather than the global `For Each ServerWater` + filter on
+			; SW\Area. Old: O(actors * total_water_in_all_loaded_areas)
+			; per tick. New: O(actors * waters_in_this_actor's_area),
+			; typically 5-10 per area vs potentially 50+ across all
+			; loaded zones. Behaviour unchanged -- same hit-test, same
+			; early Exit on first match.
 			If AI\Actor\Environment <> Environment_Swim
 				Underwater = 0
-				For SW.ServerWater = Each ServerWater
-					If SW\Area = AInstance\Area
-						If AI\Y# < SW\Y# + 0.5
-							If AI\X# > SW\X# And AI\X# < SW\X# + SW\Width#
-								If AI\Z# > SW\Z# And AI\Z# < SW\Z# + SW\Depth#
-									If AI\Underwater = 0 Then AI\Underwater = MilliSecs()
-									Underwater = Handle(SW)
-									DistUnder# = SW\Y# - AI\Y#
-									Exit
-								EndIf
+				Local SW.ServerWater = AInstance\Area\FirstWater
+				While SW <> Null
+					If AI\Y# < SW\Y# + 0.5
+						If AI\X# > SW\X# And AI\X# < SW\X# + SW\Width#
+							If AI\Z# > SW\Z# And AI\Z# < SW\Z# + SW\Depth#
+								If AI\Underwater = 0 Then AI\Underwater = MilliSecs()
+								Underwater = Handle(SW)
+								DistUnder# = SW\Y# - AI\Y#
+								Exit
 							EndIf
 						EndIf
 					EndIf
-				Next
+					SW = SW\NextWater
+				Wend
 				If Underwater = 0
 					AI\Underwater = 0
 					; Restore breath
@@ -656,6 +783,17 @@ Function UpdateActorInstances(Broadcast)
 				ElseIf MilliSecs() - AI\Underwater >= 1000
 					AI\Underwater = AI\Underwater + 1000
 					SW = Object.ServerWater(Underwater)
+					; Stale-handle Null discipline (CLAUDE.md): the
+					; initial scan above captured `Underwater = Handle(SW)`
+					; for a live ServerWater, but >= 1 second has elapsed
+					; before this branch runs. If the owning Area was
+					; ServerUnloadArea'd or the water was explicitly
+					; Deleted in that window, Object.ServerWater returns
+					; Null, and the unguarded `SW\Damage` deref below was
+					; a one-frame server-crash. Breath-loss only needs
+					; AI state and runs even on stale water (it ticks
+					; per-second-underwater regardless); damage requires
+					; SW field reads and is the part that must skip.
 					; Remove breath, or health if none left
 					If BreathStat > -1 And DistUnder# > 2.0
 						AI\Attributes\Value[BreathStat] = AI\Attributes\Value[BreathStat] - 1
@@ -664,7 +802,11 @@ Function UpdateActorInstances(Broadcast)
 							UpdateAttribute(AI, HealthStat, AI\Attributes\Value[HealthStat] - 1)
 							If AI\Attributes\Value[HealthStat] <= 0
 								AI\Attributes\Value[HealthStat] = 0
-								KillActor(AI, Null)
+								; AI is the current For-Each iterator — defer the
+								; actual KillActor (which FreeActorInstance's an AI)
+								; until after the loop. See DeferKillActor /
+								; ProcessPendingKills.
+								DeferKillActor(AI, Null)
 							EndIf
 						EndIf
 						If AI\RNID > 0
@@ -672,14 +814,19 @@ Function UpdateActorInstances(Broadcast)
 							RCE_Send(Host, AI\RNID, P_StatUpdate, "A" + Pa$, True)
 						EndIf
 					EndIf
-					; Water damage
-					If SW\Damage > 0
+					; Water damage -- requires a live ServerWater. If SW
+					; is Null (water freed during the 1s breath window),
+					; skip this block; breath loss above already ran and
+					; the next tick will either re-pick a new water or
+					; clear AI\Underwater via the no-hit path above.
+					If SW <> Null And SW\Damage > 0
 						Damage = SW\Damage - (AI\Resistances[SW\DamageType] - 100)
 						If Damage < 1 Then Damage = 1
 						UpdateAttribute(AI, HealthStat, AI\Attributes\Value[HealthStat] - Damage)
 						If AI\Attributes\Value[HealthStat] <= 0
 							AI\Attributes\Value[HealthStat] = 0
-							KillActor(AI, Null)
+							; Same iterator-during-iteration hazard — defer.
+							DeferKillActor(AI, Null)
 						EndIf
 					EndIf
 				EndIf
@@ -721,15 +868,24 @@ Function UpdateActorInstances(Broadcast)
 							AI\Y# = AInstance\Area\WaypointY#[AI\CurrentWaypoint] + Rnd#(-1.5, 1.5)
 							AI\OldX# = AInstance\Area\WaypointX#[AI\CurrentWaypoint]
 							AI\OldZ# = AInstance\Area\WaypointZ#[AI\CurrentWaypoint]
+							; WaypointX/Y/Z are Field[1999]. Next/PrevWaypoint
+							; are ReadShort at load (-32768..32767); the
+							; original runtime guard only rejected `> 1999`
+							; so a negative slot bypassed the check and
+							; Field-OOB'd the destination read below.
+							; Treat anything outside 0..1999 as "no next
+							; waypoint" by setting to 9999 (above the upper
+							; bound, which the runtime already uses as
+							; "give up and Wait").
 							If Rand(1, 2) = 1
 								NextWP = AInstance\Area\NextWaypointA[AI\CurrentWaypoint]
-								If NextWP > 1999 Then NextWP = AInstance\Area\NextWaypointB[AI\CurrentWaypoint]
+								If NextWP < 0 Or NextWP > 1999 Then NextWP = AInstance\Area\NextWaypointB[AI\CurrentWaypoint]
 							Else
 								NextWP = AInstance\Area\NextWaypointB[AI\CurrentWaypoint]
-								If NextWP > 1999 Then NextWP = AInstance\Area\NextWaypointA[AI\CurrentWaypoint]
+								If NextWP < 0 Or NextWP > 1999 Then NextWP = AInstance\Area\NextWaypointA[AI\CurrentWaypoint]
 							EndIf
-							If NextWP > 1999 Then NextWP = AInstance\Area\PrevWaypoint[AI\CurrentWaypoint]
-							If NextWP > 1999
+							If NextWP < 0 Or NextWP > 1999 Then NextWP = AInstance\Area\PrevWaypoint[AI\CurrentWaypoint]
+							If NextWP < 0 Or NextWP > 1999
 								AI\AIMode = AI_Wait
 							Else
 								AI\DestX# = AInstance\Area\WaypointX#[NextWP] + Rnd#(-2.0, 2.0)
@@ -801,6 +957,16 @@ Function UpdateActorInstances(Broadcast)
 							EndIf
 						EndIf
 					EndIf
+				; Orphaned pet: its leader was freed without resetting AIMode.
+				; FreeActorInstance's orphan loop and BVM_SETLEADER reset it at
+				; the source; this is the tick-side backstop so a missed future
+				; orphaning path can't deref a Null AI\Leader in the pet branches
+				; below (the AI_Chase branch already follows this Null discipline).
+				; Operands are plain reads/compares -- no deref through Leader --
+				; so the non-short-circuit And/Or is safe here.
+				ElseIf (AI\AIMode = AI_Pet Or AI\AIMode = AI_PetChase) And AI\Leader = Null
+					AI\AIMode = AI_Wait
+					AI\AITarget = Null
 				; Pet AI
 				ElseIf AI\AIMode = AI_Pet
 					; Move towards leader's position
@@ -834,7 +1000,13 @@ Function UpdateActorInstances(Broadcast)
 				ElseIf AI\AIMode = AI_PetChase
 					; Keep updated with leader's target
 					AI\AITarget = AI\Leader\AITarget
-					If AI\AITarget <> Null Then AI\AIMode = AI_Pet
+					; Bug fix: the original condition demoted the pet OUT
+					; of chase mode the moment it acquired a target,
+					; oscillating between AI_Pet and AI_PetChase every
+					; frame. The "lost target" demotion at line ~901 below
+					; already handles the AI_PetChase -> AI_Pet transition
+					; when the target goes Null; remove the inverted line
+					; here.
 
 					; Check if leader is too far away
 					XDist# = AI\X# - AI\Leader\X#
@@ -869,8 +1041,15 @@ Function UpdateActorInstances(Broadcast)
 					EndIf
 				EndIf
 			EndIf
+			EndIf  ; closes the AInstance <> Null guard added above
 		EndIf
 	Next
+
+	; Process any kills deferred from the loop above (water-damage NPC
+	; deaths). Doing it here means the For-Each next-pointers stayed valid
+	; throughout the iteration; the actual FreeActorInstance(A) happens
+	; now, while no iteration is active.
+	ProcessPendingKills()
 
 ;****************************************************************
 ;****************************************************************
@@ -884,9 +1063,18 @@ Function UpdateActorInstances(Broadcast)
 	EndIf;
 				
 	If Broadcast = True
-		For AI.ActorInstance = Each ActorInstance
-			If AI\RNID > 0
+		; Walk the FirstOnlinePlayer chain instead of every
+		; ActorInstance. This is the per-tick standard-update
+		; broadcast -- the dominant per-frame cost on a server with
+		; many NPCs / spawned mobs. The chain only contains RNID > 0
+		; players, so the explicit `If AI\RNID > 0` filter is gone.
+		AI.ActorInstance = FirstOnlinePlayer
+		While AI <> Null
 				AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea)
+				; If the player's area lookup is Null (mid-warp, freed
+				; zone), skip the per-tick broadcast for this player. They'll
+				; get caught up on their next P_ChangeArea / P_StandardUpdate.
+				If AInstance <> Null
 				A2.ActorInstance = AInstance\FirstInZone
 				While A2 <> Null
 								  
@@ -928,7 +1116,15 @@ Function UpdateActorInstances(Broadcast)
 								XDist# = Abs(A2\X# - A2\DestX#)
 								ZDist# = Abs(A2\Z# - A2\DestZ#)
 								DoneDist# = (XDist# * XDist#) + (ZDist# * ZDist#)
-								YPos# = A2\Y# + ((AInstance\Area\WaypointY#[A2\CurrentWaypoint] - A2\Y#) * (DoneDist# / TotalDist#))
+								; Avoid divide-by-zero when the waypoint coincides with the
+								; previous origin (single-waypoint patrol or a config error
+								; that left OldX/Z == DestX/Z). Fall back to the actor's
+								; current Y rather than crashing the periodic broadcast.
+								If TotalDist# > 0.0
+									YPos# = A2\Y# + ((AInstance\Area\WaypointY#[A2\CurrentWaypoint] - A2\Y#) * (DoneDist# / TotalDist#))
+								Else
+									YPos# = A2\Y#
+								EndIf
 							Else
 								YPos# = A2\Y#
 							EndIf
@@ -939,8 +1135,9 @@ Function UpdateActorInstances(Broadcast)
 					EndIf
 					A2 = A2\NextInZone
 				Wend
-			EndIf
-		Next
+				EndIf  ; closes the AInstance <> Null guard added above
+			AI = AI\NextOnlinePlayer
+		Wend
 	EndIf
 
 End Function
@@ -948,10 +1145,33 @@ End Function
 ; Changes the area of an actor instance
 Function SetArea(A.ActorInstance, Ar.Area, Instance, Waypoint = -1, Portal = 0, X# = 0, Y# = 0, Z# = 0)
 
-	; Check instance exists
-	If Ar\Instances[Instance] = Null
+	; Defensive Null-area guard. Multiple call sites (P_StartGame,
+	; script BVM_WARP / BVM_CHANGEAREA, area-change packet handler)
+	; resolve a destination Area via FindArea, which returns Null
+	; whenever the named area was deleted from data files. Every
+	; subsequent line in this function dereferences Ar -- a missing
+	; saved-character area used to crash the server at the player's
+	; login, taking every other player offline with them. Bail out
+	; cleanly; the caller's actor stays in whatever area it was in
+	; (or, for a fresh login, never gets placed -- the login handler
+	; needs its own Null check, see P_StartGame).
+	If Ar = Null
+		Local AName$ = "<unknown>"
+		If A <> Null Then AName$ = A\Name$
+		WriteLog(MainLog, "SetArea: refusing to warp '" + AName$ + "' to a Null area")
+		Return
+	EndIf
+
+	; Check instance exists. The bounds check has to come BEFORE the
+	; Instances[] access — without it, a GM typing `/warp Area, 9999`
+	; indexed past the 100-slot Instances array (declared 0..99) and
+	; crashed the server before any Null check could run.
+	If Instance < 0 Or Instance > 99
+		WriteLog(MainLog, "Error: Cannot put actor into instance #" + Str$(Instance) + " of " + Ar\Name$ + " — instance index out of range")
 		Instance = 0
+	ElseIf Ar\Instances[Instance] = Null
 		WriteLog(MainLog, "Error: Cannot put actor into instance #" + Str$(Instance) + " of " + Ar\Name$ + " as the instance does not exist")
+		Instance = 0
 	EndIf
 	
 	;set flag to ignore standard updates until client has notified us that it has completed the move
@@ -1022,12 +1242,19 @@ Function SetArea(A.ActorInstance, Ar.Area, Instance, Waypoint = -1, Portal = 0, 
 	; Set new position
 	If Waypoint = -1
 		; Portal
-		If Portal > -1
+		; PortalX/Y/Z/Yaw are Field[99]; a caller passing a corrupt or
+		; out-of-range Portal index (e.g. from a script BVM_WARP with a
+		; bad portal name lookup, or a saved character with a stale
+		; LastPortal) would Field-OOB here. Drop to direct-position
+		; placement at origin when out of range.
+		If Portal > -1 And Portal <= 99
 			A\Yaw# = Ar\PortalYaw#[Portal]
 			A\X# = Ar\PortalX#[Portal]
 			A\Y# = Ar\PortalY#[Portal]
 			A\Z# = Ar\PortalZ#[Portal]
 			A\LastPortal = Portal
+			A\LastPortalArea = Handle(Ar)
+			A\LastPortalAreaName$ = Ar\Name$
 			A\LastPortalTime = MilliSecs()
 		; Direct position
 		Else
@@ -1037,12 +1264,32 @@ Function SetArea(A.ActorInstance, Ar.Area, Instance, Waypoint = -1, Portal = 0, 
 		EndIf
 	; Waypoint
 	Else
-		A\Yaw# = 0.0
-		A\X# = Ar\WaypointX#[Waypoint]
-		A\Y# = Ar\WaypointY#[Waypoint]
-		A\Z# = Ar\WaypointZ#[Waypoint]
-		A\CurrentWaypoint = Waypoint
-		A\LastPortal = 0
+		; WaypointX/Y/Z are Field[1999]; Waypoint is caller-supplied
+		; (script BVM, spawner SpawnWaypoint[]). Drop to origin if out
+		; of range rather than crash on Field OOB.
+		If Waypoint < 0 Or Waypoint > 1999
+			WriteLog(MainLog, "SetArea: waypoint " + Waypoint + " out of range in '" + Ar\Name$ + "'; placing at origin")
+			A\Yaw# = 0.0
+			A\X# = 0
+			A\Y# = 0
+			A\Z# = 0
+			A\CurrentWaypoint = 0
+		Else
+			A\Yaw# = 0.0
+			A\X# = Ar\WaypointX#[Waypoint]
+			A\Y# = Ar\WaypointY#[Waypoint]
+			A\Z# = Ar\WaypointZ#[Waypoint]
+			A\CurrentWaypoint = Waypoint
+		EndIf
+		; Waypoint-based placement is not a portal entry: -1 disables the
+		; lock so a legitimate portal in the destination area triggers
+		; normally. The previous LastPortal=0 stamp had no lock-time
+		; refresh, so it never actually applied; pair the sentinel with a
+		; cleared LastPortalArea now that the lock checks the (Ar, i)
+		; pair.
+		A\LastPortal = -1
+		A\LastPortalArea = 0
+		A\LastPortalAreaName$ = ""
 	EndIf
 
 	; Reset target
@@ -1162,7 +1409,10 @@ Function CommandPet(AI.ActorInstance, Command$, Params$)
 			AI\AITarget = Null
 		; Pet to attack leader's target
 		Case "ATTACK"
-			If AI\Actor\Aggressiveness < 3
+			; Guard AI\Leader before the deref below -- an orphaned pet (leader
+			; freed) must not crash here. Both operands are plain reads/compares
+			; (no deref through Leader), so the non-short-circuit And is safe.
+			If AI\Actor\Aggressiveness < 3 And AI\Leader <> Null
 				If AI\Leader\AITarget <> Null
 					AI\AITarget = AI\Leader\AITarget
 					AI\AIMode = AI_PetChase
@@ -1174,7 +1424,14 @@ Function CommandPet(AI.ActorInstance, Command$, Params$)
 			NameValid = True
 			Name$ = Upper$(Params$)
 			F = ReadFile("Data\Server Data\Names Filter.txt")
-			If F = 0 Then RuntimeError("Could not open Names Filter.txt!")
+			; Soft-fail same as ServerNet.bb's P_CreateCharacter path --
+			; missing filter file used to RuntimeError-crash the entire
+			; server when a player typed /pet name. Failing open here is
+			; the right default; the bigger risk is server outage from a
+			; legitimate /pet command.
+			If F = 0
+				WriteLog(MainLog, "Pet NAME: Names Filter.txt missing or unreadable; accepting pet name without filtering until file is restored")
+			Else
 				While Eof(F) = False
 					Banned$ = Trim$(ReadLine$(F))
 					If Banned$ <> ""
@@ -1183,18 +1440,21 @@ Function CommandPet(AI.ActorInstance, Command$, Params$)
 						EndIf
 					EndIf
 				Wend
-			CloseFile(F)
+				CloseFile(F)
+			EndIf
 
-			; Set pet name
+			; Set pet name, broadcast to others in area if any.
 			If NameValid = True
 				AI\Name$ = Params$
 				Pa$ = RCE_StrFromInt$(AI\RuntimeID, 2) + RCE_StrFromInt$(Len(AI\Name$), 1) + AI\Name$ + AI\Tag$
 				AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea)
-				A2.ActorInstance = AInstance\FirstInZone
-				While A2 <> Null
-					If A2\RNID > 0 Then RCE_Send(Host, A2\RNID, P_NameChange, Pa$, True)
-					A2 = A2\NextInZone
-				Wend
+				If AInstance <> Null
+					A2.ActorInstance = AInstance\FirstInZone
+					While A2 <> Null
+						If A2\RNID > 0 Then RCE_Send(Host, A2\RNID, P_NameChange, Pa$, True)
+						A2 = A2\NextInZone
+					Wend
+				EndIf
 			EndIf
 	End Select
 
@@ -1205,6 +1465,7 @@ Function AILookForTargets(AI.ActorInstance)
 
 	If AI\Actor\Aggressiveness = 2
 		AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea)
+		If AInstance = Null Then Return
 		A2.ActorInstance = AInstance\FirstInZone
 		While A2 <> Null
 			; Must have a faction rating under 50% to be attacked
@@ -1233,6 +1494,7 @@ Function AICallForHelp(AI.ActorInstance)
 
 	If AI\AITarget <> Null
 		AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea)
+		If AInstance = Null Then Return
 		A2.ActorInstance = AInstance\FirstInZone
 		While A2 <> Null
 			If A2\Actor\Aggressiveness <> 3 And A2\Actor\Aggressiveness <> 0

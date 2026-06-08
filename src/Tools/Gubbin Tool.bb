@@ -113,7 +113,7 @@ Global PreviewPitch#, PreviewYaw#, PreviewDistance# = 30.0
 SetActor()
 UpdatePreviewCam()
 Global TempPosX#, TempPosY#, TempPosZ#, TempScale#
-Global gubbinID,meshID
+Global gubbinID
 
 ; Delta timing
 Dim DeltaBuffer(5)
@@ -154,8 +154,7 @@ Repeat
 								MeshNames$(Result) = Name$ + Chr$(0)
 								SetMeshOffset(Result, LoadedMeshX#(SelectedMeshID), LoadedMeshY#(SelectedMeshID), LoadedMeshZ#(SelectedMeshID))
 								SetMeshScale(Result, LoadedMeshScales#(SelectedMeshID))
-								SaveRotation()
-								SetGubbinMesh(Result)
+								SaveRotation(Result)
 							EndIf
 						EndIf
 					EndIf
@@ -225,7 +224,6 @@ Repeat
 						If Right$(Upper$(Name$), 3) <> "B3D"
 							FUI_CustomMessageBox("Rotation changes cannot be saved for this mesh format!", "Warning", MB_OK)
 						EndIf
-						meshID = ID
 					EndIf
 				EndIf
 
@@ -549,6 +547,9 @@ Repeat
 		Time# = Time# + DeltaBuffer(i)
 	Next
 	Time# = Time# / 6.0
+	; Divide-by-zero guard -- see Client.bb. Sub-millisecond average frame
+	; time would yield Inf or a RuntimeError without this clamp.
+	If Time# < 1.0 Then Time# = 1.0
 	FPS# = 1000.0 / Time#
 	Delta# = BaseFramerate# / FPS#
 	DeltaTime = MilliSecs()
@@ -782,144 +783,212 @@ Function SaveAll()
 	If PreviewMesh <> 0
 		SetMeshOffset(SelectedMeshID, TempPosX#, TempPosY#, TempPosZ#)
 		SetMeshScale(SelectedMeshID, TempScale#)
-		SaveRotation()
+		SaveRotation(SelectedMeshID)
 		AppTitle("Realm Crafter Gubbin Tool")
 		ChangesSaved = True
 	EndIf
 
 End Function
 
-; Updates the B3D file of the current mesh with its rotation
-Function SaveRotation()
+; Updates the B3D file of the current mesh with its rotation.
+;
+; Note: .eb3d (encrypted Blitz3D) rotation editing is not fully supported
+; in this build -- EncryptMesh below is empty, so any rotation save on an
+; encrypted mesh writes the rotated vertices to a sibling foo.eb3d.b3d
+; file (the DecryptMesh scratch output) and leaves the original .eb3d
+; untouched. Callers should treat .eb3d rotation as a no-op until the
+; encryption pipeline is restored.
+;
+; Atomicity (issue #43): the prior implementation opened
+; "Data\Meshes\Name$" directly via OpenFile and rewrote vertex chunks
+; in place. Any failure (process kill, RuntimeError downstream, the
+; user-reported VRTS-walk desync that silently destroys the file) left
+; the original mesh truncated or zeroed with no recovery path. The
+; mesh is part of the data project and not easily reproducible by the
+; user.
+;
+; The new path: CopyFile the source to a sibling .tmp, mutate the
+; .tmp in place using the existing VRTS walker, then SafeWriteCommit
+; atomic-promotes the .tmp into production (with the previous version
+; retained as .bak). Any failure leaves the original intact. Matches
+; the SafeWriteOpen / SafeWriteCommit pattern established by the 2025
+; sweep across Server / GUE / RCTE / Tools (Logging.bb).
+Function SaveRotation(TargetMeshID)
 
 	Local TName$ = ""
 	Local Name$ = ""
-	Local isEncrypted = False
-	
+
 	If PreviewMesh <> 0
-		Name$ = EditorMeshName$(SelectedMeshID)
+		Name$ = EditorMeshName$(TargetMeshID)
 		If Right$(Upper$(Name$), 3) = "B3D" Then
 			If Right$(Upper$(Name$), 5) = ".EB3D" Then
 				TName$ = Name$
 				DecryptMesh("Data\Meshes\" + Name$)
 				Name$ = Name$ + ".b3d"
-				;isEncrypted = True
 			End If
 		Else
 			Return
 		End If
 
-;		CopyFile( TName$, Name$ )
-		DebugLog( "Save File: " +  "Data\Meshes\" + Name$)
-		Local F = OpenFile("Data\Meshes\" + Name$)
-		If F = 0 Then RuntimeError("Could not open " + Name$)
-			temp_bank = CreateBank(12)
-			GPP = CreatePivot()
-			RotateEntity(GPP, EntityPitch#(PreviewMesh), EntityYaw#(PreviewMesh), EntityRoll#(PreviewMesh))
-			While Not Eof(F)
-				SeekFile(F, fspot)
-				fspot = FilePos(F) + 1
-				Testr$ = Chr$(ReadByte(F))
-				Testr$ = Testr$ + Chr$(ReadByte(F))
-				Testr$ = Testr$ + Chr$(ReadByte(F))
-				Testr$ = Testr$ + Chr$(ReadByte(F))
+		Local FinalPath$ = "Data\Meshes\" + Name$
+		Local TempPath$ = SafeWriteOpen$(FinalPath$)
+		DebugLog( "Save File: " + FinalPath$ + " (via " + TempPath$ + ")")
 
-				; Found a vertices chunk
-				If Testr$ = "VRTS"
-					vertend = FilePos(F) + 4 + ReadInt(F)
-					Flags = ReadInt(F)
-					tc_sets = ReadInt(F)
-					tc_size = ReadInt(F)
+		; Stage a working copy. CopyFile returns non-zero on success in
+		; Blitz3D; we treat any case where the temp doesn't actually
+		; appear on disk as a failure and bail without touching the
+		; original.
+		CopyFile(FinalPath$, TempPath$)
+		If FileType(TempPath$) <> 1
+			DebugLog( "SaveRotation: could not stage temp for " + FinalPath$ + " -- save aborted, original preserved")
+			Return
+		EndIf
 
-					; Process each vertex
-					While FilePos(F) < vertend
-						; Read in floats
-						temppos = FilePos(F)
-						X# = ReadFloat(F)
-						Y# = ReadFloat(F)
-						Z# = ReadFloat(F)
+		Local F = OpenFile(TempPath$)
+		If F = 0
+			; CopyFile produced a file but we can't open it. Clean up
+			; the orphan so the next save attempt starts from a known
+			; state, and leave the original untouched.
+			DebugLog( "SaveRotation: could not open temp " + TempPath$ + " for in-place rewrite -- save aborted, original preserved")
+			SafeWriteAbort(TempPath$)
+			Return
+		EndIf
 
-						; Put them into the bank
-						PokeFloat(temp_bank, 0, X#)
-						PokeFloat(temp_bank, 4, Y#)
-						PokeFloat(temp_bank, 8, Z#)
+		temp_bank = CreateBank(12)
+		GPP = CreatePivot()
+		RotateEntity(GPP, EntityPitch#(PreviewMesh), EntityYaw#(PreviewMesh), EntityRoll#(PreviewMesh))
+		While Not Eof(F)
+			SeekFile(F, fspot)
+			fspot = FilePos(F) + 1
+			Testr$ = Chr$(ReadByte(F))
+			Testr$ = Testr$ + Chr$(ReadByte(F))
+			Testr$ = Testr$ + Chr$(ReadByte(F))
+			Testr$ = Testr$ + Chr$(ReadByte(F))
 
-						; Decrypt with Blowfish
-						;BFOld_decrypt(temp_bank, 12)
+			; Found a vertices chunk
+			If Testr$ = "VRTS"
+				vertend = FilePos(F) + 4 + ReadInt(F)
+				Flags = ReadInt(F)
+				tc_sets = ReadInt(F)
+				tc_size = ReadInt(F)
 
-						; Rotate
-						X# = PeekFloat(temp_bank, 0)
-						Y# = PeekFloat(temp_bank, 4)
-						Z# = PeekFloat(temp_bank, 8)
-						TFormPoint(X#, Y#, Z#, GPP, 0)
-						PokeFloat(temp_bank, 0, TFormedX#())
-						PokeFloat(temp_bank, 4, TFormedY#())
-						PokeFloat(temp_bank, 8, TFormedZ#())
+				; Process each vertex
+				While FilePos(F) < vertend
+					; Read in floats
+					temppos = FilePos(F)
+					X# = ReadFloat(F)
+					Y# = ReadFloat(F)
+					Z# = ReadFloat(F)
 
-						; Encrypt again
-						;BFOld_encrypt(temp_bank, 12)
+					; Put them into the bank
+					PokeFloat(temp_bank, 0, X#)
+					PokeFloat(temp_bank, 4, Y#)
+					PokeFloat(temp_bank, 8, Z#)
 
-						; Write new values back to the file
-						SeekFile F, temppos
-						WriteFloat F, PeekFloat(temp_bank, 0)
-						WriteFloat F, PeekFloat(temp_bank, 4)
-						WriteFloat F, PeekFloat(temp_bank, 8)
+					; Decrypt with Blowfish
+					;BFOld_decrypt(temp_bank, 12)
 
-						; Skip unnecessary vertex data
-						If Flags And 1
-							ReadFloat#(F)
-							ReadFloat#(F)
-							ReadFloat#(F)
-						EndIf
-						If Flags And 2
-							ReadFloat#(F)
-							ReadFloat#(F)
-							ReadFloat#(F)
-							ReadFloat#(F)
-						EndIf
-						For j = 1 To tc_sets * tc_size
-							ReadFloat#(F)
-						Next
-					Wend
+					; Rotate
+					X# = PeekFloat(temp_bank, 0)
+					Y# = PeekFloat(temp_bank, 4)
+					Z# = PeekFloat(temp_bank, 8)
+					TFormPoint(X#, Y#, Z#, GPP, 0)
+					PokeFloat(temp_bank, 0, TFormedX#())
+					PokeFloat(temp_bank, 4, TFormedY#())
+					PokeFloat(temp_bank, 8, TFormedZ#())
 
-				EndIf
-			Wend
-			FreeEntity(GPP)
-			FreeBank(temp_bank)
-		CloseFile(F)
+					; Encrypt again
+					;BFOld_encrypt(temp_bank, 12)
+
+					; Write new values back to the file
+					SeekFile F, temppos
+					WriteFloat F, PeekFloat(temp_bank, 0)
+					WriteFloat F, PeekFloat(temp_bank, 4)
+					WriteFloat F, PeekFloat(temp_bank, 8)
+
+					; Skip unnecessary vertex data
+					If Flags And 1
+						ReadFloat#(F)
+						ReadFloat#(F)
+						ReadFloat#(F)
+					EndIf
+					If Flags And 2
+						ReadFloat#(F)
+						ReadFloat#(F)
+						ReadFloat#(F)
+						ReadFloat#(F)
+					EndIf
+					For j = 1 To tc_sets * tc_size
+						ReadFloat#(F)
+					Next
+				Wend
+
+			EndIf
+		Wend
+		FreeEntity(GPP)
+		FreeBank(temp_bank)
+
+		; SafeWriteCommit closes F, refuses to promote an empty temp,
+		; demotes the existing production file to .bak, then promotes
+		; the mutated temp into production. On any commit failure the
+		; helper logs to MainLog and leaves the original (.bak rollback
+		; if the promote half-completed). The previous code called
+		; CloseFile here unconditionally -- SafeWriteCommit owns that
+		; now, do not double-close.
+		If SafeWriteCommit%(TempPath$, FinalPath$, F) = False
+			DebugLog( "SaveRotation: commit failed for " + FinalPath$ + " -- previous version retained (see .bak)")
+		EndIf
 	EndIf
-	
-	
+
+
 ; REMOVE FOR DECRYPT SIREDBLOOD SAYS MUHAHAHA #######################
-	
-	Name$ = EditorMeshName$(SelectedMeshID)
-	
-	If TName$ <> "" And isEncrypted Then
-		EncryptMesh("Data\Meshes\" + Name$)
-		DeleteFile "Data\Meshes\" + Name$
-	End If
+;
+; Re-encrypt path retired: the isEncrypted gate was always False (its
+; setter at line 804 was commented out), and EncryptMesh below has been
+; an empty function for the lifetime of this tool. The branch only ran
+; to delete the just-written .b3d sidecar; without re-encryption the
+; .eb3d would have been the stale original anyway. See header comment
+; on SaveRotation -- .eb3d rotation is documented as a no-op until the
+; encryption pipeline is restored.
+
+	Name$ = EditorMeshName$(TargetMeshID)
 
 ;#####################################################################
 
-	SetGubbinMesh(meshID)
+	SetGubbinMesh(TargetMeshID)
 
 End Function
 
+; Writes a .b3d sidecar next to a source .eb3d. Atomic via
+; SafeWriteOpen / SafeWriteCommit so a crash mid-decrypt doesn't
+; leave a zero-length sidecar that SaveRotation would then
+; "successfully" rewrite into an empty file (the upstream half of
+; issue #43).
 Function DecryptMesh(Name$)
 
 	If Len(Name$) > 5
 		If Lower$(Right$(Name$, 5)) = ".eb3d"
 			Size = FileSize(Name$)
+			If Size <= 0 Then Return
 			B = CreateBank(Size)
 
 			In = ReadFile(Name$)
+			If In = 0 Then
+				FreeBank(B)
+				Return
+			EndIf
 			ReadBytes(B, In, 0, Size)
 			CloseFile(In)
 
 		;	Name$ = Name$ + "temp.b3d"
 			Name$ = Name$ + ".b3d"
 
-			Out = WriteFile(Name$)
+			Local TempPath$ = SafeWriteOpen$(Name$)
+			Out = WriteFile(TempPath$)
+			If Out = 0 Then
+				FreeBank(B)
+				Return
+			EndIf
 
 			DebugLog( "Out is: " + Out )
 			DecryptBank = CreateBank(64)
@@ -939,13 +1008,16 @@ Function DecryptMesh(Name$)
 			EndIf
 
 			FreeBank(DecryptBank)
-			CloseFile(Out)
+			; SafeWriteCommit closes Out internally; do not double-close.
+			If SafeWriteCommit%(TempPath$, Name$, Out) = False
+				DebugLog( "DecryptMesh: commit failed for " + Name$ + " -- previous sidecar retained (see .bak)")
+			EndIf
 
 			FreeBank(B)
 		EndIf
 	EndIf
 
-End Function 
+End Function
 
 Function EncryptMesh(Name$)
 

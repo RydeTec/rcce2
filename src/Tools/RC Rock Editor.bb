@@ -12,6 +12,11 @@ Global AH_Appb$ = "RCSTD"
 Include "modules\safeloads.bb"
 Include "Modules\f-ui.bb"
 Include "Modules\media.bb"
+; Logging.bb provides SafeWriteOpen / SafeWriteCommit used by Media.bb's
+; CreateDatabase. Non-Strict tools tolerate the missing MainLog/LogMode
+; globals via implicit-zero semantics (WriteLog's `If LogHandle <> 0`
+; and `If LogMode > 0` short-circuit when the implicit globals are 0).
+Include "Modules\Logging.bb"
 Include "modules\B3dfile.bb"
 
 Include "modules\rock_Export.bb"
@@ -814,12 +819,26 @@ If FileType(fname$)<>1 Then Return -1
  EndIf
 
 ;wite to file
-; Newf=WriteFile(newn$)
-DeleteFile (fname$)
- Fsave=WriteFile(fname$)
- b=PeekByte(thisbank,i)
- WriteBytes thisbank,fsave,0,offset
- CloseFile fsave
+; Write to a .tmp first so a WriteFile failure can't leave the user
+; with nothing on disk — the previous DeleteFile-then-WriteFile order
+; would have wiped the source if the target path was no longer writable.
+TmpPath$ = fname$ + ".tmp"
+If FileType(TmpPath$) = 1 Then DeleteFile(TmpPath$)
+Fsave = WriteFile(TmpPath$)
+If Fsave = 0
+	FreeBank thisbank
+	Return -1
+EndIf
+WriteBytes thisbank, fsave, 0, offset
+CloseFile fsave
+If FileSize(TmpPath$) <> offset
+	DeleteFile(TmpPath$)
+	FreeBank thisbank
+	Return -1
+EndIf
+DeleteFile(fname$)
+CopyFile TmpPath$, fname$
+DeleteFile(TmpPath$)
 
 ; WriteBytes thisbank,newf,0,ts
 ; CloseFile newf

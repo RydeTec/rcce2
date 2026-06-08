@@ -2022,7 +2022,15 @@ Function GY_UpdateProgressBar(GHandle, Value)
 
 	If Value > P\Max Then Value = P\Max
 	P\Value = Value
-	ScaleEntity(P\BarEN, Float#(Value) / Float#(P\Max) - 0.02, 1.0, 1.0) ; DEFINITION OF STUPID.......
+	; Guard divide-by-zero on Max. A caller can create a bar with Max=0
+	; (placeholder UI, dynamic re-cap) and any later UpdateProgressBar
+	; call would crash on this every-frame ScaleEntity. Pin to an empty
+	; bar (-0.02 matches the original 0-Value rendering offset).
+	If P\Max > 0
+		ScaleEntity(P\BarEN, Float#(Value) / Float#(P\Max) - 0.02, 1.0, 1.0) ; DEFINITION OF STUPID.......
+	Else
+		ScaleEntity(P\BarEN, -0.02, 1.0, 1.0)
+	EndIf
 
 	Return True
 

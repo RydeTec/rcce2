@@ -15,6 +15,25 @@ Type LoadedMediaData
 	Field Scale#, X#, Y#, Z#
 End Type
 
+; Self-contained bounded ReadString$ used by the GetMesh / GetTexture /
+; GetSound filename reads below. Module-local so the Tools (RC Architect,
+; etc.) can include Media.bb without pulling Logging.bb in for the
+; ReadBoundedString$ definition. Same shape: ReadInt prefix, refuse on
+; negative or >MaxLen, then byte-by-byte read. No WriteLog dependency.
+Function MediaReadFilename$(F, MaxLen)
+	If F = 0 Then Return ""
+	Local L = ReadInt(F)
+	If L < 0 Or L > MaxLen Then Return ""
+	If L = 0 Then Return ""
+	Local s$ = ""
+	Local i
+	For i = 1 To L
+		If Eof(F) Then Exit
+		s$ = s$ + Chr$(ReadByte(F))
+	Next
+	Return s$
+End Function
+
 ; Locks the meshes database (keeps the file open for faster batched Get...() calls)
 Function LockMeshes()
 
@@ -75,18 +94,25 @@ Function UnlockMusic()
 
 End Function
 
-; Creates a new (blank) media database
+; Creates a new (blank) media database.
+;
+; Atomic via SafeWriteOpen / SafeWriteCommit. The 65535-int zero-init
+; produces a ~256KB file; a crash mid-init previously left a truncated
+; index that subsequent OpenFile loads would read past EOF on (Blitz
+; zero-fills past EOF silently, so missing slots became "ID 0" — a
+; class of "Meshes.dat is corrupted" mystery loads). SafeWriteCommit
+; refuses to promote an empty temp and keeps any prior version as .bak.
 Function CreateDatabase(Filename$)
 
-	F = WriteFile(Filename$)
+	Local TempPath$ = SafeWriteOpen$(Filename$)
+	F = WriteFile(TempPath$)
 	If F = 0 Then Return False
 
 	For ID = 0 To 65534
 		WriteInt F, 0
 	Next
 
-	CloseFile(F)
-	Return True
+	Return SafeWriteCommit%(TempPath$, Filename$, F)
 
 End Function
 
@@ -122,7 +148,7 @@ Function RemoveMeshFromDatabase(ID)
 		L\Y# = ReadFloat#(F)
 		L\Z# = ReadFloat#(F)
 		L\Shader = ReadShort(F)
-		L\Name$ = ReadString$(F)
+		L\Name$ = MediaReadFilename$(F, 260)
 	Next
 
 	; Clear the database
@@ -183,7 +209,7 @@ Function RemoveTextureFromDatabase(ID)
 	For L.LoadedMediaData = Each LoadedMediaData
 		SeekFile F, L\DataAddress
 		L\ExtraData = ReadShort(F)
-		L\Name$ = ReadString$(F)
+		L\Name$ = MediaReadFilename$(F, 260)
 	Next
 
 	; Clear the database
@@ -239,7 +265,7 @@ Function RemoveSoundFromDatabase(ID)
 	For L.LoadedMediaData = Each LoadedMediaData
 		SeekFile F, L\DataAddress
 		L\ExtraData = ReadByte(F)
-		L\Name$ = ReadString$(F)
+		L\Name$ = MediaReadFilename$(F, 260)
 	Next
 
 	; Clear the database
@@ -292,7 +318,7 @@ Function RemoveMusicFromDatabase(ID)
 	; Read in the actual data for each existing ID
 	For L.LoadedMediaData = Each LoadedMediaData
 		SeekFile F, L\DataAddress
-		L\Name$ = ReadString$(F)
+		L\Name$ = MediaReadFilename$(F, 260)
 	Next
 
 	; Clear the database
@@ -340,7 +366,7 @@ Function AddMeshToDatabase(Filename$, IsAnim)
 		ReadFloat#(F)
 		ReadFloat#(F)
 		ReadShort(F)
-		Name$ = ReadString$(F)
+		Name$ = MediaReadFilename$(F, 260)
 		; If this mesh is already in the file, return error
 		If (Upper$(Name$) = Upper$(Filename$)) And (MIsAnim = IsAnim)
 			If LockedMeshes = 0 Then CloseFile(F)
@@ -391,7 +417,7 @@ Function AddTextureToDatabase(Filename$, Flags)
 	SeekFile(F, 65535 * 4)
 	While Eof(F) = False
 		TFlags = ReadShort(F)
-		Name$ = ReadString$(F)
+		Name$ = MediaReadFilename$(F, 260)
 		; If this texture is already in the file, return error
 		If (Upper$(Name$) = Upper$(Filename$)) And (TFlags = Flags)
 			If LockedTextures = 0 Then CloseFile(F)
@@ -437,7 +463,7 @@ Function AddSoundToDatabase(Filename$, Is3D)
 	SeekFile(F, 65535 * 4)
 	While Eof(F) = False
 		SIs3D = ReadByte(F)
-		Name$ = ReadString$(F)
+		Name$ = MediaReadFilename$(F, 260)
 		; If this sound is already in the file, return error
 		If (Upper$(Name$) = Upper$(Filename$)) And (SIs3D = Is3D)
 			If LockedSounds = 0 Then CloseFile(F)
@@ -482,10 +508,13 @@ Function AddMusicToDatabase(Filename$)
 	; Check all music to make sure this one isn't already there
 	SeekFile F, (65535 * 4)
 	While Eof(F) = False
-		Name$ = ReadString$(F)
-		; If this music is already in the file, return error
+		Name$ = MediaReadFilename$(F, 260)
+		; If this music is already in the file, return error. Previously
+		; the dup branch closed the file but then fell through to the
+		; insert path below -- so every duplicate was added a second time.
 		If Upper$(Name$) = Upper$(Filename$)
 			If LockedMusic = 0 Then CloseFile(F)
+			Return -1
 		EndIf
 	Wend
 
@@ -514,6 +543,13 @@ End Function
 ; Gets the name and animation byte for a given mesh
 Function GetMeshName$(ID)
 
+	; Mirror GetMesh's bound check. The sibling getter does the same.
+	; Negative ID makes SeekFile go to a negative offset (undefined);
+	; > 65534 walks past the index table. Sentinel IDs like -1 (used
+	; by some Actors paths to mean "no mesh") would otherwise crash
+	; the client every frame an actor with that sentinel renders.
+	If ID < 0 Or ID > 65534 Then Return ""
+
 	; Open index file
 	If LockedMeshes = 0
 		F = OpenFile("Data\Game Data\Meshes.dat")
@@ -537,7 +573,7 @@ Function GetMeshName$(ID)
 	ReadFloat#(F)
 	ReadFloat#(F)
 	ReadShort(F)
-	Name$ = ReadString$(F)
+	Name$ = MediaReadFilename$(F, 260)
 
 	If LockedMeshes = 0 Then CloseFile(F)
 
@@ -547,6 +583,9 @@ End Function
 
 ; Gets the name and flags for a given texture
 Function GetTextureName$(ID)
+
+	; Mirror GetTexture's bound check (line 844).
+	If ID < 0 Or ID > 65534 Then Return ""
 
 	; Open index file
 	If LockedTextures = 0
@@ -566,7 +605,7 @@ Function GetTextureName$(ID)
 	; Read in texture data
 	SeekFile F, DataAddress
 	Flags = ReadShort(F)
-	Name$ = ReadString$(F)
+	Name$ = MediaReadFilename$(F, 260)
 
 	If LockedTextures = 0 Then CloseFile(F)
 
@@ -576,6 +615,9 @@ End Function
 
 ; Gets the name and 3D byte for a given sound
 Function GetSoundName$(ID)
+
+	; Mirror GetSound's bound check (line 891).
+	If ID < 0 Or ID > 65534 Then Return ""
 
 	; Open index file
 	If LockedSounds = 0
@@ -595,7 +637,7 @@ Function GetSoundName$(ID)
 	; Read in sound data
 	SeekFile F, DataAddress
 	Is3D = ReadByte(F)
-	Name$ = ReadString$(F)
+	Name$ = MediaReadFilename$(F, 260)
 
 	If LockedSounds = 0 Then CloseFile(F)
 
@@ -605,6 +647,10 @@ End Function
 
 ; Gets the name of a given piece of music
 Function GetMusicName$(ID)
+
+	; Music IDs are also indexed into a 4-byte-per-entry Data/Game
+	; Data/Music.dat table. Same bound as GetSound / GetMesh / etc.
+	If ID < 0 Or ID > 65534 Then Return ""
 
 	; Open index file
 	If LockedMusic = 0
@@ -623,7 +669,7 @@ Function GetMusicName$(ID)
 	EndIf
 	; Read in sound data
 	SeekFile F, DataAddress
-	Name$ = ReadString$(F)
+	Name$ = MediaReadFilename$(F, 260)
 
 	If LockedMusic = 0 Then CloseFile(F)
 
@@ -633,6 +679,12 @@ End Function
 
 ; Changes the scale for a mesh
 Function SetMeshScale(ID, Scale#)
+
+	; LoadedMeshScales# is Dim'd 0..65534. Mirror GetMesh's bound check
+	; (line 756) -- editor-supplied IDs from MediaDialogs can land here
+	; via the Architect's mesh-config flow; a typo or sentinel would
+	; otherwise OOB-write into adjacent globals.
+	If ID < 0 Or ID > 65534 Then Return False
 
 	LoadedMeshScales#(ID) = Scale#
 
@@ -663,6 +715,9 @@ End Function
 
 ; Changes the offset for a mesh
 Function SetMeshOffset(ID, X#, Y#, Z#)
+
+	; LoadedMeshX#/Y#/Z# are Dim'd 0..65534. Same bound as SetMeshScale.
+	If ID < 0 Or ID > 65534 Then Return False
 
 	LoadedMeshX#(ID) = X#
 	LoadedMeshY#(ID) = Y#
@@ -698,6 +753,9 @@ End Function
 ; Changes the shader for a mesh
 Function SetMeshShader(ID, Shader)
 
+	; LoadedMeshShaders is Dim'd 0..65534. Same bound as SetMeshScale.
+	If ID < 0 Or ID > 65534 Then Return False
+
 	LoadedMeshShaders(ID) = Shader
 
 	; Open index file
@@ -728,6 +786,11 @@ End Function
 ; Gets the handle for a given mesh (this will load it if it isn't present)
 Function GetMesh(ID, Duplicate = False)
 
+	; Mirror GetSound's ID guard. LoadedMeshes is Dim'd 0..65534; a caller
+	; passing -1 (the inconsistent sentinel some Actors3D paths use instead
+	; of 65535) or any out-of-range ID would write through a wild pointer.
+	If ID < 0 Or ID > 65534 Then Return 0
+
 	; Load from file if this is the first time the mesh has been loaded
 	If LoadedMeshes(ID) = 0
 
@@ -746,7 +809,10 @@ Function GetMesh(ID, Duplicate = False)
 			If LockedMeshes = 0 Then CloseFile(F)
 			Return 0
 		EndIf
-		; Read in mesh data
+		; Read in mesh data. Bound the filename read so a corrupted
+		; Meshes.dat (or one tampered with via the update channel)
+		; can't hang the client allocating gigabytes on a wild
+		; length prefix. 260 covers a generous max path length.
 		SeekFile F, DataAddress
 		IsAnim = ReadByte(F)
 		LoadedMeshScales#(ID) = ReadFloat#(F)
@@ -754,9 +820,16 @@ Function GetMesh(ID, Duplicate = False)
 		LoadedMeshY#(ID) = ReadFloat#(F)
 		LoadedMeshZ#(ID) = ReadFloat#(F)
 		LoadedMeshShaders(ID) = ReadShort(F)
-		Name$ = ReadString$(F)
+		Name$ = MediaReadFilename$(F, 260)
 
 		If LockedMeshes = 0 Then CloseFile(F)
+
+		; Reject path-traversal in Meshes.dat-stored names. The update
+		; channel can rewrite Meshes.dat, so a hostile update payload could
+		; plant `..\..\<x>` and force a LoadMesh on an arbitrary file.
+		; LoadMesh would mostly return 0 on miss, but the attempt itself is
+		; the wrong shape -- bail before we touch the filesystem.
+		If Instr(Name$, "..") > 0 Then Return 0
 
 		; Load the mesh
 		If IsAnim = True
@@ -804,6 +877,8 @@ End Function
 ; Gets the handle for a given texture (this will load it if it isn't present)
 Function GetTexture(ID, Copy = False)
 
+	If ID < 0 Or ID > 65534 Then Return 0
+
 	If LoadedTextures(ID) = 0
 
 		; Read in filename and other data from index file
@@ -821,13 +896,18 @@ Function GetTexture(ID, Copy = False)
 			If LockedTextures = 0 Then CloseFile(F)
 			Return 0
 		EndIf
-		; Read in texture data
+		; Read in texture data. Bound filename + path-traversal guard
+		; mirror GetMesh's defense: an update-channel payload could
+		; otherwise plant `..\..\<x>` and force LoadTexture against an
+		; arbitrary file. LoadTexture won't execute the contents, but
+		; reading from outside Data\Textures\ is the wrong shape.
 		SeekFile(F, DataAddress)
 		Flags = ReadShort(F)
-		Name$ = ReadString$(F)
+		Name$ = MediaReadFilename$(F, 260)
 
 		If LockedTextures = 0 Then CloseFile(F)
 
+		If Instr(Name$, "..") > 0 Then Return 0
 		LoadedTextures(ID) = LoadTexture("Data\Textures\" + Name$, Flags)
 		TextureFlags(ID) = Flags
 
@@ -863,13 +943,15 @@ Function GetSound(ID)
 			If LockedSounds = 0 Then CloseFile(F)
 			Return 0
 		EndIf
-		; Read in sound data
+		; Read in sound data. Bound filename + path-traversal guard
+		; mirror GetMesh / GetTexture (see above).
 		SeekFile F, DataAddress
 		Is3D = ReadByte(F)
-		Name$ = ReadString$(F)
+		Name$ = MediaReadFilename$(F, 260)
 
 		If LockedSounds = 0 Then CloseFile(F)
 
+		If Instr(Name$, "..") > 0 Then Return 0
 		LoadedSounds(ID) = LoadSound("Data\Sounds\" + Name$, Is3D)
 
 	EndIf
@@ -1027,6 +1109,9 @@ End Function
 
 ;Bump mapping
 Function GetMeshNameClean$(ID)
+; Same bound as GetMeshName$ -- ID seeks into the 4-byte-per-entry
+; mesh index table; a sentinel like -1 would SeekFile to -4.
+If ID < 0 Or ID > 65534 Then Return ""
 If LockedMeshes = 0
    F = OpenFile("Data\Game Data\Meshes.dat")
    If F = 0 Then Return ""
@@ -1048,7 +1133,7 @@ ReadFloat#(F)
 ReadFloat#(F)
 ReadFloat#(F)
 ReadShort(F)
-NameWithExt$ = ReadString$(F)
+NameWithExt$ = MediaReadFilename$(F, 260)
 NameClean$ = Left(NameWithExt$, Len(NameWithExt$)-4)   
 If LockedMeshes = 0 Then CloseFile(F)
 Return NameClean$

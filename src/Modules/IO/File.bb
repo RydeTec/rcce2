@@ -11,10 +11,13 @@ Type File
     End Method
 
     Method close()
-        if (NOT self\stream = Null)
+        ; `If (NOT self\stream = Null)` accidentally evaluates to the
+        ; intended `<> Null` semantics (Null coerces to 0), but reads as
+        ; the opposite -- prefer the unambiguous spelling.
+        If self\stream <> Null
             CloseFile(self\stream)
             self\stream = Null
-        end if
+        End If
     End Method
 
     Method readLine$()

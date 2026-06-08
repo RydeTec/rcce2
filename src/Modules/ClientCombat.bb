@@ -18,8 +18,14 @@ Function UpdateCombat()
 	; If I have a human target and I'm not riding a mount
 	If PlayerTarget > 0 And Me\Attributes\Value[HealthStat] > 0 And AttackTarget = True And Me\Mount = Null
 		A.ActorInstance = Object.ActorInstance(PlayerTarget)
-		
-		If A\Attributes\Value[HealthStat] < 1
+
+		; PlayerTarget can carry a stale handle if the target was
+		; freed without the usual SafeFreeActorInstance / P_ActorDead /
+		; P_ActorGone path clearing PlayerTarget (race window, mount
+		; pathway, or simply a missed cleanup site). Treat a Null
+		; lookup the same as a dead target so the next deref doesn't
+		; crash UpdateCombat -- this runs every frame.
+		If A = Null Or A\Attributes\Value[HealthStat] < 1
 			PlayerTarget = 0
 			HideEntity(ActorSelectEN)			; Replace through clean function
 			DestroyCharInteractionWindow()
@@ -193,7 +199,21 @@ End Function
 ; Updates all floating numbers
 Function UpdateFloatingNumbers()
 
-	For F.FloatingNumber = Each FloatingNumber
+	; After-cursor walk: the lifespan-expired branch calls FreeEntity +
+	; Delete F mid-iteration. The pre-fix `For F = Each FloatingNumber /
+	; Next` cursor advanced via the deleted instance's next pointer on
+	; the following step, so two FloatingNumbers expiring in the same
+	; tick (very common in group PvP -- each hit creates one and they
+	; all hit 50.0 lifespan together) would either skip the next entry
+	; or deref a freed Type instance. Silent client-side entity-handle
+	; leak + possible UB. See CLAUDE.md "Iterator-during-iteration
+	; hazards" for the three established fix shapes; this is the
+	; after-cursor walk template (Scripting.bb's PausedScript loop
+	; is the canonical example).
+	Local F.FloatingNumber = First FloatingNumber
+	Local FNext.FloatingNumber = Null
+	While F <> Null
+		FNext = After F
 		; Move
 		TranslateEntity F\EN, 0, 0.1 * Delta#, 0
 		PointEntity F\EN, Cam
@@ -204,6 +224,7 @@ Function UpdateFloatingNumbers()
 			FreeEntity F\EN
 			Delete F
 		EndIf
-	Next
+		F = FNext
+	Wend
 
 End Function

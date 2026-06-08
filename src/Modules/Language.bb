@@ -298,7 +298,21 @@ Function LoadLanguage(Filename$)
 					; Add line
 					If ID > MaxLanguageString Then RuntimeError("Too many string constants in Language.txt!")
 					
-					If ID >= LS_SKick And ID <= LS_SSeason Then LString$ = Upper(LString$)
+					; Slash-command names live in the LS_SCKick..LS_SCSeason range
+					; (190..219); they're matched case-insensitively by
+					; ServerNet.bb's chat dispatch via `LanguageString$(LS_SC*)`,
+					; and the values shipped in `Data\Game Data\Language.txt`
+					; need to land UPPERCASE so the match succeeds against
+					; the engine's uppercased input. Pre-fix this guard
+					; referenced `LS_SKick` / `LS_SSeason` (missing the "C"),
+					; both undeclared identifiers that read as 0 in this
+					; non-Strict file. The range collapsed to `[0..0]` and
+					; every slash-command name kept whatever case Language.txt
+					; shipped with -- defaults (lines 241-270 below) happen to
+					; be UPPERCASE so the production server escapes the bug,
+					; but any locale shipping a customized Language.txt with
+					; lowercase entries silently breaks `/<command>` dispatch.
+					If ID >= LS_SCKick And ID <= LS_SCSeason Then LString$ = Upper(LString$)
 					
 					LanguageString$(ID) = LString$
 					ID = ID + 1

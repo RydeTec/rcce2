@@ -1,0 +1,320 @@
+/* ============================================================
+   RCCE — RealmCrafter: Community Edition
+   Foundations: colors & type
+   ============================================================ */
+
+/* --- Webfonts (Google Fonts substitutions, see README) ----- */
+@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;900&family=MedievalSharp&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap");
+
+:root {
+  /* ============================================================
+     COLOR — Realm palette
+     The brand pulls from three places:
+       1. The cover art: deep navy night sky + electric blue.
+       2. The in-game GUI: stone gray panels with gold trim.
+       3. Old-school MMORPG chat: parchment cream, blood red, mana blue.
+     ============================================================ */
+
+  /* --- Stone & shadow (backgrounds, panels) --------------- */
+  --stone-950: #08090f;   /* deep void, behind everything */
+  --stone-900: #0e1018;   /* canvas / sky */
+  --stone-850: #14172a;   /* card surface, dark mode body */
+  --stone-800: #1c2238;   /* raised surface */
+  --stone-700: #262a3a;   /* sunken panel back */
+  --stone-600: #3a3736;   /* warm slate (UI Bottom.PNG center) */
+  --stone-500: #4f4b48;   /* mortar */
+  --stone-400: #6b665f;   /* worn stone */
+  --stone-300: #8a8580;   /* dust */
+  --stone-200: #b3aea4;   /* dry stone highlight */
+  --stone-100: #d8d1c2;   /* lit limestone */
+
+  /* --- Arcane Blue (primary accent — the "R" in the logo) - */
+  --arcane-950: #0a1733;
+  --arcane-900: #11264f;
+  --arcane-800: #163770;
+  --arcane-700: #1e5099;
+  --arcane-600: #2b78c7;
+  --arcane-500: #3da6f5;   /* signature electric blue */
+  --arcane-400: #6fc1ff;
+  --arcane-300: #a8dcff;
+  --arcane-200: #d4ecff;
+  --arcane-100: #ecf6ff;
+
+  /* --- Brass / Gold (ornament, ranks, rare loot) ----------- */
+  --brass-900: #2b1e08;
+  --brass-800: #553b13;
+  --brass-700: #7a5821;
+  --brass-600: #a08236;   /* "Community Edition" subtitle gold */
+  --brass-500: #c9a44a;
+  --brass-400: #e6c87a;
+  --brass-300: #f3dca0;
+  --brass-200: #f8ebc6;
+
+  /* --- Parchment & ink (legible body, scrolls, lore) ------- */
+  --parchment-100: #f6efdc;
+  --parchment-200: #ebdfb9;
+  --parchment-300: #d9c894;
+  --ink-900: #16110a;
+  --ink-700: #3a2e1d;
+  --ink-500: #6a563b;
+
+  /* --- Mana / Health / Stamina (semantic gameplay tints) -- */
+  --mana-blue:    #2b78c7;
+  --health-red:   #b8302a;
+  --health-glow:  #ff5b50;
+  --stamina:      #c8a23c;
+  --xp-violet:    #7a4ec9;
+
+  /* --- Loot rarity (WoW-ish, color-blind aware) ------------ */
+  --rarity-common:    #cfcabe;
+  --rarity-uncommon:  #4cae4f;
+  --rarity-rare:      #3da6f5;   /* same as arcane */
+  --rarity-epic:      #a05fd6;
+  --rarity-legendary: #e6a23a;
+  --rarity-artifact:  #d97a2b;
+
+  /* --- Semantic system (status & state) -------------------- */
+  --success: #4cae4f;
+  --warning: #e6a23a;
+  --danger:  #b8302a;
+  --info:    var(--arcane-500);
+
+  /* --- Foreground / Background tokens ---------------------- */
+  --bg:        var(--stone-900);
+  --bg-elev:   var(--stone-850);
+  --bg-panel:  var(--stone-800);
+  --bg-sunken: var(--stone-700);
+
+  --fg:        var(--parchment-100);
+  --fg-muted:  var(--stone-200);
+  --fg-dim:    var(--stone-300);
+  --fg-on-brass: var(--ink-900);
+  --fg-on-arcane: #ffffff;
+
+  --border:        var(--stone-500);
+  --border-strong: var(--brass-700);
+  --border-glow:   var(--arcane-500);
+
+  /* ============================================================
+     TYPE — Type ramp
+     The system pairs two display faces (one ornate, one bold)
+     with a calm body serif and a clean utility sans.
+
+     • Display ornate  — section banners, hero titles
+     • Display chiseled — UI titles, button labels (CAPS)
+     • Body serif      — long copy, lore, dialog
+     • UI sans         — menus, HUD, dense data, forms
+     • Mono            — script, console, debug
+     ============================================================ */
+
+  --font-display-ornate:   "MedievalSharp", "Cinzel", "Cormorant Garamond", serif;
+  --font-display-chiseled: "Cinzel", "Trajan Pro", "Cormorant Garamond", serif;
+  --font-serif:            "Cormorant Garamond", "Iowan Old Style", Georgia, serif;
+  --font-sans:             "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono:             "JetBrains Mono", "Consolas", "SF Mono", monospace;
+
+  /* --- Type scale (modular, 1.250 — major third) ---------- */
+  --type-3xs: 11px;
+  --type-2xs: 12px;
+  --type-xs:  13px;
+  --type-sm:  14px;
+  --type-md:  16px;
+  --type-lg:  18px;
+  --type-xl:  22px;
+  --type-2xl: 28px;
+  --type-3xl: 36px;
+  --type-4xl: 48px;
+  --type-5xl: 64px;
+  --type-6xl: 84px;
+
+  /* --- Tracking ------------------------------------------ */
+  --track-tight:  -0.01em;
+  --track-normal: 0;
+  --track-wide:   0.06em;
+  --track-wider:  0.14em;     /* CAPS UI labels */
+  --track-widest: 0.24em;     /* hero subtitles, section eyebrows */
+
+  /* ============================================================
+     SPACING — base 4px, "stone-block" scale
+     Use even multiples; the UI is grid-cut, not fluid.
+     ============================================================ */
+  --space-0:   0;
+  --space-1:   4px;
+  --space-2:   8px;
+  --space-3:   12px;
+  --space-4:   16px;
+  --space-5:   20px;
+  --space-6:   24px;
+  --space-8:   32px;
+  --space-10:  40px;
+  --space-12:  48px;
+  --space-16:  64px;
+  --space-20:  80px;
+  --space-24:  96px;
+
+  /* --- Radii — chamfered, not pillow-y -------------------- */
+  --radius-0: 0;
+  --radius-1: 2px;     /* chamfer */
+  --radius-2: 4px;     /* default panel */
+  --radius-3: 6px;     /* button */
+  --radius-4: 10px;    /* card */
+  --radius-pill: 999px;
+
+  /* --- Borders ------------------------------------------- */
+  --bw-hair:   1px;
+  --bw-line:   2px;
+  --bw-chunky: 3px;
+  --bw-frame:  4px;   /* the "gold trim" on panels */
+
+  /* --- Shadows (inner stone shadow + outer glow patterns) - */
+  --shadow-sm:    0 1px 0 rgba(0,0,0,0.6), 0 2px 4px rgba(0,0,0,0.5);
+  --shadow-md:    0 2px 0 rgba(0,0,0,0.7), 0 6px 14px rgba(0,0,0,0.55);
+  --shadow-lg:    0 4px 0 rgba(0,0,0,0.7), 0 16px 40px rgba(0,0,0,0.6);
+  --shadow-inset: inset 0 1px 0 rgba(255,255,255,0.06), inset 0 -2px 0 rgba(0,0,0,0.5);
+
+  --glow-arcane:  0 0 0 1px var(--arcane-500), 0 0 24px rgba(61,166,245,0.45);
+  --glow-brass:   0 0 0 1px var(--brass-500), 0 0 18px rgba(201,164,74,0.35);
+  --glow-danger:  0 0 0 1px var(--health-red), 0 0 18px rgba(184,48,42,0.5);
+
+  /* --- Motion -------------------------------------------- */
+  --ease-out:  cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-in:   cubic-bezier(0.55, 0.05, 0.68, 0.19);
+  --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-fast:    120ms;
+  --dur-base:    200ms;
+  --dur-slow:    320ms;
+  --dur-arcane:  900ms;  /* slow magical pulses */
+}
+
+/* ============================================================
+   SEMANTIC ELEMENTS
+   Drop-in defaults for h1..h6, body, code, etc.
+   ============================================================ */
+
+html, body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: var(--type-md);
+  line-height: 1.55;
+}
+
+h1, .h1 {
+  font-family: var(--font-display-ornate);
+  font-weight: 400;
+  font-size: var(--type-5xl);
+  line-height: 1.05;
+  letter-spacing: var(--track-tight);
+  color: var(--parchment-100);
+  text-shadow: 0 2px 0 rgba(0,0,0,0.7), 0 6px 18px rgba(0,0,0,0.6);
+}
+
+h2, .h2 {
+  font-family: var(--font-display-chiseled);
+  font-weight: 700;
+  font-size: var(--type-3xl);
+  line-height: 1.1;
+  letter-spacing: var(--track-wide);
+  color: var(--brass-400);
+  text-transform: uppercase;
+}
+
+h3, .h3 {
+  font-family: var(--font-display-chiseled);
+  font-weight: 600;
+  font-size: var(--type-2xl);
+  line-height: 1.2;
+  letter-spacing: var(--track-wide);
+  color: var(--parchment-100);
+  text-transform: uppercase;
+}
+
+h4, .h4 {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: var(--type-xl);
+  line-height: 1.3;
+  letter-spacing: var(--track-normal);
+  color: var(--parchment-100);
+}
+
+h5, .h5 {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: var(--type-lg);
+  line-height: 1.3;
+  color: var(--parchment-100);
+}
+
+h6, .h6 {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: var(--type-sm);
+  line-height: 1.4;
+  text-transform: uppercase;
+  letter-spacing: var(--track-wider);
+  color: var(--brass-400);
+}
+
+/* Eyebrow — small all-caps label above a heading */
+.eyebrow {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: var(--type-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--track-widest);
+  color: var(--brass-500);
+}
+
+p, .p {
+  font-family: var(--font-sans);
+  font-size: var(--type-md);
+  line-height: 1.6;
+  color: var(--fg);
+  text-wrap: pretty;
+}
+
+.lore {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: var(--type-lg);
+  line-height: 1.55;
+  color: var(--parchment-200);
+}
+
+small, .small {
+  font-size: var(--type-xs);
+  color: var(--fg-muted);
+}
+
+code, kbd, .mono {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  color: var(--arcane-300);
+  background: rgba(0,0,0,0.4);
+  padding: 0.1em 0.35em;
+  border-radius: var(--radius-1);
+}
+
+kbd {
+  border: 1px solid var(--stone-500);
+  box-shadow: inset 0 -2px 0 rgba(0,0,0,0.5);
+  color: var(--parchment-100);
+}
+
+a {
+  color: var(--arcane-400);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--arcane-700);
+  transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+a:hover { color: var(--arcane-300); border-bottom-color: var(--arcane-400); }
+a:active { color: var(--arcane-500); }
+
+hr {
+  border: 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent, var(--brass-700) 20%, var(--brass-500) 50%, var(--brass-700) 80%, transparent);
+  margin: var(--space-8) 0;
+}

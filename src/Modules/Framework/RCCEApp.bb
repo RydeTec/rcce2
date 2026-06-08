@@ -39,7 +39,12 @@ Type RCCEApp
     Method version$()
         Local version$ = self\semMajor + "." + self\semMinor + "." + self\semPatch
 
-        If (NOT self\preReleasePhase = 0)
+        ; preReleasePhase is a string field but callers assign 0 to mean
+        ; "no pre-release". The previous form `If (NOT self\preReleasePhase = 0)`
+        ; parsed as `(NOT self\preReleasePhase) = 0` and happened to give the
+        ; intended behaviour because Blitz coerces "0" / "" to int 0, but
+        ; the spelling was a maintenance trap.
+        If self\preReleasePhase <> "" And self\preReleasePhase <> "0"
             version = version + "-" + self\preReleasePhase
 
             If (self\preReleaseCount > 0)
