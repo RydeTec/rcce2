@@ -2904,8 +2904,29 @@ Function BVM_GIVEITEM(Param1%, Param2$, Param3%=1)
 			If Upper$(It\Name$) = ItemName$
 				; Give
 				If Amount > 0
-					; Check if Actor can use this slot
-					If( ActorHasSlot(Actor\Actor, It\SlotType, It ) )
+					; Check if Actor can use this slot.
+					;
+					; It\SlotType is a slot NAME constant (Slot_* = 1..11; Inventories.bb
+					; "Slot names") but ActorHasSlot's second parameter is a slot INDEX
+					; (SlotI_* = 0-based; equip 0..13, backpack 14+). Passing the name
+					; directly checked the NEXT slot's enable flag for every item kind
+					; (a weapon checked the Shield flag, ..., feet checked the Ring flag)
+					; and checked the Ring flag for amulet (10 = SlotI_Ring3) and
+					; backpack (11 = SlotI_Ring4) items -- so giving a potion to an actor
+					; whose Ring slot was disabled silently failed, and (post equip-
+					; exclusivity fix at ActorHasSlot) a race/class-exclusive backpack
+					; item was refused even though carrying is never exclusivity-gated
+					; (the pickup handler's backpack indices hit ActorHasSlot's Default
+					; branch, which skips the exclusivity fork). Translate the name to a
+					; representative index: Slot_Weapon..Slot_Ring (1..9) map to
+					; SlotI_Weapon..SlotI_Ring1 (0..8) -- the four Ring / two Amulet
+					; indices share one enable flag each, so the first index of the
+					; family is representative -- Slot_Amulet -> SlotI_Amulet1, and
+					; Slot_Backpack -> SlotI_Backpack.
+					GiveSlotI = It\SlotType - 1
+					If It\SlotType = Slot_Amulet Then GiveSlotI = SlotI_Amulet1
+					If It\SlotType = Slot_Backpack Then GiveSlotI = SlotI_Backpack
+					If( ActorHasSlot(Actor\Actor, GiveSlotI, It ) )
 						; Human
 						If Actor\RNID > 0
 							; Create the item
