@@ -4,7 +4,9 @@ _Dated 2026-06-17. Read-only audit synthesis (adversarially confirmed; false pos
 
 ## Progress (parity build, started 2026-06-17)
 
-Closed so far (each with regression tests; full suite 216 green, 0 warnings):
+Closed so far (each with regression tests; full suite 220 green, 0 warnings):
+
+- ✅ **2-player marriage works end-to-end (last feature gap, Cycle 99)** — three additive server capabilities: cross-player dialog routing (`RunningScript.wait_peer` — a script can dialog another player & resume on their reply; defaults to owner so single-player dialogs are unchanged), free-text `Input` (`rce_sendinput` → `P_ScriptInput` prompt; was a no-op), and PvP player-targeting (attack in a PvP area sets `AITarget`; the shipped Plains zone is PvP). Test `two_player_marriage_completes_end_to_end` drives the real `marriage.rsl` with two players to a fully `ActorGlobal`-married state. Also `attacking_a_player_in_a_pvp_area_sets_the_target` + player-`AITarget`-on-attack (`attacking_sets_the_players_actortarget`); de-flaked the kill-XP test. _Remaining: full PvP combat **damage** (distinct feature; no verified shipped path needs it)._
 
 - ✅ **Script-parser parity fix — shipped mail scripts now load (Cycle 96)** — `rcce-script`'s `unary()` rejected a leading unary `+` (`"unexpected Plus in expression"`), which Blitz tolerates as a no-op; this broke `SendMail.rsl`/`UpdateMail.rsl` (`+ Name + "..."`), so the Rust server **couldn't run the shipped mail system** while Blitz could. Fixed to accept leading `+` as identity. Now **0 parse failures across the entire shipped script set**; live server loads `55` scripts (was 53). Third parity axis surfaced: shipped-script parse compatibility. Test: `leading_unary_plus_is_a_noop`.
 
