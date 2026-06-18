@@ -174,6 +174,9 @@ pub struct WorldSession {
     /// mounted. Relayed in every `P_StandardUpdate` at offset 21 so peers attach
     /// the mount to the rider (`ClientNet.bb:1509`).
     pub mount_rid: u16,
+    /// The player's current target (`AI\AITarget`), or 0 — set when they attack
+    /// (`P_AttackActor`, `ServerNet.bb:1612`). Read by `ActorTarget`/`/assist`.
+    pub target_rid: u16,
 }
 
 /// Build the outbound `P_StandardUpdate` for a session — the per-tick movement
@@ -508,6 +511,18 @@ impl World {
         self.sessions.get(&peer).map(|s| s.mount_rid).unwrap_or(0)
     }
 
+    /// Set the player's current target (`AI\AITarget`); 0 clears it.
+    pub fn set_player_target(&mut self, peer: u32, rid: u16) {
+        if let Some(s) = self.sessions.get_mut(&peer) {
+            s.target_rid = rid;
+        }
+    }
+
+    /// The target a player runtime id currently has (`AI\AITarget`), or 0.
+    pub fn target_of_runtime(&self, rid: u16) -> u16 {
+        self.sessions.values().find(|s| s.runtime_id == rid).map(|s| s.target_rid).unwrap_or(0)
+    }
+
     /// Is this NPC runtime id currently being ridden by some player?
     pub fn is_ridden(&self, npc_rid: u16) -> bool {
         npc_rid != 0 && self.sessions.values().any(|s| s.mount_rid == npc_rid)
@@ -654,6 +669,7 @@ pub fn handle_start_game(
             last_attack_ms: 0,
             in_portal: None,
             mount_rid: 0,
+            target_rid: 0,
         },
     );
     world.logged_on.insert(user_s.to_uppercase(), peer);
@@ -6598,6 +6614,54 @@ End Function
         // A different peer (not the owner) is refused even with the right old pw.
         let out = state.dispatch(2, P_CHANGE_PASSWORD, &pkt("hero", NEW_MD5, MD5));
         assert_eq!(out[0].payload, b"P", "a non-owner session can't change the password");
+    }
+
+    #[test]
+    fn attacking_sets_the_players_actortarget() {
+        // Blitz `P_AttackActor` sets `AI\AITarget = A2` (ServerNet.bb:1612) so
+        // `ActorTarget(player)` / `/assist` can read the player's current target.
+        // The port previously tracked only the NPC's retaliation target, so
+        // `ActorTarget(playerRid)` was always 0.
+        use crate::state::ServerState;
+        use crate::spawn::NpcActor;
+        let dir = data_dir();
+        let catalog = rcce_server_core::ActorCatalog::load(dir.join("Server Data/Actors.dat"));
+        let Some(template) = catalog
+            .templates
+            .values()
+            .find(|t| t.playable && Area::load(&dir, &t.start_area).is_some())
+        else {
+            return;
+        };
+        let template_id = template.id;
+        let mut store = tmp_store("aitarget");
+        let mut acct = Account::new("hero", MD5, "h@x.com").unwrap();
+        let mut c = Character::blank();
+        c.actor_id = template_id;
+        c.name = "Hero".into();
+        c.area = template.start_area.clone();
+        acct.characters.push(CharacterRecord::new(c));
+        store.push(acct);
+        let mut state = ServerState::new(config_for(dir.clone()), store, catalog);
+        handle_start_game(&start_packet("hero", MD5, 0), &mut state.accounts, &mut state.throttle, &mut state.world, &state.config, 1, 0);
+        let area = state.world.session(1).unwrap().area.clone();
+        let hero_rid = state.world.session(1).unwrap().runtime_id;
+
+        let npc_rid = state.world.alloc_runtime();
+        state.spawns.insert_npc(NpcActor {
+            runtime_id: npc_rid, actor_id: template_id, area, x: 0.0, y: 0.0, z: 0.0,
+            hp: 50, hp_max: 50, target_peer: None, last_attack_ms: 0,
+            script: String::new(), death_script: String::new(), stock: Vec::new(),
+        });
+
+        assert_eq!(state.world.target_of_runtime(hero_rid), 0, "no target before attacking");
+        // now_ms past the combat-delay gate (it rejects swings within ~1s of the
+        // last, and a fresh test's monotonic clock is still near 0).
+        state.handle_attack(1, &npc_rid.to_le_bytes(), 10_000);
+        assert_eq!(
+            state.world.target_of_runtime(hero_rid), npc_rid,
+            "attacking sets the player's AITarget"
+        );
     }
 
     #[test]

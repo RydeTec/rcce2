@@ -719,6 +719,9 @@ impl ServerState {
         }
         // The NPC now retaliates against this attacker.
         self.spawns.set_target(target_rid, peer);
+        // Record the attacker's own target (`AI\AITarget = A2`, ServerNet.bb:1612)
+        // so `ActorTarget(player)` / `/assist` can read it.
+        self.world.set_player_target(peer, target_rid);
         // If it's a defensive/aggressive NPC, rally nearby allies onto the
         // attacker (AICallForHelp, GameServer.bb:289-298).
         let attacked_aggr = self
@@ -2273,12 +2276,23 @@ impl ServerState {
                                 continue;
                             }
                             "actortarget" => {
-                                let npc = args.first().map(|v| v.to_int()).unwrap_or(0) as u16;
-                                let rid = self
-                                    .spawns
-                                    .npc_target(npc)
-                                    .and_then(|p| self.world.session(p).map(|s| s.runtime_id))
-                                    .unwrap_or(0);
+                                let who = args.first().map(|v| v.to_int()).unwrap_or(0) as u16;
+                                // Player target (AI\AITarget) first: a player's
+                                // current target, validated to still exist (clears
+                                // a stale handle to 0). Falls back to an NPC's
+                                // retaliation target.
+                                let player_t = self.world.target_of_runtime(who);
+                                let rid = if player_t != 0
+                                    && (self.world.session_for_runtime(player_t).is_some()
+                                        || self.spawns.npc(player_t).is_some())
+                                {
+                                    player_t
+                                } else {
+                                    self.spawns
+                                        .npc_target(who)
+                                        .and_then(|p| self.world.session(p).map(|s| s.runtime_id))
+                                        .unwrap_or(0)
+                                };
                                 let _ = reply.send(rcce_script::Value::Int(rid as i64));
                                 continue;
                             }
