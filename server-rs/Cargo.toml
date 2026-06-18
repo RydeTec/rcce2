@@ -32,3 +32,11 @@ rust-version = "1.85"
 enet-sys = { path = "../client-rs/crates/enet-sys" }
 rcce-net = { path = "../client-rs/crates/rcce-net" }
 rcce-data = { path = "../client-rs/crates/rcce-data" }
+
+# Mirror client-rs: allow the three lints that fight idiomatic wire/parser code
+# (many-field packet encoders, handle/result tuples, default-then-fill structs);
+# everything else is denied via `-D warnings` in CI.
+[workspace.lints.clippy]
+too_many_arguments = "allow"
+type_complexity = "allow"
+field_reassign_with_default = "allow"

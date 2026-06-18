@@ -99,17 +99,18 @@ impl AccountStore {
         let mut r = Reader::new(bytes);
         // Header: magic + version (v1), else the stream is legacy v0 starting at
         // byte 0 with no portal triad in character records.
-        let has_portal_triad;
-        if bytes.len() >= 5 && u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]) == ACCOUNTS_MAGIC {
+        let has_portal_triad = if bytes.len() >= 5
+            && u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]) == ACCOUNTS_MAGIC
+        {
             r.u32();
             let version = r.u8().unwrap_or(0);
             if version > ACCOUNTS_VERSION_CURRENT {
                 return; // unknown future format — abort, like LoadAccounts
             }
-            has_portal_triad = version >= 1;
+            version >= 1
         } else {
-            has_portal_triad = false; // v0; reader remains at offset 0
-        }
+            false // v0; reader remains at offset 0
+        };
 
         while !r.at_end() {
             let Some(user) = r.string(MAX_USER_PASS_EMAIL) else {

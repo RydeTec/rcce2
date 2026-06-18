@@ -3885,19 +3885,19 @@ impl ServerState {
         };
         let inv = &mut rec.actor.inventory;
         // Prefer merging onto a matching backpack stack.
-        for s in SLOT_BACKPACK..inv.len() {
-            if inv[s].item.as_ref().map(|i| i.item_id) == Some(item_id) {
-                inv[s].amount = inv[s].amount.saturating_add(amount);
+        for slot in inv.iter_mut().skip(SLOT_BACKPACK) {
+            if slot.item.as_ref().map(|i| i.item_id) == Some(item_id) {
+                slot.amount = slot.amount.saturating_add(amount);
                 return;
             }
         }
         // Else first empty backpack slot.
-        for s in SLOT_BACKPACK..inv.len() {
-            if inv[s].item.is_none() {
+        for slot in inv.iter_mut().skip(SLOT_BACKPACK) {
+            if slot.item.is_none() {
                 let mut inst = rcce_server_core::item::ItemInstance::new(item_id);
                 inst.attr_values = attrs;
-                inv[s].item = Some(inst);
-                inv[s].amount = amount;
+                slot.item = Some(inst);
+                slot.amount = amount;
                 return;
             }
         }
@@ -3969,7 +3969,7 @@ impl ServerState {
             }
         }
         // The window closed — drop this peer's remaining (unsold) vendor stock.
-        self.assigned_items.retain(|a| !(a.peer == peer && !a.free));
+        self.assigned_items.retain(|a| a.peer != peer || a.free);
 
         let mut gold_gain: i64 = 0;
         // Sold items: 32 entries of [u8 slot][u16 amount] starting at byte 192.
@@ -4674,8 +4674,8 @@ impl ServerState {
             .and_then(|a| a.characters.get(sess.char_slot as usize))
             .map(|r| {
                 (
-                    r.actor.known_spells.iter().any(|&s| s == spell_num as i16),
-                    r.actor.memorised_spells.iter().any(|&s| s == spell_num as i16),
+                    r.actor.known_spells.contains(&(spell_num as i16)),
+                    r.actor.memorised_spells.contains(&(spell_num as i16)),
                 )
             })
             .unwrap_or((false, false));
@@ -4847,8 +4847,8 @@ impl ServerState {
             }
             let Some((u, s)) = sess_user_slot(&self.world, p.peer) else { continue };
             if let Some(rec) = self.accounts.find_mut(&u).and_then(|a| a.characters.get_mut(s)) {
-                let knows = rec.actor.known_spells.iter().any(|&k| k == p.spell_num);
-                let already = rec.actor.memorised_spells.iter().any(|&m| m == p.spell_num);
+                let knows = rec.actor.known_spells.contains(&p.spell_num);
+                let already = rec.actor.memorised_spells.contains(&p.spell_num);
                 if knows && !already {
                     if let Some(slot) = rec.actor.memorised_spells.iter_mut().find(|m| **m == EMPTY) {
                         *slot = p.spell_num;

@@ -8,3 +8,6 @@ description = "RCCE2 server-side ENet HOST: listen on a port, accept N client pe
 
 [dependencies]
 enet-sys.workspace = true
+
+[lints]
+workspace = true

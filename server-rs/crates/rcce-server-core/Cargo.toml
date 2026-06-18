@@ -7,3 +7,6 @@ rust-version.workspace = true
 description = "RCCE2 server world types: Blitz file codec + ItemInstance/Character (ActorInstance) serialization at Accounts.dat parity."
 
 [dependencies]
+
+[lints]
+workspace = true

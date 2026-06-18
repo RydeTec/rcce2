@@ -2,10 +2,10 @@
 //! `P_VerifyAccount` cases in `ServerNet.bb` (~2365-2551).
 //!
 //! Wire payloads (all strings are 1-byte-length-prefixed; ints little-endian):
-//! - `P_CreateAccount`  in: `[str user][str pass(md5)][str email(caesar)]`
-//!                      out: `"Y"` created / `"N"` invalid-or-dup / no reply if disabled
-//! - `P_VerifyAccount`  in: `[str user][str pass(md5)]`
-//!                      out: `"Y"`+charlist / `"P"` auth-fail / `"B"` banned / `"L"` online
+//! - `P_CreateAccount` in `[str user][str pass(md5)][str email(caesar)]`, out
+//!   `"Y"` created / `"N"` invalid-or-dup / no reply if disabled.
+//! - `P_VerifyAccount` in `[str user][str pass(md5)]`, out `"Y"`+charlist /
+//!   `"P"` auth-fail / `"B"` banned / `"L"` online.
 //!
 //! Soft-fail throughout: a truncated/garbage packet never panics — it collapses
 //! to the generic failure reply, matching the server's never-crash-on-wire-data

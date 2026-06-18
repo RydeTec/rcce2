@@ -29,3 +29,6 @@ libc = "0.2"
 # handshake against our host + framing + handlers — not a mock).
 enet-sys.workspace = true
 rcce-net.workspace = true
+
+[lints]
+workspace = true

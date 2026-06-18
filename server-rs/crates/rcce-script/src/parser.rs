@@ -358,11 +358,7 @@ impl Parser {
                 _ if self.is_kw("Mod") => BinOp::Mod,
                 _ => break,
             };
-            if op == BinOp::Mod {
-                self.advance();
-            } else {
-                self.advance();
-            }
+            self.advance();
             let rhs = self.unary()?;
             lhs = bin(op, lhs, rhs);
         }

@@ -7,3 +7,6 @@ rust-version.workspace = true
 description = "RSL (RealmCrafter Scripting Language) interpreter — a Rust replacement for the closed-source BriskVM the Blitz server embeds. Lexer/parser/tree-walking interpreter + the BVM_* command surface."
 
 [dependencies]
+
+[lints]
+workspace = true

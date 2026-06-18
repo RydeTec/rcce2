@@ -3,8 +3,7 @@
 //! Storage formats (identical to the Blitz server, so `Accounts.dat` records
 //! interoperate both directions):
 //! - Legacy: `<32 lowercase hex>` — the raw MD5 the client sends on the wire.
-//! - v1:     `$1$<salt-16>$<sha256-64-hex>` where the hash is
-//!           `SHA256( salt_ascii ++ client_md5_ascii )`.
+//! - v1: `$1$<salt-16>$<sha256-64-hex>`, hash = `SHA256(salt_ascii ++ client_md5_ascii)`.
 //!
 //! [`verify_password`] accepts both; [`hash_password`] always emits v1;
 //! [`upgrade_password_if_legacy`] performs the lazy on-login migration.
@@ -67,7 +66,7 @@ pub fn generate_salt() -> Result<String, getrandom::Error> {
     let n = SALT_ALPHABET.len() as u8; // 62
     // Largest multiple of n that fits in a u8; bytes >= this are rejected so
     // every alphabet index is equally likely.
-    let limit = (256 / n as u16 * n as u16) as u16; // 248
+    let limit = 256 / n as u16 * n as u16; // 248
     let mut out = String::with_capacity(SALT_LEN);
     let mut buf = [0u8; 32];
     let mut idx = buf.len(); // force an initial refill

@@ -16,3 +16,6 @@ sha2 = "0.10"
 # CSPRNG for the 16-char salt. 0.2 API (`getrandom::getrandom`); Linux uses the
 # getrandom(2) syscall / urandom — the container target.
 getrandom = "0.2"
+
+[lints]
+workspace = true
