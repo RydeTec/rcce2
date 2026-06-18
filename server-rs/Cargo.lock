@@ -324,6 +324,7 @@ name = "rcce-server"
 version = "0.1.0"
 dependencies = [
  "enet-sys",
+ "libc",
  "rcce-data",
  "rcce-net",
  "rcce-script",

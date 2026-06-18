@@ -61,13 +61,14 @@ fn main() {
 
     let mut state = ServerState::new(config, accounts, catalog);
     log(&format!("Loaded {} content script(s)", state.scripts.len()));
+    install_shutdown_handler();
     log(&format!("Listening on UDP {port}. Waiting for clients… (Ctrl-C / SIGTERM to stop)"));
 
     /// Movement-relay cadence (positions broadcast to same-area peers).
     const POS_RELAY_INTERVAL: Duration = Duration::from_millis(100);
     let mut last_pos_relay = Instant::now();
 
-    loop {
+    while !SHUTDOWN.load(std::sync::atomic::Ordering::Relaxed) {
         for event in host.poll(TICK_TIMEOUT_MS) {
             handle_event(&host, &mut state, event);
         }
@@ -190,6 +191,38 @@ fn main() {
 
         host.flush();
     }
+
+    // Graceful shutdown (SIGTERM/SIGINT): persist any in-memory account state so
+    // a container stop / redeploy loses nothing, then exit cleanly.
+    log("Shutting down — flushing accounts…");
+    state.maybe_persist_force();
+    host.flush();
+    log("Shutdown complete.");
+}
+
+/// Set on SIGTERM/SIGINT; the tick loop checks it each iteration and exits
+/// gracefully (final account flush) rather than being killed mid-tick.
+static SHUTDOWN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+#[cfg(unix)]
+fn install_shutdown_handler() {
+    // SAFETY: the handler only stores into a `static AtomicBool` — an
+    // async-signal-safe operation. Registered for SIGTERM (container stop) and
+    // SIGINT (Ctrl-C).
+    extern "C" fn on_signal(_sig: libc::c_int) {
+        SHUTDOWN.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+    // Cast through a fn POINTER (not the fn item) to avoid the fn-to-int lint.
+    let handler = on_signal as extern "C" fn(libc::c_int) as libc::sighandler_t;
+    unsafe {
+        libc::signal(libc::SIGTERM, handler);
+        libc::signal(libc::SIGINT, handler);
+    }
+}
+
+#[cfg(not(unix))]
+fn install_shutdown_handler() {
+    // Non-Unix (not the production target): rely on default Ctrl-C handling.
 }
 
 fn handle_event(host: &EnetHostServer, state: &mut ServerState, event: ServerEvent) {

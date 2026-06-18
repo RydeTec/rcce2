@@ -19,6 +19,11 @@ rcce-net.workspace = true
 # Shared on-disk parsers — Fixed Attributes.dat (Health/Speed stat slot indices).
 rcce-data.workspace = true
 
+# Unix signal handling for graceful shutdown (SIGTERM on container stop → final
+# account flush). Already resolved in Cargo.lock transitively; no new crate.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 [dev-dependencies]
 # Real ENet client transport, for the end-to-end login test (a genuine ENet
 # handshake against our host + framing + handlers — not a mock).
