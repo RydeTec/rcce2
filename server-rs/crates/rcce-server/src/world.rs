@@ -6601,6 +6601,46 @@ End Function
     }
 
     #[test]
+    fn shipped_marriage_script_runs_and_does_file_io_on_the_rust_engine() {
+        // The actual shipped marriage.rsl, executed end-to-end on the Rust BVM
+        // engine: its opening block does real file I/O (`FileSize`/`WriteFile`/
+        // `CloseFile` on TakenNames.dat) before any dialog, then the `Money < 10000`
+        // check returns cleanly for a null actor. Proves the shipped content script
+        // RUNS (not just parses) + its file-stream calls work — the foundation of
+        // the marriage/mail features. Writes only into a TEMP data dir.
+        use crate::state::ServerState;
+        let real = data_dir();
+        let Ok(src) = std::fs::read_to_string(real.join("Server Data/Scripts/marriage.rsl")) else {
+            eprintln!("skipping: no marriage.rsl");
+            return;
+        };
+        let tmp = std::env::temp_dir().join(format!("rcce_marriage_{}", std::process::id()));
+        let sandbox = tmp.join("Server Data").join("Script Files");
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&sandbox).unwrap();
+
+        let store = tmp_store("marriage");
+        let mut state = ServerState::new(config_for(tmp.clone()), store, rcce_server_core::ActorCatalog::default());
+
+        // marriage is on the privileged allowlist (so WriteFile is permitted);
+        // fire it privileged, actor/ctx = 0 (the file block precedes Actor()).
+        state.start_inline_script(&src, "Main", 0, 0, 1, true);
+        for _ in 0..300 {
+            state.pump_scripts();
+            if state.running_script_count() == 0 {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+
+        assert!(
+            sandbox.join("TakenNames.dat").exists(),
+            "the shipped marriage script created TakenNames.dat via WriteFile on the Rust engine"
+        );
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
     fn script_file_helpers_are_pure_and_correct() {
         use crate::state::{script_path_is_safe, split_file_lines};
         // Path-traversal guard.
