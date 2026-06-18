@@ -49,6 +49,15 @@ impl AttributeNames {
     pub fn hidden(&self, i: usize) -> bool {
         self.attrs.get(i).map(|a| a.hidden).unwrap_or(true)
     }
+
+    /// Slot index for an attribute by name (case-insensitive), or `None`.
+    /// Parity with `Actors.bb` `FindAttribute` (the server's `SetAttribute` /
+    /// `GetAttribute` BVM name lookups go through this).
+    pub fn index_of(&self, name: &str) -> Option<usize> {
+        self.attrs
+            .iter()
+            .position(|a| a.name.eq_ignore_ascii_case(name))
+    }
 }
 
 #[cfg(test)]

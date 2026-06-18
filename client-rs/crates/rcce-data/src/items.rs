@@ -53,6 +53,15 @@ pub struct ItemDef {
     /// Texture catalog id of the full-size image for image items (item_type 6),
     /// shown in the `WItemWindow` popup on use. -1 for non-image items.
     pub image_id: i16,
+    /// Server-side use/right-click script name (`Item\Script$`) run on
+    /// `P_EatItem` / `P_ItemScript`; empty if none. Server-only — the client
+    /// doesn't use it, but the shared parser keeps it for the Rust server.
+    pub script: String,
+    /// Method to call in `script` (`Item\SMethod$`); empty → `"Main"`.
+    pub smethod: String,
+    /// Duration in **seconds** of the timed buff a potion/ingredient applies
+    /// (`EatEffectsLength`, item types 4/5); 0 = no timed effect.
+    pub eat_effects_length: i16,
 }
 
 /// All item definitions from `Items.dat`, in file order.
@@ -87,8 +96,8 @@ impl ItemCatalog {
         let name = r.read_string(256)?;
         let _excl_race = r.read_string(256)?;
         let _excl_class = r.read_string(256)?;
-        let _script = r.read_string(1024)?;
-        let _smethod = r.read_string(1024)?;
+        let script = r.read_string(1024)?;
+        let smethod = r.read_string(1024)?;
         let item_type = r.read_byte()?;
         let value = r.read_int()?;
         let mass = r.read_short()?;
@@ -111,6 +120,7 @@ impl ItemCatalog {
         let mut weapon_range = 0.0f32;
         let mut armour_level = 0i16;
         let mut image_id = -1i16;
+        let mut eat_effects_length = 0i16;
         match item_type {
             1 => {
                 // Weapon: damage, dtype, wtype, rangedProjectile (4×i16),
@@ -126,7 +136,7 @@ impl ItemCatalog {
                 armour_level = r.read_short()?; // ArmourLevel
             }
             4 | 5 => {
-                r.read_short()?; // EatEffectsLength (Potion / Ingredient)
+                eat_effects_length = r.read_short()?; // EatEffectsLength (Potion / Ingredient), seconds
             }
             6 => {
                 image_id = r.read_short()?; // ImageID (texture catalog id)
@@ -151,6 +161,9 @@ impl ItemCatalog {
             weapon_range,
             armour_level,
             image_id,
+            script,
+            smethod,
+            eat_effects_length,
         })
     }
 
