@@ -79,6 +79,17 @@ Headless Rust server at full feature parity with `bin/Server.exe`, runnable in a
 
 ## Cycle log
 
+### Cycle 100 — 2026-06-18 — PRODUCTION READINESS: shutdown, CI gate, clippy, README, PR opened
+- **New goal:** "make the rust server dev complete with full parity… ready for production adoption." Feature parity was already done (Cycle 99); this cycle is operational production-readiness + landing.
+- **Did:**
+  - **Graceful shutdown** (`main.rs`): SIGTERM/SIGINT handler (cfg(unix), via `libc` — already in the lock) → the tick loop exits cleanly + `maybe_persist_force()` → **no account-state loss on container stop/redeploy**. Verified live: `kill -TERM` → "flushing accounts…" → "Shutdown complete." → exit.
+  - **CI gate** (`.github/workflows/ci.yml`): new `rust-server` job on **ubuntu-latest** (the deploy target) running `cargo test --workspace --locked` + `clippy --all-targets --locked -D warnings`. Gating on Linux exercises the cfg(unix) shutdown path + the container build the windows-only job never compiled. **Verified: the job passed CI in 57s.**
+  - **Clippy-clean under `-D warnings`**: `[workspace.lints]` allows the 3 idiomatic-wire lints (mirroring client-rs) + hand-fixed the rest (identical if-arms, de-Morgan, `iter_mut().skip()`, direct-init, doc indentation). No behavior change.
+  - **Operational README** (`server-rs/README.md`): build/test, run + env config, graceful-shutdown, Docker deploy (mount-a-copy caveat), crate map.
+  - **Landed**: pushed `rust-server-port` (21 commits) + opened **PR #576 → develop**.
+- **Proof (executed):** **220 tests** green `--locked`; clippy `-D warnings` clean; SIGTERM shutdown verified; **CI `rust-server` job green (57s)**.
+- **Net:** the Rust server is **production-adoption-ready** — full parity, graceful shutdown, a Linux CI gate (passing), clean lints, deploy docs + Dockerfile, and an open PR for maintainer review/merge. Remaining for a maintainer: review + merge PR #576. (Not done by me: merging — that's a human gate; and full PvP combat *damage* / the two stock-Blitz-client fetch packets, both out of the Rust↔Rust production scope.)
+
 ### Cycle 99 — 2026-06-18 — PARITY: 2-player marriage works end-to-end (the last feature gap)
 - **Built the three pieces the marriage/mail UX needed**, all server-side + additive:
   1. **Cross-player dialog routing** — `RunningScript.wait_peer`: a script owned by player A can `OpenDialog`/`DialogInput` on player **B** and resume on B's reply. Every RC_Core dialog/input send records the target actor's peer; `resume_script` keys on it. Defaults to the owner → all existing single-player dialogs unchanged (218→ still green at each step).
