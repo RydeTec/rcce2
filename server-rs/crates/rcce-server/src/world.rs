@@ -1142,11 +1142,23 @@ mod tests {
 
         // Find an NPC in the player's area.
         let area = state.world.session(1).unwrap().area.clone();
-        let Some(npc_rid) = state.spawns.npcs_in_area(&area).map(|n| n.runtime_id).next() else {
-            eprintln!("skipping: area has no NPCs");
+        // Spawn an NPC whose template has a positive XP multiplier, co-located
+        // with the hero, so the kill deterministically awards XP. (Relying on the
+        // area's first NPC was flaky: a 0-multiplier NPC's only XP is the random
+        // 0..20 term, which can roll 0 → a spurious `xp > 0` failure.)
+        let Some(mob_id) = state.catalog.templates.values().find(|t| t.xp_multiplier > 0).map(|t| t.id)
+        else {
+            eprintln!("skipping: no template with a positive XP multiplier");
             return;
         };
-        let start_hp = state.spawns.npc(npc_rid).unwrap().hp;
+        let npc_rid = state.world.alloc_runtime();
+        let start_hp = 5i32;
+        state.spawns.insert_npc(crate::spawn::NpcActor {
+            runtime_id: npc_rid, actor_id: mob_id, area: area.clone(),
+            x: 0.0, y: 0.0, z: 0.0, hp: start_hp, hp_max: start_hp,
+            target_peer: None, last_attack_ms: 0,
+            script: String::new(), death_script: String::new(), stock: Vec::new(),
+        });
 
         // Attack repeatedly (advancing the clock past the combat delay each time)
         // until the NPC dies. Min damage is 1, so this always terminates.
@@ -6798,6 +6810,47 @@ End Function
         assert_eq!(
             state.world.target_of_runtime(hero_rid), npc_rid,
             "attacking sets the player's AITarget"
+        );
+    }
+
+    #[test]
+    fn attacking_a_player_in_a_pvp_area_sets_the_target() {
+        // Blitz sets the attacker's AITarget on a player target only in a PvP zone
+        // (`A2\RNID < 0 Or Area\PvP`, ServerNet.bb:1612). Plains ships pvp=1, so an
+        // attack there acquires the target (this is how the marriage ceremony's
+        // target-selection works); a non-PvP zone leaves it unset.
+        use crate::state::ServerState;
+        let dir = data_dir();
+        if Area::load(&dir, "Plains").map(|a| a.pvp).unwrap_or(0) == 0 {
+            return; // project's Plains isn't PvP — nothing to assert
+        }
+        let catalog = rcce_server_core::ActorCatalog::load(dir.join("Server Data/Actors.dat"));
+        let Some(template) = catalog.templates.values().find(|t| t.playable) else { return };
+        let tid = template.id;
+        let mut store = tmp_store("pvptarget");
+        for (u, e) in [("alice", "a@x.com"), ("bob", "b@x.com")] {
+            let mut acct = Account::new(u, MD5, e).unwrap();
+            let mut c = Character::blank();
+            c.actor_id = tid;
+            c.name = if u == "alice" { "Alice".into() } else { "Bob".into() };
+            c.area = "Plains".into();
+            acct.characters.push(CharacterRecord::new(c));
+            store.push(acct);
+        }
+        let mut state = ServerState::new(config_for(dir.clone()), store, catalog);
+        handle_start_game(&start_packet("alice", MD5, 0), &mut state.accounts, &mut state.throttle, &mut state.world, &state.config, 1, 0);
+        handle_start_game(&start_packet("bob", MD5, 0), &mut state.accounts, &mut state.throttle, &mut state.world, &state.config, 2, 0);
+        if state.world.session(1).is_none() || state.world.session(2).is_none() {
+            return; // Plains didn't accept the players (data variance)
+        }
+        let alice = state.world.session(1).unwrap().runtime_id;
+        let bob = state.world.session(2).unwrap().runtime_id;
+
+        assert_eq!(state.world.target_of_runtime(alice), 0, "no target before attacking");
+        state.handle_attack(1, &bob.to_le_bytes(), 10_000);
+        assert_eq!(
+            state.world.target_of_runtime(alice), bob,
+            "attacking a player in a PvP area sets the attacker's AITarget"
         );
     }
 

@@ -315,6 +315,9 @@ pub struct ServerState {
     // Spells mid-memorisation (the 6s `MemorisingSpell` queue), committed in the
     // tick loop. Only used when `require_memorise` is on.
     pending_memorise: Vec<PendingMemorise>,
+    // Cached `Area\PvP` flag by area name (loaded on first attack into the area),
+    // so the player-vs-player target gate doesn't re-parse the area file.
+    area_pvp_cache: std::collections::HashMap<String, bool>,
     /// Peers a script asked to kick (`KickPlayer`) — drained + disconnected by
     /// the tick loop.
     pending_kicks: Vec<u32>,
@@ -477,6 +480,7 @@ impl ServerState {
             script_files: std::collections::HashMap::new(),
             next_file_handle: 1,
             pending_memorise: Vec::new(),
+            area_pvp_cache: std::collections::HashMap::new(),
             pending_kicks: Vec::new(),
             game_time: (12, 0, 0, 0), // noon, day 0 (Environment.bb default)
             time_factor: 10,
@@ -664,6 +668,18 @@ impl ServerState {
     /// formula → apply damage → emit the `"H"` damage feedback to the attacker,
     /// the `"O"` swing to same-area players, and on death `P_ActorDead` + XP +
     /// NPC removal. Player-vs-player and ranged/projectile attacks are deferred.
+    /// `Area\PvP` for an area name, cached after the first (file) load.
+    fn area_is_pvp(&mut self, area: &str) -> bool {
+        if let Some(&v) = self.area_pvp_cache.get(area) {
+            return v;
+        }
+        let v = rcce_server_core::area::Area::load(&self.config.data_dir, area)
+            .map(|a| a.pvp != 0)
+            .unwrap_or(false);
+        self.area_pvp_cache.insert(area.to_string(), v);
+        v
+    }
+
     pub fn handle_attack(&mut self, peer: u32, payload: &[u8], now_ms: u64) -> Vec<Outgoing> {
         if payload.len() < 2 {
             return Vec::new();
@@ -675,6 +691,20 @@ impl ServerState {
         // Combat-delay gate.
         if (now_ms.saturating_sub(sess.last_attack_ms) as i64) < self.combat_delay {
             return Vec::new();
+        }
+        // Player-vs-player: attacking another player in a PvP area sets the
+        // attacker's AITarget (Blitz `If A2\RNID < 0 Or Area\PvP: AI\AITarget = A2`,
+        // ServerNet.bb:1612) — the target-acquisition the marriage ceremony reads.
+        // (Full PvP damage between players is a separate feature; this is the
+        // targeting half, which is also what ActorTarget parity needs.)
+        if target_rid != sess.runtime_id {
+            if let Some(tsess) = self.world.session_for_runtime(target_rid).cloned() {
+                if tsess.area == sess.area && self.area_is_pvp(&sess.area) {
+                    self.world.set_player_target(peer, target_rid);
+                    self.world.set_last_attack(peer, now_ms);
+                }
+                return Vec::new();
+            }
         }
         // Attacker stats from the live character.
         let Some(acct) = self.accounts.find(&sess.user) else {
