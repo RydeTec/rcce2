@@ -1,0 +1,26 @@
+[package]
+name = "rcce-server"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "RCCE2 headless authoritative server (Rust) — drop-in for bin/Server.exe, Linux-container deployable."
+
+[[bin]]
+name = "rcce-server"
+path = "src/main.rs"
+
+[dependencies]
+rcce-server-net = { path = "../rcce-server-net" }
+rcce-server-accounts = { path = "../rcce-server-accounts" }
+rcce-server-core = { path = "../rcce-server-core" }
+rcce-script = { path = "../rcce-script" }
+rcce-net.workspace = true
+# Shared on-disk parsers — Fixed Attributes.dat (Health/Speed stat slot indices).
+rcce-data.workspace = true
+
+[dev-dependencies]
+# Real ENet client transport, for the end-to-end login test (a genuine ENet
+# handshake against our host + framing + handlers — not a mock).
+enet-sys.workspace = true
+rcce-net.workspace = true
