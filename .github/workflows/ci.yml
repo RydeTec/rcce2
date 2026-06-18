@@ -143,3 +143,36 @@ jobs:
         run: |
           bash scripts/gen_packet_index.sh --check
           bash scripts/gen_bvm_reference.sh --check
+
+  # The headless Rust server (server-rs/) — the Linux-container production target
+  # (bin/Server.exe drop-in). Gated on its DEPLOY OS (ubuntu) so the cfg(unix)
+  # graceful-shutdown path + the production build are actually exercised, and the
+  # full test suite (real-ENet login/e2e, BVM/script engine, world/NPC AI, the
+  # 2-player marriage ceremony) runs on every PR. Path-deps the shared client-rs
+  # crates (enet-sys/rcce-net/rcce-data) from the same checkout — no submodules.
+  rust-server:
+    name: Rust server (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Cache Rust build (server-rs)
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            server-rs/target
+          key: cargo-server-${{ runner.os }}-${{ hashFiles('server-rs/Cargo.lock') }}
+          restore-keys: |
+            cargo-server-${{ runner.os }}-
+
+      - name: Build + test (server workspace, locked)
+        working-directory: server-rs
+        run: cargo test --workspace --locked
+
+      - name: Clippy (server workspace, -D warnings)
+        working-directory: server-rs
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
