@@ -66,6 +66,18 @@ pub mod dialog {
         }
         p
     }
+
+    /// `P_ScriptInput` free-text prompt (server→client), `RCE_SendInput`
+    /// (ScriptingCommands.bb:3302): `[u32 hSI][u8 iType][u16 titleLen][title][prompt]`.
+    pub fn script_input(hsi: u32, itype: u8, title: &str, prompt: &str) -> Vec<u8> {
+        let mut p = Vec::new();
+        p.extend_from_slice(&hsi.to_le_bytes());
+        p.push(itype);
+        p.extend_from_slice(&(title.len() as u16).to_le_bytes());
+        p.extend_from_slice(title.as_bytes());
+        p.extend_from_slice(prompt.as_bytes());
+        p
+    }
 }
 
 /// All parsed content scripts (by lowercase name) + the privileged allowlist.
@@ -1322,6 +1334,18 @@ impl Host for ScriptHost<'_> {
                     let opts_s = arg_s(3);
                     let opts: Vec<&str> = opts_s.split(&delim).collect();
                     self.out.push(Outgoing::peer(peer, world::P_DIALOG, dialog::input(arg_i(2) as u32, &opts)));
+                }
+                Value::Int(0)
+            }
+            // RCE_SendInput(host, arnid, iType, title, prompt) → P_ScriptInput
+            // prompt. The free-text input box the RC_Core `Input` helper opens;
+            // the client replies with P_ScriptInput (resumed via the wait). hSI
+            // round-trips (the response handler resumes by peer, not handle).
+            "rce_sendinput" => {
+                let arnid = arg_i(1) as u16;
+                if let Some(peer) = self.world.peer_for_runtime(arnid) {
+                    let p = dialog::script_input(arnid as u32, arg_i(2) as u8, &arg_s(3), &arg_s(4));
+                    self.out.push(Outgoing::peer(peer, world::P_SCRIPT_INPUT, p));
                 }
                 Value::Int(0)
             }

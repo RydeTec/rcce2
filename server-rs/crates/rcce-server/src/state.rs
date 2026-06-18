@@ -166,8 +166,16 @@ struct RunningScript {
     actor: u16,
     ctx: u16,
     privileged: bool,
-    /// The player connection this script's actor belongs to (resume key).
+    /// The player connection this script's actor belongs to (the default resume
+    /// key + script-ownership).
     peer: u32,
+    /// The peer whose response resumes the CURRENT wait. Equals `peer` for the
+    /// normal case (a script dialogs its own player); set to a *different*
+    /// player's peer when the script opens a dialog/input on another actor
+    /// (e.g. the marriage priest asking the intended spouse) — that player's
+    /// reply then resumes the script. Updated on each `RCE_SendDialogInput`/
+    /// `RCE_SendInput`; defaults back to `peer`.
+    wait_peer: u32,
     /// Whether the script has armed a wait (`SetWaiting(1)`), so the next
     /// `GetWaitResult` should block while `wait_result` is empty.
     waiting: bool,
@@ -1895,6 +1903,7 @@ impl ServerState {
             ctx: ctx_rid,
             privileged,
             peer,
+            wait_peer: peer,
             waiting: false,
             wait_result: String::new(),
             pending_response: None,
@@ -1936,6 +1945,7 @@ impl ServerState {
             ctx: ctx_rid,
             privileged,
             peer,
+            wait_peer: peer,
             waiting: false,
             wait_result: String::new(),
             pending_response: None,
@@ -2010,6 +2020,27 @@ impl ServerState {
                 match self.running_scripts[i].cmd_rx.try_recv() {
                     Ok(ScriptMsg::Call { name, args, reply }) => {
                         let lname = name.to_lowercase();
+                        // Cross-player dialog routing: every RC_Core dialog/input
+                        // helper that arms a wait (`OpenDialog`/`DialogOutput`/
+                        // `DialogInput`/`Input`) takes the TARGET actor as arg 1,
+                        // then waits for that player's reply. Record that player's
+                        // peer so their response — not the script owner's — resumes
+                        // it. Equals the owner for the normal self-dialog case, so
+                        // existing single-player dialogs are unaffected; only a
+                        // dialog opened on ANOTHER player (the marriage priest
+                        // asking the intended spouse) differs.
+                        if matches!(
+                            lname.as_str(),
+                            "rce_sendopendialog"
+                                | "rce_senddialogoutput"
+                                | "rce_senddialoginput"
+                                | "rce_sendinput"
+                        ) {
+                            let owner = self.running_scripts[i].peer;
+                            let arnid = args.get(1).map(|v| v.to_int()).unwrap_or(0) as u16;
+                            self.running_scripts[i].wait_peer =
+                                self.world.peer_for_runtime(arnid).unwrap_or(owner);
+                        }
                         // The wait commands touch per-script wait state (held in
                         // RunningScript), so they're handled here, not in ScriptHost.
                         match lname.as_str() {
@@ -3423,11 +3454,13 @@ impl ServerState {
         // Find by peer only — NOT by `waiting`: the client can reply to a dialog
         // packet before the script thread has reached `SetWaiting`/`GetWaitResult`.
         // Prefer a parked (already-waiting) script if one exists.
+        // Match on `wait_peer` (the player the current dialog/input was sent to),
+        // which equals the owner `peer` except for a cross-player dialog.
         let idx = self
             .running_scripts
             .iter()
-            .position(|r| r.peer == peer && r.waiting_reply.is_some())
-            .or_else(|| self.running_scripts.iter().position(|r| r.peer == peer));
+            .position(|r| r.wait_peer == peer && r.waiting_reply.is_some())
+            .or_else(|| self.running_scripts.iter().position(|r| r.wait_peer == peer));
         if let Some(i) = idx {
             let rs = &mut self.running_scripts[i];
             if let Some(reply) = rs.waiting_reply.take() {

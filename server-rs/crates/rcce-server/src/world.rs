@@ -6617,6 +6617,143 @@ End Function
     }
 
     #[test]
+    fn two_player_marriage_completes_end_to_end() {
+        // The full shipped marriage ceremony driven end-to-end on the Rust engine:
+        // two players, A targets B, A walks the priest's dialogs, **B is asked and
+        // accepts via a cross-player dialog**, A names the union via a free-text
+        // Input, and both end up married (ActorGlobal "1|…"). Exercises the two
+        // capabilities added this cycle: cross-player dialog routing + the Input
+        // prompt. Restores the gitignored TakenNames.dat so the real data/ is left
+        // untouched.
+        use crate::state::ServerState;
+        use crate::spawn::NpcActor;
+        use std::time::{Duration, Instant};
+        let dir = data_dir();
+        if !dir.join("Server Data/Scripts/marriage.rsl").exists()
+            || !dir.join("Server Data/Scripts/RC_Core.rsl").exists()
+        {
+            eprintln!("skipping: marriage.rsl / RC_Core.rsl not present");
+            return;
+        }
+        let taken = dir.join("Server Data/Script Files/TakenNames.dat");
+        let taken_backup = std::fs::read(&taken).ok();
+
+        let catalog = rcce_server_core::ActorCatalog::load(dir.join("Server Data/Actors.dat"));
+        let Some(template) = catalog
+            .templates
+            .values()
+            .find(|t| t.playable && Area::load(&dir, &t.start_area).is_some())
+        else {
+            return;
+        };
+        let template_id = template.id;
+        let area0 = template.start_area.clone();
+        let mut store = tmp_store("marry2");
+        for (u, e) in [("groom", "g@x.com"), ("bride", "b@x.com")] {
+            let mut acct = Account::new(u, MD5, e).unwrap();
+            let mut c = Character::blank();
+            c.actor_id = template_id;
+            c.name = if u == "groom" { "Groom".into() } else { "Bride".into() };
+            c.area = area0.clone();
+            c.gold = 50_000;
+            acct.characters.push(CharacterRecord::new(c));
+            store.push(acct);
+        }
+        let mut state = ServerState::new(config_for(dir.clone()), store, catalog);
+        if state.scripts.get("marriage").is_none() {
+            return;
+        }
+        handle_start_game(&start_packet("groom", MD5, 0), &mut state.accounts, &mut state.throttle, &mut state.world, &state.config, 1, 0);
+        handle_start_game(&start_packet("bride", MD5, 0), &mut state.accounts, &mut state.throttle, &mut state.world, &state.config, 2, 0);
+        let a_rid = state.world.session(1).unwrap().runtime_id; // groom (peer 1)
+        let b_rid = state.world.session(2).unwrap().runtime_id; // bride (peer 2)
+        let b_peer = 2u32;
+
+        // Priest NPC (the dialog context actor).
+        let priest = state.world.alloc_runtime();
+        state.spawns.insert_npc(NpcActor {
+            runtime_id: priest, actor_id: template_id, area: area0, x: 0.0, y: 0.0, z: 0.0,
+            hp: 1, hp_max: 1, target_peer: None, last_attack_ms: 0,
+            script: String::new(), death_script: String::new(), stock: Vec::new(),
+        });
+
+        // Groom targets the bride (the in-PvP-zone attack-target the script reads
+        // via ActorTarget — set directly here).
+        state.world.set_player_target(1, b_rid);
+
+        // Fire the marriage ceremony for the groom, priest = context.
+        state.fire_hook_async("marriage", "Main", a_rid, priest, 1);
+
+        // Drive the dialog/input flow for ~5s: answer each prompt for whichever
+        // player it targets. Option 1 = "Yes" throughout; the free-text Input gets
+        // a unique last name.
+        let lname = format!("Tplr{}", std::process::id() % 100000);
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while Instant::now() < deadline && state.running_script_count() > 0 {
+            for o in state.pump_scripts() {
+                let peer = match o.target {
+                    crate::state::Target::Peer(p) => p,
+                    _ => continue,
+                };
+                if o.msg_type == crate::world::P_DIALOG {
+                    match o.payload.first() {
+                        Some(b'N') => {
+                            // Open: reply "N" + handle(4) + dhandle(4) (echo handle).
+                            let mut r = vec![b'N'];
+                            r.extend_from_slice(&o.payload[1..5]);
+                            r.extend_from_slice(&o.payload[1..5]);
+                            state.handle_dialog_response(peer, &r);
+                        }
+                        Some(b'T') => {
+                            // Text output also awaits an ack (RC_Core DialogOutput
+                            // waits on GetWaitResult): reply "T" + handle(4).
+                            let mut r = vec![b'T'];
+                            r.extend_from_slice(&o.payload[1..5]);
+                            state.handle_dialog_response(peer, &r);
+                        }
+                        Some(b'O') => {
+                            // Options: reply "O" + handle(4) + selected option (1 = Yes).
+                            let mut r = vec![b'O'];
+                            r.extend_from_slice(&o.payload[1..5]);
+                            r.push(1);
+                            state.handle_dialog_response(peer, &r);
+                        }
+                        _ => {} // 'C' close: no reply
+                    }
+                } else if o.msg_type == crate::world::P_SCRIPT_INPUT {
+                    // Free-text Input prompt → reply [handle(4)][text].
+                    let mut r = vec![0u8; 4];
+                    r.extend_from_slice(lname.as_bytes());
+                    state.handle_script_input(peer, &r);
+                }
+            }
+            std::thread::sleep(Duration::from_millis(1));
+        }
+
+        // Both players are now married: ActorGlobal slot 1 begins "1|".
+        let married = |state: &ServerState, user: &str| -> bool {
+            state
+                .accounts
+                .find(user)
+                .and_then(|a| a.characters.first())
+                .map(|r| r.actor.script_globals.get(1).map(|g| g.starts_with("1|")).unwrap_or(false))
+                .unwrap_or(false)
+        };
+        let groom_married = married(&state, "groom");
+        let bride_married = married(&state, "bride");
+
+        // Restore the gitignored TakenNames.dat before asserting.
+        match taken_backup {
+            Some(b) => { let _ = std::fs::write(&taken, b); }
+            None => { let _ = std::fs::remove_file(&taken); }
+        }
+        let _ = (a_rid, b_peer);
+
+        assert!(groom_married, "groom is married after the ceremony");
+        assert!(bride_married, "bride is married (cross-player dialog accepted)");
+    }
+
+    #[test]
     fn attacking_sets_the_players_actortarget() {
         // Blitz `P_AttackActor` sets `AI\AITarget = A2` (ServerNet.bb:1612) so
         // `ActorTarget(player)` / `/assist` can read the player's current target.
