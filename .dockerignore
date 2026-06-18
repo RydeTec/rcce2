@@ -1,0 +1,12 @@
+# Build artifacts (huge; rebuilt inside the image).
+**/target
+# VCS + IDE.
+.git
+.cursor
+# Large/irrelevant submodules for the server image.
+extras
+compiler
+# Loose binaries / images.
+bin
+**/*.png
+**/*.exe
