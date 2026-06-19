@@ -20,6 +20,13 @@ cargo test --workspace           # full suite (unit + real-ENet e2e)
 cargo clippy --workspace --all-targets -- -D warnings
 ```
 
+Or, from the repo root, build all the Rust apps (client + server) at once:
+
+```sh
+./compile.sh -r                  # → bin/ClientRS + bin/ServerRS  (compile.bat -r on Windows)
+./compile.sh -e -t -r            # only the Rust apps (skip the Blitz engine + tools)
+```
+
 CI gates the server on **ubuntu-latest** (the deploy target) on every PR — build,
 the full test suite, and clippy `-D warnings` (see `.github/workflows/ci.yml`).
 
