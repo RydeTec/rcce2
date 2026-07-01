@@ -13,7 +13,7 @@ BLITZPATH="${ROOTDIR}/compiler/BlitzForge"
 TOOLCHAIN=0
 RCCETOOLS=1
 RCCE=1
-RUSTCLIENT=0
+BUILD_RUST=0
 
 usage() {
   cat <<'EOF'
@@ -24,7 +24,7 @@ Usage: compile.sh [flags]
   -t | --skip-tools     Skip compilation of the RCCE2 tool applications in src/Tools
   -b | --blitz          Compile the BlitzForge toolchain
   -e | --skip-engine    Skip compilation of the RCCE2 engine itself in src
-  -r | --rust           Build the Rust client (client-rs) to bin/ClientRS (needs cargo)
+  -r | --rust           Build all Rust apps (client + server) to bin/ClientRS + bin/ServerRS (needs cargo)
   -h | --help           Show this help
 EOF
 }
@@ -34,7 +34,7 @@ while [[ $# -gt 0 ]]; do
     -b|--blitz) TOOLCHAIN=1 ;;
     -t|--skip-tools) RCCETOOLS=0 ;;
     -e|--skip-engine) RCCE=0 ;;
-    -r|--rust) RUSTCLIENT=1 ;;
+    -r|--rust) BUILD_RUST=1 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown flag: $1" >&2; usage; exit 1 ;;
   esac
@@ -147,16 +147,22 @@ if [[ "${RCCETOOLS}" -eq 1 ]]; then
   fi
 fi
 
-if [[ "${RUSTCLIENT}" -eq 1 ]]; then
-  echo "Compiling RealmCrafter CE Rust client (client-rs)..."
+if [[ "${BUILD_RUST}" -eq 1 ]]; then
+  echo "Compiling RealmCrafter CE Rust apps (client-rs + server-rs)..."
   if ! command -v cargo >/dev/null 2>&1; then
-    echo "  cargo not found on PATH -- install Rust from https://rustup.rs to build the Rust client. Skipping ClientRS." >&2
+    echo "  cargo not found on PATH -- install Rust from https://rustup.rs to build the Rust apps. Skipping ClientRS/ServerRS." >&2
   else
     mkdir -p "${ROOTDIR}/bin"
+    # Rust client (client-rs) -> bin/ClientRS
     (cd "${ROOTDIR}/client-rs" && cargo build --release -p rcce-client --bin client-window)
     cp -f "${ROOTDIR}/client-rs/target/release/client-window${EXE_SUFFIX}" \
       "${ROOTDIR}/bin/ClientRS${EXE_SUFFIX}"
     echo "  Built bin/ClientRS${EXE_SUFFIX}"
+    # Rust server (server-rs) -> bin/ServerRS (headless; Linux is the deploy target)
+    (cd "${ROOTDIR}/server-rs" && cargo build --release --bin rcce-server)
+    cp -f "${ROOTDIR}/server-rs/target/release/rcce-server${EXE_SUFFIX}" \
+      "${ROOTDIR}/bin/ServerRS${EXE_SUFFIX}"
+    echo "  Built bin/ServerRS${EXE_SUFFIX}"
   fi
 fi
 

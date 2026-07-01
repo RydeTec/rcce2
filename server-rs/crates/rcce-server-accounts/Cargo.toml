@@ -1,0 +1,21 @@
+[package]
+name = "rcce-server-accounts"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "RCCE2 server accounts: salted-SHA-256 password hashing (PasswordHash.bb parity) + flat-file account/character persistence."
+
+[dependencies]
+# World types: the Blitz file codec + Character/CharacterRecord serialization.
+rcce-server-core = { path = "../rcce-server-core" }
+# Standard FIPS 180-4 SHA-256. PasswordHash.bb hand-rolls the same algorithm;
+# the ported RFC/FIPS known-answer vectors (see tests) prove byte-identical
+# output, so the stored `$1$<salt>$<hash>` records interoperate on disk.
+sha2 = "0.10"
+# CSPRNG for the 16-char salt. 0.2 API (`getrandom::getrandom`); Linux uses the
+# getrandom(2) syscall / urandom — the container target.
+getrandom = "0.2"
+
+[lints]
+workspace = true

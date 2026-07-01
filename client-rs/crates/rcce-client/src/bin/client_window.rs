@@ -5575,17 +5575,26 @@ impl App {
         {
             self.mode = Mode::Login;
         }
-        // Headless test hook: enter the world from character select on the first
-        // menu frame (the actual menu->world path), so it's verifiable end-to-end.
-        if self.frames == 0
-            && std::env::var_os("RCCE_AUTOENTER").is_some()
+        // Headless test hook: drive the character-select → world path so it's
+        // verifiable end-to-end. Not gated to frame 0 — the async account login
+        // lands a few frames in, so we act once CharSelect is reached and idle.
+        // With RCCE_AUTOCREATE, an account with no characters self-seeds a default
+        // one first (so a fresh account can reach the in-world view headlessly).
+        if std::env::var_os("RCCE_AUTOENTER").is_some()
             && self.mode == Mode::CharSelect
-            && !self.chars.is_empty()
             && self.creating.is_none()
+            && self.login_rx.is_none()
         {
-            self.enter_selected();
-            if self.mode == Mode::InWorld {
-                return;
+            if self.chars.is_empty() {
+                if std::env::var_os("RCCE_AUTOCREATE").is_some() && !self.playable.is_empty() {
+                    self.creating = Some(("Shotbot".to_string(), 0));
+                    self.submit_create();
+                }
+            } else {
+                self.enter_selected();
+                if self.mode == Mode::InWorld {
+                    return;
+                }
             }
         }
         let (w, h) = match self.gfx.as_ref() {

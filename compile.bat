@@ -4,7 +4,7 @@ setlocal EnableDelayedExpansion
 set TOOLCHAIN=0
 set RCCETOOLS=1
 set RCCE=1
-set RUSTCLIENT=0
+set BUILD_RUST=0
 
 set "ROOTDIR=%~dp0"
 if "%ROOTDIR:~-1%"=="\" set "ROOTDIR=%ROOTDIR:~0,-1%"
@@ -30,9 +30,9 @@ if "%1"=="-b" (
 ) else if "%1"=="--skip-engine" (
     set RCCE=0
 ) else if "%1"=="-r" (
-    set RUSTCLIENT=1
+    set BUILD_RUST=1
 ) else if "%1"=="--rust" (
-    set RUSTCLIENT=1
+    set BUILD_RUST=1
 ) else (
     echo Unknown flag: %1
     endlocal
@@ -47,7 +47,7 @@ echo.
 echo -t ^| --skip-tools     Skip compilation of the RCCE2 tool applications in \src\Tools
 echo -b ^| --blitz          Compile the BlitzForge toolchain
 echo -e ^| --skip-engine    Skip compilation of the RCCE2 engine itself in \src
-echo -r ^| --rust           Build the Rust client (client-rs) to bin\ClientRS.exe (needs cargo)
+echo -r ^| --rust           Build all Rust apps (client + server) to bin\ClientRS.exe + bin\ServerRS.exe (needs cargo)
 endlocal
 exit /b
 
@@ -120,18 +120,24 @@ if %RCCETOOLS%==1 (
     )
 )
 
-if not %RUSTCLIENT%==1 goto skip_rust
+if not %BUILD_RUST%==1 goto skip_rust
 
-echo Compiling RealmCrafter CE Rust client (client-rs)...
+echo Compiling RealmCrafter CE Rust apps (client-rs + server-rs)...
 where cargo >nul 2>nul
 if errorlevel 1 (
-    echo   cargo not found on PATH -- install Rust from https://rustup.rs to build the Rust client. Skipping ClientRS.exe.
+    echo   cargo not found on PATH -- install Rust from https://rustup.rs to build the Rust apps. Skipping ClientRS.exe/ServerRS.exe.
     goto skip_rust
 )
+rem Rust client (client-rs) -> bin\ClientRS.exe
 cd /d "%ROOTDIR%\client-rs"
 cargo build --release -p rcce-client --bin client-window || (cd /d "%ROOTDIR%" & endlocal & exit /b 1)
 copy /Y "%ROOTDIR%\client-rs\target\release\client-window.exe" "%ROOTDIR%\bin\ClientRS.exe" >nul || (cd /d "%ROOTDIR%" & endlocal & exit /b 1)
 echo   Built bin\ClientRS.exe
+rem Rust server (server-rs) -> bin\ServerRS.exe (headless; Linux is the deploy target)
+cd /d "%ROOTDIR%\server-rs"
+cargo build --release --bin rcce-server || (cd /d "%ROOTDIR%" & endlocal & exit /b 1)
+copy /Y "%ROOTDIR%\server-rs\target\release\rcce-server.exe" "%ROOTDIR%\bin\ServerRS.exe" >nul || (cd /d "%ROOTDIR%" & endlocal & exit /b 1)
+echo   Built bin\ServerRS.exe
 cd /d "%ROOTDIR%"
 
 :skip_rust

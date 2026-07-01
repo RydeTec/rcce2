@@ -20,7 +20,9 @@ pub mod items;
 pub mod language;
 pub mod money;
 pub mod other;
+pub mod projectiles;
 pub mod reader;
+pub mod spells;
 pub mod suns;
 pub mod texture;
 
@@ -39,6 +41,8 @@ pub use attributes::{AttributeDef, AttributeNames};
 pub use fixed_attributes::FixedAttributes;
 pub use suns::{Sun, Suns};
 pub use items::{equip_slot, equip_slot_name, ItemCatalog, ItemDef};
+pub use spells::{SpellCatalog, SpellDef};
+pub use projectiles::{ProjectileCatalog, ProjectileDef};
 pub use interface::{IComp, InterfaceLayout};
 pub use language::Language;
 pub use money::MoneyConfig;

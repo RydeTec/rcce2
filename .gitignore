@@ -40,9 +40,11 @@ bin/GUE.exe
 
 bin/Server.exe
 
-# Rust client (compile.bat -r / compile.sh -r)
+# Rust apps (compile.bat -r / compile.sh -r)
 bin/ClientRS.exe
 bin/ClientRS
+bin/ServerRS.exe
+bin/ServerRS
 
 # macOS / Linux engine outputs (compile.sh)
 bin/Client
