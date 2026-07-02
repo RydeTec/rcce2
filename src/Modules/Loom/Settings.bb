@@ -33,6 +33,12 @@ Global LoomCfg_UpdateMusic$    = ""
 ; ---- Hosts.dat --------------------------------------------------------------
 Global LoomCfg_ServerHost$     = ""
 Global LoomCfg_UpdateHost$     = ""
+; Line 3: allow-account-creation flag (0/1). The client's login dialog reads
+; it (MainMenu.bb, LogIn); GUE writes it as Hosts.dat line 3 and mirrors it
+; into Server Data\Misc.dat byte 15 (AllowAccountCreation). Loom has no
+; editor surface for it yet -- it is loaded and written back verbatim so a
+; Settings save doesn't truncate it away. Template default is 1 (enabled).
+Global LoomCfg_AccountsEnabled = 1
 
 ; ---- Other.dat --------------------------------------------------------------
 Global LoomCfg_HideNametags     = 0
@@ -110,6 +116,23 @@ Function Loom_LoadSettings()
     If F <> 0
         LoomCfg_ServerHost$ = ReadLine$(F)
         LoomCfg_UpdateHost$ = ReadLine$(F)
+        If Not Eof(F)
+            LoomCfg_AccountsEnabled = Int(ReadLine$(F))
+        Else
+            ; Line 3 missing -- earlier Loom builds wrote only two lines,
+            ; truncating the allow-account-creation flag on every save.
+            ; Recover it from its server-side twin: GUE keeps Hosts.dat
+            ; line 3 and Server Data\Misc.dat byte 15 in lockstep, so the
+            ; byte is authoritative when the line is gone.
+            F2 = ReadFile("Data\Server Data\Misc.dat")
+            If F2 <> 0
+                If FileSize("Data\Server Data\Misc.dat") >= 16
+                    SeekFile(F2, 15)
+                    LoomCfg_AccountsEnabled = ReadByte(F2)
+                EndIf
+                CloseFile(F2)
+            EndIf
+        EndIf
         CloseFile(F)
     EndIf
 
@@ -206,12 +229,17 @@ Function Loom_SaveSettings()
     If Result = False Then Return False
 
     ; --- Hosts.dat ----------------------------------------------------------
+    ; Three lines, matching GUE's writer (TServerHost / TUpdatesHost /
+    ; BNewAccounts cases): host, updates host, allow-account-creation flag.
+    ; The client's login dialog reads line 3 -- writing only two lines
+    ; silently disabled account creation on every Settings save.
     FinalPath$ = "Data\Game Data\Hosts.dat"
     TempPath$  = SafeWriteOpen$(FinalPath$)
     F = WriteFile(TempPath$)
     If F = 0 Then Return False
     WriteLine(F, LoomCfg_ServerHost$)
     WriteLine(F, LoomCfg_UpdateHost$)
+    WriteLine(F, Str(LoomCfg_AccountsEnabled))
     Result = SafeWriteCommit%(TempPath$, FinalPath$, F)
     If Result = False Then Return False
 
@@ -231,6 +259,38 @@ Function Loom_SaveSettings()
     WriteByte(F, LoomCfg_BubblesB)
     Result = SafeWriteCommit%(TempPath$, FinalPath$, F)
     If Result = False Then Return False
+
+    ; --- Server Data\Misc.dat (ServerPort dual-write) ------------------------
+    ; Server.exe reads its listen port from Server Data\Misc.dat (Server.bb,
+    ; "Misc settings" block), NOT from Game Data\Other.dat -- GUE dual-writes
+    ; both files (GUE.bb, Case TServerPort: SeekFile 17 + WriteInt). Without
+    ; this mirror a port edit in Loom never reaches the server. Copy the
+    ; existing file through a bank and poke the port at byte offset 17 so
+    ; the fields Loom doesn't edit (StartGold .. MaxAccountChars,
+    ; RequireMemorise) survive, then commit atomically.
+    FinalPath$ = "Data\Server Data\Misc.dat"
+    F = ReadFile(FinalPath$)
+    If F <> 0
+        MiscSize = FileSize(FinalPath$)
+        If MiscSize >= 21   ; port occupies bytes 17..20
+            MiscBank = CreateBank(MiscSize)
+            ReadBytes(MiscBank, F, 0, MiscSize)
+            CloseFile(F)
+            PokeInt(MiscBank, 17, LoomCfg_ServerPort)
+            TempPath$ = SafeWriteOpen$(FinalPath$)
+            F = WriteFile(TempPath$)
+            If F = 0 Then FreeBank(MiscBank) : Return False
+            WriteBytes(MiscBank, F, 0, MiscSize)
+            Result = SafeWriteCommit%(TempPath$, FinalPath$, F)
+            FreeBank(MiscBank)
+            If Result = False Then Return False
+        Else
+            CloseFile(F)
+            WriteLog(LoomLog, "Settings: Server Data\Misc.dat only " + MiscSize + " bytes; skipping port dual-write")
+        EndIf
+    Else
+        WriteLog(LoomLog, "Settings: Server Data\Misc.dat missing; skipping port dual-write")
+    EndIf
 
     ; --- Money.dat ----------------------------------------------------------
     FinalPath$ = "Data\Game Data\Money.dat"

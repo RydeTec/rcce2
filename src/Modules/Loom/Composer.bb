@@ -1471,10 +1471,11 @@ Type Composer
             If fieldId = "outdoors"       Then Ar\Outdoors = (value = "1") : Return
             If fieldId = "pvp"            Then Ar\PvP      = (value = "1") : Return
 
-            // Weather chances -- 4 slots
+            // Weather chances -- 5 slots (WeatherChance[4] is inclusive:
+            // Rain/Snow/Fog/Storm/Wind = W_* - 1, see Environment.bb)
             If Left$(fieldId, 8) = "weather_"
                 Local wIdx% = Int(Mid$(fieldId, 9))
-                If wIdx >= 0 And wIdx <= 3 Then Ar\WeatherChance[wIdx] = Composer::parseIntClamped(self, value, Ar\WeatherChance[wIdx], 0, 1000)
+                If wIdx >= 0 And wIdx <= 4 Then Ar\WeatherChance[wIdx] = Composer::parseIntClamped(self, value, Ar\WeatherChance[wIdx], 0, 1000)
                 Return
             EndIf
 
@@ -3600,11 +3601,13 @@ Type Composer
         y = Composer::row(self, panelX, panelW, y, "Triggers",  Str(triggers))
         y = Composer::row(self, panelX, panelW, y, "Waypoints", Str(waypoints))
 
-        // Weather -- 4 chance slots (clear / rain / snow / etc, project-specific)
+        // Weather -- 5 chance slots (Rain/Snow/Fog/Storm/Wind, indexed by
+        // the W_* constants from Environment.bb minus 1). GUE edits all
+        // five spinners; WeatherChance[4] is a 5-slot inclusive array.
         y = Composer::sectionHeader(self, panelX, panelW, y, "Weather chances")
         Local wi%
-        For wi = 0 To 3
-            y = Composer::editableIntRow(self, panelX, panelW, y, "Slot " + Str(wi), "zone", h, "weather_" + Str(wi), Ar\WeatherChance[wi], mx, my, clicked)
+        For wi = 0 To 4
+            y = Composer::editableIntRow(self, panelX, panelW, y, Composer::weatherSlotLabel(self, wi), "zone", h, "weather_" + Str(wi), Ar\WeatherChance[wi], mx, my, clicked)
         Next
 
         // Scripts -- always editable
@@ -4105,6 +4108,21 @@ Type Composer
         If idx = 120 Then Return "Stand up"
         If idx = 119 Then Return "Strafe right"
         Return ""
+    End Method
+
+
+    // -------------------------------------------------------------------------
+    // weatherSlotLabel -- friendly name for a WeatherChance[] slot. Slots map
+    // to the W_* weather-type constants in Environment.bb minus 1 (the array
+    // is 0-based, the constants are 1-based).
+    // -------------------------------------------------------------------------
+    Method weatherSlotLabel$(idx%)
+        If idx = W_Rain - 1  Then Return "Rain"
+        If idx = W_Snow - 1  Then Return "Snow"
+        If idx = W_Fog - 1   Then Return "Fog"
+        If idx = W_Storm - 1 Then Return "Storm"
+        If idx = W_Wind - 1  Then Return "Wind"
+        Return "Slot " + Str(idx)
     End Method
 
 
