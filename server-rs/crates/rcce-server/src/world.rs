@@ -528,6 +528,19 @@ impl World {
         npc_rid != 0 && self.sessions.values().any(|s| s.mount_rid == npc_rid)
     }
 
+    /// The runtime id of the player riding this NPC (0 = unridden) — the
+    /// inverse of the rider's `mount_rid` link, for the `ActorRider` BVM.
+    pub fn rider_of(&self, npc_rid: u16) -> u16 {
+        if npc_rid == 0 {
+            return 0;
+        }
+        self.sessions
+            .values()
+            .find(|s| s.mount_rid == npc_rid)
+            .map(|s| s.runtime_id)
+            .unwrap_or(0)
+    }
+
     /// The rider peer + position for a ridden NPC (for the per-tick glue), if any.
     pub fn rider_pos_of(&self, npc_rid: u16) -> Option<(f32, f32, f32)> {
         if npc_rid == 0 {
@@ -6568,6 +6581,127 @@ End Function
         assert_eq!(state.world.mount_of(1), 0, "dismount clears the mount");
         let wire = super::standard_update_to_wire(state.world.session(1).unwrap());
         assert_eq!(u16::from_le_bytes([wire[20], wire[21]]), 0, "post-dismount standard-update has no mount");
+    }
+
+    /// The mount pieces layered on top of the subsystem test above: the
+    /// `ActorMount`/`ActorRider` BVM reads track the live mount link, and the
+    /// mount/dismount paths fire the shipped `Mount.rsl` hooks the way Blitz
+    /// does (`ThreadScript("Mount","Mount"/"Dismount", rider, mount)`,
+    /// `ServerNet.bb:1502`/`:1806`) — including the Dismount un-clip nudge
+    /// that moves the rider +5 Z out of the mount mesh.
+    #[test]
+    fn mount_hooks_fire_shipped_script_and_bvm_reads_track_state() {
+        use crate::state::ServerState;
+        use crate::spawn::NpcActor;
+        use std::time::Duration;
+        let dir = data_dir();
+        let mut catalog = rcce_server_core::ActorCatalog::load(dir.join("Server Data/Actors.dat"));
+        let Some(template) = catalog
+            .templates
+            .values()
+            .find(|t| t.playable && Area::load(&dir, &t.start_area).is_some())
+        else {
+            return;
+        };
+        let player_id = template.id;
+        let start_area = template.start_area.clone();
+        // The shipped project ships no rideable template (Cycle-95 finding), which
+        // would leave the right-click mount branch — the Mount hook's only
+        // initiation path — unexercised. Force one so the hook coverage is
+        // deterministic, not data-dependent.
+        catalog.templates.get_mut(&player_id).unwrap().rideable = true;
+
+        let mut store = tmp_store("mounthooks");
+        let mut acct = Account::new("rider", MD5, "r@x.com").unwrap();
+        let mut c = Character::blank();
+        c.actor_id = player_id;
+        c.name = "Rider".into();
+        c.area = start_area.clone();
+        acct.characters.push(CharacterRecord::new(c));
+        store.push(acct);
+        let mut state = ServerState::new(config_for(dir.clone()), store, catalog);
+        if state.scripts.get("Mount").is_none() {
+            eprintln!("skipping: no shipped Mount.rsl");
+            return;
+        }
+        handle_start_game(&start_packet("rider", MD5, 0), &mut state.accounts, &mut state.throttle, &mut state.world, &state.config, 1, 0);
+        let rid = state.world.session(1).unwrap().runtime_id;
+        let area = state.world.session(1).unwrap().area.clone();
+
+        // Inline-script driver + observable, per the string-helper test.
+        let run = |state: &mut ServerState, src: &str| {
+            state.start_inline_script(src, "Main", rid, 0, 1, true);
+            let deadline = std::time::Instant::now() + Duration::from_secs(5);
+            while std::time::Instant::now() < deadline {
+                state.pump_scripts();
+                if state.running_script_count() == 0 {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(1));
+            }
+        };
+        let face_of = |state: &ServerState| -> i16 {
+            state.accounts.find("rider").unwrap().characters[0].actor.face_tex
+        };
+        // Pump until every running script (a fired hook) completes.
+        let drain = |state: &mut ServerState| {
+            let deadline = std::time::Instant::now() + Duration::from_secs(5);
+            while state.running_script_count() > 0 && std::time::Instant::now() < deadline {
+                state.pump_scripts();
+                std::thread::sleep(Duration::from_millis(1));
+            }
+        };
+
+        // Stage a scriptless mount co-located with the rider.
+        let mount_rid = state.world.alloc_runtime();
+        state.spawns.insert_npc(NpcActor {
+            runtime_id: mount_rid,
+            actor_id: player_id, // forced rideable above
+            area: area.clone(),
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+            hp: 10,
+            hp_max: 10,
+            target_peer: None,
+            last_attack_ms: 0,
+            script: String::new(),
+            death_script: String::new(),
+            stock: Vec::new(),
+        });
+
+        // Unmounted: both reads are 0 — drive them into an observable face change.
+        run(&mut state, &format!("Function Main()\n\tIf ActorMount(Actor()) = 0 And ActorRider({mount_rid}) = 0 Then SetActorFace(Actor(), 3)\nEnd Function\n"));
+        assert_eq!(face_of(&state), 2, "ActorMount/ActorRider read 0 while unmounted");
+
+        // Mount through the right-click branch — proving the Mount hook fires.
+        state.handle_right_click(1, &mount_rid.to_le_bytes());
+        assert_eq!(state.world.mount_of(1), mount_rid, "right-clicking a rideable NPC mounts it");
+        assert_eq!(state.running_script_count(), 1, "mounting fires Mount.Mount (ServerNet.bb:1502)");
+        drain(&mut state);
+        assert_eq!(state.running_script_count(), 0, "the shipped Mount() runs to completion");
+
+        // Mounted: ActorMount(rider) → the mount's rid, ActorRider(mount) → the rider's.
+        run(&mut state, &format!("Function Main()\n\tIf ActorMount(Actor()) = {mount_rid} And ActorRider({mount_rid}) = {rid} Then SetActorFace(Actor(), 5)\nEnd Function\n"));
+        assert_eq!(face_of(&state), 4, "ActorMount/ActorRider read the live mount link");
+
+        // Dismount fires Mount.Dismount (ServerNet.bb:1806); the shipped script
+        // nudges the rider +5 Z (after a DoEvents(100) settle) to un-clip them.
+        let z_before = state.world.session(1).unwrap().z;
+        state.handle_dismount(1);
+        assert_eq!(state.world.mount_of(1), 0, "dismount clears the mount");
+        assert_eq!(state.running_script_count(), 1, "dismounting fires Mount.Dismount (ServerNet.bb:1806)");
+        drain(&mut state);
+        assert_eq!(state.running_script_count(), 0, "the shipped Dismount runs to completion");
+        let z_after = state.world.session(1).unwrap().z;
+        assert!(
+            (z_after - (z_before + 5.0)).abs() < 0.01,
+            "the shipped Dismount un-clip nudge moves the rider +5 Z (z {z_before} -> {z_after})"
+        );
+
+        // Post-dismount: both reads are 0 again.
+        run(&mut state, &format!("Function Main()\n\tIf ActorMount(Actor()) = 0 And ActorRider({mount_rid}) = 0 Then SetActorFace(Actor(), 1)\nEnd Function\n"));
+        assert_eq!(face_of(&state), 0, "ActorMount/ActorRider read 0 after dismount");
     }
 
     #[test]
