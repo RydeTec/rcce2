@@ -1,6 +1,7 @@
-//! Coverage probe: how many of the shipped `.rsl` scripts the current parser
-//! accepts. Not a pass/fail gate (the parser is still growing) — it reports the
-//! ratio so the next parser work targets the real gaps.
+//! Parse-coverage gate: every shipped `.rsl` script must parse. Parity depends
+//! on 0 parse failures across `data/Server Data/Scripts` (docs/rust-server/
+//! PARITY.md, Cycle 96), so a parser regression fails this test rather than
+//! passing CI silently. The per-file breakdown is still printed for diagnostics.
 
 use std::path::PathBuf;
 
@@ -31,4 +32,9 @@ fn parse_all_shipped_scripts() {
     for (f, e) in fails.iter().take(12) {
         eprintln!("  FAIL {f}: {e}");
     }
+    assert!(ok > 0, "no .rsl scripts found in {dir:?} — coverage gate ran against nothing");
+    assert_eq!(
+        fail, 0,
+        "{fail} shipped script(s) failed to parse (see FAIL lines above) — parity requires 0 parse failures"
+    );
 }
