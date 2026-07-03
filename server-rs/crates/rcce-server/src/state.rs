@@ -3604,6 +3604,10 @@ impl ServerState {
                 // Stop the mount's own AI + clear any target (Blitz sets AI_Wait);
                 // collectors skip a ridden NPC and the per-tick glue tracks it.
                 self.spawns.clear_target(target_rid);
+                // Blitz fires the shipped Mount script on mount —
+                // `ThreadScript("Mount", "Mount", Handle(AI), Handle(A2))`
+                // (`ServerNet.bb:1502`), actor = rider, ctx = mount.
+                self.fire_hook_async("Mount", "Mount", clicker_rid, target_rid, peer);
             }
             return Vec::new();
         }
@@ -3629,6 +3633,13 @@ impl ServerState {
         let mount_rid = self.world.mount_of(peer);
         if mount_rid == 0 {
             return Vec::new();
+        }
+        // Blitz fires the shipped Mount script's Dismount before clearing the
+        // link — `ThreadScript("Mount", "Dismount", Handle(AI), Handle(AI\Mount))`
+        // (`ServerNet.bb:1806`), actor = rider, ctx = ex-mount. The shipped
+        // `Mount.rsl` nudges the rider +5 Z to un-clip them from the mount mesh.
+        if let Some(rider_rid) = self.world.session(peer).map(|s| s.runtime_id) {
+            self.fire_hook_async("Mount", "Dismount", rider_rid, mount_rid, peer);
         }
         self.world.set_mount(peer, 0);
         // Park the mount at its current spot so it doesn't resume a stale walk.

@@ -696,10 +696,16 @@ impl Host for ScriptHost<'_> {
             ),
             // PlayerInGame: 1 if the actor is a live player.
             "playeringame" => Value::Int(if self.world.session_for_runtime(rid0()).is_some() { 1 } else { 0 }),
-            // ActorMount / ActorRider — the port has no mount subsystem (there is
-            // no BVM or packet to mount, so no actor is ever mounted); the reads
-            // are 0, which is faithful for the only reachable (unmounted) state.
-            "actormount" | "actorrider" => Value::Int(0),
+            // ActorMount / ActorRider — the mount/rider link lives on the rider's
+            // session (`WorldSession.mount_rid`; only players mount, only NPCs are
+            // ridden). ActorMount(player) → the mount's runtime id; ActorRider(npc)
+            // → the riding player's runtime id; 0 when unmounted/unridden (and for
+            // the converse shapes an NPC-mounting or player-ridden Blitz handle
+            // could never produce either).
+            "actormount" => Value::Int(
+                self.world.session_for_runtime(rid0()).map(|s| s.mount_rid as i64).unwrap_or(0),
+            ),
+            "actorrider" => Value::Int(self.world.rider_of(rid0()) as i64),
             "playeraccountname" => Value::Str(
                 self.player_loc(rid0()).map(|(u, _)| u).unwrap_or_default(),
             ),
