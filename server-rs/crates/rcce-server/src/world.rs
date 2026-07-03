@@ -57,6 +57,7 @@ pub const P_FLOATING_NUMBER: u8 = 48;
 pub const P_SPEECH: u8 = 50;
 pub const P_JUMP: u8 = 46;
 pub const P_ITEM_SCRIPT: u8 = 43;
+pub const P_ITEM_HEALTH: u8 = 45;
 pub const P_PROGRESS_BAR: u8 = 51;
 pub const P_SCRIPT_INPUT: u8 = 53;
 pub const P_ACTION_BAR_UPDATE: u8 = 31;
@@ -5246,6 +5247,144 @@ End Function
         } else {
             eprintln!("note: no armour with positive level in Items.dat");
         }
+    }
+
+    // Combat durability wear (GameServer.bb:536-570): a player's equipped weapon
+    // wears on the swings they make (P_ItemHealth to the attacker), and their
+    // equipped armour wears on the swings they take (P_ItemHealth to the defender).
+    // Broken (0-health) gear stops wearing and stops contributing to combat.
+    #[test]
+    fn combat_wear_decrements_gear_and_notifies_the_owner() {
+        use crate::spawn::NpcActor;
+        use crate::state::{ServerState, Target};
+        use rcce_server_core::item::ItemInstance;
+
+        // --- The wear primitive guards the u8 against underflow (no combat). ---
+        {
+            let mut c = Character::blank();
+            let mut inst = ItemInstance::new(1);
+            inst.item_health = 1;
+            c.inventory[0].item = Some(inst);
+            assert_eq!(ServerState::wear_item(&mut c, 0), Some(0), "1 → 0");
+            assert_eq!(ServerState::wear_item(&mut c, 0), None, "0 stays 0 (no wrap to 255)");
+            assert_eq!(c.inventory[0].item.as_ref().unwrap().item_health, 0);
+            assert_eq!(ServerState::wear_item(&mut c, 5), None, "empty slot → None");
+        }
+
+        let dir = data_dir();
+        let catalog = rcce_server_core::ActorCatalog::load(dir.join("Server Data/Actors.dat"));
+        let Some(template) = catalog
+            .templates
+            .values()
+            .find(|t| t.playable && Area::load(&dir, &t.start_area).is_some())
+        else {
+            eprintln!("skipping: no playable template with a loadable start area");
+            return;
+        };
+        let template_id = template.id;
+        let start_area = template.start_area.clone();
+
+        let mut store = tmp_store("wear");
+        let mut acct = Account::new("hero", MD5, "h@x.com").unwrap();
+        let mut c = Character::blank();
+        c.actor_id = template_id;
+        c.name = "Hero".into();
+        c.area = start_area.clone();
+        c.attributes.value[0] = 30000; // survive many NPC swings (health slot 0)
+        c.attributes.maximum[0] = 30000;
+        acct.characters.push(CharacterRecord::new(c));
+        store.push(acct);
+        let mut state = ServerState::new(config_for(dir.clone()), store, catalog);
+        if state.items.items.is_empty() {
+            eprintln!("skipping: no Items.dat");
+            return;
+        }
+        let Some(weapon_id) = state.items.items.iter().find(|d| d.item_type == 1).map(|d| d.id) else {
+            eprintln!("skipping: no weapon in Items.dat");
+            return;
+        };
+        let Some(armour_id) = state.items.items.iter().find(|d| d.item_type == 2).map(|d| d.id) else {
+            eprintln!("skipping: no armour in Items.dat");
+            return;
+        };
+
+        // Force both toggles on + a fixed RNG seed so the 1-in-5 rolls are
+        // deterministic regardless of the shipped Misc.dat (weapon OFF, armour ON).
+        state.weapon_damage_on = true;
+        state.armour_damage_on = true;
+        state.rng = rcce_server_core::rng::Rng::new(0x00C0_FFEE);
+
+        // Equip a full-durability weapon (slot 0) + shield (slot 1).
+        {
+            let rec = state.accounts.find_mut("hero").unwrap().characters.get_mut(0).unwrap();
+            let mut w = ItemInstance::new(weapon_id);
+            w.item_health = 100;
+            let mut a = ItemInstance::new(armour_id);
+            a.item_health = 100;
+            rec.actor.inventory[0].item = Some(w);
+            rec.actor.inventory[1].item = Some(a);
+        }
+
+        handle_start_game(&start_packet("hero", MD5, 0), &mut state.accounts, &mut state.throttle, &mut state.world, &state.config, 1, 0);
+        let area = state.world.session(1).unwrap().area.clone();
+        state.world.warp_session(1, area.clone(), 0.0, 0.0, 0.0);
+
+        // --- Weapon wear: the hero attacks a durable NPC many times. ---
+        let npc_rid = state.world.alloc_runtime();
+        state.spawns.insert_npc(NpcActor {
+            runtime_id: npc_rid, actor_id: template_id, area: area.clone(),
+            x: 0.0, y: 0.0, z: 0.0, hp: 1_000_000, hp_max: 1_000_000,
+            target_peer: None, last_attack_ms: 0,
+            script: String::new(), death_script: String::new(), stock: Vec::new(),
+        });
+        let attack = npc_rid.to_le_bytes().to_vec();
+        let mut weapon_pkt_health: Option<u16> = None;
+        let mut now = 0u64;
+        for _ in 0..300 {
+            now += state.combat_delay as u64 + 1;
+            for o in state.handle_attack(1, &attack, now) {
+                if o.msg_type == P_ITEM_HEALTH && matches!(o.target, Target::Sender) {
+                    assert_eq!(o.payload.len(), 3, "P_ItemHealth = slot(u8) + health(u16)");
+                    assert_eq!(o.payload[0], 0, "weapon wear reports SlotI_Weapon = 0");
+                    weapon_pkt_health = Some(u16::from_le_bytes([o.payload[1], o.payload[2]]));
+                }
+            }
+        }
+        let weapon_health = state.accounts.find("hero").unwrap().characters[0]
+            .actor.inventory[0].item.as_ref().unwrap().item_health;
+        assert!(weapon_health < 100, "the attacker's weapon wore down (now {weapon_health})");
+        assert_eq!(weapon_pkt_health, Some(weapon_health as u16), "last P_ItemHealth matched the worn weapon");
+        assert!(state.spawns.npc(npc_rid).is_some(), "the durable NPC survived — wear came from swings, not a kill");
+
+        // --- Armour wear: an NPC swings at the co-located hero many times. ---
+        let mob_rid = state.world.alloc_runtime();
+        state.spawns.insert_npc(NpcActor {
+            runtime_id: mob_rid, actor_id: template_id, area: area.clone(),
+            x: 0.0, y: 0.0, z: 0.0, hp: 1_000_000, hp_max: 1_000_000,
+            target_peer: Some(1), last_attack_ms: 0,
+            script: String::new(), death_script: String::new(), stock: Vec::new(),
+        });
+        let mut armour_pkt: Option<(u8, u16)> = None;
+        let mut t = now;
+        for _ in 0..300 {
+            t += state.combat_delay as u64 + 1;
+            // Keep the hero alive so the NPC keeps swinging (no death → no target clear).
+            if let Some(rec) = state.accounts.find_mut("hero").unwrap().characters.get_mut(0) {
+                rec.actor.attributes.value[state.health_stat] = 30000;
+            }
+            for o in state.collect_npc_attacks(t) {
+                if o.msg_type == P_ITEM_HEALTH && matches!(o.target, Target::Peer(1)) {
+                    assert_eq!(o.payload.len(), 3);
+                    armour_pkt = Some((o.payload[0], u16::from_le_bytes([o.payload[1], o.payload[2]])));
+                }
+            }
+        }
+        let armour_health = state.accounts.find("hero").unwrap().characters[0]
+            .actor.inventory[1].item.as_ref().unwrap().item_health;
+        assert!(armour_health < 100, "the defender's armour wore down (now {armour_health})");
+        let (worn_slot, worn_health) = armour_pkt.expect("armour wear notified the owner via P_ItemHealth");
+        assert_eq!(worn_slot, 1, "shield is SlotI_Shield = 1 (only equipped armour slot)");
+        assert_eq!(worn_health, armour_health as u16, "last P_ItemHealth matched the worn shield");
     }
 
     #[test]

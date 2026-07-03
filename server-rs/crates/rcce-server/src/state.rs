@@ -363,6 +363,13 @@ pub struct ServerState {
     pub combat_delay: i64,
     /// `CombatFormula` (1/2/3; `Misc.dat`).
     pub combat_formula: u8,
+    /// `WeaponDamage` toggle (`Misc.dat` @12) — wear the attacker's equipped
+    /// weapon by 1 durability on a 1-in-5 roll per swing, notifying the owner via
+    /// `P_ItemHealth`. OFF in the shipped project.
+    pub weapon_damage_on: bool,
+    /// `ArmourDamage` toggle (`Misc.dat` @13) — wear the defender's equipped
+    /// armour the same way. ON in the shipped project.
+    pub armour_damage_on: bool,
     /// `RequireMemorise` (`Misc.dat`) — must a spell be memorised before casting?
     pub require_memorise: bool,
     /// Server-wide script globals (`SuperGlobals$`, 100 slots) — shared mutable
@@ -438,15 +445,23 @@ impl ServerState {
             .map(|b| rcce_data::damage::DamageTypes::parse(&b))
             .unwrap_or_default();
 
-        // CombatDelay (i16 @9) + CombatFormula (u8 @11) + RequireMemorise (u8 @21)
-        // from Misc.dat (`Server.bb:257-266`).
-        let (combat_delay, combat_formula, require_memorise) = std::fs::read(
-            config.data_dir.join("Server Data").join("Misc.dat"),
-        )
-        .ok()
-        .filter(|b| b.len() >= 22)
-        .map(|b| (i16::from_le_bytes([b[9], b[10]]) as i64, b[11], b[21] != 0))
-        .unwrap_or((1000, 1, false));
+        // CombatDelay (i16 @9) + CombatFormula (u8 @11) + WeaponDamage (u8 @12) +
+        // ArmourDamage (u8 @13) + RequireMemorise (u8 @21) from Misc.dat
+        // (`Server.bb:255-266`).
+        let (combat_delay, combat_formula, weapon_damage_on, armour_damage_on, require_memorise) =
+            std::fs::read(config.data_dir.join("Server Data").join("Misc.dat"))
+                .ok()
+                .filter(|b| b.len() >= 22)
+                .map(|b| {
+                    (
+                        i16::from_le_bytes([b[9], b[10]]) as i64,
+                        b[11],
+                        b[12] != 0,
+                        b[13] != 0,
+                        b[21] != 0,
+                    )
+                })
+                .unwrap_or((1000, 1, false, false, false));
 
         let scripts = crate::scripts::ScriptRegistry::load(&config.data_dir).0;
 
@@ -501,6 +516,8 @@ impl ServerState {
             player_trades: std::collections::HashMap::new(),
             combat_delay,
             combat_formula,
+            weapon_damage_on,
+            armour_damage_on,
             require_memorise,
             super_globals: vec![String::new(); 100],
             rng: rcce_server_core::rng::Rng::new(seed),
@@ -664,6 +681,45 @@ impl ServerState {
         ap
     }
 
+    /// Decrement the durability of the item in `slot` of `c`'s inventory by 1,
+    /// returning the new health, or `None` if the slot is empty or the item is
+    /// already broken. Guards the `u8` against underflow — a wrap to 255 inside a
+    /// server tick would be a silent corruption. Mirrors the combat-wear decrement
+    /// `…\ItemHealth = …\ItemHealth - 1` (`GameServer.bb:541`/`561`).
+    pub(crate) fn wear_item(
+        c: &mut rcce_server_core::character::Character,
+        slot: usize,
+    ) -> Option<u8> {
+        let item = c.inventory.get_mut(slot)?.item.as_mut()?;
+        if item.item_health == 0 {
+            return None;
+        }
+        item.item_health -= 1;
+        Some(item.item_health)
+    }
+
+    /// One combat durability roll on `slot` of a player's character: if the slot
+    /// holds an unbroken item, a 1-in-5 roll (`Rand(1,5)=1`, `GameServer.bb:540`/`560`)
+    /// wears it by 1 and returns the new health; otherwise `None`. The RNG is only
+    /// consulted when there is an unbroken item to wear (Blitz rolls *inside* the
+    /// `<> Null` / `ItemHealth > 0` guards), so an empty slot never perturbs the
+    /// shared combat RNG stream.
+    fn try_wear(&mut self, user: &str, char_slot: usize, slot: usize) -> Option<u8> {
+        let wearable = self
+            .accounts
+            .find(user)
+            .and_then(|a| a.characters.get(char_slot))
+            .and_then(|r| r.actor.inventory.get(slot))
+            .and_then(|s| s.item.as_ref())
+            .map(|it| it.item_health > 0)
+            .unwrap_or(false);
+        if !wearable || self.rng.range(1, 5) != 1 {
+            return None;
+        }
+        let rec = self.accounts.find_mut(user)?.characters.get_mut(char_slot)?;
+        Self::wear_item(&mut rec.actor, slot)
+    }
+
     /// Handle `P_AttackActor` against an NPC: combat-delay gate → roll the melee
     /// formula → apply damage → emit the `"H"` damage feedback to the attacker,
     /// the `"O"` swing to same-area players, and on death `P_ActorDead` + XP +
@@ -787,6 +843,21 @@ impl ServerState {
         for (pb, sb) in self.world.session_snapshot() {
             if pb != peer && sb.area == sess.area {
                 out.push(Outgoing::peer(pb, world::P_ATTACK_ACTOR, o.clone()));
+            }
+        }
+
+        // Weapon durability wear (GameServer.bb:536-549): the attacker's equipped
+        // weapon (SlotI_Weapon = 0) loses 1 durability on a 1-in-5 roll per swing
+        // when the WeaponDamage toggle is on, notifying the owner via P_ItemHealth
+        // (slot u8 + health u16). A broken (0-health) weapon is skipped and already
+        // reads as unarmed (equipped_weapon → None). The NPC defender carries no
+        // equipped armour in the port, so armour wear has no target on this path.
+        if self.weapon_damage_on {
+            if let Some(new_health) = self.try_wear(&sess.user, sess.char_slot as usize, 0) {
+                self.accounts_dirty = true;
+                let mut p = vec![0u8];
+                p.extend_from_slice(&(new_health as u16).to_le_bytes());
+                out.push(Outgoing::sender(world::P_ITEM_HEALTH, p));
             }
         }
 
@@ -4973,6 +5044,23 @@ impl ServerState {
                         }
                     }
                     new_hp = rec.actor.attributes.value.get(self.health_stat).copied().unwrap_or(0) as i32;
+                }
+            }
+
+            // Armour durability wear (GameServer.bb:551-570): the DEFENDER's
+            // equipped armour (slots SlotI_Shield..SlotI_Feet = 1..=7) each wears 1
+            // on a 1-in-5 roll per incoming swing when the ArmourDamage toggle is
+            // on, notifying the owner via P_ItemHealth (slot u8 + health u16). PR
+            // #574 fixed the wear target from the attacker (A1) to the defender (A2);
+            // the attacking NPC carries no equipped weapon so weapon wear no-ops here.
+            if self.armour_damage_on {
+                for slot in 1..=7usize {
+                    if let Some(new_health) = self.try_wear(&tsess.user, tsess.char_slot as usize, slot) {
+                        self.accounts_dirty = true;
+                        let mut p = vec![slot as u8];
+                        p.extend_from_slice(&(new_health as u16).to_le_bytes());
+                        out.push(Outgoing::peer(target_peer, world::P_ITEM_HEALTH, p));
+                    }
                 }
             }
 
