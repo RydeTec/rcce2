@@ -64,6 +64,7 @@ pub const P_ACTION_BAR_UPDATE: u8 = 31;
 pub const P_OPEN_TRADING: u8 = 35;
 pub const P_ACTOR_EFFECT: u8 = 36;
 pub const P_PROJECTILE: u8 = 37;
+pub const P_PARTY_UPDATE: u8 = 38;
 pub const P_CLOSE_TRADING: u8 = 40;
 pub const P_UPDATE_TRADING: u8 = 41;
 pub const P_TRADE: u8 = 62;
@@ -1589,6 +1590,79 @@ mod tests {
         assert_eq!(state.accounts.find("Hero").unwrap().characters[0].actor.script_globals[0], "2", "CountPartyMembers is 2");
         assert_eq!(state.accounts.find("Hero").unwrap().characters[0].actor.xp, 5, "Hero got half the XP");
         assert_eq!(state.accounts.find("Ally").unwrap().characters[0].actor.xp, 5, "Ally got the other half");
+    }
+
+    // P_PartyUpdate roster broadcast (SendPartyUpdate, ServerNet.bb:3121): forming
+    // a party sends every member the OTHER members' names ([len u8][name] each);
+    // a member leaving sends the survivors their new (possibly empty) roster.
+    #[test]
+    fn party_update_broadcasts_roster_on_join_and_disconnect() {
+        use crate::state::{ServerState, Target};
+        let dir = data_dir();
+        let catalog = rcce_server_core::ActorCatalog::load(dir.join("Server Data/Actors.dat"));
+        let Some(template) = catalog
+            .templates
+            .values()
+            .find(|t| t.playable && Area::load(&dir, &t.start_area).is_some())
+        else {
+            return;
+        };
+        let template_id = template.id;
+        let start_area = template.start_area.clone();
+        let mut store = tmp_store("party_roster");
+        for name in ["Hero", "Ally"] {
+            let mut acct = Account::new(name, MD5, "x@y.com").unwrap();
+            let mut c = Character::blank();
+            c.actor_id = template_id;
+            c.name = name.into();
+            c.area = start_area.clone();
+            acct.characters.push(CharacterRecord::new(c));
+            store.push(acct);
+        }
+        let mut state = ServerState::new(config_for(dir.clone()), store, catalog);
+        handle_start_game(&start_packet("Hero", MD5, 0), &mut state.accounts, &mut state.throttle, &mut state.world, &state.config, 1, 0);
+        handle_start_game(&start_packet("Ally", MD5, 0), &mut state.accounts, &mut state.throttle, &mut state.world, &state.config, 2, 0);
+
+        // Decode a P_PartyUpdate payload into the list of names it carries.
+        let decode = |payload: &[u8]| -> Vec<String> {
+            let mut names = Vec::new();
+            let mut off = 0usize;
+            while off < payload.len() {
+                let len = payload[off] as usize;
+                off += 1;
+                if len == 0 || off + len > payload.len() {
+                    break;
+                }
+                names.push(String::from_utf8_lossy(&payload[off..off + len]).into_owned());
+                off += len;
+            }
+            names
+        };
+
+        // Hero parties with Ally → each member gets a roster of the OTHER member.
+        let outs = state.dispatch(1, P_CHAT_MESSAGE, b"/party Ally");
+        let hero_roster = outs
+            .iter()
+            .find(|o| o.msg_type == P_PARTY_UPDATE && matches!(o.target, Target::Peer(1)))
+            .map(|o| decode(&o.payload));
+        let ally_roster = outs
+            .iter()
+            .find(|o| o.msg_type == P_PARTY_UPDATE && matches!(o.target, Target::Peer(2)))
+            .map(|o| decode(&o.payload));
+        assert_eq!(hero_roster, Some(vec!["Ally".to_string()]), "Hero's roster lists Ally, not himself");
+        assert_eq!(ally_roster, Some(vec!["Hero".to_string()]), "Ally's roster lists Hero, not herself");
+
+        // Ally disconnects → Hero (now alone) receives an updated, empty roster.
+        let gone = state.on_disconnect(2);
+        let hero_update = gone
+            .iter()
+            .find(|(p, t, _)| *p == 1 && *t == P_PARTY_UPDATE)
+            .map(|(_, _, payload)| decode(payload));
+        assert_eq!(
+            hero_update,
+            Some(Vec::<String>::new()),
+            "the lone survivor's roster is cleared when their partner disconnects"
+        );
     }
 
     #[test]
