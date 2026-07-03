@@ -26,6 +26,7 @@ use crate::config::ServerConfig;
 
 /// Type bytes (`Packets.bb`).
 pub const P_CHANGE_AREA: u8 = 9;
+pub const P_WEATHER_CHANGE: u8 = 17;
 pub const P_REPOSITION_ACTOR: u8 = 49;
 pub const P_NEW_ACTOR: u8 = 11;
 pub const P_START_GAME: u8 = 12;
@@ -1663,6 +1664,75 @@ mod tests {
             Some(Vec::<String>::new()),
             "the lone survivor's roster is cleared when their partner disconnects"
         );
+    }
+
+    // Per-area weather (UpdateWeather, ServerAreas.bb:70): the band roll picks
+    // weather from WeatherChance; a timer expiry broadcasts P_WeatherChange to the
+    // area's players and resets the timer; a warp carries the area's current
+    // weather in the P_ChangeArea byte.
+    #[test]
+    fn weather_rolls_broadcasts_and_rides_change_area() {
+        use crate::state::{ServerState, Target};
+
+        // --- roll_weather band selection (pure) ---
+        assert_eq!(ServerState::roll_weather(&[100, 0, 0, 0, 0], 1), 1, "band 0 -> weather 1");
+        assert_eq!(ServerState::roll_weather(&[100, 0, 0, 0, 0], 99), 1);
+        assert_eq!(ServerState::roll_weather(&[50, 50, 0, 0, 0], 10), 1, "first 50 -> 1");
+        assert_eq!(ServerState::roll_weather(&[50, 50, 0, 0, 0], 60), 2, "second 50 -> 2");
+        assert_eq!(ServerState::roll_weather(&[0, 0, 0, 0, 0], 50), 0, "no chances -> clear");
+        assert_eq!(ServerState::roll_weather(&[10, 0, 0, 0, 0], 50), 0, "roll past the bands -> clear");
+        assert_eq!(ServerState::roll_weather(&[0, 0, 100, 0, 0], 40), 3, "band 2 -> weather 3");
+
+        let dir = data_dir();
+        let catalog = rcce_server_core::ActorCatalog::load(dir.join("Server Data/Actors.dat"));
+        let Some(template) = catalog
+            .templates
+            .values()
+            .find(|t| t.playable && Area::load(&dir, &t.start_area).is_some())
+        else {
+            return;
+        };
+        let template_id = template.id;
+        let start_area = template.start_area.clone();
+        let mut store = tmp_store("weather");
+        let mut acct = Account::new("hero", MD5, "h@x.com").unwrap();
+        let mut c = Character::blank();
+        c.actor_id = template_id;
+        c.name = "Hero".into();
+        c.area = start_area.clone();
+        acct.characters.push(CharacterRecord::new(c));
+        store.push(acct);
+        let mut state = ServerState::new(config_for(dir.clone()), store, catalog);
+        handle_start_game(&start_packet("hero", MD5, 0), &mut state.accounts, &mut state.throttle, &mut state.world, &state.config, 1, 0);
+        let area = state.world.session(1).unwrap().area.clone();
+        let area_id = state.world.area_id(&area);
+
+        // --- tick_weather broadcasts P_WeatherChange on a timer expiry ---
+        state.area_weather.insert(area.clone(), (0, 1)); // timer about to hit 0
+        let outs = state.tick_weather();
+        let wc = outs
+            .iter()
+            .find(|o| o.msg_type == P_WEATHER_CHANGE && matches!(o.target, Target::Peer(1)))
+            .expect("same-area player receives P_WeatherChange when the weather rolls");
+        assert_eq!(wc.payload.len(), 5, "P_WeatherChange = [areaId u32][weather u8]");
+        assert_eq!(&wc.payload[0..4], &area_id.to_le_bytes(), "payload leads with the area id");
+        let (_, timer) = state.area_weather[&area];
+        assert!((2500..=10000).contains(&timer), "timer reset into the Rand(2500,10000) band, not spamming");
+        // A second immediate tick does not broadcast (timer hasn't expired again).
+        assert!(
+            state.tick_weather().iter().all(|o| o.msg_type != P_WEATHER_CHANGE),
+            "no further broadcast until the timer expires again"
+        );
+
+        // --- a warp carries the destination's current weather in P_ChangeArea ---
+        state.area_weather.insert(area.clone(), (3, 5000)); // pin the area to weather 3
+        let rid = state.world.session(1).unwrap().runtime_id;
+        let warp_outs = state.warp_actor(rid, &area, "nonexistent-portal-falls-back-to-origin");
+        let ca = warp_outs
+            .iter()
+            .find(|o| o.msg_type == P_CHANGE_AREA)
+            .expect("warp emits P_ChangeArea");
+        assert_eq!(ca.payload[23], 3, "P_ChangeArea carries the area's current weather (byte 23)");
     }
 
     #[test]

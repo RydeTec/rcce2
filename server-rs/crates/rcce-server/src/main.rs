@@ -177,6 +177,12 @@ fn main() {
                     send_reply(&host, PeerId(p), out.msg_type, &out.payload);
                 }
             }
+            // Per-area weather: advance timers + broadcast P_WeatherChange on change.
+            for out in state.tick_weather() {
+                if let Target::Peer(p) = out.target {
+                    send_reply(&host, PeerId(p), out.msg_type, &out.payload);
+                }
+            }
             for (target, rtype, rbody) in state.collect_position_broadcasts() {
                 send_reply(&host, PeerId(target), rtype, &rbody);
             }
