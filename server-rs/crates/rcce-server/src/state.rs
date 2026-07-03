@@ -577,15 +577,26 @@ impl ServerState {
         let mut out = Vec::new();
         // Leave any party + drop per-peer tick state.
         if let Some(pid) = self.party_of.remove(&peer_id) {
-            if let Some(v) = self.parties.get_mut(&pid) {
+            // Recompute the roster after this peer leaves, then notify survivors.
+            let survivors: Vec<u32> = if let Some(v) = self.parties.get_mut(&pid) {
                 v.retain(|&m| m != peer_id);
-                if v.len() <= 1 {
-                    // A party of one dissolves.
-                    for &m in v.iter() {
-                        self.party_of.remove(&m);
-                    }
-                    self.parties.remove(&pid);
+                v.clone()
+            } else {
+                Vec::new()
+            };
+            if survivors.len() <= 1 {
+                // A party of one dissolves (its lone member is unpartied).
+                for &m in &survivors {
+                    self.party_of.remove(&m);
                 }
+                self.parties.remove(&pid);
+            }
+            // Push each survivor its updated roster (a now-lone survivor gets an
+            // empty roster, clearing their party panel) — parity with the Blitz
+            // SendPartyUpdate fired on a member leaving.
+            for &s in &survivors {
+                let payload = self.party_update_payload_for(s, &survivors);
+                out.push((s, world::P_PARTY_UPDATE, payload));
             }
         }
         self.underwater_since.remove(&peer_id);
@@ -1069,6 +1080,50 @@ impl ServerState {
         }
     }
 
+    /// A peer's in-game character name (`ActorInstance\Name$`) — the display name
+    /// the party roster shows, or empty if the peer has no live session/character.
+    fn player_name(&self, peer: u32) -> String {
+        let Some(sess) = self.world.session(peer) else {
+            return String::new();
+        };
+        self.accounts
+            .find(&sess.user)
+            .and_then(|a| a.characters.get(sess.char_slot as usize))
+            .map(|r| r.actor.name.clone())
+            .unwrap_or_default()
+    }
+
+    /// Build the `P_PartyUpdate` payload for one `member`: each OTHER member's
+    /// name as `[len u8][name]` (Blitz excludes self via `j <> i`, `SendPartyUpdate`
+    /// `ServerNet.bb:3128-3130`). An empty payload (the member is now alone) clears
+    /// that player's roster panel.
+    fn party_update_payload_for(&self, member: u32, members: &[u32]) -> Vec<u8> {
+        let mut p = Vec::new();
+        for &other in members {
+            if other == member {
+                continue;
+            }
+            let name = self.player_name(other);
+            let nb = name.as_bytes();
+            let n = nb.len().min(255);
+            p.push(n as u8);
+            p.extend_from_slice(&nb[..n]);
+        }
+        p
+    }
+
+    /// Send every member of party `pid` its current roster (`SendPartyUpdate`,
+    /// `ServerNet.bb:3121`); called whenever the membership changes.
+    fn send_party_update(&self, pid: u32) -> Vec<Outgoing> {
+        let Some(members) = self.parties.get(&pid) else {
+            return Vec::new();
+        };
+        members
+            .iter()
+            .map(|&m| Outgoing::peer(m, world::P_PARTY_UPDATE, self.party_update_payload_for(m, members)))
+            .collect()
+    }
+
     /// `/party <name>`: put the inviter and the named same-area player into one
     /// party (immediate add — the Blitz invite/accept handshake is simplified to
     /// a direct join; noted in PARITY.md). Returns a chat-feedback packet.
@@ -1110,9 +1165,13 @@ impl ServerState {
             }
         }
         self.parties.entry(pid).or_default().push(target_peer);
+        // Broadcast the new roster to every member (inviter + joiner + any prior
+        // members) — SendPartyUpdate (ServerNet.bb:3121).
+        let mut out = self.send_party_update(pid);
         let mut p = vec![253u8];
         p.extend_from_slice(format!("You are now partied with {target_name}.").as_bytes());
-        vec![Outgoing::peer(inviter_peer, world::P_CHAT_MESSAGE, p)]
+        out.push(Outgoing::peer(inviter_peer, world::P_CHAT_MESSAGE, p));
+        out
     }
 
     /// Grant XP to a player actor (`GiveXP`, `GameServer.bb:57`): add to the
