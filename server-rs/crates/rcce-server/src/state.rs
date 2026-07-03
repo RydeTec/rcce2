@@ -344,6 +344,10 @@ pub struct ServerState {
     pub damage_types: rcce_data::damage::DamageTypes,
     /// Lazily-loaded area files, cached for the per-tick portal check.
     area_cache: std::collections::HashMap<String, Option<rcce_server_core::area::Area>>,
+    /// Per-area runtime weather: `(current weather byte 0..=5, countdown timer in
+    /// tick_weather calls)`. Lazily created; mirrors Blitz `AreaInstance`
+    /// `CurrentWeather`/`CurrentWeatherTime` (`ServerAreas.bb:70`).
+    pub area_weather: std::collections::HashMap<String, (u8, i32)>,
     /// Items lying on the ground (drop/pickup), keyed by a minted wire handle.
     dropped_items: Vec<DroppedItem>,
     /// Next `DroppedItem` handle (monotonic; never 0).
@@ -507,6 +511,7 @@ impl ServerState {
             factions,
             damage_types,
             area_cache: std::collections::HashMap::new(),
+            area_weather: std::collections::HashMap::new(),
             dropped_items: Vec::new(),
             next_drop_handle: 1,
             spell_cooldowns: std::collections::HashMap::new(),
@@ -4228,12 +4233,92 @@ impl ServerState {
             }
         }
 
-        // Tell the warping player it changed zone (weather 0 for now).
+        // Tell the warping player it changed zone, carrying the destination's
+        // current weather in the P_ChangeArea byte (Blitz sends area weather on entry).
+        let weather = self.ensure_weather(&area.name);
         out.push(Outgoing::peer(
             peer,
             world::P_CHANGE_AREA,
-            world::change_area_payload(px, py, pz, pyaw, area.pvp, area.gravity, server_area, 0, &area.name),
+            world::change_area_payload(px, py, pz, pyaw, area.pvp, area.gravity, server_area, weather, &area.name),
         ));
+        out
+    }
+
+    /// Pick a weather byte (0 = clear, 1..=5) from an area's `WeatherChance[5]`
+    /// cumulative probability bands given a `Rand(1,100)` roll — Blitz
+    /// `UpdateWeather` (`ServerAreas.bb:84-92`). Chances that don't sum to 100
+    /// leave the remainder clear (0).
+    pub(crate) fn roll_weather(chance: &[u8; 5], roll: i32) -> u8 {
+        let mut min = 0i32;
+        for (i, &c) in chance.iter().enumerate() {
+            if c > 0 {
+                let max = min + c as i32;
+                if roll >= min && roll < max {
+                    return (i + 1) as u8;
+                }
+                min = max;
+            }
+        }
+        0
+    }
+
+    /// An area's `WeatherChance[5]` from the (cached) area file; all-zero if the
+    /// area can't be loaded.
+    fn area_weather_chance(&mut self, area: &str) -> [u8; 5] {
+        if !self.area_cache.contains_key(area) {
+            let loaded = rcce_server_core::area::Area::load(&self.config.data_dir, area);
+            self.area_cache.insert(area.to_string(), loaded);
+        }
+        self.area_cache
+            .get(area)
+            .and_then(|a| a.as_ref())
+            .map(|a| a.weather_chance)
+            .unwrap_or([0; 5])
+    }
+
+    /// Current weather byte for `area`, lazily initialising its runtime state to
+    /// `(clear, timer 0)` so the next `tick_weather` rolls it (Blitz `AreaInstance`
+    /// starts `CurrentWeather=0`/`CurrentWeatherTime=0`).
+    fn ensure_weather(&mut self, area: &str) -> u8 {
+        self.area_weather.entry(area.to_string()).or_insert((0, 0)).0
+    }
+
+    /// Advance per-area weather (`UpdateWeather`, `ServerAreas.bb:70`): for every
+    /// area that currently has a player, count its timer down; on expiry roll new
+    /// weather from the area's `WeatherChance` bands, reset the timer to
+    /// `Rand(2500,10000)`, and broadcast `P_WeatherChange` (`[areaId u32][weather u8]`)
+    /// to that area's players. Player-less areas are left dormant.
+    pub fn tick_weather(&mut self) -> Vec<Outgoing> {
+        let sessions = self.world.session_snapshot();
+        let mut areas: Vec<String> = Vec::new();
+        for (_, s) in &sessions {
+            if !areas.iter().any(|a| a == &s.area) {
+                areas.push(s.area.clone());
+            }
+        }
+        let mut out = Vec::new();
+        for area in areas {
+            let (cur, timer0) = self.area_weather.get(&area).copied().unwrap_or((0, 0));
+            let mut timer = timer0 - 1;
+            let current = if timer <= 0 {
+                let chance = self.area_weather_chance(&area);
+                let roll = self.rng.rand(100);
+                let w = Self::roll_weather(&chance, roll);
+                timer = self.rng.range(2500, 10000);
+                let area_id = self.world.area_id(&area);
+                let mut p = area_id.to_le_bytes().to_vec();
+                p.push(w);
+                for (pb, sb) in &sessions {
+                    if sb.area == area {
+                        out.push(Outgoing::peer(*pb, world::P_WEATHER_CHANGE, p.clone()));
+                    }
+                }
+                w
+            } else {
+                cur
+            };
+            self.area_weather.insert(area, (current, timer));
+        }
         out
     }
 
@@ -5946,6 +6031,16 @@ impl ServerState {
                 // script (welcome message, first-login starting kit, …).
                 if let Some(rid) = self.world.session(peer_id).map(|s| s.runtime_id) {
                     out.extend(self.fire_hook("Login", "Main", rid, 0));
+                }
+                // Send the area's current weather (Blitz sends P_WeatherChange on
+                // entry, ServerNet.bb:642); the preceding P_ChangeArea set the
+                // client's area_id, which this packet is gated on.
+                if let Some(area) = self.world.session(peer_id).map(|s| s.area.clone()) {
+                    let w = self.ensure_weather(&area);
+                    let area_id = self.world.area_id(&area);
+                    let mut p = area_id.to_le_bytes().to_vec();
+                    p.push(w);
+                    out.push(Outgoing::sender(world::P_WEATHER_CHANGE, p));
                 }
                 out
             }
