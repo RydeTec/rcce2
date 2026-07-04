@@ -4,6 +4,7 @@
 
 pub mod characters;
 pub mod config;
+pub mod language;
 pub mod login;
 pub mod packet_names;
 pub mod scripts;
