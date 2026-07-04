@@ -1735,6 +1735,79 @@ mod tests {
         assert_eq!(ca.payload[23], 3, "P_ChangeArea carries the area's current weather (byte 23)");
     }
 
+    // Built-in social chat commands (ServerNet.bb:388-475): /me (same area), /yell
+    // (all online), /gm (DMs only), /pm (named target), /p (other party members).
+    #[test]
+    fn social_chat_commands_route_to_the_right_recipients() {
+        use crate::state::{Outgoing, ServerState, Target};
+        let dir = data_dir();
+        let catalog = rcce_server_core::ActorCatalog::load(dir.join("Server Data/Actors.dat"));
+        let Some(template) = catalog
+            .templates
+            .values()
+            .find(|t| t.playable && Area::load(&dir, &t.start_area).is_some())
+        else {
+            return;
+        };
+        let template_id = template.id;
+        let start_area = template.start_area.clone();
+        let mut store = tmp_store("social");
+        for name in ["Hero", "Ally", "Other"] {
+            let mut acct = Account::new(name, MD5, "x@y.com").unwrap();
+            let mut c = Character::blank();
+            c.actor_id = template_id;
+            c.name = name.into();
+            c.area = start_area.clone();
+            acct.characters.push(CharacterRecord::new(c));
+            store.push(acct);
+        }
+        let mut state = ServerState::new(config_for(dir.clone()), store, catalog);
+        // Deterministic command words (ME/YELL/GM/P/PM) regardless of the shipped
+        // Language.txt (the loader itself is unit-tested in language.rs).
+        state.language = crate::language::Language::default();
+        for (name, peer) in [("Hero", 1u32), ("Ally", 2), ("Other", 3)] {
+            handle_start_game(&start_packet(name, MD5, 0), &mut state.accounts, &mut state.throttle, &mut state.world, &state.config, peer, 0);
+        }
+        // Hero + Other are DMs; Ally is not. Other stands in a different area.
+        state.accounts.find_mut("Hero").unwrap().is_dm = true;
+        state.accounts.find_mut("Other").unwrap().is_dm = true;
+        state.world.warp_session(3, "Elsewhere".to_string(), 0.0, 0.0, 0.0);
+
+        let recips = |outs: &[Outgoing]| -> Vec<u32> {
+            let mut v: Vec<u32> = outs
+                .iter()
+                .filter(|o| o.msg_type == P_CHAT_MESSAGE)
+                .filter_map(|o| match o.target {
+                    Target::Peer(p) => Some(p),
+                    _ => None,
+                })
+                .collect();
+            v.sort();
+            v
+        };
+
+        // /pm reaches ONLY the named target, as "<sender>: <msg>" (purple 252).
+        let outs = state.dispatch(1, P_CHAT_MESSAGE, b"/pm Ally,secret");
+        assert_eq!(recips(&outs), vec![2], "/pm reaches only the target");
+        let pm = outs.iter().find(|o| o.msg_type == P_CHAT_MESSAGE).unwrap();
+        assert_eq!(pm.payload[0], 252, "/pm is purple (252)");
+        assert_eq!(&pm.payload[1..], b"Hero: secret", "/pm body is '<sender>: <msg>'");
+
+        // /me reaches the sender's area only (Hero + Ally), not Other.
+        assert_eq!(recips(&state.dispatch(1, P_CHAT_MESSAGE, b"/me waves")), vec![1, 2], "/me is same-area incl. self");
+
+        // /yell reaches everyone online.
+        assert_eq!(recips(&state.dispatch(1, P_CHAT_MESSAGE, b"/yell hi")), vec![1, 2, 3], "/yell is global");
+
+        // /gm reaches only DM accounts (Hero + Other), not Ally; a non-DM /gm no-ops.
+        assert_eq!(recips(&state.dispatch(1, P_CHAT_MESSAGE, b"/gm alert")), vec![1, 3], "/gm is DM-only");
+        assert!(recips(&state.dispatch(2, P_CHAT_MESSAGE, b"/gm nope")).is_empty(), "non-DM /gm is refused");
+
+        // /p reaches other party members only (not the sender).
+        let _ = state.dispatch(1, P_CHAT_MESSAGE, b"/party Ally");
+        assert_eq!(recips(&state.dispatch(1, P_CHAT_MESSAGE, b"/p ready")), vec![2], "/p is other party members only");
+    }
+
     #[test]
     fn slash_command_routes_to_in_game_commands_script() {
         use crate::state::ServerState;

@@ -342,6 +342,8 @@ pub struct ServerState {
     /// Damage-type names (`Damage.dat`) — for `SetResistance`/`Resistance`
     /// name→index resolution.
     pub damage_types: rcce_data::damage::DamageTypes,
+    /// Localized slash-command words (`Language.txt`) for the chat-command dispatch.
+    pub language: crate::language::Language,
     /// Lazily-loaded area files, cached for the per-tick portal check.
     area_cache: std::collections::HashMap<String, Option<rcce_server_core::area::Area>>,
     /// Per-area runtime weather: `(current weather byte 0..=5, countdown timer in
@@ -449,6 +451,11 @@ impl ServerState {
             .map(|b| rcce_data::damage::DamageTypes::parse(&b))
             .unwrap_or_default();
 
+        // Localized slash-command words (Language.txt) for chat-command dispatch.
+        let language = crate::language::Language::load(
+            config.data_dir.join("Server Data").join("Language.txt"),
+        );
+
         // CombatDelay (i16 @9) + CombatFormula (u8 @11) + WeaponDamage (u8 @12) +
         // ArmourDamage (u8 @13) + RequireMemorise (u8 @21) from Misc.dat
         // (`Server.bb:255-266`).
@@ -510,6 +517,7 @@ impl ServerState {
             projectiles,
             factions,
             damage_types,
+            language,
             area_cache: std::collections::HashMap::new(),
             area_weather: std::collections::HashMap::new(),
             dropped_items: Vec::new(),
@@ -3500,6 +3508,29 @@ impl ServerState {
         if command == "PARTY" && !params.is_empty() {
             return self.join_party(peer, &params);
         }
+        // Built-in social chat commands (ServerNet.bb:388-475), matched against the
+        // localized command words (Language.txt IDs 203-208; Blitz defaults
+        // ME/YELL/GM/G/P/PM). GuildSay ("G") is intentionally skipped — the port has
+        // no guild/TeamID membership system (noted in PARITY.md).
+        {
+            use crate::language::{LS_SC_GMSAY, LS_SC_ME, LS_SC_PARTYSAY, LS_SC_PMSAY, LS_SC_YELL};
+            let cmd = command.as_str();
+            if cmd == self.language.get(LS_SC_ME) {
+                return self.chat_emote(peer, &params);
+            }
+            if cmd == self.language.get(LS_SC_YELL) {
+                return self.chat_yell(peer, &params);
+            }
+            if cmd == self.language.get(LS_SC_GMSAY) {
+                return self.chat_gmsay(peer, &params);
+            }
+            if cmd == self.language.get(LS_SC_PARTYSAY) {
+                return self.chat_partysay(peer, &params);
+            }
+            if cmd == self.language.get(LS_SC_PMSAY) {
+                return self.chat_pm(peer, &params);
+            }
+        }
         let Some(rid) = self.world.session(peer).map(|s| s.runtime_id) else {
             return Vec::new();
         };
@@ -3521,6 +3552,100 @@ impl ServerState {
             );
             vec![Outgoing::peer(peer, world::P_CHAT_MESSAGE, p)]
         }
+    }
+
+    /// Whether a peer's account is a DM (`Account\IsDM`) — drives `/gm` and the
+    /// DM command gate.
+    fn peer_is_dm(&self, peer: u32) -> bool {
+        self.world
+            .session(peer)
+            .and_then(|s| self.accounts.find(&s.user))
+            .map(|a| a.is_dm)
+            .unwrap_or(false)
+    }
+
+    /// `/me` (`ServerNet.bb:390`): an emote to every player in the sender's area
+    /// (including the sender). Purple (252).
+    fn chat_emote(&self, peer: u32, params: &str) -> Vec<Outgoing> {
+        let Some(sess) = self.world.session(peer).cloned() else {
+            return Vec::new();
+        };
+        let name = self.player_name(peer);
+        let mut p = vec![252u8];
+        p.extend_from_slice(format!("* {name} {params}").as_bytes());
+        self.world
+            .session_snapshot()
+            .into_iter()
+            .filter(|(_, s)| s.area == sess.area)
+            .map(|(pb, _)| Outgoing::peer(pb, world::P_CHAT_MESSAGE, p.clone()))
+            .collect()
+    }
+
+    /// `/yell` (`ServerNet.bb:405`): to every online player (all areas, including
+    /// the sender). Red (253).
+    fn chat_yell(&self, peer: u32, params: &str) -> Vec<Outgoing> {
+        let name = self.player_name(peer);
+        let mut p = vec![253u8];
+        p.extend_from_slice(format!("<{name}> {params}").as_bytes());
+        self.world
+            .session_snapshot()
+            .into_iter()
+            .map(|(pb, _)| Outgoing::peer(pb, world::P_CHAT_MESSAGE, p.clone()))
+            .collect()
+    }
+
+    /// `/gm` (`ServerNet.bb:428`): a DM-only broadcast to every online DM. No-op if
+    /// the sender isn't a DM. Yellow (254).
+    fn chat_gmsay(&self, peer: u32, params: &str) -> Vec<Outgoing> {
+        if !self.peer_is_dm(peer) {
+            return Vec::new();
+        }
+        let name = self.player_name(peer);
+        let mut p = vec![254u8];
+        p.extend_from_slice(format!("<GM> <{name}> {params}").as_bytes());
+        self.world
+            .session_snapshot()
+            .into_iter()
+            .filter(|(pb, _)| self.peer_is_dm(*pb))
+            .map(|(pb, _)| Outgoing::peer(pb, world::P_CHAT_MESSAGE, p.clone()))
+            .collect()
+    }
+
+    /// `/p` (`ServerNet.bb:452`): to the sender's other party members. Green (251).
+    fn chat_partysay(&self, peer: u32, params: &str) -> Vec<Outgoing> {
+        let name = self.player_name(peer);
+        let mut p = vec![251u8];
+        p.extend_from_slice(format!("<PARTY> <{name}> {params}").as_bytes());
+        self.party_members(peer)
+            .into_iter()
+            .filter(|&m| m != peer)
+            .map(|m| Outgoing::peer(m, world::P_CHAT_MESSAGE, p.clone()))
+            .collect()
+    }
+
+    /// `/pm Target,message` (`ServerNet.bb:462`): a private message to the named
+    /// online player. Purple (252). No-op if the target isn't found or the params
+    /// lack a comma. (The message keeps any further commas, vs Blitz's `Split` which
+    /// truncates at the next comma — a deliberate, benign lenience.)
+    fn chat_pm(&self, peer: u32, params: &str) -> Vec<Outgoing> {
+        let Some((target_name, msg)) = params.split_once(',') else {
+            return Vec::new();
+        };
+        let (target_name, msg) = (target_name.trim(), msg.trim());
+        let target_peer = self.world.session_snapshot().into_iter().find(|(_, s)| {
+            self.accounts
+                .find(&s.user)
+                .and_then(|a| a.characters.get(s.char_slot as usize))
+                .map(|r| r.actor.name.eq_ignore_ascii_case(target_name))
+                .unwrap_or(false)
+        });
+        let Some((tp, _)) = target_peer else {
+            return Vec::new();
+        };
+        let name = self.player_name(peer);
+        let mut p = vec![252u8];
+        p.extend_from_slice(format!("{name}: {msg}").as_bytes());
+        vec![Outgoing::peer(tp, world::P_CHAT_MESSAGE, p)]
     }
 
     /// `(user, char_slot)` for a peer's live session.
