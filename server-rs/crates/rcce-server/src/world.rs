@@ -1916,6 +1916,96 @@ mod tests {
         );
     }
 
+    // PvP combat damage (ServerNet.bb:1610-1612): in a PvP area a melee swing
+    // damages a player defender (H/Y/HP-update feedback + Death on a killing blow);
+    // outside a PvP area the swing is refused.
+    #[test]
+    fn pvp_damage_applies_in_pvp_area_and_is_refused_in_non_pvp() {
+        use crate::state::{ServerState, Target};
+        let dir = data_dir();
+        if Area::load(&dir, "Plains").map(|a| a.pvp).unwrap_or(0) == 0 {
+            return; // this project's Plains isn't PvP
+        }
+        let catalog = rcce_server_core::ActorCatalog::load(dir.join("Server Data/Actors.dat"));
+        let Some(template) = catalog.templates.values().find(|t| t.playable) else {
+            return;
+        };
+        let tid = template.id;
+        let mut store = tmp_store("pvpdmg");
+        for (u, name) in [("alice", "Alice"), ("bob", "Bob")] {
+            let mut acct = Account::new(u, MD5, "x@y.com").unwrap();
+            let mut c = Character::blank();
+            c.actor_id = tid;
+            c.name = name.into();
+            c.area = "Plains".into();
+            c.level = 50;
+            acct.characters.push(CharacterRecord::new(c));
+            store.push(acct);
+        }
+        let mut state = ServerState::new(config_for(dir.clone()), store, catalog);
+        let hs = state.health_stat;
+        // Give both plenty of HP; arm Alice so the swing deals real damage.
+        for u in ["alice", "bob"] {
+            let rec = state.accounts.find_mut(u).unwrap().characters.get_mut(0).unwrap();
+            if let Some(m) = rec.actor.attributes.maximum.get_mut(hs) { *m = 300; }
+            if let Some(v) = rec.actor.attributes.value.get_mut(hs) { *v = 300; }
+        }
+        if let Some(wid) = state.items.items.iter().find(|d| d.item_type == 1).map(|d| d.id) {
+            state.accounts.find_mut("alice").unwrap().characters[0].actor.inventory[0].item =
+                Some(rcce_server_core::item::ItemInstance::new(wid));
+        }
+        handle_start_game(&start_packet("alice", MD5, 0), &mut state.accounts, &mut state.throttle, &mut state.world, &state.config, 1, 0);
+        handle_start_game(&start_packet("bob", MD5, 0), &mut state.accounts, &mut state.throttle, &mut state.world, &state.config, 2, 0);
+        if state.world.session(1).is_none() || state.world.session(2).is_none() {
+            return; // Plains didn't accept the players (data variance)
+        }
+        let bob = state.world.session(2).unwrap().runtime_id;
+        let step = state.combat_delay as u64 + 100;
+        let mut now = step;
+        let hp = |s: &ServerState| s.accounts.find("bob").unwrap().characters[0].actor.attributes.value[hs];
+
+        // A PvP swing produces the H (attacker) / Y (defender) / HP-update feedback
+        // (present on a hit OR a miss).
+        let first = state.handle_attack(1, &bob.to_le_bytes(), now);
+        now += step;
+        assert!(first.iter().any(|o| o.msg_type == P_ATTACK_ACTOR && o.payload.first() == Some(&b'H') && matches!(o.target, Target::Sender)), "attacker gets 'H' feedback");
+        assert!(first.iter().any(|o| o.msg_type == P_ATTACK_ACTOR && o.payload.first() == Some(&b'Y') && matches!(o.target, Target::Peer(2))), "defender gets 'Y' feedback");
+        assert!(first.iter().any(|o| o.msg_type == P_STAT_UPDATE && matches!(o.target, Target::Peer(2))), "defender receives an HP update");
+
+        // Damage eventually lands (swings can miss).
+        let hp0 = hp(&state);
+        for _ in 0..40 {
+            if hp(&state) < hp0 { break; }
+            state.handle_attack(1, &bob.to_le_bytes(), now);
+            now += step;
+        }
+        assert!(hp(&state) < hp0, "PvP damage eventually drops the defender's HP");
+
+        // Outside a PvP area the swing is refused (no damage, no packets).
+        state.world.warp_session(1, "NoPvPZone".to_string(), 0.0, 0.0, 0.0);
+        state.world.warp_session(2, "NoPvPZone".to_string(), 0.0, 0.0, 0.0);
+        let hp_np = hp(&state);
+        let refused = state.handle_attack(1, &bob.to_le_bytes(), now);
+        now += step;
+        assert!(refused.is_empty(), "the swing is refused outside a PvP area");
+        assert_eq!(hp(&state), hp_np, "no PvP damage in a non-PvP area");
+
+        // A killing blow drops the defender to 0 HP and fires the Death path.
+        state.world.warp_session(1, "Plains".to_string(), 0.0, 0.0, 0.0);
+        state.world.warp_session(2, "Plains".to_string(), 0.0, 0.0, 0.0);
+        state.accounts.find_mut("bob").unwrap().characters[0].actor.attributes.value[hs] = 1;
+        let scripts_before = state.running_script_count();
+        for _ in 0..40 {
+            if hp(&state) == 0 { break; }
+            state.handle_attack(1, &bob.to_le_bytes(), now);
+            now += step;
+        }
+        assert_eq!(hp(&state), 0, "a killing blow drops the defender to 0 HP");
+        if state.scripts.get("Death").is_some() {
+            assert!(state.running_script_count() > scripts_before, "killing blow fires the Death script");
+        }
+    }
+
     #[test]
     fn slash_command_routes_to_in_game_commands_script() {
         use crate::state::ServerState;
