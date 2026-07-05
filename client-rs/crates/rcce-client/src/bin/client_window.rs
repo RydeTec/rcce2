@@ -296,6 +296,10 @@ struct App {
     water_scroll: [f32; 2],
     /// Live particle emitters for the current zone (simulated each frame).
     emitters: Vec<ZoneEmitter>,
+    /// Clickable animated scenery props (`AnimationMode==3`) in the loaded zone,
+    /// rebuilt on each zone load. `world_pick` projects these to catch a click on a
+    /// lever/door and fire `P_SelectScenery` (C2).
+    scenery_interactables: Vec<SceneryInteractable>,
     /// Solid-prop occluder spheres (world centre, radius) for camera collision —
     /// buildings/rocks/props, excluding terrain and see-through foliage. The
     /// third-person boom shortens when it would pass through one.
@@ -566,6 +570,7 @@ impl App {
             water_texs: Vec::new(),
             water_scroll: [0.0, 0.0],
             emitters: Vec::new(),
+            scenery_interactables: Vec::new(),
             cam_occluders: Vec::new(),
             fog_color: [0.45, 0.62, 0.82],
             fog_near: 1000.0,
@@ -879,6 +884,40 @@ fn actor_at(cx: f32, cy: f32, actors: &[(u16, [f32; 3])], vp: &[f32; 16], sw: f3
         }
     }
     best.map(|(rid, _)| rid)
+}
+
+/// Index of the ownable scenery prop nearest the cursor that is both within `radius`
+/// px on screen (via `project`) and within `use_range` world units of the player in
+/// XZ. Approximates Blitz's actor→scenery click order and its `EntityDistance < 10.0`
+/// reach gate (Interface3D.bb:927): the reach is measured from the prop *origin* in
+/// XZ — a static-instanced prop has no ray-hit surface point (`GPP`) to measure to,
+/// unlike Blitz — and the caller scales the 10.0 into Rust world units. `project`
+/// maps a world point to screen px (None when behind the camera). Pure, so the reach
+/// + proximity gates unit-test without a real projection matrix.
+fn scenery_at(
+    cx: f32,
+    cy: f32,
+    items: &[SceneryInteractable],
+    player: [f32; 3],
+    use_range: f32,
+    radius: f32,
+    project: impl Fn([f32; 3]) -> Option<(f32, f32)>,
+) -> Option<usize> {
+    let mut best: Option<(usize, f32)> = None;
+    for (i, s) in items.iter().enumerate() {
+        let dx = s.pos[0] - player[0];
+        let dz = s.pos[2] - player[2];
+        if dx * dx + dz * dz > use_range * use_range {
+            continue; // out of reach — too far to activate
+        }
+        if let Some((px, py)) = project(s.pos) {
+            let d2 = (px - cx) * (px - cx) + (py - cy) * (py - cy);
+            if d2 <= radius * radius && best.map(|(_, b)| d2 < b).unwrap_or(true) {
+                best = Some((i, d2));
+            }
+        }
+    }
+    best.map(|(i, _)| i)
 }
 
 /// Greedy word-wrap into lines of at most `max_chars` (for tooltip bodies).
@@ -2327,6 +2366,21 @@ struct ZoneEmitter {
     proj_id: Option<u32>,
 }
 
+/// An ownable clickable scenery prop (`AnimationMode==3` with `SceneryID>0`) the
+/// player can activate (`P_SelectScenery`, Interface3D.bb:924-941). `handle` is the
+/// prop's index in the zone scenery list — a stable per-zone id echoed on the wire
+/// (Blitz sends `Handle(Sc)`); the stock server ignores the packet so the value only
+/// has to round-trip. Purely-decorative animated props (`SceneryID==0`), whose only
+/// Blitz effect is a local click-toggle animation, are not tracked here — that
+/// animation is deferred (scenery renders as static instances), so they fall through
+/// to click-to-move rather than eating the click.
+#[derive(Debug, Clone, Copy)]
+struct SceneryInteractable {
+    handle: u32,
+    scenery_id: u16,
+    pos: [f32; 3],
+}
+
 type ZoneStatic = (
     [f32; 3],
     f32,
@@ -2336,6 +2390,7 @@ type ZoneStatic = (
     rcce_client::terrain::HeightField,
     Vec<(rcce_data::WaterPlane, rcce_data::Image)>,
     Vec<ZoneEmitter>,
+    Vec<SceneryInteractable>,
 );
 
 /// A flat water surface as a one-quad [`B3dModel`] (GUE water tool). The quad is
@@ -3068,7 +3123,25 @@ fn load_zone_static(store: &mut AssetStore, view: &mut WorldView, gfx: &Gfx, dat
         "[client-window] zone '{zone}': {} objects, {} meshes, span {span:.0}, {} cam occluders, ground {}",
         place.len(), models.len(), occluders.len(), if height_field.is_empty() { "none" } else { "ok" }
     );
-    Some((center, span, min[1], scenery.env.clone(), occluders, height_field, waters, emitters))
+    // Ownable clickable props (AnimationMode==3, SceneryID>0). The handle is the
+    // prop's index in the scenery list — a stable per-zone id that round-trips on the
+    // wire (the stock server ignores P_SelectScenery, so the value is never
+    // dereferenced server-side). Built from the parsed placements, independent of
+    // mesh-load success — a prop whose mesh failed to load is invisible, and the
+    // world-range + screen-projection gates in world_pick keep it from catching a
+    // spurious click.
+    let scenery_interactables: Vec<SceneryInteractable> = scenery
+        .sceneries
+        .iter()
+        .enumerate()
+        .filter(|(_, s)| s.anim_mode == 3 && s.scenery_id > 0)
+        .map(|(i, s)| SceneryInteractable {
+            handle: i as u32,
+            scenery_id: s.scenery_id as u16,
+            pos: s.pos,
+        })
+        .collect();
+    Some((center, span, min[1], scenery.env.clone(), occluders, height_field, waters, emitters, scenery_interactables))
 }
 
 /// Result of loading a zone: camera framing + env + the decoded cloud textures
@@ -3084,20 +3157,21 @@ struct ZoneLoad {
     height_field: rcce_client::terrain::HeightField,
     waters: Vec<(rcce_data::WaterPlane, rcce_data::Image)>,
     emitters: Vec<ZoneEmitter>,
+    scenery_interactables: Vec<SceneryInteractable>,
 }
 
 /// Load a zone's scenery + sky/cloud/stars (via `load_zone_static`) and decode
 /// its cloud textures. The single primitive used by both the initial load and a
 /// live area-change reload.
 fn load_zone_full(store: &mut AssetStore, view: &mut WorldView, gfx: &Gfx, data_root: &str, zone: &str) -> Option<ZoneLoad> {
-    let (center, span, ground_y, env, occluders, height_field, waters, emitters) =
+    let (center, span, ground_y, env, occluders, height_field, waters, emitters, scenery_interactables) =
         load_zone_static(store, view, gfx, data_root, zone)?;
     let load_img = |id: u16| -> Option<rcce_data::texture::Image> {
         (id != 65535).then(|| store.texture_path(id).and_then(|p| rcce_data::texture::load(&p))).flatten()
     };
     let cloud_regular = load_img(env.cloud_tex_id);
     let cloud_storm = load_img(env.storm_cloud_tex_id);
-    Some(ZoneLoad { center, span, ground_y, env, cloud_regular, cloud_storm, occluders, height_field, waters, emitters })
+    Some(ZoneLoad { center, span, ground_y, env, cloud_regular, cloud_storm, occluders, height_field, waters, emitters, scenery_interactables })
 }
 
 impl ApplicationHandler for App {
@@ -3132,6 +3206,7 @@ impl ApplicationHandler for App {
             self.height_field = Some(z.height_field);
             set_water_planes(z.waters, &mut self.water_planes, &mut self.water_texs);
             self.emitters = z.emitters;
+            self.scenery_interactables = z.scenery_interactables;
             self.cam_occluders = z.occluders;
             self.fog_color = z.env.fog_color;
             self.fog_near = z.env.fog_near;
@@ -5020,6 +5095,18 @@ impl App {
         net.transport.send(net.peer, ptype, &payload, true);
     }
 
+    /// Activate an ownable scenery prop (C2, Interface3D.bb:939): send
+    /// `P_SelectScenery` so the server can run its ownership check. RCCE's server
+    /// ignores it (as does the stock Blitz server — ServerNet.bb:741 is commented
+    /// out), so it is fire-and-forget. Blitz also toggles the prop's mesh animation
+    /// locally (Interface3D.bb:931); that is deferred here (scenery renders as static
+    /// instances), so the packet is the whole observable effect.
+    fn use_scenery(&mut self, s: SceneryInteractable) {
+        let Some(net) = self.net.as_mut() else { return };
+        let pkt = rcce_client::net::select_scenery_packet(s.scenery_id, s.handle);
+        net.transport.send(net.peer, rcce_net::packet_id::SELECT_SCENERY, &pkt, true);
+    }
+
     /// Right-click in the inventory: open the item context menu over the slot
     /// under the cursor (if it holds an item). Returns true if a menu opened, so
     /// the caller skips the camera grab. Closes any open menu when re-clicked off.
@@ -5191,6 +5278,30 @@ impl App {
         });
         if let Some(h) = item_pick {
             self.pickup_item(h);
+            return;
+        }
+        // No actor or item under the cursor → an ownable animated prop (lever/door)
+        // in reach activates it (C2, Interface3D.bb:924). Copies the picked prop out
+        // to release the immutable borrows before the &mut self send. The reach is
+        // Blitz's EntityDistance<10.0 (Interface3D.bb:927) scaled by the same ~2.4×
+        // Blitz→Rust world-unit factor the item-pickup gate uses (Blitz <25.0 → the
+        // 60.0 at client_window.rs:5265): 10.0 × 2.4 ≈ 24.
+        const SCENERY_USE_RANGE: f32 = 24.0;
+        let scenery_pick = self.net.as_ref().and_then(|net| {
+            let player = [net.world.me_x, 0.0, net.world.me_z];
+            scenery_at(
+                cx,
+                cy,
+                &self.scenery_interactables,
+                player,
+                SCENERY_USE_RANGE,
+                PICK_RADIUS,
+                |p| rcce_render::project(&self.vp, p, sw, sh),
+            )
+            .map(|i| self.scenery_interactables[i])
+        });
+        if let Some(s) = scenery_pick {
+            self.use_scenery(s);
             return;
         }
         {
@@ -6441,6 +6552,7 @@ impl App {
                         .collect();
                     carried.extend(z.emitters);
                     self.emitters = carried;
+                    self.scenery_interactables = z.scenery_interactables;
                     self.cam_occluders = z.occluders;
                     self.fog_color = z.env.fog_color;
                     self.fog_near = z.env.fog_near;
@@ -10304,6 +10416,28 @@ mod tests {
         assert!((r[2] - (-45f32).to_radians()).abs() < 1e-6, "roll preserved");
         // Zero stays zero (no spurious offset for axis-aligned props).
         assert_eq!(scenery_rot_radians([0.0, 0.0, 0.0]), [0.0, 0.0, 0.0]);
+    }
+
+    // scenery_at (C2): among ownable props, pick the one nearest the cursor that is
+    // BOTH on-screen (within radius px) AND within use_range world units. The reach
+    // gate must exclude a prop projected dead-center under the cursor but too far to
+    // reach — proving reach and screen-proximity are independent filters.
+    #[test]
+    fn scenery_at_honors_reach_and_proximity() {
+        let items = [
+            SceneryInteractable { handle: 0, scenery_id: 1, pos: [20.0, 0.0, 20.0] }, // on cursor, out of reach
+            SceneryInteractable { handle: 1, scenery_id: 2, pos: [6.0, 0.0, 6.0] },   // in reach, nearest cursor
+            SceneryInteractable { handle: 2, scenery_id: 3, pos: [5.0, 0.0, 5.0] },   // in reach, farther cursor
+        ];
+        // Mock projection: world (x,_,z) → screen (x/10, z/10). So screen (2,2) is
+        // world (20,20) — item0's spot — but item0 is out of reach.
+        let project = |p: [f32; 3]| Some((p[0] * 0.1, p[2] * 0.1));
+        let player = [0.0, 0.0, 0.0];
+        assert_eq!(scenery_at(2.0, 2.0, &items, player, 10.0, 5.0, project), Some(1));
+        // Cursor far from every projection → no pick (falls through to click-to-move).
+        assert_eq!(scenery_at(100.0, 100.0, &items, player, 10.0, 5.0, project), None);
+        // Empty set → None.
+        assert_eq!(scenery_at(2.0, 2.0, &[], player, 10.0, 5.0, project), None);
     }
 
     // LightModels mesh name -> point light: range = setting1 × mul, colour = RGB

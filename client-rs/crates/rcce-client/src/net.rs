@@ -104,6 +104,17 @@ pub fn right_click_packet(runtime_id: u16) -> Vec<u8> {
     runtime_id.to_le_bytes().to_vec()
 }
 
+/// `P_SelectScenery` (`Interface3D.bb:940`): `SceneryID (u16) + Handle (u32)`.
+/// Sent when the player activates an `AnimationMode=3` scenery whose `SceneryID>0`
+/// — asks the server whether the player owns the prop. The stock server ignores it
+/// (the inbound case is commented out at `ServerNet.bb:741`), so it is fire-and-
+/// forget; the local animation is what the player sees. Sent reliable.
+pub fn select_scenery_packet(scenery_id: u16, handle: u32) -> Vec<u8> {
+    let mut w = MsgWriter::new();
+    w.u16(scenery_id).u32(handle);
+    w.into_bytes()
+}
+
 /// `P_Examine` (`Interface3D.bb:694`): the target actor's RuntimeID (u16).
 /// Runs the NPC's Examine script; the reply comes back as chat/output text.
 /// Sent reliable.
@@ -397,6 +408,16 @@ mod tests {
     fn interact_packets_are_le_runtime_id() {
         assert_eq!(right_click_packet(7), vec![7, 0]);
         assert_eq!(examine_packet(0x0102), vec![0x02, 0x01]);
+    }
+
+    #[test]
+    fn select_scenery_packet_matches_blitz_field_order() {
+        // Interface3D.bb:940 — RCE_StrFromInt$(SceneryID, 2) + RCE_StrFromInt$(Handle, 4),
+        // both little-endian. SceneryID 0x0102, handle 0x0A0B0C0D → 2B id then 4B handle.
+        assert_eq!(
+            select_scenery_packet(0x0102, 0x0A0B_0C0D),
+            vec![0x02, 0x01, 0x0D, 0x0C, 0x0B, 0x0A]
+        );
     }
 
     #[test]
