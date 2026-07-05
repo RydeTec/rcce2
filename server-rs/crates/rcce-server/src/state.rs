@@ -3513,8 +3513,12 @@ impl ServerState {
         // ME/YELL/GM/G/P/PM). GuildSay ("G") is intentionally skipped — the port has
         // no guild/TeamID membership system (noted in PARITY.md).
         {
-            use crate::language::{LS_SC_GMSAY, LS_SC_ME, LS_SC_PARTYSAY, LS_SC_PMSAY, LS_SC_YELL};
+            use crate::language::{
+                LS_SC_GMSAY, LS_SC_GOLD, LS_SC_KICK, LS_SC_ME, LS_SC_PARTYSAY, LS_SC_PMSAY,
+                LS_SC_SCRIPT, LS_SC_SETATTRIBUTE, LS_SC_SETATTRIBUTEMAX, LS_SC_XP, LS_SC_YELL,
+            };
             let cmd = command.as_str();
+            // Social set (any player).
             if cmd == self.language.get(LS_SC_ME) {
                 return self.chat_emote(peer, &params);
             }
@@ -3529,6 +3533,25 @@ impl ServerState {
             }
             if cmd == self.language.get(LS_SC_PMSAY) {
                 return self.chat_pm(peer, &params);
+            }
+            // DM set (each handler gates on Account\IsDM; ServerNet.bb:201-389).
+            if cmd == self.language.get(LS_SC_KICK) {
+                return self.chat_kick(peer, &params);
+            }
+            if cmd == self.language.get(LS_SC_XP) {
+                return self.chat_xp(peer, &params);
+            }
+            if cmd == self.language.get(LS_SC_GOLD) {
+                return self.chat_gold(peer, &params);
+            }
+            if cmd == self.language.get(LS_SC_SETATTRIBUTE) {
+                return self.chat_setattribute(peer, &params);
+            }
+            if cmd == self.language.get(LS_SC_SETATTRIBUTEMAX) {
+                return self.chat_setattributemax(peer, &params);
+            }
+            if cmd == self.language.get(LS_SC_SCRIPT) {
+                return self.chat_script(peer, &params);
             }
         }
         let Some(rid) = self.world.session(peer).map(|s| s.runtime_id) else {
@@ -3646,6 +3669,171 @@ impl ServerState {
         let mut p = vec![252u8];
         p.extend_from_slice(format!("{name}: {msg}").as_bytes());
         vec![Outgoing::peer(tp, world::P_CHAT_MESSAGE, p)]
+    }
+
+    /// `/kick <name>` (`ServerNet.bb:201`, DM-gated): kick the named online player
+    /// (`P_KickedPlayer` + queue the disconnect).
+    fn chat_kick(&mut self, peer: u32, params: &str) -> Vec<Outgoing> {
+        if !self.peer_is_dm(peer) {
+            return Vec::new();
+        }
+        let target = params.trim();
+        let target_peer = self.world.session_snapshot().into_iter().find(|(_, s)| {
+            self.accounts
+                .find(&s.user)
+                .and_then(|a| a.characters.get(s.char_slot as usize))
+                .map(|r| r.actor.name.eq_ignore_ascii_case(target))
+                .unwrap_or(false)
+        });
+        let Some((tp, _)) = target_peer else {
+            return Vec::new();
+        };
+        self.pending_kicks.push(tp);
+        vec![Outgoing::peer(tp, world::P_KICKED_PLAYER, Vec::new())]
+    }
+
+    /// `/xp <amount>` (`ServerNet.bb:336`, DM-gated): grant XP to the sender.
+    fn chat_xp(&mut self, peer: u32, params: &str) -> Vec<Outgoing> {
+        if !self.peer_is_dm(peer) {
+            return Vec::new();
+        }
+        let amount = params.trim().parse::<i32>().unwrap_or(0);
+        let Some(rid) = self.world.session(peer).map(|s| s.runtime_id) else {
+            return Vec::new();
+        };
+        self.give_xp(rid, amount)
+    }
+
+    /// `/gold <amount>` (`ServerNet.bb:339`, DM-gated): add gold to the sender +
+    /// notify (`P_GoldChange` "U"/"D" + abs amount). Stored gold floors at 0.
+    fn chat_gold(&mut self, peer: u32, params: &str) -> Vec<Outgoing> {
+        if !self.peer_is_dm(peer) {
+            return Vec::new();
+        }
+        let change = params.trim().parse::<i32>().unwrap_or(0);
+        let Some((user, slot)) = self.player_loc_for_peer(peer) else {
+            return Vec::new();
+        };
+        if let Some(rec) = self.accounts.find_mut(&user).and_then(|a| a.characters.get_mut(slot)) {
+            rec.actor.gold = (rec.actor.gold as i64 + change as i64).clamp(0, i32::MAX as i64) as i32;
+            self.accounts_dirty = true;
+        }
+        vec![Outgoing::peer(peer, world::P_GOLD_CHANGE, gold_change_packet(change))]
+    }
+
+    /// `/setattribute Name,Value` (`ServerNet.bb:351`, DM-gated): set one of the
+    /// sender's attribute values (clamped to `[0, max]`) + broadcast.
+    fn chat_setattribute(&mut self, peer: u32, params: &str) -> Vec<Outgoing> {
+        if !self.peer_is_dm(peer) {
+            return Vec::new();
+        }
+        let Some((name, value)) = params.split_once(',') else {
+            return Vec::new();
+        };
+        let value = value.trim().parse::<i32>().unwrap_or(0);
+        let Some(rid) = self.world.session(peer).map(|s| s.runtime_id) else {
+            return Vec::new();
+        };
+        self.set_attribute_value(rid, name.trim(), value)
+    }
+
+    /// `/setattributemax Name,Value` (`ServerNet.bb:365`, DM-gated).
+    fn chat_setattributemax(&mut self, peer: u32, params: &str) -> Vec<Outgoing> {
+        if !self.peer_is_dm(peer) {
+            return Vec::new();
+        }
+        let Some((name, value)) = params.split_once(',') else {
+            return Vec::new();
+        };
+        let value = value.trim().parse::<i32>().unwrap_or(0);
+        let Some(rid) = self.world.session(peer).map(|s| s.runtime_id) else {
+            return Vec::new();
+        };
+        self.set_attribute_max(rid, name.trim(), value)
+    }
+
+    /// `/script Name,Method` (`ServerNet.bb:379`, DM-gated): spawn the named content
+    /// script **privileged** (the DM is verified, so it may call gated BVMs). The
+    /// script runs async; its packets emit via `pump_scripts`.
+    fn chat_script(&mut self, peer: u32, params: &str) -> Vec<Outgoing> {
+        if !self.peer_is_dm(peer) {
+            return Vec::new();
+        }
+        let Some((name, method)) = params.split_once(',') else {
+            return Vec::new();
+        };
+        let Some(rid) = self.world.session(peer).map(|s| s.runtime_id) else {
+            return Vec::new();
+        };
+        let Some(prog) = self.scripts.linked_program(name.trim()) else {
+            return Vec::new();
+        };
+        self.spawn_program(prog, method.trim(), (rid, 0, peer), true, String::new());
+        Vec::new()
+    }
+
+    /// Set an attribute value by name for a player rid (clamped to `[0, max]`) +
+    /// broadcast `P_StatUpdate "A"` to same-area players (mirrors the BVM path).
+    fn set_attribute_value(&mut self, rid: u16, name: &str, new_val: i32) -> Vec<Outgoing> {
+        let Some(idx) = self.attr_names.index_of(name) else {
+            return Vec::new();
+        };
+        let Some((user, slot)) = self.player_loc(rid) else {
+            return Vec::new();
+        };
+        let value = {
+            let Some(rec) = self.accounts.find_mut(&user).and_then(|a| a.characters.get_mut(slot)) else {
+                return Vec::new();
+            };
+            let max = rec.actor.attributes.maximum.get(idx).copied().unwrap_or(0) as i32;
+            let v = new_val.clamp(0, max.max(0)) as i16;
+            if let Some(s) = rec.actor.attributes.value.get_mut(idx) {
+                *s = v;
+            }
+            v
+        };
+        self.accounts_dirty = true;
+        self.broadcast_stat_update(rid, idx, value, b'A')
+    }
+
+    /// Set an attribute MAXIMUM by name for a player rid + broadcast `P_StatUpdate "M"`.
+    fn set_attribute_max(&mut self, rid: u16, name: &str, new_max: i32) -> Vec<Outgoing> {
+        let Some(idx) = self.attr_names.index_of(name) else {
+            return Vec::new();
+        };
+        let Some((user, slot)) = self.player_loc(rid) else {
+            return Vec::new();
+        };
+        let value = {
+            let Some(rec) = self.accounts.find_mut(&user).and_then(|a| a.characters.get_mut(slot)) else {
+                return Vec::new();
+            };
+            let v = new_max.max(0) as i16;
+            if let Some(s) = rec.actor.attributes.maximum.get_mut(idx) {
+                *s = v;
+            }
+            v
+        };
+        self.accounts_dirty = true;
+        self.broadcast_stat_update(rid, idx, value, b'M')
+    }
+
+    /// Broadcast a `P_StatUpdate` (`[sub][u16 rid][u8 idx][u16 value]`) to every
+    /// player sharing the actor's area (`sub` = `'A'` value / `'M'` max).
+    fn broadcast_stat_update(&self, rid: u16, idx: usize, value: i16, sub: u8) -> Vec<Outgoing> {
+        let Some(area) = self.world.session_for_runtime(rid).map(|s| s.area.clone()) else {
+            return Vec::new();
+        };
+        let mut a = vec![sub];
+        a.extend_from_slice(&rid.to_le_bytes());
+        a.push(idx as u8);
+        a.extend_from_slice(&(value as u16).to_le_bytes());
+        self.world
+            .session_snapshot()
+            .into_iter()
+            .filter(|(_, s)| s.area == area)
+            .map(|(pb, _)| Outgoing::peer(pb, world::P_STAT_UPDATE, a.clone()))
+            .collect()
     }
 
     /// `(user, char_slot)` for a peer's live session.

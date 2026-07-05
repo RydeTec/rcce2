@@ -1808,6 +1808,114 @@ mod tests {
         assert_eq!(recips(&state.dispatch(1, P_CHAT_MESSAGE, b"/p ready")), vec![2], "/p is other party members only");
     }
 
+    // Built-in DM chat commands (ServerNet.bb:201-389): /xp /gold /setattribute
+    // /setattributemax /kick /script — each gated on Account\IsDM.
+    #[test]
+    fn dm_chat_commands_gate_on_is_dm_and_apply() {
+        use crate::state::{ServerState, Target};
+        let dir = data_dir();
+        let catalog = rcce_server_core::ActorCatalog::load(dir.join("Server Data/Actors.dat"));
+        let Some(template) = catalog
+            .templates
+            .values()
+            .find(|t| t.playable && Area::load(&dir, &t.start_area).is_some())
+        else {
+            return;
+        };
+        let template_id = template.id;
+        let start_area = template.start_area.clone();
+        let mut store = tmp_store("dmcmd");
+        for name in ["Hero", "Ally"] {
+            let mut acct = Account::new(name, MD5, "x@y.com").unwrap();
+            let mut c = Character::blank();
+            c.actor_id = template_id;
+            c.name = name.into();
+            c.area = start_area.clone();
+            c.level = 50; // high enough that /xp doesn't trigger a LevelUp XP reset
+            acct.characters.push(CharacterRecord::new(c));
+            store.push(acct);
+        }
+        let mut state = ServerState::new(config_for(dir.clone()), store, catalog);
+        state.language = crate::language::Language::default();
+        for (name, peer) in [("Hero", 1u32), ("Ally", 2)] {
+            handle_start_game(&start_packet(name, MD5, 0), &mut state.accounts, &mut state.throttle, &mut state.world, &state.config, peer, 0);
+        }
+        state.accounts.find_mut("Hero").unwrap().is_dm = true; // Hero is a DM; Ally is not.
+
+        // /xp: DM grants XP to self; non-DM refused.
+        let xp0 = state.accounts.find("Hero").unwrap().characters[0].actor.xp;
+        state.dispatch(1, P_CHAT_MESSAGE, b"/xp 100");
+        assert!(state.accounts.find("Hero").unwrap().characters[0].actor.xp > xp0, "DM /xp grants XP");
+        let ally_xp0 = state.accounts.find("Ally").unwrap().characters[0].actor.xp;
+        state.dispatch(2, P_CHAT_MESSAGE, b"/xp 100");
+        assert_eq!(state.accounts.find("Ally").unwrap().characters[0].actor.xp, ally_xp0, "non-DM /xp refused");
+
+        // /gold: DM adds gold to self + P_GoldChange; non-DM refused.
+        let gold0 = state.accounts.find("Hero").unwrap().characters[0].actor.gold;
+        let outs = state.dispatch(1, P_CHAT_MESSAGE, b"/gold 50");
+        assert_eq!(state.accounts.find("Hero").unwrap().characters[0].actor.gold, gold0 + 50, "DM /gold adds gold");
+        assert!(
+            outs.iter().any(|o| o.msg_type == P_GOLD_CHANGE && matches!(o.target, Target::Peer(1))),
+            "/gold notifies the owner"
+        );
+        let ally_gold0 = state.accounts.find("Ally").unwrap().characters[0].actor.gold;
+        state.dispatch(2, P_CHAT_MESSAGE, b"/gold 50");
+        assert_eq!(state.accounts.find("Ally").unwrap().characters[0].actor.gold, ally_gold0, "non-DM /gold refused");
+
+        // /setattribute + /setattributemax against a real attribute name.
+        let attr_names = std::fs::read(dir.join("Server Data/Attributes.dat"))
+            .ok()
+            .and_then(|b| rcce_data::attributes::AttributeNames::parse(&b).ok())
+            .unwrap_or_default();
+        let attr_len = state.accounts.find("Hero").unwrap().characters[0].actor.attributes.maximum.len();
+        let attr = (0..attr_len)
+            .find(|&i| attr_names.name(i).map(|n| !n.is_empty()).unwrap_or(false))
+            .map(|i| (i, attr_names.name(i).unwrap().to_string()));
+        if let Some((idx, attr)) = attr {
+            state.accounts.find_mut("Hero").unwrap().characters[0].actor.attributes.maximum[idx] = 1000;
+            let set = format!("/setattribute {attr},42");
+            let outs = state.dispatch(1, P_CHAT_MESSAGE, set.as_bytes());
+            assert_eq!(state.accounts.find("Hero").unwrap().characters[0].actor.attributes.value[idx], 42, "DM /setattribute sets the value");
+            assert!(
+                outs.iter().any(|o| o.msg_type == P_STAT_UPDATE && o.payload.first() == Some(&b'A')),
+                "/setattribute broadcasts P_StatUpdate 'A'"
+            );
+            let ally_before = state.accounts.find("Ally").unwrap().characters[0].actor.attributes.value[idx];
+            state.dispatch(2, P_CHAT_MESSAGE, set.as_bytes());
+            assert_eq!(state.accounts.find("Ally").unwrap().characters[0].actor.attributes.value[idx], ally_before, "non-DM /setattribute refused");
+
+            let setmax = format!("/setattributemax {attr},500");
+            let outs = state.dispatch(1, P_CHAT_MESSAGE, setmax.as_bytes());
+            assert_eq!(state.accounts.find("Hero").unwrap().characters[0].actor.attributes.maximum[idx], 500, "DM /setattributemax sets the max");
+            assert!(
+                outs.iter().any(|o| o.msg_type == P_STAT_UPDATE && o.payload.first() == Some(&b'M')),
+                "/setattributemax broadcasts P_StatUpdate 'M'"
+            );
+        }
+
+        // /script: DM spawns the named script privileged; non-DM refused.
+        if state.scripts.get("In-game Commands").is_some() {
+            let before = state.running_script_count();
+            state.dispatch(1, P_CHAT_MESSAGE, b"/script In-game Commands,Loc");
+            assert!(state.running_script_count() > before, "DM /script spawns the named script");
+            let held = state.running_script_count();
+            state.dispatch(2, P_CHAT_MESSAGE, b"/script In-game Commands,Loc");
+            assert_eq!(state.running_script_count(), held, "non-DM /script refused");
+        }
+
+        // /kick: DM kicks a named player (P_KickedPlayer + queued disconnect); non-DM refused.
+        let outs = state.dispatch(1, P_CHAT_MESSAGE, b"/kick Ally");
+        assert!(
+            outs.iter().any(|o| o.msg_type == P_KICKED_PLAYER && matches!(o.target, Target::Peer(2))),
+            "DM /kick sends P_KickedPlayer to the target"
+        );
+        assert!(state.take_pending_kicks().contains(&2), "DM /kick queues the target's disconnect");
+        assert!(
+            !state.dispatch(2, P_CHAT_MESSAGE, b"/kick Hero").iter().any(|o| o.msg_type == P_KICKED_PLAYER),
+            "non-DM /kick refused"
+        );
+    }
+
     #[test]
     fn slash_command_routes_to_in_game_commands_script() {
         use crate::state::ServerState;
