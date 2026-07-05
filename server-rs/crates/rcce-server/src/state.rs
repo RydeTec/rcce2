@@ -772,38 +772,42 @@ impl ServerState {
         if (now_ms.saturating_sub(sess.last_attack_ms) as i64) < self.combat_delay {
             return Vec::new();
         }
-        // Player-vs-player: attacking another player in a PvP area sets the
-        // attacker's AITarget (Blitz `If A2\RNID < 0 Or Area\PvP: AI\AITarget = A2`,
-        // ServerNet.bb:1612) — the target-acquisition the marriage ceremony reads.
-        // (Full PvP damage between players is a separate feature; this is the
-        // targeting half, which is also what ActorTarget parity needs.)
+        // Attacker stats from the live character — needed by both the PvP and NPC
+        // paths. Computed as owned values inside a block so the account borrow ends
+        // before the mutating attack paths below.
+        let (strength, weapon_damage, damage_type) = {
+            let Some(acct) = self.accounts.find(&sess.user) else {
+                return Vec::new();
+            };
+            let Some(rec) = acct.characters.get(sess.char_slot as usize) else {
+                return Vec::new();
+            };
+            let actor = &rec.actor;
+            let strength = actor.attributes.value.get(self.strength_stat).copied().unwrap_or(0) as i32;
+            let default_dtype = self.catalog.get(actor.actor_id).map(|t| t.default_damage_type).unwrap_or(0);
+            // Equipped weapon (slot 0) drives damage + its damage type; unarmed
+            // falls back to strength-based damage + the race's default type.
+            match Self::equipped_weapon(&self.items, actor) {
+                Some((wd, wt)) => (strength, Some(wd), wt),
+                None => (strength, None, default_dtype),
+            }
+        };
+
+        // Player-vs-player: attacking another player is only allowed in a PvP area
+        // (Blitz `If A2\RNID < 0 Or Area\PvP`, ServerNet.bb:1610). There the same
+        // melee swing applies damage to the defender (`ActorAttack`) with the
+        // attacker's AITarget set; outside a PvP area (or cross-area) it is refused.
+        // Attacks on NPCs fall through to the NPC path below.
         if target_rid != sess.runtime_id {
             if let Some(tsess) = self.world.session_for_runtime(target_rid).cloned() {
                 if tsess.area == sess.area && self.area_is_pvp(&sess.area) {
-                    self.world.set_player_target(peer, target_rid);
-                    self.world.set_last_attack(peer, now_ms);
+                    return self.pvp_attack(peer, &sess, &tsess, strength, weapon_damage, damage_type, now_ms);
                 }
                 return Vec::new();
             }
         }
-        // Attacker stats from the live character.
-        let Some(acct) = self.accounts.find(&sess.user) else {
-            return Vec::new();
-        };
-        let Some(rec) = acct.characters.get(sess.char_slot as usize) else {
-            return Vec::new();
-        };
-        let actor = &rec.actor;
-        let strength = actor.attributes.value.get(self.strength_stat).copied().unwrap_or(0) as i32;
-        let default_dtype = self.catalog.get(actor.actor_id).map(|t| t.default_damage_type).unwrap_or(0);
-        // Equipped weapon (slot 0) drives damage + its damage type; unarmed falls
-        // back to strength-based damage + the race's default type.
-        let (weapon_damage, damage_type) = match Self::equipped_weapon(&self.items, actor) {
-            Some((wd, wt)) => (Some(wd), wt),
-            None => (None, default_dtype),
-        };
 
-        // Target must be a live NPC in the same area (PvP deferred).
+        // Target must be a live NPC in the same area.
         let Some(npc) = self.spawns.npc(target_rid) else {
             return Vec::new();
         };
@@ -890,6 +894,140 @@ impl ServerState {
             let mut deaths =
                 self.kill_npc(target_rid, sess.runtime_id, &sess.user, sess.char_slot as usize, peer);
             out.append(&mut deaths);
+        }
+        out
+    }
+
+    /// Player-vs-player melee (`ServerNet.bb:1610-1612`, `ActorAttack` on a player
+    /// target in a PvP area): apply the attacker's swing to the defender player's
+    /// HP (their equipped armour mitigates + wears; the attacker's weapon wears),
+    /// send the `"H"`/`"Y"`/`"O"` feedback + the defender's HP update, and route a
+    /// killing blow through the player Death path. Only reached for a same-area
+    /// PvP attack (the caller checked `area_is_pvp`).
+    fn pvp_attack(
+        &mut self,
+        peer: u32,
+        sess: &crate::world::WorldSession,
+        tsess: &crate::world::WorldSession,
+        strength: i32,
+        weapon_damage: Option<i32>,
+        damage_type: u8,
+        now_ms: u64,
+    ) -> Vec<Outgoing> {
+        let target_rid = tsess.runtime_id;
+        // The defender's equipped armour mitigates the incoming hit.
+        let defender_armour = match self
+            .accounts
+            .find(&tsess.user)
+            .and_then(|a| a.characters.get(tsess.char_slot as usize))
+        {
+            Some(rec) => Self::equipped_armour(&self.items, &rec.actor),
+            None => 0,
+        };
+        let rolls = combat::Rolls {
+            to_hit: self.rng.rand(100) as u32,
+            roll_5_8: self.rng.range(5, 8),
+            roll_n5_5: self.rng.range(-5, 5),
+            crit_roll: self.rng.rand(10) as u32,
+        };
+        let input = combat::SwingInput {
+            strength,
+            weapon_damage,
+            armour: defender_armour,
+            resistance: 100, // per-actor resistances unmodelled in the melee path (parity with collect_npc_attacks)
+            toughness: None,
+        };
+        let swing = combat::melee_swing(self.combat_formula, &input, &rolls);
+        self.world.set_last_attack(peer, now_ms);
+        self.world.set_player_target(peer, target_rid);
+        let damage = match swing {
+            combat::SwingResult::Miss => -1,
+            combat::SwingResult::Hit { damage, .. } => damage,
+        };
+
+        // Apply to the defender's HP (floors at 0).
+        let mut new_hp = 0i32;
+        let mut hp_before = 0i32;
+        if let Some(rec) = self
+            .accounts
+            .find_mut(&tsess.user)
+            .and_then(|a| a.characters.get_mut(tsess.char_slot as usize))
+        {
+            hp_before = rec.actor.attributes.value.get(self.health_stat).copied().unwrap_or(0) as i32;
+            if damage > 0 {
+                if let Some(hp) = rec.actor.attributes.value.get_mut(self.health_stat) {
+                    *hp = (*hp as i32 - damage).max(0) as i16;
+                }
+            }
+            new_hp = rec.actor.attributes.value.get(self.health_stat).copied().unwrap_or(0) as i32;
+            self.accounts_dirty = true;
+        }
+
+        let defender_peer = self.world.peer_for_runtime(target_rid);
+        let mut out = Vec::new();
+        // "H": damage feedback to the attacker — `[u16 defenderRid][u16 dmg+1][u8 type]`.
+        let mut h = vec![b'H'];
+        h.extend_from_slice(&target_rid.to_le_bytes());
+        h.extend_from_slice(&((damage + 1) as u16).to_le_bytes());
+        h.push(damage_type);
+        out.push(Outgoing::sender(world::P_ATTACK_ACTOR, h));
+        // "Y": damage feedback to the defender — `[u16 attackerRid][u16 dmg+1][u8 type]`.
+        if let Some(dp) = defender_peer {
+            let mut y = vec![b'Y'];
+            y.extend_from_slice(&sess.runtime_id.to_le_bytes());
+            y.extend_from_slice(&((damage + 1) as u16).to_le_bytes());
+            y.push(damage_type);
+            out.push(Outgoing::peer(dp, world::P_ATTACK_ACTOR, y));
+        }
+        // HP update ("A") to everyone in the area; "O" swing to bystanders.
+        let mut a = vec![b'A'];
+        a.extend_from_slice(&target_rid.to_le_bytes());
+        a.push(self.health_stat as u8);
+        a.extend_from_slice(&(new_hp as u16).to_le_bytes());
+        let mut o = vec![b'O'];
+        o.extend_from_slice(&sess.runtime_id.to_le_bytes());
+        o.extend_from_slice(&target_rid.to_le_bytes());
+        for (pb, sb) in self.world.session_snapshot() {
+            if sb.area == sess.area {
+                out.push(Outgoing::peer(pb, world::P_STAT_UPDATE, a.clone()));
+                if pb != peer && Some(pb) != defender_peer {
+                    out.push(Outgoing::peer(pb, world::P_ATTACK_ACTOR, o.clone()));
+                }
+            }
+        }
+
+        // Durability wear: the attacker's weapon (slot 0) + the defender's armour
+        // (slots 1..=7), same toggles/roll as the PvE paths (GameServer.bb:536-570).
+        if self.weapon_damage_on {
+            if let Some(nh) = self.try_wear(&sess.user, sess.char_slot as usize, 0) {
+                self.accounts_dirty = true;
+                let mut p = vec![0u8];
+                p.extend_from_slice(&(nh as u16).to_le_bytes());
+                out.push(Outgoing::sender(world::P_ITEM_HEALTH, p));
+            }
+        }
+        if self.armour_damage_on {
+            for slot in 1..=7usize {
+                if let Some(nh) = self.try_wear(&tsess.user, tsess.char_slot as usize, slot) {
+                    self.accounts_dirty = true;
+                    if let Some(dp) = defender_peer {
+                        let mut p = vec![slot as u8];
+                        p.extend_from_slice(&(nh as u16).to_le_bytes());
+                        out.push(Outgoing::peer(dp, world::P_ITEM_HEALTH, p));
+                    }
+                }
+            }
+        }
+
+        // Killing blow (alive → 0 this swing) → the player Death path: clear NPC
+        // targets on the corpse + fire the Death script (victim = Actor(), attacker
+        // = ContextActor()), mirroring collect_npc_attacks. The Death script handles
+        // respawn (HP restore + Warp).
+        if hp_before > 0 && new_hp <= 0 {
+            if let Some(dp) = defender_peer {
+                self.spawns.clear_targets_on_peer(dp);
+                self.fire_hook_async("Death", "Main", target_rid, sess.runtime_id, dp);
+            }
         }
         out
     }
