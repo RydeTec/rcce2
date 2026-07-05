@@ -795,6 +795,7 @@ impl World {
             pk::REPOSITION_ACTOR => self.on_reposition_actor(&m.data),
             pk::ANIMATE_ACTOR => self.on_animate_actor(&m.data),
             pk::ITEM_HEALTH => self.on_item_health(&m.data),
+            pk::SELECT_SCENERY => self.on_select_scenery(&m.data),
             pk::CREATE_EMITTER => self.on_create_emitter(&m.data),
             // The server kicked us (admin/ban/dup-login). Flag it; the App tears
             // down the session and returns to the login screen. Empty payload.
@@ -2032,6 +2033,19 @@ impl World {
         }
     }
 
+    /// `P_SelectScenery` (ClientNet.bb:255): a stock/modified Blitz server confirms
+    /// the player owns a prop they activated and echoes `Handle(u32)`, telling the
+    /// client to play the prop's toggle animation. RCCE's server never sends this —
+    /// its inbound case is commented out (ServerNet.bb:741) — so it only arrives from
+    /// a legacy Blitz server. The local mesh animation is deferred (Rust scenery
+    /// renders as static instances), so we soft-fail-read the handle and drop it
+    /// rather than crash on an unexpected payload (the wire-safety discipline). Kept
+    /// as an explicit arm, not `_ => {}`, to document the inbound half of the C2
+    /// contract.
+    fn on_select_scenery(&mut self, d: &[u8]) {
+        let _ = MsgReader::new(d).u32();
+    }
+
     /// Advance server-commanded animations and expire them the Blitz mode-3 way:
     /// the clip always plays through once (movement can't interrupt it), then its
     /// end pose holds until the actor next moves — at which point the override is
@@ -2639,6 +2653,22 @@ mod tests {
         // A truncated packet (missing the colour bytes) queues nothing more.
         w.apply(&msg(pk::FLOATING_NUMBER, pkt(|p| { p.u16(9).i32(5); })));
         assert_eq!(w.pending_floaters.len(), 2, "truncated packet soft-fails");
+    }
+
+    // on_select_scenery (C2): RCCE's server never sends P_SelectScenery (its inbound
+    // case is commented out, ServerNet.bb:741) and the local mesh animation is
+    // deferred, so the handler's whole job is to accept the packet without crashing.
+    // Verify it soft-fails on a full, an empty, and a truncated payload.
+    #[test]
+    fn select_scenery_inbound_soft_fails() {
+        let mut w = World::default();
+        w.apply(&msg(pk::SELECT_SCENERY, pkt(|p| { p.u32(0x0A0B_0C0D); }))); // full 4-byte handle
+        w.apply(&msg(pk::SELECT_SCENERY, pkt(|_p| {}))); // empty payload
+        w.apply(&msg(pk::SELECT_SCENERY, pkt(|p| { p.u8(1); }))); // truncated (<4 bytes)
+        // No panic AND no observable side effect: the handler only discards a
+        // bounds-checked read, so it must not touch actors or emit chat.
+        assert!(w.actors.is_empty(), "select-scenery must not touch actors");
+        assert!(w.chat.is_empty(), "select-scenery must not emit chat");
     }
 
     // Looting a dropped item ('R') moves it into inventory AND queues a

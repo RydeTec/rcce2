@@ -25,6 +25,12 @@ pub struct SceneryPlacement {
     pub scale: [f32; 3],
     /// Optional retexture id (texture catalog), 65535/none if unused.
     pub texture_id: u16,
+    /// Animation mode (`AnimationMode`): 3 = a clickable animated prop (lever/door)
+    /// the player can activate (`P_SelectScenery`); 0 = static.
+    pub anim_mode: u8,
+    /// Ownable-scenery id (`SceneryID`): >0 means the server tracks ownership and
+    /// it is sent with `P_SelectScenery` on activation; 0 = not ownable.
+    pub scenery_id: u8,
     /// Authored "casts a shadow" flag (`Areas.dat`). When false the renderer
     /// should skip this scenery in the shadow-caster pass — respecting the
     /// content author's intent (e.g. ground foliage that shouldn't cast).
@@ -200,8 +206,8 @@ impl AreaScenery {
             let pos = [r.read_float()?, r.read_float()?, r.read_float()?];
             let rot = [r.read_float()?, r.read_float()?, r.read_float()?];
             let scale = [r.read_float()?, r.read_float()?, r.read_float()?];
-            let _anim_mode = r.read_byte()?;
-            let _scenery_id = r.read_byte()?;
+            let anim_mode = r.read_byte()?;
+            let scenery_id = r.read_byte()?;
             let texture_id = r.read_short_u()?;
             let _catch_rain = r.read_byte()?;
             let _collides = r.read_byte()?;
@@ -216,6 +222,8 @@ impl AreaScenery {
                 rot,
                 scale,
                 texture_id,
+                anim_mode,
+                scenery_id,
                 cast_shadow,
             });
         }
@@ -337,8 +345,8 @@ mod tests {
         for _ in 0..9 {
             d.extend_from_slice(&0.0f32.to_le_bytes()); // pos + rot + scale
         }
-        d.push(0); // anim_mode
-        d.push(0); // scenery_id
+        d.push(3); // anim_mode (clickable prop)
+        d.push(5); // scenery_id (ownable)
         d.extend_from_slice(&65535u16.to_le_bytes()); // texture_id (none)
         d.push(0); // catch_rain
         d.push(0); // collides
@@ -351,6 +359,8 @@ mod tests {
         assert_eq!(a.sceneries.len(), 1);
         assert_eq!(a.sceneries[0].mesh_id, 7);
         assert!(!a.sceneries[0].cast_shadow, "cast_shadow byte 0 → false");
+        assert_eq!(a.sceneries[0].anim_mode, 3, "anim_mode retained");
+        assert_eq!(a.sceneries[0].scenery_id, 5, "scenery_id retained");
     }
 
     fn approx(a: [f32; 3], b: [f32; 3]) -> bool {

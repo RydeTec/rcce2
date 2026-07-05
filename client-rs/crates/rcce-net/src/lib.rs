@@ -77,6 +77,13 @@ pub mod packet_id {
     pub const ACTOR_EFFECT: u8 = 36;
     pub const PROJECTILE: u8 = 37;
     pub const PARTY_UPDATE: u8 = 38;
+    /// Player activated an ownable scenery prop (`P_SelectScenery`, Packets.bb:43).
+    /// Outbound only from the client (`Interface3D.bb:940`): `SceneryID(u16) +
+    /// Handle(u32)`, sent when the player clicks an `AnimationMode=3` scenery whose
+    /// `SceneryID>0` to ask the server whether they own it. The stock Blitz server
+    /// leaves the inbound case commented out (`ServerNet.bb:741`) — it never relays
+    /// it back — so the visible animation is purely client-local.
+    pub const SELECT_SCENERY: u8 = 42;
     pub const ITEM_SCRIPT: u8 = 43;
     pub const EAT_ITEM: u8 = 44;
     pub const ITEM_HEALTH: u8 = 45;
