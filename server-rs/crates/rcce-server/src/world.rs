@@ -2006,6 +2006,58 @@ mod tests {
         }
     }
 
+    // The Startup content script runs at server boot (Server.bb:296). Its privilege
+    // is allowlist-based (like fire_hook_async): privileged only if the operator
+    // lists Startup in Privileged Scripts.dat (Blitz's ThreadScript default is
+    // non-privileged). So an allowlisted Startup's SetSuperGlobal applies; a
+    // non-allowlisted one is refused.
+    #[test]
+    fn startup_script_runs_at_boot_with_allowlist_privilege() {
+        use crate::state::ServerState;
+        // Boot a temp data dir whose Startup.rsl sets super-global 0; `allowlist`
+        // controls whether Startup is on Privileged Scripts.dat. Returns the value
+        // of super-global 0 after the boot script runs.
+        let boot = |allowlist: bool| -> String {
+            let tmp = std::env::temp_dir().join(format!("rcce_startup_{}_{allowlist}", std::process::id()));
+            let scripts_dir = tmp.join("Server Data").join("Scripts");
+            let _ = std::fs::remove_dir_all(&tmp);
+            std::fs::create_dir_all(&scripts_dir).unwrap();
+            std::fs::write(
+                scripts_dir.join("Startup.rsl"),
+                "Function Main()\n\tSetSuperGlobal(0, \"booted\")\nEnd Function\n",
+            )
+            .unwrap();
+            if allowlist {
+                std::fs::write(tmp.join("Server Data").join("Privileged Scripts.dat"), "Startup\n").unwrap();
+            }
+            let store = tmp_store("startup");
+            let mut state = ServerState::new(config_for(tmp.clone()), store, rcce_server_core::ActorCatalog::default());
+            // The test authors a known-good Startup.rsl, so a link failure is a real
+            // regression (fail), not an expected skip.
+            assert!(state.scripts.get("Startup").is_some(), "the test's Startup.rsl linked");
+            assert_eq!(state.scripts.is_privileged("Startup"), allowlist, "Startup privilege tracks the allowlist");
+            state.run_startup();
+            assert!(state.running_script_count() > 0, "boot spawns the Startup script");
+            // Drive the async boot script to completion (generous wall-clock deadline
+            // so full-suite CPU contention can't starve the poll).
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+            loop {
+                state.pump_scripts();
+                if state.running_script_count() == 0 || std::time::Instant::now() >= deadline {
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(1));
+            }
+            let g = state.super_global(0).to_string();
+            let _ = std::fs::remove_dir_all(&tmp);
+            g
+        };
+        // Allowlisted → privileged → SetSuperGlobal applies.
+        assert_eq!(boot(true), "booted", "an allowlisted Startup runs privileged and sets the super-global");
+        // Not allowlisted → non-privileged (Blitz default) → SetSuperGlobal is refused.
+        assert_eq!(boot(false), "", "a non-allowlisted Startup runs non-privileged; SetSuperGlobal is refused");
+    }
+
     #[test]
     fn slash_command_routes_to_in_game_commands_script() {
         use crate::state::ServerState;
