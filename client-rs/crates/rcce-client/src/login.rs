@@ -33,6 +33,30 @@ pub struct CharInfo {
     pub body: u8,
 }
 
+/// The five appearance selections sent with `P_CreateCharacter`, in wire order
+/// (`MainMenu.bb:2389-2391`: gender, face, hair, beard, body).
+#[derive(Debug, Clone, Copy, Default)]
+pub struct CharAppearance {
+    pub gender: u8,
+    pub face: u8,
+    pub hair: u8,
+    pub beard: u8,
+    pub body: u8,
+}
+
+/// Build the `P_CreateCharacter` payload, matching the reference client's field
+/// order (`MainMenu.bb:2388-2397`): `user · md5 · actorID(u16) · gender · face ·
+/// hair · beard · body · 40 attribute-point bytes · name(raw)`. The 40 attribute
+/// bytes are always sent (the server skips them when `AttributeAssignment` is 0).
+fn create_char_payload(user: &str, md5: &str, actor_id: u16, a: CharAppearance, name: &str) -> Vec<u8> {
+    let mut w = MsgWriter::new();
+    w.str8(user).str8(md5);
+    w.u16(actor_id).u8(a.gender).u8(a.face).u8(a.hair).u8(a.beard).u8(a.body);
+    w.raw(&[0u8; 40]);
+    w.raw(name.as_bytes());
+    w.into_bytes()
+}
+
 /// Parse a packed character-list blob (the bytes AFTER any sentinel). Each
 /// record: `nameLen:u8 name`, `actorID:u16`, `gender:u8`, `face:u8`, `hair:u8`,
 /// `beard:u8`, `body:u8`. Stops at the first short/garbage record.
@@ -99,23 +123,20 @@ pub fn account_login<T: Transport>(
     Ok((peer, chars))
 }
 
-/// **Create a character** on the open login connection, then return the
-/// refreshed roster. `actor_id` is a playable template; appearance selections
-/// default to 0.
+/// **Create a character** on the open login connection, then return the refreshed
+/// roster. `actor_id` is a playable template; `appear` carries the player's
+/// face/hair/beard/body/gender selections.
 pub fn create_char<T: Transport>(
     t: &mut T,
     peer: i32,
     user: &str,
     md5: &str,
     actor_id: u16,
+    appear: CharAppearance,
     name: &str,
 ) -> Result<Vec<CharInfo>, String> {
-    let mut w = MsgWriter::new();
-    w.str8(user).str8(md5);
-    w.u16(actor_id).u8(0).u8(0).u8(0).u8(0).u8(0);
-    w.raw(&[0u8; 40]);
-    w.raw(name.as_bytes());
-    t.send(peer, pk::CREATE_CHARACTER, w.as_slice(), true);
+    let payload = create_char_payload(user, md5, actor_id, appear, name);
+    t.send(peer, pk::CREATE_CHARACTER, &payload, true);
     match pump(t, 1500)
         .iter()
         .find(|m| matches!(sentinel(m), 'Y' | 'I' | 'N'))
@@ -446,6 +467,27 @@ mod tests {
             w.u16(s.len() as u16).raw(s);
         }
         w.into_bytes()
+    }
+
+    #[test]
+    fn create_char_payload_matches_blitz_field_order() {
+        // MainMenu.bb:2388-2397: user · md5 · actorID(u16) · gender · face · hair ·
+        // beard · body · 40 attribute-point bytes · name.
+        let a = CharAppearance { gender: 1, face: 2, hair: 3, beard: 4, body: 0 };
+        let p = create_char_payload("bob", "abc123", 0x1234, a, "Hero");
+        let mut r = MsgReader::new(&p);
+        assert_eq!(r.str8().unwrap(), "bob");
+        assert_eq!(r.str8().unwrap(), "abc123");
+        assert_eq!(r.u16().unwrap(), 0x1234, "actor id (u16 LE)");
+        assert_eq!(r.u8().unwrap(), 1, "gender");
+        assert_eq!(r.u8().unwrap(), 2, "face");
+        assert_eq!(r.u8().unwrap(), 3, "hair");
+        assert_eq!(r.u8().unwrap(), 4, "beard");
+        assert_eq!(r.u8().unwrap(), 0, "body");
+        for i in 0..40 {
+            assert_eq!(r.u8().unwrap(), 0, "attribute-point byte {i} is 0");
+        }
+        assert_eq!(&p[p.len() - 4..], b"Hero", "name is the trailing raw bytes");
     }
 
     #[test]

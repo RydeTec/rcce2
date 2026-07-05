@@ -25,7 +25,8 @@ use rcce_client::net::movement_packet;
 use enet_sys::EnetTransport;
 use rcce_client::assets::{attachment_placement, clip_frame, AssetStore};
 use rcce_client::login::{
-    account_login, create_char, delete_char, enter_world, login, CharInfo, Credentials,
+    account_login, create_char, delete_char, enter_world, login, CharAppearance, CharInfo,
+    Credentials,
 };
 use rcce_client::world::World;
 use rcce_data::{AreaScenery, B3dModel, Image};
@@ -55,6 +56,60 @@ enum Mode {
 /// transport + peer + character roster on success, or an error string. Carried
 /// over an `mpsc` channel so the connect/handshake never blocks the UI thread.
 type LoginResult = Result<(EnetTransport, i32, Vec<CharInfo>), String>;
+
+/// Create-character sub-screen state (`Mode::CharSelect`, creating). A cursor
+/// (`field`) selects Race / Gender / Face / Hair / Beard / Body; Up/Down move the
+/// cursor, Left/Right cycle the selected field's value.
+#[derive(Debug, Clone, Default)]
+struct Creating {
+    name: String,
+    /// Playable-template index (the Race field).
+    tpl: usize,
+    appear: CharAppearance,
+    /// Active field: 0=Race 1=Gender 2=Face 3=Hair 4=Beard 5=Body.
+    field: usize,
+}
+
+impl Creating {
+    /// Field labels for the selector rows (index-aligned with `field`).
+    const FIELDS: [&'static str; 6] = ["Race", "Gender", "Face", "Hair", "Beard", "Body"];
+
+    /// Move the active-field cursor by `dir` (+1 down / -1 up), wrapping.
+    fn move_field(&mut self, dir: i32) {
+        let n = Self::FIELDS.len() as i32;
+        self.field = (self.field as i32 + dir).rem_euclid(n) as usize;
+    }
+
+    /// Cycle the active field's value by `dir`, wrapping within its range. `races`
+    /// is the number of playable templates (the Race field's range); Gender is
+    /// 0..=1; the appearance slots are 0..=4 (`MainMenu.bb` cycles 0..4 per slot).
+    fn cycle_value(&mut self, dir: i32, races: usize) {
+        let cyc = |v: u8, n: i32| ((v as i32 + dir).rem_euclid(n)) as u8;
+        match self.field {
+            0 if races > 0 => self.tpl = (self.tpl as i32 + dir).rem_euclid(races as i32) as usize,
+            1 => self.appear.gender = cyc(self.appear.gender, 2),
+            2 => self.appear.face = cyc(self.appear.face, 5),
+            3 => self.appear.hair = cyc(self.appear.hair, 5),
+            4 => self.appear.beard = cyc(self.appear.beard, 5),
+            5 => self.appear.body = cyc(self.appear.body, 5),
+            _ => {}
+        }
+    }
+
+    /// The current value of field `i` for the selector display (`race_name` is the
+    /// resolved Race value).
+    fn field_value(&self, i: usize, race_name: &str) -> String {
+        match i {
+            0 => race_name.to_string(),
+            1 => if self.appear.gender == 1 { "Female".into() } else { "Male".into() },
+            2 => self.appear.face.to_string(),
+            3 => self.appear.hair.to_string(),
+            4 => self.appear.beard.to_string(),
+            5 => self.appear.body.to_string(),
+            _ => String::new(),
+        }
+    }
+}
 
 /// The in-world key bindings, shown on the `Mode::Controls` reference screen
 /// (MENU-OPT). Kept in sync with the `WindowEvent::KeyboardInput` match below —
@@ -484,9 +539,8 @@ struct App {
     /// The account's characters (CharSelect) + the highlighted row.
     chars: Vec<CharInfo>,
     char_sel: usize,
-    /// `Some(name)` while typing a new character's name (create sub-screen); the
-    /// `usize` is the chosen playable-template index.
-    creating: Option<(String, usize)>,
+    /// `Some(..)` while on the create-character sub-screen (name + race + appearance).
+    creating: Option<Creating>,
     /// Playable templates (actor id, race name) for the create race picker.
     playable: Vec<(u16, String)>,
 }
@@ -4088,23 +4142,23 @@ impl App {
             self.login_msg = "No playable races in this project".to_string();
             return;
         }
-        self.creating = Some((String::new(), 0));
-        self.login_msg = "Name it · ←/→ race · Enter create · Esc cancel".to_string();
+        self.creating = Some(Creating::default());
+        self.login_msg = "Name it · Up/Down field · ←/→ change · Enter create · Esc cancel".to_string();
     }
 
     /// Submit the create sub-screen.
     fn submit_create(&mut self) {
-        let Some((name, tpl_idx)) = self.creating.clone() else { return };
-        let name = name.trim().to_string();
+        let Some(c) = self.creating.clone() else { return };
+        let name = c.name.trim().to_string();
         if name.is_empty() {
             self.login_msg = "Name required".to_string();
             return;
         }
-        let Some(&(actor_id, _)) = self.playable.get(tpl_idx) else { return };
+        let Some(&(actor_id, _)) = self.playable.get(c.tpl) else { return };
         let user = self.login_user.trim().to_string();
         let md5 = self.login_md5.clone();
         let Some(mut t) = self.login_transport.take() else { return };
-        match create_char(&mut t, self.login_peer, &user, &md5, actor_id, &name) {
+        match create_char(&mut t, self.login_peer, &user, &md5, actor_id, c.appear, &name) {
             Ok(chars) => {
                 self.chars = chars;
                 self.creating = None;
@@ -4257,7 +4311,7 @@ impl App {
                 }
             },
             Mode::CharSelect => {
-                if let Some((name, tpl)) = self.creating.as_mut() {
+                if let Some(c) = self.creating.as_mut() {
                     match code {
                         KeyCode::Enter | KeyCode::NumpadEnter => self.submit_create(),
                         KeyCode::Escape => {
@@ -4265,25 +4319,17 @@ impl App {
                             self.login_msg = String::new();
                         }
                         KeyCode::Backspace => {
-                            name.pop();
+                            c.name.pop();
                         }
-                        KeyCode::ArrowLeft => {
-                            let n = self.playable.len();
-                            if n > 0 {
-                                *tpl = (*tpl + n - 1) % n;
-                            }
-                        }
-                        KeyCode::ArrowRight => {
-                            let n = self.playable.len();
-                            if n > 0 {
-                                *tpl = (*tpl + 1) % n;
-                            }
-                        }
+                        KeyCode::ArrowUp => c.move_field(-1),
+                        KeyCode::ArrowDown => c.move_field(1),
+                        KeyCode::ArrowLeft => c.cycle_value(-1, self.playable.len()),
+                        KeyCode::ArrowRight => c.cycle_value(1, self.playable.len()),
                         _ => {
                             if let Some(t) = text {
-                                for ch in t.chars().filter(|c| c.is_alphanumeric()) {
-                                    if name.chars().count() < 16 {
-                                        name.push(ch);
+                                for ch in t.chars().filter(|ch| ch.is_alphanumeric()) {
+                                    if c.name.chars().count() < 16 {
+                                        c.name.push(ch);
                                     }
                                 }
                             }
@@ -5587,7 +5633,7 @@ impl App {
         {
             if self.chars.is_empty() {
                 if std::env::var_os("RCCE_AUTOCREATE").is_some() && !self.playable.is_empty() {
-                    self.creating = Some(("Shotbot".to_string(), 0));
+                    self.creating = Some(Creating { name: "Shotbot".to_string(), ..Default::default() });
                     self.submit_create();
                 }
             } else {
@@ -5595,6 +5641,22 @@ impl App {
                 if self.mode == Mode::InWorld {
                     return;
                 }
+            }
+        }
+        // RCCE_SHOTCREATE: open (and HOLD, without submitting) the create-character
+        // sub-screen with visible non-default appearance selections, so RCCE_SHOT can
+        // capture the appearance selectors (C1 visual verification).
+        if std::env::var_os("RCCE_SHOTCREATE").is_some()
+            && self.mode == Mode::CharSelect
+            && self.creating.is_none()
+            && self.login_rx.is_none()
+            && !self.playable.is_empty()
+        {
+            self.begin_create();
+            if let Some(c) = self.creating.as_mut() {
+                c.name = "Shotbot".to_string();
+                c.field = 2; // cursor on Face
+                c.appear = CharAppearance { gender: 1, face: 2, hair: 1, beard: 0, body: 3 };
             }
         }
         let (w, h) = match self.gfx.as_ref() {
@@ -6144,20 +6206,29 @@ impl App {
                     overlay.text(fx + 220.0, ry + 2.0, 1.1, &format!("{race}  ({g})"), [0.7, 0.78, 0.9, 0.95]);
                 }
 
-                if let Some((name, tpl)) = &self.creating {
-                    let by = py + ph - 96.0;
-                    overlay.rect(fx - 6.0, by - 8.0, pw - pad * 2.0 + 12.0, 78.0, [0.08, 0.10, 0.16, 0.96]);
+                if let Some(c) = &self.creating {
+                    let rows = Creating::FIELDS.len() as f32;
+                    let panel_h = 70.0 + rows * 20.0;
+                    let by = py + ph - 40.0 - panel_h;
+                    overlay.rect(fx - 6.0, by - 8.0, pw - pad * 2.0 + 12.0, panel_h, [0.08, 0.10, 0.16, 0.96]);
                     overlay.text(fx, by, 1.2, "NEW CHARACTER", [0.85, 0.9, 1.0, 1.0]);
-                    let race = self.playable.get(*tpl).map(|(_, r)| r.as_str()).unwrap_or("?");
-                    overlay.text(fx, by + 22.0, 1.5, &format!("{name}_"), [1.0, 1.0, 0.9, 1.0]);
-                    overlay.text(fx, by + 48.0, 1.2, &format!("< {race} >"), [0.7, 0.85, 0.95, 1.0]);
+                    overlay.text(fx, by + 22.0, 1.5, &format!("{}_", c.name), [1.0, 1.0, 0.9, 1.0]);
+                    let race = self.playable.get(c.tpl).map(|(_, r)| r.as_str()).unwrap_or("?");
+                    for (i, label) in Creating::FIELDS.iter().enumerate() {
+                        let ry = by + 46.0 + i as f32 * 20.0;
+                        let active = i == c.field;
+                        let col = if active { [1.0, 0.9, 0.5, 1.0] } else { [0.7, 0.78, 0.9, 0.9] };
+                        let val = c.field_value(i, race);
+                        let sel = if active { format!("<  {val}  >") } else { format!("   {val}   ") };
+                        overlay.text(fx, ry, 1.1, &format!("{label:>6}  {sel}"), col);
+                    }
                 }
 
                 if !self.login_msg.is_empty() {
                     overlay.text(fx, py + ph - 30.0, 1.05, &self.login_msg, [1.0, 0.75, 0.5, 1.0]);
                 }
                 let hint = if self.creating.is_some() {
-                    "Type name   Left/Right race   Enter create   Esc cancel"
+                    "Type name   Up/Down field   Left/Right change   Enter create   Esc cancel"
                 } else {
                     "Up/Down select   Enter play   C create   Del delete   Esc back"
                 };
@@ -10002,6 +10073,43 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // The create-character cursor: Up/Down move the active field (wrap over 6),
+    // Left/Right cycle the field's value (Race over playable, Gender 0..=1, the
+    // appearance slots 0..=4), with a 0-races guard.
+    #[test]
+    fn creating_cursor_cycles_fields_and_values() {
+        let mut c = Creating::default();
+        c.move_field(1);
+        assert_eq!(c.field, 1, "Down moves to the next field");
+        c.move_field(-1);
+        c.move_field(-1);
+        assert_eq!(c.field, 5, "Up from Race wraps to Body");
+        // Field 2 = Face cycles 0..=4 with wrap.
+        c.field = 2;
+        c.cycle_value(1, 3);
+        assert_eq!(c.appear.face, 1);
+        c.cycle_value(-1, 3);
+        c.cycle_value(-1, 3);
+        assert_eq!(c.appear.face, 4, "Face wraps 0 -> 4 going down");
+        // Field 1 = Gender toggles within 0..=1.
+        c.field = 1;
+        c.cycle_value(1, 3);
+        assert_eq!(c.appear.gender, 1);
+        c.cycle_value(1, 3);
+        assert_eq!(c.appear.gender, 0, "gender wraps within 0..=1");
+        // Field 0 = Race cycles the playable index (races = 3).
+        c.field = 0;
+        c.cycle_value(1, 3);
+        assert_eq!(c.tpl, 1);
+        c.cycle_value(-1, 3);
+        c.cycle_value(-1, 3);
+        assert_eq!(c.tpl, 2, "race wraps 0 -> races-1 going down");
+        // With 0 races the Race field is a no-op (guarded).
+        let mut d = Creating::default();
+        d.cycle_value(1, 0);
+        assert_eq!(d.tpl, 0);
+    }
 
     // The weapon tooltip appends the project's damage-type name when present
     // ("Damage: 12 (Fire)"), else just the number (Damage.dat absent / unnamed slot).
