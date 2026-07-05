@@ -61,6 +61,8 @@ fn main() {
 
     let mut state = ServerState::new(config, accounts, catalog);
     log(&format!("Loaded {} content script(s)", state.scripts.len()));
+    // Run the project's Startup content script before accepting clients (Server.bb:296).
+    state.run_startup();
     install_shutdown_handler();
     log(&format!("Listening on UDP {port}. Waiting for clients… (Ctrl-C / SIGTERM to stop)"));
 

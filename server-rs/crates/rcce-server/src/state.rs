@@ -2187,6 +2187,25 @@ impl ServerState {
         self.spawn_program(prog, func, (actor_rid, ctx_rid, peer), privileged, String::new());
     }
 
+    /// Run the `Startup` content script at server boot (Blitz `Server.bb:296`,
+    /// `ThreadScript("Startup", "Main", 0, 0)`). Privilege is **allowlist-based**,
+    /// like the other engine-initiated spawn (`fire_hook_async`): it runs privileged
+    /// only if the operator listed `Startup` in `Privileged Scripts.dat` (Blitz's
+    /// `ThreadScript` default is non-privileged, and the boot spawn's `hSI=0` means
+    /// elevation only fires from the allowlist). No-op if no `Startup` script is
+    /// linked. Runs async; effects land via the main loop's `pump_scripts`.
+    pub fn run_startup(&mut self) {
+        if let Some(prog) = self.scripts.linked_program("Startup") {
+            let privileged = self.scripts.is_privileged("Startup");
+            self.spawn_program(prog, "Main", (0, 0, 0), privileged, String::new());
+        }
+    }
+
+    /// Read a server-wide super-global (`GetSuperGlobal`), or `""` if out of range.
+    pub fn super_global(&self, idx: usize) -> &str {
+        self.super_globals.get(idx).map(|s| s.as_str()).unwrap_or("")
+    }
+
     /// Spawn a linked program on its own thread + register it as a running script
     /// with explicit privilege + `Param$`. `ids` is `(actor, ctx, peer)`. Shared
     /// by `fire_hook_async` (allowlist privilege) and `BVM_THREADEXECUTE` (caller's
