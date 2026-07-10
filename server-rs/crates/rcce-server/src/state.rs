@@ -1756,16 +1756,20 @@ impl ServerState {
     }
 
     /// `AddSpell` / `BVM_ADDABILITY` (`Actors.bb:1447`): grant a spell at `lvl`
-    /// into a free slot if not already known; broadcast `P_KnownSpellUpdate "A"`.
-    /// Returns the broadcast packet(s). The thumbnail-tex/description fields the
-    /// port's spell parser discards are sent as 0/empty (the spell is castable;
-    /// only the client toolbar art is incomplete — same gap as P_FetchCharacter).
+    /// into a free slot if not already known; broadcast `P_KnownSpellUpdate "A"`
+    /// carrying the catalog's thumbnail-tex + description (`Actors.bb:1459-1461`).
+    /// Returns the broadcast packet(s).
     fn add_ability(&mut self, rid: u16, name: &str, lvl: i16) -> Vec<Outgoing> {
         let mut out = Vec::new();
         let lvl = if lvl <= 0 { 1 } else { lvl };
         let Some((spell_id, recharge, sname)) = self.spell_by_name(name) else {
             return out;
         };
+        let (thumb_tex, description) = self
+            .spells_catalog
+            .get(spell_id)
+            .map(|s| (s.thumbnail_tex_id as u16, s.description.clone()))
+            .unwrap_or((0, String::new()));
         let Some((u, s)) = self.player_loc(rid) else {
             return out;
         };
@@ -1800,11 +1804,12 @@ impl ServerState {
             let mut p = vec![b'A'];
             p.extend_from_slice(&(lvl as u16).to_le_bytes());
             p.extend_from_slice(&spell_id.to_le_bytes());
-            p.extend_from_slice(&0u16.to_le_bytes()); // thumbnail tex (not retained)
+            p.extend_from_slice(&thumb_tex.to_le_bytes());
             p.extend_from_slice(&(recharge as u16).to_le_bytes());
             p.extend_from_slice(&(sname.len() as u16).to_le_bytes());
             p.extend_from_slice(sname.as_bytes());
-            p.extend_from_slice(&0u16.to_le_bytes()); // description (not retained)
+            p.extend_from_slice(&(description.len() as u16).to_le_bytes());
+            p.extend_from_slice(description.as_bytes());
             p.push(0);
             out.push(Outgoing::peer(peer, world::P_KNOWN_SPELL_UPDATE, p));
         }
@@ -4684,6 +4689,13 @@ impl ServerState {
 
         // Move the session; mint/stable zone id for the destination.
         self.world.warp_session(peer, area.name.clone(), px, py, pz);
+        // Ignore the client's in-flight standard updates until it acks the warp
+        // (`P_ChangeArea`/`P_RepositionActor` inbound) or the window expires —
+        // the Rofar IgnoreUpdate fix (`GameServer.bb:4`, cleared at
+        // `ServerNet.bb:727-737`). Without it a pre-warp update arriving after
+        // this point yanks the player back to the old coordinates.
+        let deadline = self.now_ms() + world::WARP_IGNORE_UPDATE_MS;
+        self.world.set_ignore_update_until(peer, deadline);
         // Mark the destination portal as occupied so the per-tick portal check
         // doesn't immediately bounce the player back through it.
         self.world.set_in_portal(peer, resolved_portal.map(|n| (area.name.clone(), n)));
@@ -6484,6 +6496,7 @@ impl ServerState {
                 payload,
                 &mut self.accounts,
                 &mut self.throttle,
+                &self.spells_catalog,
                 peer_id,
                 now,
             )),
@@ -6514,7 +6527,9 @@ impl ServerState {
                 }
                 out
             }
-            world::P_STANDARD_UPDATE => to_sender(world::handle_standard_update(payload, &mut self.world, peer_id)),
+            world::P_STANDARD_UPDATE => {
+                to_sender(world::handle_standard_update(payload, &mut self.world, peer_id, now))
+            }
             world::P_CHAT_MESSAGE => self.handle_chat(peer_id, payload),
             world::P_ATTACK_ACTOR => self.handle_attack(peer_id, payload, now),
             world::P_EXAMINE => self.handle_examine(peer_id, payload),
@@ -6530,12 +6545,14 @@ impl ServerState {
             }
             world::P_RIGHT_CLICK => self.handle_right_click(peer_id, payload),
             world::P_DISMOUNT => self.handle_dismount(peer_id),
-            // Warp-completion acks (`ServerNet.bb:1796`/`:1802`): the client signals
-            // it finished a reposition / zone change. Blitz clears `IgnoreUpdate`
-            // here; the port doesn't suppress updates during a warp, so there's no
-            // state to clear — accept them as no-ops so they aren't logged as
-            // unhandled.
-            world::P_CHANGE_AREA | world::P_REPOSITION_ACTOR => Vec::new(),
+            // Warp-completion acks (`ServerNet.bb:727-737`): the client signals it
+            // finished applying a reposition / zone change, so its standard updates
+            // are trustworthy again — clear `IgnoreUpdate` (Blitz `AI\IgnoreUpdate
+            // = 0`). Payload is ignored, exactly like the Blitz handler.
+            world::P_CHANGE_AREA | world::P_REPOSITION_ACTOR => {
+                self.world.clear_ignore_update(peer_id);
+                Vec::new()
+            }
             world::P_DIALOG => self.handle_dialog_response(peer_id, payload),
             world::P_SCRIPT_INPUT => self.handle_script_input(peer_id, payload),
             world::P_PROGRESS_BAR => self.handle_progress_bar(peer_id, payload),

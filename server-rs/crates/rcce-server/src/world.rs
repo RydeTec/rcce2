@@ -151,6 +151,15 @@ fn clamp_world_coord(v: f32) -> f32 {
     }
 }
 
+/// How long a warp suppresses the warped player's inbound `P_StandardUpdate`s
+/// when no warp-completion ack arrives (see `ignore_update_until_ms`). The
+/// stale packets were all sent before the client received `P_ChangeArea`, so
+/// the window only needs to cover ~one RTT + the ~9 Hz update cadence; since
+/// neither shipped client acks (so the window is always paid in full), keep it
+/// short — long enough to swallow the in-flight packets, short enough that the
+/// post-warp movement freeze is imperceptible.
+pub const WARP_IGNORE_UPDATE_MS: u64 = 500;
+
 /// A logged-in player's live session.
 #[derive(Clone, Debug)]
 pub struct WorldSession {
@@ -180,6 +189,18 @@ pub struct WorldSession {
     /// The player's current target (`AI\AITarget`), or 0 — set when they attack
     /// (`P_AttackActor`, `ServerNet.bb:1612`). Read by `ActorTarget`/`/assist`.
     pub target_rid: u16,
+    /// `AI\IgnoreUpdate` (`Actors.bb:196`) as a millisecond deadline, 0 = off.
+    /// While `now < deadline` the server drops this peer's inbound
+    /// `P_StandardUpdate`s — they were sent before the client processed the
+    /// warp and carry the stale pre-warp position (the Rofar 8/16/2007 fix,
+    /// `GameServer.bb:4`). Cleared by the client's `P_ChangeArea` /
+    /// `P_RepositionActor` warp-completion ack (`ServerNet.bb:727-737`).
+    /// Deviation from Blitz: Blitz's flag has no expiry, but neither shipped
+    /// client actually sends the ack (the Blitz client's send is commented out
+    /// at `ClientNet.bb:1779` — which is why Blitz also disabled the *set*),
+    /// so a bare wait-for-ack would freeze movement forever. The deadline
+    /// bounds the suppression to the in-flight-packet window instead.
+    pub ignore_update_until_ms: u64,
 }
 
 /// Build the outbound `P_StandardUpdate` for a session — the per-tick movement
@@ -454,6 +475,24 @@ impl World {
         }
     }
 
+    /// Arm the warp-update suppression window (`AI\IgnoreUpdate = 1`): drop the
+    /// peer's inbound `P_StandardUpdate`s until `deadline_ms` or the client's
+    /// warp-completion ack, whichever comes first (see the field doc).
+    pub fn set_ignore_update_until(&mut self, peer: u32, deadline_ms: u64) {
+        if let Some(s) = self.sessions.get_mut(&peer) {
+            s.ignore_update_until_ms = deadline_ms;
+        }
+    }
+
+    /// Warp-completion ack (`AI\IgnoreUpdate = 0`, `ServerNet.bb:730/:737`) —
+    /// the client finished applying a `P_ChangeArea` / `P_RepositionActor`, so
+    /// its standard updates are trustworthy again.
+    pub fn clear_ignore_update(&mut self, peer: u32) {
+        if let Some(s) = self.sessions.get_mut(&peer) {
+            s.ignore_update_until_ms = 0;
+        }
+    }
+
     /// Record which portal a peer currently occupies (portal edge-detection).
     pub fn set_in_portal(&mut self, peer: u32, portal: Option<(String, String)>) {
         if let Some(s) = self.sessions.get_mut(&peer) {
@@ -686,6 +725,7 @@ pub fn handle_start_game(
             in_portal: None,
             mount_rid: 0,
             target_rid: 0,
+            ignore_update_until_ms: 0,
         },
     );
     world.logged_on.insert(user_s.to_uppercase(), peer);
@@ -745,10 +785,22 @@ pub fn handle_start_game(
 /// Deferred vs. Blitz: the per-packet speed-hack clamp (bounds the position
 /// delta by the actor's Speed attribute × elapsed time) needs per-actor timing
 /// + the Speed stat; for now positions are only `ClampWorldCoord`-sanitised.
-pub fn handle_standard_update(payload: &[u8], world: &mut World, peer: u32) -> Vec<(u8, Vec<u8>)> {
+pub fn handle_standard_update(
+    payload: &[u8],
+    world: &mut World,
+    peer: u32,
+    now_ms: u64,
+) -> Vec<(u8, Vec<u8>)> {
     // Only an in-world player may move; ignore otherwise.
-    if world.session(peer).is_none() {
+    let Some(sess) = world.session(peer) else {
         return Vec::new();
+    };
+    // Warp-update suppression (`If AI\IgnoreUpdate = 0`, `ServerNet.bb:1821`):
+    // while the client is completing a warp its in-flight updates carry the
+    // stale pre-warp position — don't let them yank the actor back. Still echo
+    // the (post-warp) authoritative position so the client reconciles onto it.
+    if sess.ignore_update_until_ms > now_ms {
+        return vec![(P_STANDARD_UPDATE, standard_update_to_wire(sess))];
     }
     let mut r = MsgReader::new(payload);
     // [destX][destZ][newY][newX][newZ][isRunning][walkingBackward].
@@ -994,7 +1046,7 @@ mod tests {
         }
         p.push(1); // is_running
         p.push(0); // walking_backward
-        let reply = handle_standard_update(&p, &mut world, 7);
+        let reply = handle_standard_update(&p, &mut world, 7, 0);
         // The server echoes the authoritative position back to the sender so the
         // client reconciles its own me_x/me_z (without this the player is stuck).
         assert_eq!(reply.len(), 1);
@@ -1104,7 +1156,7 @@ mod tests {
         }
         mv.push(1); // running
         mv.push(0);
-        handle_standard_update(&mv, &mut state.world, 1);
+        handle_standard_update(&mv, &mut state.world, 1, 0);
 
         let relay = state.collect_position_broadcasts();
         // Each of the 2 players relays to the 1 other → 2 packets.
@@ -6668,6 +6720,105 @@ End Function
         assert_eq!(s.z, pgz, "warped to the portal Z");
     }
 
+    /// `IgnoreUpdate` warp-update suppression (`GameServer.bb:4`,
+    /// `ServerNet.bb:727-737,1821`): a warp arms the flag, inbound
+    /// `P_StandardUpdate`s are dropped (echoing the post-warp position) while
+    /// armed, the client's `P_ChangeArea`/`P_RepositionActor` ack clears it,
+    /// and — the port's non-acking-client safeguard — the window also expires
+    /// on its own so a client that never acks is not frozen forever.
+    #[test]
+    fn warp_arms_ignore_update_and_ack_or_expiry_clears_it() {
+        use crate::state::ServerState;
+        let dir = data_dir();
+        let Some(plains) = Area::load(&dir, "Plains") else {
+            eprintln!("skipping: no Plains.dat");
+            return;
+        };
+        let Some(portal) = plains.portals.iter().find(|p| !p.name.is_empty()) else {
+            eprintln!("skipping: Plains has no named portal");
+            return;
+        };
+        let portal_name = portal.name.clone();
+        let (pgx, pgz) = (portal.x, portal.z);
+        let catalog = rcce_server_core::ActorCatalog::load(dir.join("Server Data/Actors.dat"));
+        let Some(template) = catalog
+            .templates
+            .values()
+            .find(|t| t.playable && Area::load(&dir, &t.start_area).is_some())
+        else {
+            return;
+        };
+        let template_id = template.id;
+        let start_area = template.start_area.clone();
+        let mut store = tmp_store("ignoreupd");
+        let mut acct = Account::new("hero", MD5, "h@x.com").unwrap();
+        let mut c = Character::blank();
+        c.actor_id = template_id;
+        c.name = "Hero".into();
+        c.area = start_area.clone();
+        acct.characters.push(CharacterRecord::new(c));
+        store.push(acct);
+        let mut state = ServerState::new(config_for(dir.clone()), store, catalog);
+        handle_start_game(&start_packet("hero", MD5, 0), &mut state.accounts, &mut state.throttle, &mut state.world, &state.config, 1, 0);
+        let rid = state.world.session(1).unwrap().runtime_id;
+        assert_eq!(state.world.session(1).unwrap().ignore_update_until_ms, 0, "login does not arm the flag");
+
+        // Warp → the suppression window is armed.
+        state.warp_actor(rid, "Plains", &portal_name);
+        let deadline = state.world.session(1).unwrap().ignore_update_until_ms;
+        assert!(deadline > 0, "warp arms IgnoreUpdate");
+
+        // Re-arm with a far deadline so the dispatch-path assertions below are
+        // immune to wall-clock stalls (dispatch uses real elapsed ms); the
+        // warp's own arming is already asserted above and the deadline
+        // comparison itself is covered deterministically at the end.
+        state.world.set_ignore_update_until(1, u64::MAX);
+
+        // A stale in-flight update (pre-warp coordinates) is dropped: the
+        // session stays at the warp destination, and the echo carries the
+        // authoritative post-warp position so the client reconciles onto it.
+        let mut stale = Vec::new();
+        for f in [1.0f32, 2.0, 3.0, 4.0, 5.0] {
+            stale.extend_from_slice(&f.to_le_bytes());
+        }
+        stale.extend_from_slice(&[0, 0]);
+        let outs = state.dispatch(1, P_STANDARD_UPDATE, &stale);
+        let s = state.world.session(1).unwrap();
+        assert_eq!((s.x, s.z), (pgx, pgz), "stale update must not yank the player back");
+        assert_eq!(outs.len(), 1);
+        let echo = &outs[0].payload;
+        assert_eq!(f32::from_le_bytes([echo[2], echo[3], echo[4], echo[5]]), pgx, "echo corrects to the warp X");
+
+        // The client acks the zone change → the flag clears (ServerNet.bb:737)…
+        state.dispatch(1, P_CHANGE_AREA, &[]);
+        assert_eq!(state.world.session(1).unwrap().ignore_update_until_ms, 0, "ack clears IgnoreUpdate");
+        // …and the same update now moves the session.
+        state.dispatch(1, P_STANDARD_UPDATE, &stale);
+        let s = state.world.session(1).unwrap();
+        assert_eq!((s.x, s.z), (4.0, 5.0), "post-ack updates apply again");
+
+        // The P_RepositionActor ack clears it too (ServerNet.bb:730).
+        state.world.set_ignore_update_until(1, u64::MAX);
+        state.dispatch(1, P_REPOSITION_ACTOR, &[]);
+        assert_eq!(state.world.session(1).unwrap().ignore_update_until_ms, 0);
+
+        // No-ack fallback: once now >= deadline the window has expired and
+        // movement applies (neither shipped client sends the ack — the Blitz
+        // client's send is commented out at ClientNet.bb:1779).
+        state.world.set_ignore_update_until(1, 500);
+        let mut mv = Vec::new();
+        for f in [7.0f32, 8.0, 9.0, 10.0, 11.0] {
+            mv.extend_from_slice(&f.to_le_bytes());
+        }
+        mv.extend_from_slice(&[0, 0]);
+        handle_standard_update(&mv, &mut state.world, 1, 499);
+        let s = state.world.session(1).unwrap();
+        assert_eq!((s.x, s.z), (4.0, 5.0), "still suppressed just before the deadline");
+        handle_standard_update(&mv, &mut state.world, 1, 500);
+        let s = state.world.session(1).unwrap();
+        assert_eq!((s.x, s.z), (10.0, 11.0), "expired window lets updates through");
+    }
+
     #[test]
     fn disconnect_persists_position_and_area() {
         use crate::state::ServerState;
@@ -6880,7 +7031,7 @@ End Function
         }
         p.push(0);
         p.push(0);
-        assert!(handle_standard_update(&p, &mut world, 99).is_empty());
+        assert!(handle_standard_update(&p, &mut world, 99, 0).is_empty());
     }
 
     #[test]
@@ -6901,7 +7052,7 @@ End Function
         }
         p.push(0);
         p.push(0);
-        handle_standard_update(&p, &mut world, 7);
+        handle_standard_update(&p, &mut world, 7, 0);
         let s = world.session(7).unwrap();
         assert_eq!(s.y, 0.0);
         assert_eq!(s.x, 0.0);
