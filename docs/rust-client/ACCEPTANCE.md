@@ -166,7 +166,7 @@ Auto-attack on a flagged target: `AttackTarget=True` + `PlayerTarget` drives `Up
 | SPL-5 | Action bar: assign item (`"I"`), assign spell (`"S"`), clear (`"N"`); 12 slots fire on F1-F12 / click; 3-page swap | PARTIAL | ref `Interface3D.bb:1077-1280,1169-1212`; Rust fires 1-9, paging/assign unclear | live |
 | SPL-6 | Action bar loaded from the `P_StartGame` payload (3 slot-groups) | PARTIAL | ref `ClientNet.bb:62-106` | live |
 | SPL-7 | Incoming `P_KnownSpellUpdate` A/D/L (add/remove/level) updates known spells + resort | DONE ✅ | new `KNOWN_SPELL_UPDATE` const (26) + `World::on_known_spell_update` maintains a `known_spells: Vec<KnownSpell{id,name,level}>` — "A" adds (parses level/id/thumb/recharge/name·str16) keeping it name-sorted, "D" removes by name, "L" sets a spell's level by name. ref `ClientNet.bb:823-933` | unit test `known_spell_add_remove_level` (A adds 2 sorted, L levels Fireball→3, D removes Heal) green (66 lib tests). (The live list is state-only; the spellbook render of it is SPL-1.) |
-| SPL-8 | Render own cast effects / projectiles (currently send-only) | MISSING | audit §5c: `SPELL_UPDATE` send-only | live |
+| SPL-8 | Render own cast effects / projectiles (currently send-only) | DONE ✅ | Ground truth: Blitz has **no local spawn-on-cast** — all three client cast sites (`Interface3D.bb:1128/:1258/:1543`) only send `P_SpellUpdate "F"` + start the cooldown; the spell script's `FireProjectile` broadcasts `P_Projectile` to everyone in the zone **including the caster** (`GameServer.bb:257-266`), and the client handler spawns for any source, Me included (`ClientNet.bb:217-238`). The Rust client already matched this shape via the PRJ-1 echo path (the audit-§5c "send-only" note predates PRJ-1); the one real gap fixed here: `World::actor_pos`/`tick_projectiles` sourced ME from the lagged server echo (`me_x/z`) instead of the **displayed** body (`me_render_x/z`) that Blitz uses (`EntityX(Source\CollisionEN)`, `Projectiles3D.bb:59/:79-81`), so an own-cast projectile visibly detached from the caster while moving. Cast anim ("Pray" via `P_AnimateActor`), cast sound (`P_Sound`), and target/caster emitters (`P_CreateEmitter`, attach-follow via `actor_world_pos`) were already me-aware. Cooldowns stay keyed by spell ID 0-999 — untouched. | unit tests `own_cast_projectile_spawns_at_visible_body` (send → echo round-trip: spawns at displayed body with the spell's emitter/tex template, homes on target, reuses the PRJ-1 flight/impact machinery) + `own_cast_projectile_soft_fails` (truncated / unknown-target echo: nothing spawns, no panic) + `homing_projectile_tracks_my_displayed_body`; outbound wire bytes pinned by `net::tests` `cast_packet_*`. `cargo test` 343 green + `clippy -D warnings` clean. Send-path interaction ⇒ unit-test tier per the SPL-7 lesson |
 
 ---
 
@@ -279,13 +279,20 @@ Auto-attack on a flagged target: `AttackTarget=True` + `PlayerTarget` drives `Up
 
 ## Parity scorecard (2026-06-01 baseline)
 
-Counting concrete criteria (excluding DEFERRED): **DONE ≈ 62, PARTIAL ≈ 24** (Phases 1-5 + breadth incl. ANIM-8, PRJ-1, CHAT-2/3/4, ENV-5/6, HUD-8, SPL-7, QST-1/2, PTY-1/2, TGT-7, HUD-3, CAM-5, MOVE-7+ANIM-7 jump, CAM-4, MOVE-6, ANIM-6, SPL-4, 2026-06-01). **All four headline play-test gaps are now closed.** Every non-content-gated MISSING criterion is now DONE. The 8 remaining MISSING rows are all **live-only-with-content**: MOVE-8 / ANIM-4 / ANIM-5 / CAM-6 / ENV-4 (water·swim·ride — need a water zone / mount), TRD-3 (2 live players), TGT-8 (a scripted text-input NPC), SPL-8 (own-cast projectile FX). The remaining PARTIAL rows are substantially functional with only content-gated or polish sub-features outstanding (noted per-row).
+Counting concrete criteria (excluding DEFERRED): **DONE ≈ 62, PARTIAL ≈ 24** (Phases 1-5 + breadth incl. ANIM-8, PRJ-1, CHAT-2/3/4, ENV-5/6, HUD-8, SPL-7, QST-1/2, PTY-1/2, TGT-7, HUD-3, CAM-5, MOVE-7+ANIM-7 jump, CAM-4, MOVE-6, ANIM-6, SPL-4, 2026-06-01). **All four headline play-test gaps are now closed.** Every non-content-gated MISSING criterion is now DONE. The 7 remaining MISSING rows are all **live-only-with-content**: MOVE-8 / ANIM-4 / ANIM-5 / CAM-6 / ENV-4 (water·swim·ride — need a water zone / mount), TRD-3 (2 live players), TGT-8 (a scripted text-input NPC). (SPL-8, own-cast projectile FX, closed 2026-07-10 — see its row.) The remaining PARTIAL rows are substantially functional with only content-gated or polish sub-features outstanding (noted per-row).
 
 1. ~~**MENU-SCENE** — dedicated 3D menu scene with posed character~~ **DONE ✅** (Phase 3; backdrop-art polish = MENU-SCENE-b).
 2. ~~**ANIM-1** — local-player walk/run animation~~ **DONE ✅** (Phase 1).
 3. ~~**MOVE-5** — click-to-move~~ **DONE ✅** (Phase 2).
 4. ~~Targeting + combat: TGT-1..6 (select / highlight / panel / context menu / NPC dialog) + CBT-1/2 (attack-the-mob auto-loop)~~ **DONE ✅** (Phases 4-5).
 
-**Remaining work is non-headline parity breadth** (PARTIAL/MISSING): combat anims (ANIM-8), spell effects/projectiles (SPL-8/PRJ-1), quests/party (QST/PTY), water (ENV-4), chat colors/scrollback (CHAT-2..4), trade completeness (TRD-3), camera modes (CAM-4..6), swim/ride anims (ANIM-4/5), and the MENU-SCENE-b backdrop polish.
+**Remaining work is non-headline parity breadth** (PARTIAL/MISSING): combat anims (ANIM-8), quests/party (QST/PTY), water (ENV-4), chat colors/scrollback (CHAT-2..4), trade completeness (TRD-3), camera modes (CAM-4..6), swim/ride anims (ANIM-4/5), and the MENU-SCENE-b backdrop polish. (Spell effects/projectiles — PRJ-1 + SPL-8 — are now DONE.)
 
 These drive the Phase ordering in `PLAN.md`.
+
+### Post-scorecard punch-list (the informal "C-series")
+
+Small parity items picked up after the 2026-06-01 scorecard, previously tracked only in commit messages — recorded here so they're durable:
+
+- **C1 — character-create appearance picker**: face/hair/body/beard selection on the create screen. Shipped in commit `6ce8b51c` (PR #587).
+- **C2 — `P_SelectScenery` activation**: click-to-activate ownable animated scenery. Shipped in commit `9799911e` (PR #588); maps to row TGT-10, where the local mesh-toggle animation remains **deferred** (Rust scenery renders as static instances).

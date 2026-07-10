@@ -1731,11 +1731,29 @@ impl World {
     }
 
     /// Resolve a runtime id to a world position (self or a tracked actor).
+    ///
+    /// For the LOCAL player this is the **displayed** body position
+    /// (`me_render_x/z`), not the raw server echo (`me_x/z`) — Blitz positions a
+    /// projectile at `EntityX(Source\CollisionEN)` (Projectiles3D.bb:59), i.e.
+    /// the entity the player sees. Under the client-authoritative movement model
+    /// the echo lags the visible body by up to a network round-trip, so an
+    /// own-cast projectile sourced from `me_x` would visibly detach from the
+    /// caster while moving (SPL-8). Falls back to the echo before the first
+    /// `tick_movement` primes the render position.
     fn actor_pos(&self, rid: u16) -> Option<[f32; 3]> {
         if rid == self.my_runtime_id {
-            Some([self.me_x, self.me_y, self.me_z])
+            Some(self.me_display_pos())
         } else {
             self.actors.get(&rid).map(|a| [a.x, a.y, a.z])
+        }
+    }
+
+    /// The local player's displayed body position (see `actor_pos`).
+    fn me_display_pos(&self) -> [f32; 3] {
+        if self.me_render_init {
+            [self.me_render_x, self.me_y, self.me_render_z]
+        } else {
+            [self.me_x, self.me_y, self.me_z]
         }
     }
 
@@ -2091,7 +2109,10 @@ impl World {
     /// (within 2 units). Homing projectiles re-acquire the live target position.
     pub fn tick_projectiles(&mut self, dt: f32) {
         let my = self.my_runtime_id;
-        let me = [self.me_x, self.me_y, self.me_z];
+        // Homing at ME re-acquires the displayed body (same convention as the
+        // spawn in `actor_pos`; Blitz tracks the CollisionEN entity,
+        // Projectiles3D.bb:79-81).
+        let me = self.me_display_pos();
         for p in &mut self.projectiles {
             if p.homing {
                 let tp = if p.target_rid == my {
@@ -2865,6 +2886,89 @@ mod tests {
         w.apply(&msg(pk::PROJECTILE, { let mut q = MsgWriter::new(); q.u16(2).u16(3).u16(65535).u16(0).u16(0).u8(0).u8(65).str8("").raw(b""); q.into_bytes() }));
         assert_ne!(w.projectiles[0].id, w.projectiles[1].id);
         assert_eq!(w.projectiles[1].emitter, "", "no emitter name → plain glow");
+    }
+
+    // SPL-8: the local player's own cast. Blitz has NO local spawn-on-cast — all
+    // three client cast sites (Interface3D.bb:1128/:1258/:1543) only send
+    // P_SpellUpdate "F"; the spell script's FireProjectile then broadcasts
+    // P_Projectile to every player in the zone INCLUDING the caster
+    // (GameServer.bb:257-266), and the client handler spawns for any source, Me
+    // included (ClientNet.bb:217-238). This test walks that echo round-trip: the
+    // caster's own P_Projectile (src == my rid) must spawn from the DISPLAYED
+    // body position (Blitz sources it at EntityX(Source\CollisionEN),
+    // Projectiles3D.bb:59 — not the lagged server echo), carry the spell's
+    // emitter/texture template, home on the target, and reuse the PRJ-1
+    // flight/impact machinery unchanged.
+    #[test]
+    fn own_cast_projectile_spawns_at_visible_body() {
+        let mut w = World { my_runtime_id: 1, ..Default::default() };
+        // Server echo (me_x) lags the displayed body (me_render_x) while moving.
+        w.me_x = 5.0;
+        w.me_y = 2.0;
+        w.me_z = 0.0;
+        w.me_render_x = 6.5;
+        w.me_render_z = 0.5;
+        w.me_render_init = true;
+        w.actors.insert(2, Actor { runtime_id: 2, x: 30.0, alive: true, ..Default::default() });
+        // The outbound cast itself ("F" + [2]spellID + [2]targetRID,
+        // Interface3D.bb:1128) is pinned by net::tests::cast_packet_*; here the
+        // server has run the spell script and echoes the projectile back to us.
+        // Echo field order per GameServer.bb:257-261: [2]src [2]tgt [2]mesh
+        // [2]tex1 [2]tex2 [1]homing [1]speed [1]len+Emitter1 Emitter2.
+        let mut p = MsgWriter::new();
+        p.u16(1).u16(2).u16(65535).u16(3).u16(7).u8(1).u8(50).str8("Default").raw(b"Fireball");
+        w.apply(&msg(pk::PROJECTILE, p.into_bytes()));
+        assert_eq!(w.projectiles.len(), 1, "own-cast echo spawns a projectile");
+        let pr = &w.projectiles[0];
+        assert!((pr.x - 6.5).abs() < 1e-4 && (pr.z - 0.5).abs() < 1e-4, "spawns at the displayed body, not the echo (got {},{})", pr.x, pr.z);
+        assert!((pr.y - 5.0).abs() < 1e-4, "spawn y = me_y + 3 (Blitz spawn-height offset)");
+        assert!(pr.homing && pr.target_rid == 2, "homing on the cast target");
+        assert_eq!((pr.emitter1.as_str(), pr.emitter1_tex), ("Default", 3));
+        assert_eq!((pr.emitter.as_str(), pr.emitter_tex), ("Fireball", 7));
+        // Same PRJ-1 machinery flies + impacts it (no own-cast special case).
+        for _ in 0..20 {
+            w.tick_projectiles(0.1);
+        }
+        assert!(w.projectiles.is_empty(), "own-cast projectile impacted + removed");
+    }
+
+    // SPL-8 soft-fail tier: a malformed own-cast echo must spawn nothing and
+    // must not panic. Mirrors Blitz's `If TargetAI <> Null And AI <> Null`
+    // (ClientNet.bb:225) and the workspace no-panic-on-wire-data invariant.
+    #[test]
+    fn own_cast_projectile_soft_fails() {
+        let mut w = World { my_runtime_id: 1, ..Default::default() };
+        w.actors.insert(2, Actor { runtime_id: 2, x: 30.0, alive: true, ..Default::default() });
+        // Truncated: header cut mid-field (missing speed byte onward).
+        let mut short = MsgWriter::new();
+        short.u16(1).u16(2).u16(0).u16(0).u16(0).u8(1);
+        w.apply(&msg(pk::PROJECTILE, short.into_bytes()));
+        assert!(w.projectiles.is_empty(), "truncated echo spawns nothing");
+        // Unknown target rid: the caster resolves (me) but the target doesn't.
+        let mut ghost = MsgWriter::new();
+        ghost.u16(1).u16(999).u16(0).u16(0).u16(0).u8(0).u8(50).u8(0);
+        w.apply(&msg(pk::PROJECTILE, ghost.into_bytes()));
+        assert!(w.projectiles.is_empty(), "unknown target rid spawns nothing");
+    }
+
+    // A homing projectile targeting ME re-acquires the displayed body each tick
+    // (same displayed-body convention as the own-cast spawn; Blitz tracks the
+    // live CollisionEN entity, Projectiles3D.bb:79-81).
+    #[test]
+    fn homing_projectile_tracks_my_displayed_body() {
+        let mut w = World { my_runtime_id: 1, ..Default::default() };
+        w.actors.insert(2, Actor { runtime_id: 2, x: 100.0, alive: true, ..Default::default() });
+        w.me_render_init = true;
+        let mut p = MsgWriter::new();
+        p.u16(2).u16(1).u16(0).u16(0).u16(0).u8(1).u8(50).u8(0);
+        w.apply(&msg(pk::PROJECTILE, p.into_bytes()));
+        assert_eq!(w.projectiles.len(), 1);
+        // The body glides to a new displayed position; the homing tick follows it.
+        w.me_render_x = 40.0;
+        w.me_render_z = 8.0;
+        w.tick_projectiles(0.01);
+        let pr = &w.projectiles[0];
+        assert!((pr.tx - 40.0).abs() < 1e-4 && (pr.tz - 8.0).abs() < 1e-4, "re-acquired the displayed body (got {},{})", pr.tx, pr.tz);
     }
 
     // A plain say "<Name> text" (no colour-code prefix) becomes a speech bubble over
