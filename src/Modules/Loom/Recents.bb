@@ -21,7 +21,7 @@
 // STABLE KEYS
 // Zone Handles regenerate on each load (ServerLoadArea returns a fresh
 // instance), so we can't persist Handle ints. We persist:
-//   actor/item/spell/animset  -> Str(refID)         (array index is stable)
+//   actor/item/spell/animset/projectile  -> Str(refID)  (array index is stable)
 //   faction                   -> Str(refID)         (FactionNames$ slot is stable)
 //   zone                      -> Ar\Name$           (resolved by name at load)
 //
@@ -245,6 +245,11 @@ Type Recents
                 If A\ID = id Then Return id
             Next
             Return -1
+        EndIf
+        If kind = "projectile"
+            If id < 0 Or id > 5000 Then Return -1
+            If ProjectileList(id) = Null Then Return -1
+            Return id
         EndIf
         Return -1
     End Method
@@ -538,6 +543,7 @@ Type Recents
         If kind = "zone"    Then Return "Z"
         If kind = "faction" Then Return "F"
         If kind = "animset" Then Return "M"
+        If kind = "projectile" Then Return "P"
         Return "?"
     End Method
 

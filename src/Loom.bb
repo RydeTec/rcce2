@@ -151,6 +151,11 @@ Include "Modules\Loom\TextureCatalog.bb"
 Include "Modules\Loom\MeshCatalog.bb"
 Include "Modules\Loom\SoundCatalog.bb"
 Include "Modules\Loom\MusicCatalog.bb"
+// Emitter catalog -- .rpc basenames under Data\Emitter Configs\; roster
+// + validator for the Projectile composer's emitter fields. NOTE: this
+// include sits AFTER Composer.bb in file order but BlitzForge resolves
+// functions program-wide, so Composer's Emitters_GetByName call is fine.
+Include "Modules\Loom\EmitterCatalog.bb"
 Include "Modules\Loom\Recents.bb"
 Include "Modules\Loom\EntityFactory.bb"
 Include "Modules\Loom\SaveAll.bb"
@@ -493,6 +498,10 @@ WriteLog(LoomLog, "Sound catalog: " + Str(SoundsTotalCount) + " sounds indexed")
 ; statically referenced from data Loom edits); audition + browse only.
 Music_Init()
 WriteLog(LoomLog, "Music catalog: " + Str(MusicTotalCount) + " tracks indexed")
+; Emitter catalog: .rpc basenames under Data\Emitter Configs\. Powers the
+; Projectiles composer's emitter picker + missing-name validation.
+Emitters_Init()
+WriteLog(LoomLog, "Emitter catalog: " + Str(EmittersTotalCount) + " configs indexed")
 
 
 // -----------------------------------------------------------------------------

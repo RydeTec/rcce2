@@ -51,6 +51,7 @@ Type WorldCache
     Field cachedTotalZones%
     Field cachedTotalFactions%
     Field cachedTotalAnimSets%
+    Field cachedTotalProjectiles%
 
 
     Method create.WorldCache()
@@ -62,6 +63,7 @@ Type WorldCache
         self\cachedTotalZones = 0
         self\cachedTotalFactions = 0
         self\cachedTotalAnimSets = 0
+        self\cachedTotalProjectiles = 0
         Return self
     End Method
 
@@ -91,6 +93,7 @@ Type WorldCache
         self\cachedTotalZones = 0
         self\cachedTotalFactions = 0
         self\cachedTotalAnimSets = 0
+        self\cachedTotalProjectiles = 0
 
         // Actor totals + broken-ref checks
         For Ac.Actor = Each Actor
@@ -114,6 +117,18 @@ Type WorldCache
 
         For It.Item = Each Item
             self\cachedTotalItems = self\cachedTotalItems + 1
+            // Ranged weapon -> projectile broken-ref. Gate on weapon-type=
+            // Ranged (GUE only binds projectiles for those). NB: nested Ifs,
+            // not a compound And -- BlitzForge's And doesn't short-circuit,
+            // so a compound range+Null check would OOB-read ProjectileList
+            // on an out-of-range ID.
+            If It\ItemType = 1 And It\WeaponType = 3
+                If It\RangedProjectile < 0 Or It\RangedProjectile > 5000
+                    self\cachedBrokenRefs = self\cachedBrokenRefs + 1
+                Else If ProjectileList(It\RangedProjectile) = Null
+                    self\cachedBrokenRefs = self\cachedBrokenRefs + 1
+                EndIf
+            EndIf
         Next
 
         For Sp.Spell = Each Spell
@@ -141,6 +156,10 @@ Type WorldCache
 
         For As.AnimSet = Each AnimSet
             self\cachedTotalAnimSets = self\cachedTotalAnimSets + 1
+        Next
+
+        For Pj.Projectile = Each Projectile
+            self\cachedTotalProjectiles = self\cachedTotalProjectiles + 1
         Next
 
         self\dirty = False
@@ -204,6 +223,11 @@ Type WorldCache
     Method totalAnimSets%()
         WorldCache::ensureFresh(self)
         Return self\cachedTotalAnimSets
+    End Method
+
+    Method totalProjectiles%()
+        WorldCache::ensureFresh(self)
+        Return self\cachedTotalProjectiles
     End Method
 End Type
 

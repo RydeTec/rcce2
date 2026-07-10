@@ -319,6 +319,19 @@ Type BrokenRefs
         If It\Script$ <> "" And It\SMethod$ = ""
             BrokenRefs::emitFull(self, "item", It\ID, It\Name$, "SMethod", "(empty)", "item has Bound script but no Method to call", "warning", "spell-config")
         EndIf
+
+        // Ranged weapon whose projectile ref doesn't resolve -- error
+        // severity + broken-ref category so it matches the WorldCache
+        // headline count (which includes this same check). Nested Ifs,
+        // not a compound And: BlitzForge's And doesn't short-circuit,
+        // so range and Null checks must stay in separate branches.
+        If It\ItemType = 1 And It\WeaponType = 3
+            If It\RangedProjectile < 0 Or It\RangedProjectile > 5000
+                BrokenRefs::emit(self, "item", It\ID, It\Name$, "RangedProjectile", Str(It\RangedProjectile), "ranged weapon's projectile ID is out of range")
+            Else If ProjectileList(It\RangedProjectile) = Null
+                BrokenRefs::emit(self, "item", It\ID, It\Name$, "RangedProjectile", Str(It\RangedProjectile), "ranged weapon fires a projectile that doesn't exist")
+            EndIf
+        EndIf
     End Method
 
 

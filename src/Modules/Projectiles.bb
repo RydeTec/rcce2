@@ -26,6 +26,46 @@ Function CreateProjectile.Projectile()
 
 End Function
 
+; Delete a Projectile template. Used by Loom's entity-delete path. Strict
+; callers can't write to ProjectileList directly per the Dim-inside-Method
+; trap, so this lives here in the non-Strict module (same shape as
+; DeleteSpellTemplate in Spells.bb).
+Function DeleteProjectileTemplate(ID)
+	If ID < 0 Or ID > 5000 Then Return False
+	P.Projectile = ProjectileList(ID)
+	If P = Null Then Return False
+	ProjectileList(ID) = Null
+	Delete P
+	Return True
+End Function
+
+; Duplicate a Projectile template. Allocate a new ID, copy every field,
+; append " (copy)" to the name. Returns the new ID or -1 if ProjectileList
+; is full / source missing. Field list mirrors GUE's "Copy projectile"
+; button (GUE.bb BProjCopy handler).
+Function DuplicateProjectileTemplate(srcID)
+	If srcID < 0 Or srcID > 5000 Then Return -1
+	Src.Projectile = ProjectileList(srcID)
+	If Src = Null Then Return -1
+
+	Dst.Projectile = CreateProjectile()
+	If Dst = Null Then Return -1
+
+	Dst\Name$          = Src\Name$ + " (copy)"
+	Dst\MeshID         = Src\MeshID
+	Dst\Emitter1$      = Src\Emitter1$
+	Dst\Emitter2$      = Src\Emitter2$
+	Dst\Emitter1TexID  = Src\Emitter1TexID
+	Dst\Emitter2TexID  = Src\Emitter2TexID
+	Dst\Homing         = Src\Homing
+	Dst\HitChance      = Src\HitChance
+	Dst\Damage         = Src\Damage
+	Dst\DamageType     = Src\DamageType
+	Dst\Speed          = Src\Speed
+
+	Return Dst\ID
+End Function
+
 ; Loads all projectiles from a file and returns how many were loaded
 Function LoadProjectiles(Filename$)
 

@@ -467,6 +467,12 @@ Type Palette
         Local emitActor% = (self\pickerMode = False Or self\pickerKind = "actor")
         Local emitItem% = (self\pickerMode = False Or self\pickerKind = "item")
         Local emitSpell% = (self\pickerMode = False Or self\pickerKind = "spell")
+        Local emitProjectile% = (self\pickerMode = False Or self\pickerKind = "projectile")
+        // Emitters are picker-only: they aren't focusable entities (no
+        // composer view / Threads::lookupName), so navigator-mode results
+        // would jump into a blank composer. Only the Projectile composer's
+        // emitter rows open this kind.
+        Local emitEmitter% = (self\pickerMode = True And self\pickerKind = "emitter")
         Local emitZone% = (self\pickerMode = False Or self\pickerKind = "zone")
         Local emitFaction% = (self\pickerMode = False Or self\pickerKind = "faction")
         Local emitAnimSet% = (self\pickerMode = False Or self\pickerKind = "animset")
@@ -500,6 +506,24 @@ Type Palette
                 Local sScore% = Palette::scoreOrBaseline(self, q, Sp\Name$, showAllBaseline)
                 If sScore > 0
                     Palette::addResult(self, "spell", Sp\ID, Sp\Name$, "spell", sScore)
+                EndIf
+            Next
+        EndIf
+
+        If emitProjectile = True
+            For Pj.Projectile = Each Projectile
+                Local pjScore% = Palette::scoreOrBaseline(self, q, Pj\Name$, showAllBaseline)
+                If pjScore > 0
+                    Palette::addResult(self, "projectile", Pj\ID, Pj\Name$, "projectile", pjScore)
+                EndIf
+            Next
+        EndIf
+
+        If emitEmitter = True
+            For ee.EmitterEntry = Each EmitterEntry
+                Local eeScore% = Palette::scoreOrBaseline(self, q, ee\Name$, showAllBaseline)
+                If eeScore > 0
+                    Palette::addResult(self, "emitter", ee\Index, ee\Name$, "emitter", eeScore)
                 EndIf
             Next
         EndIf
@@ -707,6 +731,9 @@ Type Palette
             // All other ref fields take the integer ID as string.
             Local val$ = Str(id)
             If k = "zone" Then val = nm
+            // Emitter fields store the config NAME (like zone portals);
+            // the result's refID is just the catalog index.
+            If k = "emitter" Then val = nm
             If k = "script"
                 // DisplayName is "Name.rsl"; strip the extension.
                 Local scriptBase$ = nm
@@ -747,6 +774,8 @@ Type Palette
         If kind = "zone"    Then Return "Z"
         If kind = "faction" Then Return "F"
         If kind = "animset" Then Return "M"
+        If kind = "projectile" Then Return "P"
+        If kind = "emitter" Then Return "e"
         If kind = "script"  Then Return "x"
         If kind = "texture" Then Return "T"
         If kind = "mesh"    Then Return "m"

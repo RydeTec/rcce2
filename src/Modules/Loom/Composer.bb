@@ -506,6 +506,8 @@ Type Composer
             Composer::renderItem(self, x, scrolledBodyY, w, bodyH, mx, my, clicked, rightClicked)
         Else If kind = "spell"
             Composer::renderSpell(self, x, scrolledBodyY, w, bodyH, mx, my, clicked, rightClicked)
+        Else If kind = "projectile"
+            Composer::renderProjectile(self, x, scrolledBodyY, w, bodyH, mx, my, clicked, rightClicked)
         Else If kind = "zone"
             Composer::renderZone(self, x, scrolledBodyY, w, bodyH, mx, my, clicked, rightClicked)
         Else If kind = "faction"
@@ -706,6 +708,11 @@ Type Composer
             If v = 0 Then Return "no trade"
             If v = 1 Then Return "free"
             If v = 2 Then Return "charged"
+            Return ""
+        EndIf
+        If enumKind = "projmesh"
+            // Projectile\MeshID sentinel -- GUE's [NONE] button writes 65535.
+            If v = 65535 Then Return "none"
             Return ""
         EndIf
         Return ""
@@ -1081,6 +1088,46 @@ Type Composer
 
 
     // -------------------------------------------------------------------------
+    // emitterStringRow -- editableRow variant for Projectile\Emitter1$/2$,
+    // which store an emitter-config NAME (the .rpc basename under
+    // Data\Emitter Configs\). Empty string = no emitter (GUE's "None"
+    // combobox entry). Right-click the value cell -> palette picker
+    // filtered to the emitter catalog. A non-empty name that doesn't
+    // resolve in the catalog gets a danger "missing" pill -- emitters
+    // aren't focusable entities, so there's no jump pill on resolve
+    // (unlike scriptStringRow).
+    // -------------------------------------------------------------------------
+    Method emitterStringRow%(panelX%, panelW%, rowY%, label$, kind$, refID%, fieldId$, storedValue$, mx%, my%, clicked%, rightClicked%)
+        Local nextY% = Composer::editableRow(self, panelX, panelW, rowY, label, kind, refID, fieldId, storedValue, mx, my, clicked)
+
+        // Right-click anywhere in the value cell opens the emitter picker.
+        // Works on empty rows too (that's how a fresh emitter gets bound).
+        Local valX% = panelX + CMP_PAD + 120
+        Local valW% = panelW - CMP_PAD * 2 - 120
+        Local valHovered% = (mx >= valX And mx < valX + valW And my >= rowY - 3 And my < rowY - 3 + CMP_ROW_H)
+        If valHovered = True And rightClicked = True And self\palette <> Null
+            Palette::openAsPicker(self\palette, "emitter", kind, refID, fieldId)
+        EndIf
+
+        // Empty = intentionally no emitter; nothing to validate.
+        If storedValue = "" Then Return nextY
+        If Composer::canPaintRow(self, rowY, CMP_ROW_H) = False Then Return nextY
+
+        Local ee.EmitterEntry = Emitters_GetByName(storedValue)
+        If ee = Null
+            Local pillW% = 48
+            Local pillH% = CMP_ROW_H - 2
+            Local pillX% = panelX + panelW - CMP_PAD - pillW
+            Local pillY% = rowY - 2
+            LoomFill(pillX, pillY, pillW, pillH, LOOM_DANGER_R, LOOM_DANGER_G, LOOM_DANGER_B)
+            LoomText(pillX + 4, rowY, "missing", LOOM_PARCHMENT_100_R, LOOM_PARCHMENT_100_G, LOOM_PARCHMENT_100_B)
+        EndIf
+
+        Return nextY
+    End Method
+
+
+    // -------------------------------------------------------------------------
     // beginEdit -- enter edit mode for a specific (kind, refID, fieldId).
     // Seeds the buffer with the current stored value.
     // -------------------------------------------------------------------------
@@ -1288,6 +1335,27 @@ Type Composer
             If fieldId = "class"          Then S\ExclusiveClass$ = value : Return
         EndIf
 
+        // ---- PROJECTILE -----------------------------------------------------
+        // Clamp ranges mirror GUE's Projectiles tab gadgets: HitChance /
+        // Speed are 1..100 spinners, Damage is a 0..5000 spinner,
+        // DamageType indexes DamageTypes$(0..19), MeshID 65535 = [NONE].
+        If kind = "projectile"
+            If refID < 0 Or refID > 5000 Then Return
+            Local Pj.Projectile = ProjectileList(refID)
+            If Pj = Null Then Return
+            If fieldId = "name"         Then Pj\Name$ = value       : Return
+            If fieldId = "mesh_id"      Then Pj\MeshID = Composer::parseIntClamped(self, value, Pj\MeshID, 0, 65535) : Return
+            If fieldId = "emitter1"     Then Pj\Emitter1$ = value   : Return
+            If fieldId = "emitter2"     Then Pj\Emitter2$ = value   : Return
+            If fieldId = "emitter1_tex" Then Pj\Emitter1TexID = Composer::parseIntClamped(self, value, Pj\Emitter1TexID, 0, 65535) : Return
+            If fieldId = "emitter2_tex" Then Pj\Emitter2TexID = Composer::parseIntClamped(self, value, Pj\Emitter2TexID, 0, 65535) : Return
+            If fieldId = "homing"       Then Pj\Homing = (value = "1") : Return
+            If fieldId = "hit_chance"   Then Pj\HitChance = Composer::parseIntClamped(self, value, Pj\HitChance, 1, 100) : Return
+            If fieldId = "damage"       Then Pj\Damage = Composer::parseIntClamped(self, value, Pj\Damage, 0, 5000) : Return
+            If fieldId = "damage_type"  Then Pj\DamageType = Composer::parseIntClamped(self, value, Pj\DamageType, 0, 19) : Return
+            If fieldId = "speed"        Then Pj\Speed = Composer::parseIntClamped(self, value, Pj\Speed, 1, 100) : Return
+        EndIf
+
         // ---- ITEM -----------------------------------------------------------
         If kind = "item"
             If refID < 0 Or refID > 65534 Then Return
@@ -1307,7 +1375,10 @@ Type Composer
             If fieldId = "breakable"      Then I\TakesDamage = (value = "1") : Return
             If fieldId = "weapon_dmg_type" Then I\WeaponDamageType = Composer::parseIntClamped(self, value, I\WeaponDamageType, 0, 19) : Return
             If fieldId = "weapon_type"    Then I\WeaponType   = Composer::parseIntClamped(self, value, I\WeaponType, 0, 255) : Return
-            If fieldId = "ranged_proj"    Then I\RangedProjectile = Composer::parseIntClamped(self, value, I\RangedProjectile, 0, 65535) : Return
+            // 0..5000 matches LoadItems' clamp (ProjectileList's Dim bound);
+            // the old 0..65535 ceiling let an in-session edit store an ID
+            // that would OOB a ProjectileList(...) read before save/reload.
+            If fieldId = "ranged_proj"    Then I\RangedProjectile = Composer::parseIntClamped(self, value, I\RangedProjectile, 0, 5000) : Return
             If fieldId = "ranged_anim"    Then I\RangedAnimation$ = value : Return
             If fieldId = "eat_length"     Then I\EatEffectsLength = Composer::parseIntClamped(self, value, I\EatEffectsLength, 0, 3600000) : Return
             If fieldId = "thumb_tex"      Then I\ThumbnailTexID = Composer::parseIntClamped(self, value, I\ThumbnailTexID, 0, 65535) : Return
@@ -1757,6 +1828,7 @@ Type Composer
         If kind = "faction" Then Return Not FactionsSaved
         If kind = "zone"    Then Return Not ZoneSaved
         If kind = "animset" Then Return Not AnimsSaved
+        If kind = "projectile" Then Return Not ProjectilesSaved
         Return False
     End Method
 
@@ -1772,6 +1844,7 @@ Type Composer
         If kind = "faction"  Then FactionsSaved = False
         If kind = "zone"     Then ZoneSaved = False
         If kind = "animset"  Then AnimsSaved = False
+        If kind = "projectile" Then ProjectilesSaved = False
         If kind = "settings" Then SettingsSaved = False
     End Method
 
@@ -1889,6 +1962,19 @@ Type Composer
             Return
         EndIf
 
+        If kind = "projectile"
+            Local okP% = SaveProjectiles("Data\Server Data\Projectiles.dat")
+            If okP = False
+                WriteLog(LoomLog, "Composer: SaveProjectiles FAILED")
+                Toast_Show("Save Projectiles FAILED", "danger")
+                Return
+            EndIf
+            ProjectilesSaved = True
+            WriteLog(LoomLog, "Composer: saved Projectiles.dat")
+            Toast_Show("Saved Projectiles.dat", "success")
+            Return
+        EndIf
+
         If kind = "zone"
             Local Ar.Area = Object.Area(self\threads\focusID)
             If Ar = Null
@@ -1996,6 +2082,7 @@ Type Composer
         If kind = "zone"    Then Return "Z"
         If kind = "faction" Then Return "F"
         If kind = "animset" Then Return "M"
+        If kind = "projectile" Then Return "P"
         Return "?"
     End Method
 
@@ -2291,6 +2378,11 @@ Type Composer
         EndIf
         If kind = "zone"
             y = Composer::bulkFieldRow(self, panelX, panelW, y, "Gravity",       "gravity",       mx, my, clicked)
+            Return y
+        EndIf
+        If kind = "projectile"
+            y = Composer::bulkFieldRow(self, panelX, panelW, y, "Damage",        "damage",        mx, my, clicked)
+            y = Composer::bulkFieldRow(self, panelX, panelW, y, "Speed",         "speed",         mx, my, clicked)
             Return y
         EndIf
         // faction / animset: no useful broadcast field -- leave the section
@@ -2612,6 +2704,14 @@ Type Composer
             Composer::reFocusOrClose(self, kind)
             Return
         EndIf
+        If kind = "projectile"
+            Composer::freeAllProjectiles(self)
+            LoadProjectiles("Data\Server Data\Projectiles.dat")
+            ProjectilesSaved = True
+            WriteLog(LoomLog, "Composer: discarded -- reloaded Projectiles.dat")
+            Composer::reFocusOrClose(self, kind)
+            Return
+        EndIf
         If kind = "faction"
             // LoadFactions overwrites FactionNames$ in-place; no free needed.
             LoadFactions("Data\Server Data\Factions.dat")
@@ -2674,6 +2774,13 @@ Type Composer
         Local id% = 0
         For id = 0 To 999
             DeleteAnimSetTemplate(id)
+        Next
+    End Method
+
+    Method freeAllProjectiles()
+        Local id% = 0
+        For id = 0 To 5000
+            DeleteProjectileTemplate(id)
         Next
     End Method
 
@@ -2834,6 +2941,7 @@ Type Composer
         If kind = "zone"    Then Return "ZONE"
         If kind = "faction" Then Return "FACTION"
         If kind = "animset" Then Return "ANIMATION SET"
+        If kind = "projectile" Then Return "PROJECTILE"
         Return Upper$(kind)
     End Method
 
@@ -3039,6 +3147,7 @@ Type Composer
     Method typeLabel$(kind$)
         If kind = "faction" Then Return "FACTION"
         If kind = "animset" Then Return "ANIM SETS"
+        If kind = "projectile" Then Return "PROJECTILES"
         If kind = "mesh"    Then Return "MESHES"
         If kind = "texture" Then Return "TEXTURES"
         If kind = "sound"   Then Return "SOUNDS"
@@ -3139,8 +3248,30 @@ Type Composer
                     Composer::twAddAsset(self, "texture", It\ImageID)
                     Composer::twAddAsset(self, "mesh", It\MMeshID)
                     Composer::twAddAsset(self, "mesh", It\FMeshID)
+                    // Ranged weapons thread to their projectile. Gate on
+                    // weapon-type=Ranged (matches GUE, which only shows the
+                    // projectile picker for ranged weapons) so melee items
+                    // with a leftover 0 don't render a bogus thread.
+                    If It\ItemType = 1 And It\WeaponType = 3
+                        Composer::twAdd(self, "projectile", It\RangedProjectile)
+                    EndIf
                 EndIf
             EndIf
+        Else If kind = "projectile"
+            If refID >= 0 And refID <= 5000
+                Local Pw.Projectile = ProjectileList(refID)
+                If Pw <> Null
+                    Composer::twAddAsset(self, "mesh", Pw\MeshID)
+                    Composer::twAddAsset(self, "texture", Pw\Emitter1TexID)
+                    Composer::twAddAsset(self, "texture", Pw\Emitter2TexID)
+                EndIf
+            EndIf
+            // Back-references: ranged weapons firing this projectile.
+            For Iw.Item = Each Item
+                If Iw\ItemType = 1 And Iw\WeaponType = 3 And Iw\RangedProjectile = refID
+                    Composer::twAdd(self, "item", Iw\ID)
+                EndIf
+            Next
         Else If kind = "spell"
             If refID >= 0 And refID <= 65534
                 Local Sp.Spell = SpellsList(refID)
@@ -3458,7 +3589,15 @@ Type Composer
             y = Composer::enumIntRow(self, panelX, panelW, y, "Damage type", "item", It\ID, "weapon_dmg_type", It\WeaponDamageType, "damagetype", mx, my, clicked)
             y = Composer::enumIntRow(self, panelX, panelW, y, "Weapon type", "item", It\ID, "weapon_type",   It\WeaponType,   "weapontype", mx, my, clicked)
             y = Composer::editableFloatRow(self, panelX, panelW, y, "Range",     "item", It\ID, "range",         It\Range#,       mx, my, clicked)
-            y = Composer::editableIntRow(self, panelX, panelW, y, "Ranged proj.","item", It\ID, "ranged_proj",   It\RangedProjectile, mx, my, clicked)
+            // Ranged weapons get a projectile THREAD chip (left-click jumps
+            // to the projectile, right-click opens the picker); non-ranged
+            // weapons keep the raw int row since the field is dormant for
+            // them (GUE hides the picker entirely in that case).
+            If It\WeaponType = 3
+                y = Composer::chipRow(self, panelX, panelW, y, "Ranged proj.", "projectile", It\RangedProjectile, mx, my, clicked, rightClicked, "ranged_proj")
+            Else
+                y = Composer::editableIntRow(self, panelX, panelW, y, "Ranged proj.","item", It\ID, "ranged_proj",   It\RangedProjectile, mx, my, clicked)
+            EndIf
             y = Composer::editableRow(self,    panelX, panelW, y, "Ranged anim", "item", It\ID, "ranged_anim",   It\RangedAnimation$, mx, my, clicked)
         EndIf
 
@@ -3553,6 +3692,66 @@ Type Composer
         y = Composer::sectionHeader(self, panelX, panelW, y, "Script")
         y = Composer::scriptStringRow(self, panelX, panelW, y, "Bound",  "spell", S\ID, "script",  S\Script$,  mx, my, clicked, rightClicked)
         y = Composer::editableRow(self, panelX, panelW, y, "Method", "spell", S\ID, "smethod", S\SMethod$, mx, my, clicked)
+        Composer::recordContentBottom(self, y)
+    End Method
+
+
+    // -------------------------------------------------------------------------
+    // renderProjectile -- GUE "Projectiles" tab parity. Covers every field
+    // GUE's tab edits: Name, MeshID ([NONE] = 65535), Emitter 1/2 (config
+    // name + emitter texture each), Homing, HitChance (1..100%), Damage
+    // (0..5000), DamageType (0..19 -> DamageTypes$ annotation), Speed
+    // (1..100%). Plus a "Used by" back-reference roster of ranged weapons
+    // firing this projectile (not in GUE at all).
+    // -------------------------------------------------------------------------
+    Method renderProjectile(panelX%, bodyY%, panelW%, bodyH%, mx%, my%, clicked%, rightClicked%)
+        Local refID% = self\threads\focusID
+        If refID < 0 Or refID > 5000 Then Return
+        Local Pj.Projectile = ProjectileList(refID)
+        If Pj = Null Then Return
+
+        Local y% = bodyY
+        y = Composer::row(self, panelX, panelW, y, "ID", Str(Pj\ID))
+        y = Composer::editableRow(self, panelX, panelW, y, "Name", "projectile", Pj\ID, "name", Pj\Name$, mx, my, clicked)
+        // MeshID 65535 is GUE's [NONE] sentinel -- render it as a plain int
+        // row with a "(none)" annotation instead of the asset row, whose
+        // catalog miss would paint a misleading "missing" pill.
+        If Pj\MeshID = 65535
+            y = Composer::enumIntRow(self, panelX, panelW, y, "Mesh", "projectile", Pj\ID, "mesh_id", Pj\MeshID, "projmesh", mx, my, clicked)
+        Else
+            y = Composer::assetIntRow(self, panelX, panelW, y, "Mesh", "projectile", Pj\ID, "mesh_id", Pj\MeshID, "mesh", mx, my, clicked, rightClicked)
+        EndIf
+
+        y = Composer::sectionHeader(self, panelX, panelW, y, "Emitters")
+        y = Composer::emitterStringRow(self, panelX, panelW, y, "Emitter 1", "projectile", Pj\ID, "emitter1", Pj\Emitter1$, mx, my, clicked, rightClicked)
+        y = Composer::assetIntRow(self, panelX, panelW, y, "Emitter 1 tex", "projectile", Pj\ID, "emitter1_tex", Pj\Emitter1TexID, "texture", mx, my, clicked, rightClicked)
+        y = Composer::emitterStringRow(self, panelX, panelW, y, "Emitter 2", "projectile", Pj\ID, "emitter2", Pj\Emitter2$, mx, my, clicked, rightClicked)
+        y = Composer::assetIntRow(self, panelX, panelW, y, "Emitter 2 tex", "projectile", Pj\ID, "emitter2_tex", Pj\Emitter2TexID, "texture", mx, my, clicked, rightClicked)
+
+        y = Composer::sectionHeader(self, panelX, panelW, y, "Combat")
+        y = Composer::toggleRow(self, panelX, panelW, y, "Homing", "projectile", Pj\ID, "homing", Pj\Homing, mx, my, clicked)
+        y = Composer::editableIntRow(self, panelX, panelW, y, "Hit chance (%)", "projectile", Pj\ID, "hit_chance", Pj\HitChance, mx, my, clicked)
+        y = Composer::editableIntRow(self, panelX, panelW, y, "Damage", "projectile", Pj\ID, "damage", Pj\Damage, mx, my, clicked)
+        y = Composer::enumIntRow(self, panelX, panelW, y, "Damage type", "projectile", Pj\ID, "damage_type", Pj\DamageType, "damagetype", mx, my, clicked)
+        y = Composer::editableIntRow(self, panelX, panelW, y, "Speed (%)", "projectile", Pj\ID, "speed", Pj\Speed, mx, my, clicked)
+
+        // Back-references: every ranged weapon that fires this projectile.
+        // Same roster shape as renderFaction's Members walk.
+        y = Composer::sectionHeader(self, panelX, panelW, y, "Used by (ranged weapons)")
+        Local usedCount% = 0
+        For Iu.Item = Each Item
+            If Iu\ItemType = 1 And Iu\WeaponType = 3 And Iu\RangedProjectile = refID
+                y = Composer::chipRow(self, panelX, panelW, y, "", "item", Iu\ID, mx, my, clicked, rightClicked, "")
+                usedCount = usedCount + 1
+            EndIf
+        Next
+        If usedCount = 0
+            If Composer::canPaintRow(self, y, CMP_ROW_H) = True
+                LoomText(panelX + CMP_PAD, y + 4, "(no ranged weapons fire this)", LOOM_STONE_300_R, LOOM_STONE_300_G, LOOM_STONE_300_B)
+            EndIf
+            y = y + CMP_ROW_H
+        EndIf
+
         Composer::recordContentBottom(self, y)
     End Method
 
