@@ -13,5 +13,6 @@ pub mod particles;
 pub mod radar;
 pub mod terrain;
 pub mod trade;
+pub mod water;
 pub mod weather;
 pub mod world;

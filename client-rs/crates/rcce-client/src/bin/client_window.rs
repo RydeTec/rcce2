@@ -28,6 +28,7 @@ use rcce_client::login::{
     account_login, create_char, delete_char, enter_world, login, CharAppearance, CharInfo,
     Credentials,
 };
+use rcce_client::water::WaterVolumes;
 use rcce_client::world::World;
 use rcce_data::{AreaScenery, B3dModel, Image};
 use rcce_net::Transport;
@@ -293,6 +294,11 @@ struct App {
     /// fresh `Vec<Option<Image>>` each frame (as the render loop used to) was pure
     /// churn. Borrowed as `&self.water_texs[i][..]` at the two water draw sites.
     water_texs: Vec<Vec<Option<Image>>>,
+    /// The zone's water volumes as queryable state (`rcce_client::water`) —
+    /// surface height + underwater tests for swim seating, and the seam MOVE-8
+    /// (destination rejection) and CAM-6 (underwater camera) consume. Kept in
+    /// lockstep with `water_planes`/`water_texs` by `set_water_planes`.
+    water: WaterVolumes,
     water_scroll: [f32; 2],
     /// Live particle emitters for the current zone (simulated each frame).
     emitters: Vec<ZoneEmitter>,
@@ -568,6 +574,7 @@ impl App {
             height_field: None,
             water_planes: Vec::new(),
             water_texs: Vec::new(),
+            water: WaterVolumes::default(),
             water_scroll: [0.0, 0.0],
             emitters: Vec::new(),
             scenery_interactables: Vec::new(),
@@ -1453,9 +1460,10 @@ const MENU_CHAR_Y: f32 = 2.4;
 const MENU_SET_RUG: [f32; 3] = [8.0, 0.0, 8.16667];
 /// Water texture scroll rate (UV units/sec). Blitz scrolls `U += Δ·0.00025`,
 /// `V += Δ·0.0007` per frame (`Environment3D.bb:270`) where `Δ = 30/fps`, i.e.
-/// `0.0075` / `0.021` UV-units/sec — a gentle diagonal drift.
-const WATER_SCROLL_U: f32 = 0.0075;
-const WATER_SCROLL_V: f32 = 0.021;
+/// `0.0075` / `0.021` UV-units/sec — a gentle diagonal drift. Source of truth
+/// (shared with the water-volume queries): `rcce_client::water`.
+const WATER_SCROLL_U: f32 = rcce_client::water::SCROLL_U_PER_SEC;
+const WATER_SCROLL_V: f32 = rcce_client::water::SCROLL_V_PER_SEC;
 
 /// Convert a scenery placement's stored Blitz `[pitch, yaw, roll]` (degrees) to
 /// the renderer's rotation radians, **negating yaw**.
@@ -1856,7 +1864,7 @@ fn build_actors(
     hide_me: bool,
     me_fidget: Option<&'static [&'static str]>,
     height: Option<&rcce_client::terrain::HeightField>,
-    waters: &[(rcce_data::WaterPlane, rcce_data::Image)],
+    waters: &WaterVolumes,
 ) -> (
     Vec<Rc<B3dModel>>,
     Vec<Rc<Vec<Option<Image>>>>,
@@ -1970,7 +1978,7 @@ fn build_actors(
             // unaffected.
             Some(th) => {
                 let body_h = (max[1] - min[1]) * scale;
-                let seat = match water_surface_at(waters, pos[0], pos[2]) {
+                let seat = match waters.surface_y(pos[0], pos[2]) {
                     Some(surface) => swim_seat_ground(th, surface, body_h),
                     None => th,
                 };
@@ -2566,41 +2574,23 @@ fn build_water_texs(planes: &[(rcce_data::WaterPlane, rcce_data::Image)]) -> Vec
 /// `&mut self` method, so it composes with the `gfx`/`view`/`store` split
 /// borrows held at the in-render zone-reload call site. Hardens the iter-21 /
 /// #487 review nit — the pairing was previously inlined at each call site.)
+/// `volumes` (the queryable [`WaterVolumes`] state — swim seating today, MOVE-8 /
+/// CAM-6 tomorrow) is refreshed here too, so it can never drift from the drawn
+/// planes.
 fn set_water_planes(
     planes: Vec<(rcce_data::WaterPlane, rcce_data::Image)>,
     water_planes: &mut Vec<(rcce_data::WaterPlane, rcce_data::Image)>,
     water_texs: &mut Vec<Vec<Option<Image>>>,
+    volumes: &mut WaterVolumes,
 ) {
     *water_texs = build_water_texs(&planes);
+    volumes.set(planes.iter().map(|(w, _)| *w));
     *water_planes = planes;
-}
-
-/// The water-tint colour if the camera `eye` is underwater — below a water
-/// plane's surface Y and within its X/Z bounds (Blitz `CameraUnderwater`,
-/// Client.bb:895-914). `None` when above water; the first containing plane wins.
-/// The caller tints fog + a full-screen wash to this colour and clamps the view
-/// distance, reproducing the murky submerged look (and hiding the sky).
-fn underwater_color(water_planes: &[(rcce_data::WaterPlane, rcce_data::Image)], eye: [f32; 3]) -> Option<[f32; 3]> {
-    water_planes.iter().find_map(|(w, _)| {
-        let p = w.pos;
-        let under =
-            eye[1] < p[1] && (eye[0] - p[0]).abs() < w.scale_x * 0.5 && (eye[2] - p[2]).abs() < w.scale_z * 0.5;
-        under.then_some(w.color)
-    })
 }
 
 /// Fraction of an actor's height that sits BELOW the waterline while swimming
 /// (so `1 - SWIM_SUBMERSION` of the body — head and shoulders — stays above).
 const SWIM_SUBMERSION: f32 = 0.7;
-
-/// The surface Y of the water plane whose X/Z footprint contains `(x, z)`, if
-/// any (first match wins, mirroring `underwater_color`'s containment test).
-fn water_surface_at(waters: &[(rcce_data::WaterPlane, rcce_data::Image)], x: f32, z: f32) -> Option<f32> {
-    waters.iter().find_map(|(w, _)| {
-        let p = w.pos;
-        ((x - p[0]).abs() < w.scale_x * 0.5 && (z - p[2]).abs() < w.scale_z * 0.5).then_some(p[1])
-    })
-}
 
 /// Seat-ground height for an actor standing inside a water plane: float the body
 /// at the `surface` (submerged to `SWIM_SUBMERSION` of its height, so it swims
@@ -3204,7 +3194,7 @@ impl ApplicationHandler for App {
             self.span = z.span;
             self.ground_y = z.ground_y;
             self.height_field = Some(z.height_field);
-            set_water_planes(z.waters, &mut self.water_planes, &mut self.water_texs);
+            set_water_planes(z.waters, &mut self.water_planes, &mut self.water_texs, &mut self.water);
             self.emitters = z.emitters;
             self.scenery_interactables = z.scenery_interactables;
             self.cam_occluders = z.occluders;
@@ -5485,7 +5475,7 @@ impl App {
         // Underwater (Blitz CameraUnderwater): tint fog to the water colour when the
         // free camera dips below a water plane, so the preview can verify the murk +
         // wash headlessly (the wash itself is composited onto the shot below).
-        let underwater = underwater_color(&self.water_planes, eye);
+        let underwater = self.water.underwater_color(eye);
         let fog = match underwater {
             Some(wc) => [wc[0] * 0.7, wc[1] * 0.7, wc[2] * 0.7],
             None => rcce_client::daynight::modulate(self.fog_color, &sky_mod),
@@ -5904,7 +5894,7 @@ impl App {
                 // Seat on the set's floor height field (built at scene init) so
                 // the feet rest on the rug instead of a guessed anchor Y.
                 let (models, textures, place, keys, skinned) =
-                    build_actors(store, &mw, elapsed, self.gpu_skin, false, false, c.actor_id, false, false, 0.0, false, None, self.height_field.as_ref(), &[]);
+                    build_actors(store, &mw, elapsed, self.gpu_skin, false, false, c.actor_id, false, false, 0.0, false, None, self.height_field.as_ref(), &WaterVolumes::EMPTY);
                 let instances: Vec<SceneInstance> = place
                     .iter()
                     .map(|&(idx, t, r, color, s)| SceneInstance {
@@ -6540,7 +6530,7 @@ impl App {
                     self.span = z.span;
                     self.ground_y = z.ground_y;
                     self.height_field = Some(z.height_field);
-                    set_water_planes(z.waters, &mut self.water_planes, &mut self.water_texs);
+                    set_water_planes(z.waters, &mut self.water_planes, &mut self.water_texs, &mut self.water);
                     // Carry player-attached dynamic emitters across the zone change
                     // (Blitz keeps `AttachedToPlayer` ones, ClientNet.bb:1679 — a
                     // player aura follows them), then append the new zone's permanent
@@ -6973,8 +6963,8 @@ impl App {
                 // RCCE_NOSWIM disables the water-surface seating (passes no water
                 // planes) so a before/after of the swim fix is capturable from one
                 // binary.
-                let swim_waters: &[(rcce_data::WaterPlane, rcce_data::Image)] =
-                    if std::env::var_os("RCCE_NOSWIM").is_some() { &[] } else { &self.water_planes };
+                let swim_waters: &WaterVolumes =
+                    if std::env::var_os("RCCE_NOSWIM").is_some() { &WaterVolumes::EMPTY } else { &self.water };
                 let (models, textures, place, keys, skinned) = build_actors(
                     store, &net.world, elapsed, self.gpu_skin, moving, run, net.world.me_actor_id,
                     me_attack, me_jumping, me_jump_offset, self.first_person, me_fidget,
@@ -7075,7 +7065,7 @@ impl App {
             // the body now floats at the surface (swim seating), so a look-point on
             // the deep lakebed would aim the camera underwater — murking the screen
             // while the player is actually swimming on top. Clamp to the surface.
-            if let Some(surface) = water_surface_at(&self.water_planes, mrx, mrz) {
+            if let Some(surface) = self.water.surface_y(mrx, mrz) {
                 cam_y = cam_y.max(surface);
             }
             cam_target = [mrx, cam_y, mrz];
@@ -7135,8 +7125,7 @@ impl App {
         // Uses the gfx/view bound at the top of the world render path.
         if !self.water_planes.is_empty() {
             let dt = (elapsed - self.prev_elapsed).clamp(0.0, 0.1);
-            self.water_scroll[0] = (self.water_scroll[0] + WATER_SCROLL_U * dt).rem_euclid(1.0);
-            self.water_scroll[1] = (self.water_scroll[1] + WATER_SCROLL_V * dt).rem_euclid(1.0);
+            self.water_scroll = rcce_client::water::advance_scroll(self.water_scroll, dt);
             let scroll = self.water_scroll;
             let models: Vec<B3dModel> = self.water_planes.iter().map(|(w, _)| water_quad(w, scroll)).collect();
             // Textures are cached at zone load (see `water_texs`) — borrow, don't clone.
@@ -8251,7 +8240,7 @@ impl App {
         // plane, tint the fog/clear to the water colour and clamp to a short murky
         // view distance. The full-screen water wash added to the overlay below also
         // hides the sky/sun (Blitz hides Sky/Stars/Cloud entities underwater).
-        let underwater = underwater_color(&self.water_planes, eye);
+        let underwater = self.water.underwater_color(eye);
         let mut fog_near_eff = wfog_near;
         let mut fog_far_eff = wfog_far;
         if let Some(wc) = underwater {
@@ -10243,6 +10232,72 @@ mod tests {
         assert!(!emitter_survives_zone_change(Some(0), 0), "before in-world, nothing survives");
     }
 
+    // ENV-4: the water plane's renderable quad carries Blitz's translucency +
+    // tiling: UVs tile `scale / tex_scale` times (ScaleTexture divides the
+    // tiling, ClientAreas_FE.bb:721), vertex alpha = the file's opacity, and the
+    // scroll offset lands in `uv_offset` (Blitz PositionTexture(U, V)).
+    #[test]
+    fn water_quad_tiling_alpha_scroll() {
+        let w = rcce_data::WaterPlane {
+            tex_id: 331,
+            tex_scale: 15.0,
+            pos: [43.2, -4.7, 50.6],
+            scale_x: 90.0,
+            scale_z: 60.0,
+            color: [0.0, 0.0, 150.0 / 255.0],
+            opacity: 0.68,
+        };
+        let m = water_quad(&w, [0.25, 0.5]);
+        let mesh = &m.meshes[0];
+        assert_eq!(mesh.uvs[2], [90.0 / 15.0, 60.0 / 15.0], "tiles scale/tex_scale times");
+        assert!(mesh.colors.iter().all(|c| c[3] == 0.68), "vertex alpha = file opacity");
+        assert_eq!(mesh.uv_offset, [0.25, 0.5], "scroll offset applied");
+        // Degenerate tex_scale (0) must not divide by zero.
+        let m0 = water_quad(&rcce_data::WaterPlane { tex_scale: 0.0, ..w }, [0.0, 0.0]);
+        assert!(m0.meshes[0].uvs[2][0].is_finite(), "tex_scale 0 falls back, no inf/NaN");
+    }
+
+    // ENV-4: zone-load water state stays in lockstep through set_water_planes —
+    // the drawn planes, the cached per-plane textures, and the queryable
+    // WaterVolumes (swim/MOVE-8/CAM-6 seam) are all replaced together.
+    #[test]
+    fn set_water_planes_keeps_state_in_lockstep() {
+        let img = Image { width: 1, height: 1, rgba: vec![0, 0, 255, 255] };
+        let planes = vec![
+            (
+                rcce_data::WaterPlane {
+                    pos: [100.0, -5.0, 200.0],
+                    scale_x: 40.0,
+                    scale_z: 40.0,
+                    opacity: 0.5,
+                    ..Default::default()
+                },
+                img.clone(),
+            ),
+            (
+                rcce_data::WaterPlane {
+                    pos: [-300.0, 2.0, 0.0],
+                    scale_x: 10.0,
+                    scale_z: 10.0,
+                    opacity: 1.0,
+                    ..Default::default()
+                },
+                img,
+            ),
+        ];
+        let mut water_planes = Vec::new();
+        let mut water_texs = Vec::new();
+        let mut volumes = WaterVolumes::default();
+        set_water_planes(planes, &mut water_planes, &mut water_texs, &mut volumes);
+        assert_eq!(water_planes.len(), 2);
+        assert_eq!(water_texs.len(), 2, "one cached texture set per plane");
+        assert_eq!(volumes.planes.len(), 2, "queryable volumes mirror the drawn planes");
+        assert_eq!(volumes.surface_y(100.0, 200.0), Some(-5.0), "surface query works post-load");
+        // A zone change to a dry zone clears everything together.
+        set_water_planes(Vec::new(), &mut water_planes, &mut water_texs, &mut volumes);
+        assert!(water_planes.is_empty() && water_texs.is_empty() && volumes.is_empty());
+    }
+
     // NPC nameplate hostility colour: non-combatant (3) green, passive/defensive
     // (0/1) gold, always-attacks (2, and any other value) red — mirrors Blitz's
     // nametag colouring (Actors3D.bb:546-559).
@@ -10498,10 +10553,10 @@ mod tests {
     }
 
     // Underwater = camera eye below a water plane's surface AND within its X/Z
-    // bounds; returns the plane's tint colour (else None).
+    // bounds; returns the plane's tint colour (else None). Queried through the
+    // shared WaterVolumes state (rcce_client::water) the render paths use.
     #[test]
     fn underwater_only_below_surface_and_in_bounds() {
-        let img = rcce_data::Image { width: 1, height: 1, rgba: vec![0, 0, 0, 255] };
         let w = rcce_data::WaterPlane {
             tex_id: 0,
             tex_scale: 1.0,
@@ -10511,15 +10566,16 @@ mod tests {
             color: [0.1, 0.3, 0.4],
             opacity: 0.5,
         };
-        let planes = vec![(w, img)];
+        let mut vols = WaterVolumes::default();
+        vols.set([w]);
         // Below the surface, inside the footprint → tinted.
-        assert_eq!(underwater_color(&planes, [0.0, 5.0, 0.0]), Some([0.1, 0.3, 0.4]));
-        assert_eq!(underwater_color(&planes, [9.0, 9.9, -9.0]), Some([0.1, 0.3, 0.4]));
+        assert_eq!(vols.underwater_color([0.0, 5.0, 0.0]), Some([0.1, 0.3, 0.4]));
+        assert_eq!(vols.underwater_color([9.0, 9.9, -9.0]), Some([0.1, 0.3, 0.4]));
         // Above the surface → none, even within the footprint.
-        assert_eq!(underwater_color(&planes, [0.0, 12.0, 0.0]), None);
+        assert_eq!(vols.underwater_color([0.0, 12.0, 0.0]), None);
         // Below the surface but outside the X / Z footprint → none.
-        assert_eq!(underwater_color(&planes, [50.0, 5.0, 0.0]), None);
-        assert_eq!(underwater_color(&planes, [0.0, 5.0, 50.0]), None);
+        assert_eq!(vols.underwater_color([50.0, 5.0, 0.0]), None);
+        assert_eq!(vols.underwater_color([0.0, 5.0, 50.0]), None);
     }
 
     // A LOD terrain patch (grid N=2) builds a (N+1)² vertex grid with 2 triangles
