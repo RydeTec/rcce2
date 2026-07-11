@@ -60,6 +60,7 @@ Type Ribbon
     Field cachedTotalZones%
     Field cachedTotalFactions%
     Field cachedTotalAnimSets%
+    Field cachedTotalProjectiles%
 
 
     Method create.Ribbon(threads.Threads, composer.Composer)
@@ -119,6 +120,7 @@ Type Ribbon
         result = Ribbon::drawDirtyBadge(self, "Items",    "item",    ItemsSaved,    x, mx, my, clicked) : x = result
         If clicked And x = -1 Then consumed = True
         result = Ribbon::drawDirtyBadge(self, "Spells",   "spell",   SpellsSaved,   x, mx, my, clicked) : x = result
+        result = Ribbon::drawDirtyBadge(self, "Projectiles", "projectile", ProjectilesSaved, x, mx, my, clicked) : x = result
         result = Ribbon::drawDirtyBadge(self, "Zone",     "zone",    ZoneSaved,     x, mx, my, clicked) : x = result
         result = Ribbon::drawDirtyBadge(self, "Factions", "faction", FactionsSaved, x, mx, my, clicked) : x = result
         result = Ribbon::drawDirtyBadge(self, "Anims",    "animset", AnimsSaved,    x, mx, my, clicked) : x = result
@@ -172,7 +174,7 @@ Type Ribbon
         EndIf
 
         // Right side: chrome immersion toggle + total entity counts (compact)
-        Local totals$ = Str(self\cachedTotalActors) + "A | " + Str(self\cachedTotalItems) + "I | " + Str(self\cachedTotalSpells) + "S | " + Str(self\cachedTotalZones) + "Z | " + Str(self\cachedTotalFactions) + "F | " + Str(self\cachedTotalAnimSets) + "M"
+        Local totals$ = Str(self\cachedTotalActors) + "A | " + Str(self\cachedTotalItems) + "I | " + Str(self\cachedTotalSpells) + "S | " + Str(self\cachedTotalProjectiles) + "P | " + Str(self\cachedTotalZones) + "Z | " + Str(self\cachedTotalFactions) + "F | " + Str(self\cachedTotalAnimSets) + "M"
         Local totalsW% = StringWidth(totals)
         LoomText(sw - totalsW - RIBBON_PAD, 6, totals, LOOM_STONE_300_R, LOOM_STONE_300_G, LOOM_STONE_300_B)
 
@@ -274,5 +276,6 @@ Type Ribbon
         self\cachedTotalZones    = WorldCache::totalZones(LoomWorldCache)
         self\cachedTotalFactions = WorldCache::totalFactions(LoomWorldCache)
         self\cachedTotalAnimSets = WorldCache::totalAnimSets(LoomWorldCache)
+        self\cachedTotalProjectiles = WorldCache::totalProjectiles(LoomWorldCache)
     End Method
 End Type

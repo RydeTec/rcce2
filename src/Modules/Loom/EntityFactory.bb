@@ -44,6 +44,7 @@ Function EntityFactory_Create%(kind$, threads.Threads)
     If kind = "zone"    Then Return EntityFactory_CreateZone(threads)
     If kind = "faction" Then Return EntityFactory_CreateFaction(threads)
     If kind = "animset" Then Return EntityFactory_CreateAnimSet(threads)
+    If kind = "projectile" Then Return EntityFactory_CreateProjectile(threads)
 
     WriteLog(LoomLog, "EntityFactory: unknown kind '" + kind + "'")
     Return False
@@ -158,6 +159,29 @@ Function EntityFactory_CreateFaction%(threads.Threads)
 End Function
 
 
+Function EntityFactory_CreateProjectile%(threads.Threads)
+    Local Pj.Projectile = CreateProjectile()
+    If Pj = Null
+        WriteLog(LoomLog, "EntityFactory: CreateProjectile returned Null (ProjectileList full?)")
+        Return False
+    EndIf
+    // Defaults mirror GUE's "New projectile" button + the tab's gadget
+    // minimums (HitChance / Speed spinners start at 1; MeshID 65535 =
+    // [NONE] so a fresh projectile doesn't claim mesh 0).
+    Pj\Name$ = "New projectile"
+    Pj\MeshID = 65535
+    Pj\HitChance = 100
+    Pj\Speed = 100
+    Threads::focus(threads, "projectile", Pj\ID)
+    ProjectilesSaved = False
+    Timeline_RecordCreate("projectile", Pj\ID, Pj\Name$)
+    WorldCache_Invalidate()
+    Toast_Show("Created projectile " + Pj\Name$, "success")
+    WriteLog(LoomLog, "EntityFactory: created projectile #" + Str(Pj\ID))
+    Return True
+End Function
+
+
 Function EntityFactory_CreateAnimSet%(threads.Threads)
     // CreateAnimSet returns the assigned ID (or -1 on cap). The instance
     // is already inserted into AnimList by the constructor.
@@ -221,6 +245,7 @@ Function EntityFactory_Duplicate%(kind$, refID%, threads.Threads)
     If kind = "animset" Then Return EntityFactory_DuplicateAnimSet(refID, threads)
     If kind = "faction" Then Return EntityFactory_DuplicateFaction(refID, threads)
     If kind = "zone"   Then Return EntityFactory_DuplicateZone(refID, threads)
+    If kind = "projectile" Then Return EntityFactory_DuplicateProjectile(refID, threads)
     WriteLog(LoomLog, "EntityFactory: duplicate unknown kind '" + kind + "'")
     Return False
 End Function
@@ -335,6 +360,25 @@ Function EntityFactory_DuplicateAnimSet%(srcID%, threads.Threads)
 End Function
 
 
+Function EntityFactory_DuplicateProjectile%(srcID%, threads.Threads)
+    Local newID% = DuplicateProjectileTemplate(srcID)
+    If newID = -1
+        Toast_Show("Duplicate failed (ProjectileList full or stale)", "danger")
+        Return False
+    EndIf
+    Threads::focus(threads, "projectile", newID)
+    ProjectilesSaved = False
+    WorldCache_Invalidate()
+    Local newPj.Projectile = ProjectileList(newID)
+    Local label$ = ""
+    If newPj <> Null Then label = newPj\Name$
+    Timeline_RecordCreate("projectile", newID, label)
+    Toast_Show("Duplicated projectile", "success")
+    WriteLog(LoomLog, "EntityFactory: duplicated projectile #" + Str(srcID) + " -> #" + Str(newID))
+    Return True
+End Function
+
+
 Function EntityFactory_DuplicateFaction%(srcID%, threads.Threads)
     If srcID < 0 Or srcID > 99 Then Return False
     If FactionNames$(srcID) = "" Then Return False
@@ -388,6 +432,7 @@ Function EntityFactory_Delete%(kind$, refID%, threads.Threads)
     If kind = "zone"    Then Return EntityFactory_DeleteZone(refID, threads)
     If kind = "faction" Then Return EntityFactory_DeleteFaction(refID, threads)
     If kind = "animset" Then Return EntityFactory_DeleteAnimSet(refID, threads)
+    If kind = "projectile" Then Return EntityFactory_DeleteProjectile(refID, threads)
     WriteLog(LoomLog, "EntityFactory: delete unknown kind '" + kind + "'")
     Return False
 End Function
@@ -457,6 +502,23 @@ Function EntityFactory_DeleteAnimSet%(refID%, threads.Threads)
     Threads::focus(threads, "", 0)
     Threads::clearStack(threads)
     WriteLog(LoomLog, "EntityFactory: deleted animset #" + Str(refID))
+    Return True
+End Function
+
+
+Function EntityFactory_DeleteProjectile%(refID%, threads.Threads)
+    Local label$ = Threads::lookupName(threads, "projectile", refID)
+    If DeleteProjectileTemplate(refID) = False
+        WriteLog(LoomLog, "EntityFactory: delete projectile #" + Str(refID) + " -- not found")
+        Return False
+    EndIf
+    ProjectilesSaved = False
+    Timeline_RecordDelete("projectile", refID, label)
+    WorldCache_Invalidate()
+    Toast_Show("Deleted projectile " + label, "danger")
+    Threads::focus(threads, "", 0)
+    Threads::clearStack(threads)
+    WriteLog(LoomLog, "EntityFactory: deleted projectile #" + Str(refID))
     Return True
 End Function
 

@@ -34,6 +34,9 @@ src/
         │                            focused entities (Data/Loom/recents.txt)
         ├── Tools.bb                 launcher catalog for GUE's standalone
         │                            editors (Architect / Terrain / etc.)
+        ├── EmitterCatalog.bb        .rpc basenames under Data\Emitter Configs\;
+        │                            picker roster + name validator for the
+        │                            Projectile composer's emitter fields
         └── EntityFactory.bb         create / delete dispatch wrapping
                                      GUE's Create* + (new) DeleteXTemplate
 ```
@@ -179,7 +182,7 @@ Lives as fields on the `Threads` instance, which is the source of truth shared b
 
 | Field | Type | Meaning |
 |---|---|---|
-| `threads\focusKind$` | string | `"" \| "actor" \| "item" \| "spell" \| "zone" \| "faction" \| "animset"` |
+| `threads\focusKind$` | string | `"" \| "actor" \| "item" \| "spell" \| "zone" \| "faction" \| "animset" \| "projectile" \| ...` |
 | `threads\focusID%` | int | interpretation depends on `focusKind` — see below |
 | `threads\backStack.BBList` | `BBList` of `LoomFocusEntry` | navigation trail; popped by Esc |
 
@@ -193,12 +196,13 @@ Lives as fields on the `Threads` instance, which is the source of truth shared b
 | `zone` | `Handle(Area)` (round-trips via `Object.Area(handle)`) | **no** — regenerates per load |
 | `faction` | `FactionNames$` array index 0..99 | yes |
 | `animset` | `AnimSet\ID` | yes |
+| `projectile` | `Projectile\ID` (array index into `ProjectileList`, 0..5000) | yes |
 
 The zone-handle instability is why `Recents` persists zones by `Ar\Name$` instead of refID — see [Recents.bb](../../src/Modules/Loom/Recents.bb) "STABLE KEYS" comment.
 
 ## Edit / save / dirty-flag plumbing
 
-The per-kind `*Saved` globals (`ItemsSaved`, `ActorsSaved`, `SpellsSaved`, `FactionsSaved`, `ZoneSaved`, `AnimsSaved`) are **shared with GUE** — `Loom.bb` redeclares the same set at lines 58-69 so writes from Loom's Composer / EntityFactory flip the same flags GUE inspects. `False` = unsaved changes pending; `True` = on-disk == in-memory.
+The per-kind `*Saved` globals (`ItemsSaved`, `ActorsSaved`, `SpellsSaved`, `FactionsSaved`, `ZoneSaved`, `AnimsSaved`, `ProjectilesSaved`) are **shared with GUE** — `Loom.bb` redeclares the same set at lines 58-69 so writes from Loom's Composer / EntityFactory flip the same flags GUE inspects. `False` = unsaved changes pending; `True` = on-disk == in-memory.
 
 The edit lifecycle:
 

@@ -28,6 +28,7 @@ Strict
 //   "zone"     refID = Handle(Area)
 //   "faction"  refID = FactionNames$ array index 0..99
 //   "animset"  refID = AnimSet\ID
+//   "projectile"  refID = Projectile\ID (array index in ProjectileList, 0..5000)
 //
 // Architecture: Type with Methods, called as `Threads::method(self, args)`.
 // See [docs/loom/architecture.md](../../../docs/loom/architecture.md) and
@@ -201,6 +202,13 @@ Type Threads
             Return ""
         EndIf
 
+        If kind = "projectile"
+            If refID < 0 Or refID > 5000 Then Return ""
+            Local Pr.Projectile = ProjectileList(refID)
+            If Pr = Null Then Return ""
+            Return Pr\Name$
+        EndIf
+
         If kind = "settings"
             // Singleton project-config "entity". refID is ignored.
             Return "Project Settings"
@@ -337,6 +345,7 @@ Type Threads
         If kind = "zone"    Then Return "Z"
         If kind = "faction" Then Return "F"
         If kind = "animset" Then Return "M"
+        If kind = "projectile" Then Return "P"
         If kind = "script"  Then Return "x"      ; ".rsl" looks like an x-ish glyph
         If kind = "texture" Then Return "T"
         If kind = "mesh"    Then Return "m"

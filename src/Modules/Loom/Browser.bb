@@ -173,6 +173,10 @@ Type Browser
         Browser::addCategory(self, "actor",   "Actors")
         Browser::addCategory(self, "item",    "Items")
         Browser::addCategory(self, "spell",   "Spells")
+        // Projectiles tab: GUE "Projectiles" tab parity. Ranged-weapon
+        // ammo templates (mesh + emitters + damage); referenced from
+        // Item\RangedProjectile.
+        Browser::addCategory(self, "projectile", "Projectiles")
         Browser::addCategory(self, "zone",    "Zones")
         Browser::addCategory(self, "faction", "Factions")
         Browser::addCategory(self, "animset", "Animation Sets")
@@ -579,6 +583,7 @@ Type Browser
         If kind = "actor"   Then Return "Actor"
         If kind = "item"    Then Return "Item"
         If kind = "spell"   Then Return "Spell"
+        If kind = "projectile" Then Return "Projectile"
         If kind = "zone"    Then Return "Zone"
         If kind = "faction" Then Return "Faction"
         If kind = "animset" Then Return "Anim Set"
@@ -784,6 +789,9 @@ Type Browser
         If cat = "spell"
             count = Browser::drawSpellGrid(self, sw, sh, mx, my, clicked, gridX, gridY, cols)
         EndIf
+        If cat = "projectile"
+            count = Browser::drawProjectileGrid(self, sw, sh, mx, my, clicked, gridX, gridY, cols)
+        EndIf
         If cat = "zone"
             count = Browser::drawZoneGrid(self, sw, sh, mx, my, clicked, gridX, gridY, cols)
         EndIf
@@ -926,6 +934,27 @@ Type Browser
                 If Browser::cardVisible(self, cy, sh) = True
                     Browser::drawCardChrome(self, "spell", Sp\ID, cx, cy, mx, my, clicked, count)
                     Browser::drawSpellCardBody(self, Sp, cx, cy)
+                EndIf
+                count = count + 1
+                col = col + 1
+                If col >= cols Then col = 0 : row = row + 1
+            EndIf
+        Next
+        Return count
+    End Method
+
+
+    Method drawProjectileGrid%(sw%, sh%, mx%, my%, clicked%, gridX%, gridY%, cols%)
+        Local col% = 0
+        Local row% = 0
+        Local count% = 0
+        For Pj.Projectile = Each Projectile
+            If Browser::matchesFilter(self, Pj\Name$) = True
+                Local cx% = gridX + col * (BR_CARD_W + BR_CARD_GAP)
+                Local cy% = gridY + row * (BR_CARD_H + BR_CARD_GAP)
+                If Browser::cardVisible(self, cy, sh) = True
+                    Browser::drawCardChrome(self, "projectile", Pj\ID, cx, cy, mx, my, clicked, count)
+                    Browser::drawProjectileCardBody(self, Pj, cx, cy)
                 EndIf
                 count = count + 1
                 col = col + 1
@@ -1683,6 +1712,31 @@ Type Browser
 
         // Bottom-right thumbnail -- 32x32 preview of the spell icon
         Loom_DrawThumbnailSmall(Sp\ThumbnailTexID, x + BR_CARD_W - 44, y + BR_CARD_H - 44)
+    End Method
+
+
+    Method drawProjectileCardBody(Pj.Projectile, x%, y%)
+        LoomText(x + 12, y + 18, Pj\Name$, LOOM_PARCHMENT_100_R, LOOM_PARCHMENT_100_G, LOOM_PARCHMENT_100_B)
+
+        // Top-right badge -- HOMING is the most design-relevant flag; a
+        // non-homing projectile shows its damage type instead.
+        If Pj\Homing = True
+            Browser::drawBadge(self, x + BR_CARD_W - 12, y + 18, "HOMING", LOOM_ARCANE_500_R, LOOM_ARCANE_500_G, LOOM_ARCANE_500_B)
+        Else
+            Local dtName$ = ""
+            If Pj\DamageType >= 0 And Pj\DamageType <= 19 Then dtName = DamageTypes$(Pj\DamageType)
+            If dtName = "" Then dtName = "BALLISTIC"
+            Browser::drawBadge(self, x + BR_CARD_W - 12, y + 18, Upper$(dtName), LOOM_BRASS_500_R, LOOM_BRASS_500_G, LOOM_BRASS_500_B)
+        EndIf
+
+        LoomText(x + 12, y + 44, "Damage", LOOM_BRASS_500_R, LOOM_BRASS_500_G, LOOM_BRASS_500_B)
+        LoomText(x + 12, y + 60, Str(Pj\Damage), LOOM_PARCHMENT_100_R, LOOM_PARCHMENT_100_G, LOOM_PARCHMENT_100_B)
+
+        LoomText(x + 110, y + 44, "Hit %", LOOM_BRASS_500_R, LOOM_BRASS_500_G, LOOM_BRASS_500_B)
+        LoomText(x + 110, y + 60, Str(Pj\HitChance), LOOM_PARCHMENT_100_R, LOOM_PARCHMENT_100_G, LOOM_PARCHMENT_100_B)
+
+        LoomText(x + 208, y + 44, "Speed", LOOM_BRASS_500_R, LOOM_BRASS_500_G, LOOM_BRASS_500_B)
+        LoomText(x + 208, y + 60, Str(Pj\Speed) + "%", LOOM_PARCHMENT_100_R, LOOM_PARCHMENT_100_G, LOOM_PARCHMENT_100_B)
     End Method
 
 
