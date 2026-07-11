@@ -734,6 +734,26 @@ Type Palette
             // Emitter fields store the config NAME (like zone portals);
             // the result's refID is just the catalog index.
             If k = "emitter" Then val = nm
+            // Asset results carry the CATALOG INDEX as refID (the
+            // Threads::focus convention -- see addResult's te\Index /
+            // mh\Index / sd\Index), but assetIntRow fields store the
+            // ENGINE ID (resolved via *_GetByID). Resolve index -> ID
+            // before writing so picking "tex.png #12" writes 12, not
+            // the catalog position. Null lookup can't happen for a
+            // result we just enumerated from the same pool, but guard
+            // anyway (soft-fail: keep Str(id) rather than crash).
+            If k = "texture"
+                Local pickTex.TextureEntry = Textures_GetByIndex(id)
+                If pickTex <> Null Then val = Str(pickTex\ID)
+            EndIf
+            If k = "mesh"
+                Local pickMesh.MeshEntry = Meshes_GetByIndex(id)
+                If pickMesh <> Null Then val = Str(pickMesh\ID)
+            EndIf
+            If k = "sound"
+                Local pickSound.SoundEntry = Sounds_GetByIndex(id)
+                If pickSound <> Null Then val = Str(pickSound\ID)
+            EndIf
             If k = "script"
                 // DisplayName is "Name.rsl"; strip the extension.
                 Local scriptBase$ = nm
