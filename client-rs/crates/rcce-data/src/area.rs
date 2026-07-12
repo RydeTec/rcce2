@@ -367,6 +367,92 @@ mod tests {
         (0..3).all(|i| (a[i] - b[i]).abs() < 1e-4)
     }
 
+    // Synthetic water block (ENV-4): header + 0 sceneries, then one water
+    // record laid out per SaveArea (ClientAreas_FE.bb:708-760) — tex(i16) ·
+    // tex_scale(f32) · x/y/z(f32×3) · scale_x/scale_z(f32×2) · rgb(u8×3) ·
+    // opacity(u8, 0..100). Exercises every parsed field incl. the /255 colour
+    // and /100 opacity normalisation.
+    #[test]
+    fn parse_synthetic_water() {
+        let mut d = vec![0u8; SCENERY_COUNT_OFFSET]; // zeroed 41-byte header
+        let u16 = |d: &mut Vec<u8>, v: u16| d.extend_from_slice(&v.to_le_bytes());
+        let f32 = |d: &mut Vec<u8>, v: f32| d.extend_from_slice(&v.to_le_bytes());
+        u16(&mut d, 0); // sceneries: empty
+        u16(&mut d, 1); // one water plane
+        u16(&mut d, 331); // tex_id
+        f32(&mut d, 15.0); // tex_scale
+        for v in [43.25, -4.75, 50.5] {
+            f32(&mut d, v); // pos
+        }
+        f32(&mut d, 90.0); // scale_x
+        f32(&mut d, 60.0); // scale_z
+        d.extend_from_slice(&[0, 51, 153]); // RGB
+        d.push(68); // opacity (0..100)
+        let a = AreaScenery::parse(&d).expect("parse");
+        assert_eq!(a.waters.len(), 1);
+        let w = &a.waters[0];
+        assert_eq!(w.tex_id, 331);
+        assert_eq!(w.tex_scale, 15.0);
+        assert!(approx(w.pos, [43.25, -4.75, 50.5]));
+        assert_eq!((w.scale_x, w.scale_z), (90.0, 60.0));
+        assert!(approx(w.color, [0.0, 51.0 / 255.0, 153.0 / 255.0]));
+        assert!((w.opacity - 0.68).abs() < 1e-6, "opacity 68 → 0.68 (got {})", w.opacity);
+    }
+
+    // An out-of-range opacity byte (Blitz writes 0..100 but the file is
+    // untrusted) clamps to 1.0 instead of producing >1 alpha; a truncated
+    // water record yields no water rather than an error (soft-fail).
+    #[test]
+    fn water_opacity_clamps_and_truncation_soft_fails() {
+        let mut d = vec![0u8; SCENERY_COUNT_OFFSET];
+        d.extend_from_slice(&0u16.to_le_bytes()); // sceneries: empty
+        d.extend_from_slice(&1u16.to_le_bytes()); // one water plane
+        d.extend_from_slice(&5u16.to_le_bytes()); // tex_id
+        d.extend_from_slice(&1.0f32.to_le_bytes()); // tex_scale
+        for _ in 0..5 {
+            d.extend_from_slice(&0.0f32.to_le_bytes()); // pos + scale
+        }
+        d.extend_from_slice(&[255, 255, 255]); // RGB
+        d.push(250); // opacity way past 100
+        let a = AreaScenery::parse(&d).expect("parse");
+        assert_eq!(a.waters[0].opacity, 1.0, "opacity clamps to 1.0");
+
+        // Truncate mid-record: count says 1 but the bytes end after tex_id.
+        let mut t = vec![0u8; SCENERY_COUNT_OFFSET];
+        t.extend_from_slice(&0u16.to_le_bytes());
+        t.extend_from_slice(&1u16.to_le_bytes());
+        t.extend_from_slice(&5u16.to_le_bytes());
+        let a = AreaScenery::parse(&t).expect("truncated file still parses");
+        // The reads default missing floats/bytes; the point is: no panic, no Err.
+        assert!(a.waters.len() <= 1);
+    }
+
+    // The shipped Plains zone (repo data/) carries one authored water plane —
+    // parse the real file and pin the values scanned from its bytes, so the
+    // parser is verified against GUE's writer output, not just synthetic data.
+    #[test]
+    fn shipped_plains_zone_water() {
+        let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .ancestors()
+            .nth(3)
+            .expect("repo root above client-rs/crates/rcce-data")
+            .join("data/Areas/Plains.dat");
+        let Ok(bytes) = std::fs::read(&path) else {
+            eprintln!("skipping: {} not present", path.display());
+            return;
+        };
+        let a = AreaScenery::parse(&bytes).expect("Plains.dat parse");
+        assert_eq!(a.waters.len(), 1, "Plains ships one water plane");
+        let w = &a.waters[0];
+        assert_eq!(w.tex_id, 331);
+        assert_eq!(w.tex_scale, 15.0);
+        assert!((w.pos[1] - -4.728).abs() < 1e-2, "surface Y ≈ -4.73 (got {})", w.pos[1]);
+        assert!((w.scale_x - 87.883).abs() < 1e-2);
+        assert_eq!(w.scale_x, w.scale_z, "square footprint");
+        assert!(approx(w.color, [0.0, 0.0, 150.0 / 255.0]), "deep blue tint");
+        assert!((w.opacity - 0.68).abs() < 1e-6, "translucent (opacity 68)");
+    }
+
     // Synthetic area with empty scenery/water/colbox/emitter then ONE LOD terrain
     // — exercises the terrain field parse (and the colbox/emitter skip) that real
     // current zones can't (they ship zero terrains). Bytes laid out per SaveArea.
