@@ -839,6 +839,13 @@ impl World {
             gravity_raw,
             weather,
         };
+        // Warp-completion ack: tell the server we've applied the zone change so
+        // it stops suppressing our position updates (`AI\IgnoreUpdate = 0`,
+        // ServerNet.bb:737). Echoes the received payload — the exact send the
+        // Blitz client has commented out at ClientNet.bb:1779 (`RCE_Send(...,
+        // P_ChangeArea, M\MessageData$, ...)`); the server ignores the payload.
+        // Queued via pending_sends (drained each frame, like the "GY" accept).
+        self.pending_sends.push((pk::CHANGE_AREA, d.to_vec()));
     }
 
     /// `P_NewActor` = `ActorInstanceToString` (Actors.bb:1057): ServerArea u32 ·
@@ -1956,6 +1963,15 @@ impl World {
                 a.yaw = yaw;
                 a.render_yaw = yaw;
             }
+        }
+        // Warp-completion ack, only when WE were the repositioned actor: tells
+        // the server the move is applied so it stops suppressing our position
+        // updates (`AI\IgnoreUpdate = 0`, ServerNet.bb:730 — the server ignores
+        // the payload). Not sent for other actors' repositions: only our own
+        // suppression window can be armed, and acking every bystander
+        // reposition would be N-player packet noise.
+        if is_me {
+            self.pending_sends.push((pk::REPOSITION_ACTOR, d.to_vec()));
         }
     }
 
@@ -3125,6 +3141,36 @@ mod tests {
         assert!(w.player_trade.is_none(), "player trade closed on warp");
         assert!(w.dialog.is_none(), "NPC dialog closed on warp");
         assert!(w.script_input.is_none(), "script prompt closed on warp");
+    }
+
+    /// Warp-completion acks: applying `P_ChangeArea` queues a `P_ChangeArea`
+    /// echo, and applying a `P_RepositionActor` addressed to ME queues a
+    /// `P_RepositionActor` echo — the sends Blitz has commented out at
+    /// `ClientNet.bb:1779`, which clear the server's `IgnoreUpdate` warp
+    /// suppression (`ServerNet.bb:727-737`). A bystander's reposition must NOT
+    /// be acked (only our own suppression window can be armed).
+    #[test]
+    fn change_area_and_own_reposition_queue_warp_acks() {
+        let mut w = World { my_runtime_id: 42, ..Default::default() };
+
+        let mut p = MsgWriter::new();
+        p.f32(1.0).f32(2.0).f32(3.0).f32(0.0);
+        p.u8(0).u16(200).u32(5).u8(0).str8("Plains");
+        let ca = p.into_bytes();
+        w.apply(&msg(pk::CHANGE_AREA, ca.clone()));
+        assert_eq!(w.pending_sends, vec![(pk::CHANGE_AREA, ca)], "zone change acked with the payload echo");
+        w.pending_sends.clear();
+
+        // Reposition addressed to me → acked.
+        let me_move = pkt(|p| { p.u8(b'M').u16(42).f32(9.0).f32(1.0).f32(8.0).u8(0); });
+        w.apply(&msg(pk::REPOSITION_ACTOR, me_move.clone()));
+        assert_eq!(w.pending_sends, vec![(pk::REPOSITION_ACTOR, me_move)], "own reposition acked");
+        w.pending_sends.clear();
+
+        // Bystander reposition → applied silently, no ack.
+        let other = pkt(|p| { p.u8(b'M').u16(7).f32(1.0).f32(1.0).f32(1.0).u8(0); });
+        w.apply(&msg(pk::REPOSITION_ACTOR, other));
+        assert!(w.pending_sends.is_empty(), "no ack for another actor's reposition");
     }
 
     /// Build a payload (the builders return `&mut Self`, so chaining

@@ -16,6 +16,11 @@ use crate::reader::{BlitzReader, ReadError};
 pub struct SpellDef {
     pub id: u16,
     pub name: String,
+    /// Toolbar/character-sheet description text; sent to the client in the
+    /// `P_FetchCharacter` `"S"` records and `P_KnownSpellUpdate` `"A"`.
+    pub description: String,
+    /// Toolbar art texture id (`Sp\ThumbnailTexID`), same wire consumers.
+    pub thumbnail_tex_id: i16,
     /// Empty = any race may cast.
     pub exclusive_race: String,
     /// Empty = any class may cast.
@@ -57,8 +62,8 @@ impl SpellCatalog {
             return Err(ReadError::UnexpectedEof { offset: 0, needed: 0, available: 0 });
         }
         let name = r.read_string(256)?;
-        let _description = r.read_string(1024)?;
-        let _thumbnail = r.read_short()?;
+        let description = r.read_string(1024)?;
+        let thumbnail_tex_id = r.read_short()?;
         let exclusive_race = r.read_string(256)?;
         let exclusive_class = r.read_string(256)?;
         let recharge_time = r.read_int()?;
@@ -67,6 +72,8 @@ impl SpellCatalog {
         Ok(SpellDef {
             id: id as u16,
             name,
+            description,
+            thumbnail_tex_id,
             exclusive_race,
             exclusive_class,
             recharge_time,

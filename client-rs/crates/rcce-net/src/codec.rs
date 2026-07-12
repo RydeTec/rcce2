@@ -47,6 +47,15 @@ impl MsgWriter {
         self.buf.extend_from_slice(s.as_bytes());
         self
     }
+    /// 2-byte LE length prefix + bytes (the spell name/description convention,
+    /// `RCE_StrFromInt$(Len(s), 2) + s`). Panics in debug if `s` exceeds 65535
+    /// bytes (callers validate length).
+    pub fn str16(&mut self, s: &str) -> &mut Self {
+        debug_assert!(s.len() <= u16::MAX as usize, "str16 too long: {}", s.len());
+        self.buf.extend_from_slice(&(s.len() as u16).to_le_bytes());
+        self.buf.extend_from_slice(s.as_bytes());
+        self
+    }
     pub fn raw(&mut self, b: &[u8]) -> &mut Self {
         self.buf.extend_from_slice(b);
         self

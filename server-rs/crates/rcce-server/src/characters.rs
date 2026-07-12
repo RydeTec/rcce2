@@ -26,6 +26,8 @@ const ATTR_POINT_BYTES: usize = 40;
 const C3_FRAGMENT_AT: usize = 999 - 83;
 /// Q quest-log fragment threshold.
 const Q_FRAGMENT_AT: usize = 700;
+/// S known-spells fragment threshold (`Len(OldPa$ + Pa$) > 1000`).
+const S_FRAGMENT_AT: usize = 1000;
 
 fn read_field(r: &mut MsgReader) -> Option<Vec<u8>> {
     let n = r.u8()? as usize;
@@ -194,18 +196,19 @@ pub fn handle_create_character(
 
 /// Handle `P_FetchCharacter` (`ServerNet.bb:2611-2732`) — load full character
 /// detail for character-select. Inbound: `[str user][str pass][u8 slot]`.
-/// Replies with the multipart `C1`(stats) / `C3`(inventory) / `Q`(quests) /
-/// `F`(counts) sequence, or a single `"N"` on failure.
+/// Replies with the multipart `C1`(stats) / `C3`(inventory) / `S`(spells) /
+/// `Q`(quests) / `F`(counts) sequence, or a single `"N"` on failure.
 ///
-/// Deferred: the `S`(spells) packet needs a server-side spell catalog
-/// (`Spells.dat`) for each spell's name/texture/recharge — not yet ported. A
-/// freshly created character has no spells, so the spell count is 0 and no `S`
-/// packet is sent (correct for the current flow); characters loaded with spells
-/// will under-report until the spell catalog lands.
+/// The `S` records come from the server spell catalog (`Spells.dat`, parsed at
+/// boot into `ServerState::spells_catalog`); a known-spell slot whose id isn't
+/// in the catalog is skipped with a log (Blitz zeroes the slot in memory at
+/// `ServerNet.bb:2681-2683` — the port leaves the save untouched, same wire
+/// output either way).
 pub fn handle_fetch_character(
     payload: &[u8],
     store: &mut AccountStore,
     throttle: &mut LoginThrottle,
+    spells: &rcce_data::spells::SpellCatalog,
     peer: u32,
     now_ms: u64,
 ) -> Vec<(u8, Vec<u8>)> {
@@ -288,8 +291,43 @@ pub fn handle_fetch_character(
         out.push((P_FETCH_CHARACTER, prefixed(b"C3", &buf)));
     }
 
-    // S — spells deferred (see fn doc); spells_done stays 0.
-    let spells_done: u16 = 0;
+    // S — known spells (`ServerNet.bb:2658-2690`). One record per slot with
+    // `SpellLevels[i] > 0`: `[u16 level][u16 spellId][u16 thumbTex]
+    // [u16 recharge][str16 name][str16 description][u8 memorised]`, where
+    // `memorised` is 1 iff any `MemorisedSpells[j]` holds this SLOT index `i`
+    // (not the spell id). Fragmented at >1000 bytes like the Blitz OldPa$ dance.
+    // A slot whose spell id isn't in the catalog is logged + skipped (untrusted
+    // save data must never panic) and doesn't count toward `spells_done`.
+    let mut spells_done: u16 = 0;
+    let mut sbuf = MsgWriter::new();
+    for (i, (&level, &spell_id)) in a.spell_levels.iter().zip(&a.known_spells).enumerate() {
+        if level <= 0 {
+            continue;
+        }
+        let Some(sp) = (spell_id >= 0).then(|| spells.get(spell_id as u16)).flatten() else {
+            eprintln!(
+                "[characters] FetchCharacter: {}[{}] knows spell id {spell_id} (slot {i}) not in Spells.dat — skipping",
+                a.name, slot
+            );
+            continue;
+        };
+        let memorised = a.memorised_spells.contains(&(i as i16));
+        sbuf.u16(level as u16)
+            .u16(sp.id)
+            .u16(sp.thumbnail_tex_id as u16)
+            .u16(sp.recharge_time as u16)
+            .str16(&sp.name)
+            .str16(&sp.description)
+            .u8(memorised as u8);
+        spells_done = spells_done.wrapping_add(1);
+        if sbuf.as_slice().len() > S_FRAGMENT_AT {
+            out.push((P_FETCH_CHARACTER, prefixed(b"S", sbuf.as_slice())));
+            sbuf = MsgWriter::new();
+        }
+    }
+    if !sbuf.as_slice().is_empty() {
+        out.push((P_FETCH_CHARACTER, prefixed(b"S", sbuf.as_slice())));
+    }
 
     // Q — quest log (`[u8 nameLen][name][u16 statusLen][status]`).
     let mut qbuf: Vec<u8> = Vec::new();
@@ -339,6 +377,13 @@ mod tests {
 
     fn data_dir() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../data")
+    }
+
+    /// The real shipped spell catalog (empty catalog if the file is absent).
+    fn spell_catalog() -> rcce_data::spells::SpellCatalog {
+        std::fs::read(data_dir().join("Server Data/Spells.dat"))
+            .map(|b| rcce_data::spells::SpellCatalog::parse(&b))
+            .unwrap_or_default()
     }
 
     fn tmp_store(name: &str) -> AccountStore {
@@ -478,7 +523,7 @@ mod tests {
         let mut fetch = field(b"hero");
         fetch.extend_from_slice(&field(MD5.as_bytes()));
         fetch.push(0u8); // slot 0
-        let replies = handle_fetch_character(&fetch, &mut store, &mut throttle, 1, 0);
+        let replies = handle_fetch_character(&fetch, &mut store, &mut throttle, &spell_catalog(), 1, 0);
 
         // First packet is C1; gold (i32 LE after the 2-byte "C1" tag) is StartGold.
         assert_eq!(&replies[0].1[0..2], b"C1");
@@ -486,11 +531,93 @@ mod tests {
         assert_eq!(gold, 5000);
         // A C3 inventory packet is present (46 empty slots → one "C3" frame).
         assert!(replies.iter().any(|(_, p)| p.starts_with(b"C3")));
+        // No spells known → no S packet at all (Blitz only flushes non-empty Pa$).
+        assert!(!replies.iter().any(|(_, p)| p.starts_with(b"S")));
         // Last packet is F with quest-count 0 and spell-count 0.
         let last = replies.last().unwrap();
         assert_eq!(last.1[0], b'F');
         assert_eq!(&last.1[1..3], &[0, 0]); // num quests
         assert_eq!(&last.1[3..5], &[0, 0]); // spells done
+    }
+
+    /// Byte-exact `S`(spells) sub-packet against the real shipped `Spells.dat`
+    /// (`ServerNet.bb:2658-2690`): a character with known spells reports them
+    /// with the catalog's real id/thumbnail/recharge/name/description, the
+    /// memorised flag keyed on the KnownSpells SLOT index, an unknown spell id
+    /// skipped without panicking, and the `F` count matching what was emitted.
+    #[test]
+    fn fetch_character_reports_known_spells_byte_exact() {
+        let dir = data_dir();
+        let catalog = ActorCatalog::load(dir.join("Server Data/Actors.dat"));
+        let spells = spell_catalog();
+        let Some(template) = catalog
+            .templates
+            .values()
+            .find(|t| t.playable && Area::load(&dir, &t.start_area).is_some())
+        else {
+            eprintln!("skipping: no playable race with loadable start area");
+            return;
+        };
+        let (Some(first), last) = (spells.spells.first(), spells.spells.last()) else {
+            eprintln!("skipping: no spells in Spells.dat");
+            return;
+        };
+        let (first, second) = (first.clone(), last.cloned().unwrap_or_else(|| first.clone()));
+
+        let mut store = tmp_store("fetchspells");
+        store.push(Account::new("hero", MD5, "h@x.com").unwrap());
+        let mut throttle = LoginThrottle::new();
+        let config = config_for(dir.clone());
+        let create = create_packet("hero", MD5, template.id, b"Frodo");
+        handle_create_character(&create, &mut store, &mut throttle, &catalog, &config, 1, 0);
+
+        // Grant spells directly on the stored character (a Blitz-origin save
+        // shape): slot 0 = first spell at level 3, slot 5 = second spell at
+        // level 2 (memorised), slot 7 = an id NOT in the catalog (corrupt/
+        // stale save data — must be skipped, not panicked on, not counted).
+        {
+            let a = &mut store.find_mut("hero").unwrap().characters[0].actor;
+            a.known_spells[0] = first.id as i16;
+            a.spell_levels[0] = 3;
+            a.known_spells[5] = second.id as i16;
+            a.spell_levels[5] = 2;
+            a.memorised_spells[0] = 5; // memorise SLOT 5, not spell id
+            a.known_spells[7] = 9999; // no such spell in the shipped catalog
+            a.spell_levels[7] = 1;
+        }
+        assert!(spells.get(9999).is_none(), "test premise: 9999 must not be a real spell id");
+
+        let mut fetch = field(b"hero");
+        fetch.extend_from_slice(&field(MD5.as_bytes()));
+        fetch.push(0u8);
+        let replies = handle_fetch_character(&fetch, &mut store, &mut throttle, &spells, 1, 0);
+
+        // Exactly one S packet (two records fit well under the 1000-byte split).
+        let s_packets: Vec<_> = replies.iter().filter(|(_, p)| p.starts_with(b"S")).collect();
+        assert_eq!(s_packets.len(), 1, "one S fragment expected");
+
+        // Expected bytes: [u16 level][u16 id][u16 thumb][u16 recharge]
+        // [str16 name][str16 desc][u8 memorised] per record, LE throughout.
+        let record = |lvl: u16, sp: &rcce_data::spells::SpellDef, mem: u8| -> Vec<u8> {
+            let mut w = MsgWriter::new();
+            w.u16(lvl)
+                .u16(sp.id)
+                .u16(sp.thumbnail_tex_id as u16)
+                .u16(sp.recharge_time as u16)
+                .str16(&sp.name)
+                .str16(&sp.description)
+                .u8(mem);
+            w.into_bytes()
+        };
+        let mut expected = b"S".to_vec();
+        expected.extend_from_slice(&record(3, &first, 0));
+        expected.extend_from_slice(&record(2, &second, 1));
+        assert_eq!(s_packets[0].1, expected, "S packet must be byte-exact");
+
+        // F counts only the emitted records (the bad slot-7 id doesn't count).
+        let last_pkt = replies.last().unwrap();
+        assert_eq!(last_pkt.1[0], b'F');
+        assert_eq!(&last_pkt.1[3..5], &2u16.to_le_bytes(), "spells done = 2");
     }
 
     #[test]
@@ -501,7 +628,7 @@ mod tests {
         let mut fetch = field(b"hero");
         fetch.extend_from_slice(&field(MD5.as_bytes()));
         fetch.push(3u8); // slot 3, but account has no characters
-        let replies = handle_fetch_character(&fetch, &mut store, &mut throttle, 1, 0);
+        let replies = handle_fetch_character(&fetch, &mut store, &mut throttle, &spell_catalog(), 1, 0);
         assert_eq!(replies, vec![(P_FETCH_CHARACTER, b"N".to_vec())]);
     }
 
