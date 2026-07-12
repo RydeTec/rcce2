@@ -153,11 +153,13 @@ fn clamp_world_coord(v: f32) -> f32 {
 
 /// How long a warp suppresses the warped player's inbound `P_StandardUpdate`s
 /// when no warp-completion ack arrives (see `ignore_update_until_ms`). The
-/// stale packets were all sent before the client received `P_ChangeArea`, so
-/// the window only needs to cover ~one RTT + the ~9 Hz update cadence; since
-/// neither shipped client acks (so the window is always paid in full), keep it
-/// short — long enough to swallow the in-flight packets, short enough that the
-/// post-warp movement freeze is imperceptible.
+/// Rust client acks `P_ChangeArea`/`P_RepositionActor` (client-rs `world.rs`
+/// `on_change_area`/`on_reposition_actor`), so its window closes at ~one RTT;
+/// this deadline is the fallback for the Blitz client, which never acks (its
+/// send is commented out at `ClientNet.bb:1779`) — invisible there because
+/// Blitz's `P_ChangeArea` triggers a full zone reload during which the client
+/// sends nothing. The stale packets were all sent before the client received
+/// the warp, so ~one RTT + the ~9 Hz update cadence bounds them.
 pub const WARP_IGNORE_UPDATE_MS: u64 = 500;
 
 /// A logged-in player's live session.
@@ -194,12 +196,14 @@ pub struct WorldSession {
     /// `P_StandardUpdate`s — they were sent before the client processed the
     /// warp and carry the stale pre-warp position (the Rofar 8/16/2007 fix,
     /// `GameServer.bb:4`). Cleared by the client's `P_ChangeArea` /
-    /// `P_RepositionActor` warp-completion ack (`ServerNet.bb:727-737`).
-    /// Deviation from Blitz: Blitz's flag has no expiry, but neither shipped
-    /// client actually sends the ack (the Blitz client's send is commented out
-    /// at `ClientNet.bb:1779` — which is why Blitz also disabled the *set*),
-    /// so a bare wait-for-ack would freeze movement forever. The deadline
-    /// bounds the suppression to the in-flight-packet window instead.
+    /// `P_RepositionActor` warp-completion ack (`ServerNet.bb:727-737`) — the
+    /// Rust client sends both (client-rs `on_change_area` /
+    /// `on_reposition_actor`), closing the window at ~one RTT.
+    /// Deviation from Blitz: Blitz's flag has no expiry, but the Blitz client
+    /// never sends the ack (its send is commented out at `ClientNet.bb:1779` —
+    /// which is why Blitz also disabled the *set*), so a bare wait-for-ack
+    /// would freeze its movement forever. The deadline bounds the suppression
+    /// for non-acking clients instead (see [`WARP_IGNORE_UPDATE_MS`]).
     pub ignore_update_until_ms: u64,
 }
 
