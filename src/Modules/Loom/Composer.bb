@@ -516,6 +516,8 @@ Type Composer
             Composer::renderAnimSet(self, x, scrolledBodyY, w, bodyH, mx, my, clicked, rightClicked)
         Else If kind = "settings"
             Composer::renderSettings(self, x, scrolledBodyY, w, bodyH, mx, my, clicked)
+        Else If kind = "environment"
+            Composer::renderEnvironment(self, x, scrolledBodyY, w, bodyH, mx, my, clicked, rightClicked)
         Else If kind = "script"
             Composer::renderScript(self, x, scrolledBodyY, w, bodyH, mx, my, clicked, rightClicked)
         Else If kind = "texture"
@@ -1748,6 +1750,16 @@ Type Composer
             EndIf
         EndIf
 
+        // ---- ENVIRONMENT (Days & seasons singleton) --------------------------
+        // Calendar tables are Dim'd global arrays (Environment.bb) which
+        // Strict Methods can't write; the whole dispatch lives in the
+        // non-Strict Loom/Seasons.bb module (same shape as the Settings /
+        // SetFactionName setters). Clamps mirror GUE's spinner ranges.
+        If kind = "environment"
+            LoomEnv_WriteField(fieldId, value)
+            Return
+        EndIf
+
         // ---- ANIMSET --------------------------------------------------------
         If kind = "animset"
             // AnimSet is iterated, not array-indexed; walk to the matching ID.
@@ -1829,6 +1841,7 @@ Type Composer
         If kind = "zone"    Then Return Not ZoneSaved
         If kind = "animset" Then Return Not AnimsSaved
         If kind = "projectile" Then Return Not ProjectilesSaved
+        If kind = "environment" Then Return Not EnvironmentSaved
         Return False
     End Method
 
@@ -1846,6 +1859,7 @@ Type Composer
         If kind = "animset"  Then AnimsSaved = False
         If kind = "projectile" Then ProjectilesSaved = False
         If kind = "settings" Then SettingsSaved = False
+        If kind = "environment" Then EnvironmentSaved = False
     End Method
 
 
@@ -2001,6 +2015,28 @@ Type Composer
             ; Loom_SaveSettings already flips SettingsSaved = True on success.
             WriteLog(LoomLog, "Composer: saved project Settings")
             Toast_Show("Saved project Settings", "success")
+            Return
+        EndIf
+
+        If kind = "environment"
+            // Same save pair GUE's "Save settings" button fires (GUE.bb,
+            // Case BSeasonSave): full Environment.dat rewrite + Suns.dat.
+            // Both are atomic (SafeWriteOpen/Commit inside Environment.bb).
+            Local okE% = SaveEnvironment(True)
+            If okE = False
+                WriteLog(LoomLog, "Composer: SaveEnvironment FAILED")
+                Toast_Show("Save Environment FAILED", "danger")
+                Return
+            EndIf
+            Local okSn% = SaveSuns()
+            If okSn = False
+                WriteLog(LoomLog, "Composer: SaveSuns FAILED")
+                Toast_Show("Save Suns FAILED", "danger")
+                Return
+            EndIf
+            EnvironmentSaved = True
+            WriteLog(LoomLog, "Composer: saved Environment.dat + Suns.dat")
+            Toast_Show("Saved Environment.dat + Suns.dat", "success")
             Return
         EndIf
 
@@ -2738,6 +2774,14 @@ Type Composer
             WriteLog(LoomLog, "Composer: discarded -- reloaded zone " + zoneName)
             Return
         EndIf
+        If kind = "environment"
+            // Frees every Sun + re-runs the same LoadEnvironment/LoadSuns
+            // pair GUE boots with. Sets EnvironmentSaved = True itself.
+            LoomEnv_DiscardReload()
+            WriteLog(LoomLog, "Composer: discarded -- reloaded Environment.dat + Suns.dat")
+            Composer::reFocusOrClose(self, kind)
+            Return
+        EndIf
         WriteLog(LoomLog, "Composer: discardKind -- no handler for " + kind)
     End Method
 
@@ -2942,6 +2986,7 @@ Type Composer
         If kind = "faction" Then Return "FACTION"
         If kind = "animset" Then Return "ANIMATION SET"
         If kind = "projectile" Then Return "PROJECTILE"
+        If kind = "environment" Then Return "DAYS & SEASONS"
         Return Upper$(kind)
     End Method
 
@@ -4394,6 +4439,176 @@ Type Composer
         Next
 
         Composer::recordContentBottom(self, y)
+    End Method
+
+
+    // -------------------------------------------------------------------------
+    // renderEnvironment -- the "Days & seasons" singleton (GUE's TSeasons
+    // tab parity). Four surfaces, mirroring GUE's group boxes: General
+    // (year length / time factor / current year+day), Months (20 slots),
+    // Seasons (12 slots with dawn/dusk hours), Suns & Moons (the Sun type
+    // pool with textures, phases, per-season rise/set, light colour).
+    //
+    // All writes route through LoomEnv_WriteField (non-Strict Seasons.bb)
+    // -- the calendar tables are Dim'd arrays that Strict Methods can't
+    // assign. Saves go through GUE's own SaveEnvironment(True) + SaveSuns()
+    // pair; loads through LoadEnvironment() + LoadSuns() at boot.
+    // -------------------------------------------------------------------------
+    Method renderEnvironment(panelX%, bodyY%, panelW%, bodyH%, mx%, my%, clicked%, rightClicked%)
+        Local y% = bodyY
+
+        // General -- GUE.bb SYearLength (25..10000) / STimeFactor (1..255) /
+        // SYear (-100000..1000000) / SDay (displayed 1-based).
+        y = Composer::sectionHeader(self, panelX, panelW, y, "General")
+        y = Composer::editableIntRow(self, panelX, panelW, y, "Year length",  "environment", 0, "year_length", MonthStartDay(0), mx, my, clicked)
+        y = Composer::editableIntRow(self, panelX, panelW, y, "Time factor",  "environment", 0, "time_factor", TimeFactor, mx, my, clicked)
+        y = Composer::editableIntRow(self, panelX, panelW, y, "Current year", "environment", 0, "year", Year, mx, my, clicked)
+        y = Composer::editableIntRow(self, panelX, panelW, y, "Current day",  "environment", 0, "day", Day + 1, mx, my, clicked)
+
+        y = Composer::renderEnvMonths(self, panelX, panelW, y, mx, my, clicked)
+        y = Composer::renderEnvSeasons(self, panelX, panelW, y, mx, my, clicked)
+        y = Composer::renderEnvSuns(self, panelX, panelW, y, mx, my, clicked, rightClicked)
+
+        Composer::recordContentBottom(self, y)
+    End Method
+
+
+    // -------------------------------------------------------------------------
+    // renderEnvMonths -- 20 month slots. Lengths are cumulative-day backed
+    // (see Seasons.bb header); months 1..18 length-editable, 19..20 derived
+    // -- the same editability split as GUE's `SelectedMonth < 19` guard.
+    // -------------------------------------------------------------------------
+    Method renderEnvMonths%(panelX%, panelW%, y%, mx%, my%, clicked%)
+        y = Composer::sectionHeader(self, panelX, panelW, y, "Months")
+        Local k%
+        For k = 1 To 20
+            If Composer::canPaintRow(self, y, CMP_ROW_H) = True
+                LoomText(panelX + CMP_PAD, y + 4, "Month " + Str(k), LOOM_ARCANE_500_R, LOOM_ARCANE_500_G, LOOM_ARCANE_500_B)
+            EndIf
+            y = y + CMP_ROW_H
+            y = Composer::editableRow(self, panelX, panelW, y, "Name", "environment", 0, "month_name_" + Str(k - 1), MonthName$(k - 1), mx, my, clicked)
+            If k < 19
+                y = Composer::editableIntRow(self, panelX, panelW, y, "Length (days)", "environment", 0, "month_len_" + Str(k), LoomEnv_MonthLength(k), mx, my, clicked)
+            Else
+                // GUE disables the length spinner for the last two months;
+                // their lengths derive from the year length.
+                y = Composer::row(self, panelX, panelW, y, "Length (days)", Str(LoomEnv_MonthLength(k)) + "  (derived)")
+            EndIf
+            y = y + 4
+        Next
+        Return y
+    End Method
+
+
+    // -------------------------------------------------------------------------
+    // renderEnvSeasons -- 12 season slots: name + length + dawn/dusk hour.
+    // Seasons 1..10 length-editable, 11..12 derived (GUE's
+    // `SelectedSeason < 11` guard).
+    // -------------------------------------------------------------------------
+    Method renderEnvSeasons%(panelX%, panelW%, y%, mx%, my%, clicked%)
+        y = Composer::sectionHeader(self, panelX, panelW, y, "Seasons")
+        Local k%
+        For k = 1 To 12
+            If Composer::canPaintRow(self, y, CMP_ROW_H) = True
+                LoomText(panelX + CMP_PAD, y + 4, "Season " + Str(k), LOOM_ARCANE_500_R, LOOM_ARCANE_500_G, LOOM_ARCANE_500_B)
+            EndIf
+            y = y + CMP_ROW_H
+            y = Composer::editableRow(self, panelX, panelW, y, "Name", "environment", 0, "season_name_" + Str(k - 1), SeasonName$(k - 1), mx, my, clicked)
+            If k < 11
+                y = Composer::editableIntRow(self, panelX, panelW, y, "Length (days)", "environment", 0, "season_len_" + Str(k), LoomEnv_SeasonLength(k), mx, my, clicked)
+            Else
+                y = Composer::row(self, panelX, panelW, y, "Length (days)", Str(LoomEnv_SeasonLength(k)) + "  (derived)")
+            EndIf
+            y = Composer::editableIntRow(self, panelX, panelW, y, "Dawn hour", "environment", 0, "season_dawn_" + Str(k - 1), SeasonDawnH(k - 1), mx, my, clicked)
+            y = Composer::editableIntRow(self, panelX, panelW, y, "Dusk hour", "environment", 0, "season_dusk_" + Str(k - 1), SeasonDuskH(k - 1), mx, my, clicked)
+            y = y + 4
+        Next
+        Return y
+    End Method
+
+
+    // -------------------------------------------------------------------------
+    // renderEnvSuns -- the Sun pool (Suns.dat). "+ New" seeds GUE's BSunNew
+    // defaults; the per-sun "x" deletes with the bail-and-rerender pattern
+    // (Delete invalidates the Each cursor, so we return immediately and the
+    // next frame paints the survivors -- same shape as renderZonePortals'
+    // sub-delete).
+    //
+    // Field addressing is by Handle (Sun has no ID field); a handle is
+    // stable for the session which is all an edit needs. GUE edits one
+    // sun at a time behind prev/next buttons; Loom lists them all.
+    // -------------------------------------------------------------------------
+    Method renderEnvSuns%(panelX%, panelW%, y%, mx%, my%, clicked%, rightClicked%)
+        Local sectY% = y
+        y = Composer::sectionHeader(self, panelX, panelW, y, "Suns & Moons")
+        If Composer::addNewButton(self, panelX, panelW, sectY, mx, my, clicked) = True
+            // GUE.bb Case BSunNew defaults: size 1.0, rise 05:00 / set 22:00
+            // in every season, white light.
+            LoomEnv_NewSun()
+            Composer::markDirtyForKind(self, "environment")
+            Toast_Show("Added sun", "success")
+            WriteLog(LoomLog, "Composer: added sun")
+        EndIf
+
+        Local sunCount% = 0
+        Local S.Sun
+        For S = Each Sun
+            sunCount = sunCount + 1
+            Local h% = Handle(S)
+            Local hs$ = Str(h)
+
+            If Composer::canPaintRow(self, y, CMP_ROW_H) = True
+                LoomText(panelX + CMP_PAD, y + 4, "Sun " + Str(sunCount), LOOM_ARCANE_500_R, LOOM_ARCANE_500_G, LOOM_ARCANE_500_B)
+            EndIf
+            If Composer::subDeleteButton(self, panelX, panelW, y, mx, my, clicked) = True
+                Delete S
+                Composer::markDirtyForKind(self, "environment")
+                Toast_Show("Deleted sun " + Str(sunCount), "danger")
+                WriteLog(LoomLog, "Composer: deleted sun " + Str(sunCount))
+                Return y + CMP_ROW_H   ; bail -- Each cursor invalid after Delete
+            EndIf
+            y = y + CMP_ROW_H
+
+            // Texture(s). GUE edits TexID[0] when phases are off, the
+            // per-phase slot when on (Case BSunTex); phase length spinner
+            // is enabled only with phases on (UpdateSunDisplay).
+            If S\ShowPhases = False
+                y = Composer::renderActorTextureRow(self, panelX, panelW, y, "Texture", "environment", 0, "sun_tex_0_" + hs, S\TexID[0], mx, my, clicked, rightClicked)
+            Else
+                Local p%
+                For p = 0 To 7
+                    y = Composer::renderActorTextureRow(self, panelX, panelW, y, "Phase " + Str(p + 1) + " tex", "environment", 0, "sun_tex_" + Str(p) + "_" + hs, S\TexID[p], mx, my, clicked, rightClicked)
+                Next
+                y = Composer::editableIntRow(self, panelX, panelW, y, "Phase length", "environment", 0, "sun_phaselen_" + hs, S\Phase_Length, mx, my, clicked)
+            EndIf
+            y = Composer::toggleRow(self, panelX, panelW, y, "Show phases", "environment", 0, "sun_phases_" + hs, S\ShowPhases, mx, my, clicked)
+
+            y = Composer::editableFloatRow(self, panelX, panelW, y, "Size", "environment", 0, "sun_size_" + hs, S\Size#, mx, my, clicked)
+            y = Composer::editableIntRow(self, panelX, panelW, y, "Path angle", "environment", 0, "sun_angle_" + hs, Int(S\PathAngle#), mx, my, clicked)
+            y = Composer::editableIntRow(self, panelX, panelW, y, "Light R", "environment", 0, "sun_lightr_" + hs, S\LightR, mx, my, clicked)
+            y = Composer::editableIntRow(self, panelX, panelW, y, "Light G", "environment", 0, "sun_lightg_" + hs, S\LightG, mx, my, clicked)
+            y = Composer::editableIntRow(self, panelX, panelW, y, "Light B", "environment", 0, "sun_lightb_" + hs, S\LightB, mx, my, clicked)
+            y = Composer::toggleRow(self, panelX, panelW, y, "Lens flare", "environment", 0, "sun_flares_" + hs, S\ShowFlares, mx, my, clicked)
+
+            // Per-season rise/set times (hour | minute). GUE edits one
+            // season at a time behind the CSunSeason combobox; Loom lists
+            // all 12 as compact double-int rows.
+            Local sIdx%
+            For sIdx = 0 To 11
+                Local sLabel$ = Left$(SeasonName$(sIdx), 12)
+                y = Composer::doubleIntRow(self, panelX, panelW, y, sLabel + " rise h|m", "environment", 0, "sun_riseh_" + Str(sIdx) + "_" + hs, S\StartH[sIdx], "sun_risem_" + Str(sIdx) + "_" + hs, S\StartM[sIdx], mx, my, clicked)
+                y = Composer::doubleIntRow(self, panelX, panelW, y, sLabel + " set h|m", "environment", 0, "sun_seth_" + Str(sIdx) + "_" + hs, S\EndH[sIdx], "sun_setm_" + Str(sIdx) + "_" + hs, S\EndM[sIdx], mx, my, clicked)
+            Next
+            y = y + 4
+        Next
+
+        If sunCount = 0
+            If Composer::canPaintRow(self, y, CMP_ROW_H) = True
+                LoomText(panelX + CMP_PAD, y + 4, "(no suns or moons -- click + New)", LOOM_STONE_300_R, LOOM_STONE_300_G, LOOM_STONE_300_B)
+            EndIf
+            y = y + CMP_ROW_H
+        EndIf
+        Return y
     End Method
 
 

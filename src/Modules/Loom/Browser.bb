@@ -210,6 +210,10 @@ Type Browser
         // health at a glance. Entity counts, top zones by spawn
         // density, asset catalog sizes, issue breakdown.
         Browser::addCategory(self, "stats",   "Stats")
+        // Days & Seasons tab: calendar + suns singleton (Environment.dat /
+        // Suns.dat), GUE's "Days & seasons" tab parity. Same singleton-card
+        // shape as Settings.
+        Browser::addCategory(self, "environment", "Days & Seasons")
         // Settings tab: project-level configuration singleton (Misc.dat /
         // Other.dat / Money.dat / Hosts.dat). Clicking the tab focuses
         // the singleton composer view directly -- no card grid since
@@ -825,6 +829,9 @@ Type Browser
         If cat = "settings"
             count = Browser::drawSettingsCard(self, sw, sh, mx, my, clicked, gridX, gridY)
         EndIf
+        If cat = "environment"
+            count = Browser::drawEnvironmentCard(self, sw, sh, mx, my, clicked, gridX, gridY)
+        EndIf
 
         // Done drawing cards -- restore the full-buffer 2D viewport so the
         // empty-state text, composer, ribbon, and modals aren't clipped.
@@ -1072,6 +1079,42 @@ Type Browser
         If hovered = True And clicked = True
             Threads::focus(self\threads, "settings", 0)
             WriteLog(LoomLog, "Browser: opened Settings singleton")
+        EndIf
+
+        Return 1
+    End Method
+
+
+    // -------------------------------------------------------------------------
+    // drawEnvironmentCard -- the Days & Seasons tab body. Single card that
+    // focuses the "environment" composer singleton (calendar + suns) on
+    // click. Mirrors drawSettingsCard's shape.
+    // -------------------------------------------------------------------------
+    Method drawEnvironmentCard%(sw%, sh%, mx%, my%, clicked%, gridX%, gridY%)
+        Local cx% = gridX
+        Local cy% = gridY
+        Local cw% = BR_CARD_W * 2 + BR_CARD_GAP   ; wider since it's a single card
+        Local ch% = BR_CARD_H
+        Local hovered% = (mx >= cx And mx < cx + cw And my >= cy And my < cy + ch)
+
+        LoomShadowCard(cx, cy, cw, ch)
+        If hovered = True
+            LoomFill(cx, cy, cw, ch, LOOM_STONE_700_R, LOOM_STONE_700_G, LOOM_STONE_700_B)
+        Else
+            LoomFill(cx, cy, cw, ch, LOOM_STONE_800_R, LOOM_STONE_800_G, LOOM_STONE_800_B)
+        EndIf
+        LoomBorder(cx, cy, cw, ch, LOOM_BRASS_500_R, LOOM_BRASS_500_G, LOOM_BRASS_500_B)
+        LoomFill(cx, cy, cw, 3, LOOM_BRASS_500_R, LOOM_BRASS_500_G, LOOM_BRASS_500_B)
+
+        LoomTheme_UseDisplay()
+        LoomText(cx + 16, cy + 16, "DAYS & SEASONS", LOOM_BRASS_500_R, LOOM_BRASS_500_G, LOOM_BRASS_500_B)
+        LoomTheme_UseBody()
+        LoomText(cx + 16, cy + 44, "Calendar | year length | seasons | dawn-dusk | suns & moons", LOOM_STONE_200_R, LOOM_STONE_200_G, LOOM_STONE_200_B)
+        LoomText(cx + 16, cy + ch - 24, "Click to open >>", LOOM_BRASS_500_R, LOOM_BRASS_500_G, LOOM_BRASS_500_B)
+
+        If hovered = True And clicked = True
+            Threads::focus(self\threads, "environment", 0)
+            WriteLog(LoomLog, "Browser: opened Days & Seasons singleton")
         EndIf
 
         Return 1

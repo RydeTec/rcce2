@@ -124,6 +124,7 @@ Type Ribbon
         result = Ribbon::drawDirtyBadge(self, "Zone",     "zone",    ZoneSaved,     x, mx, my, clicked) : x = result
         result = Ribbon::drawDirtyBadge(self, "Factions", "faction", FactionsSaved, x, mx, my, clicked) : x = result
         result = Ribbon::drawDirtyBadge(self, "Anims",    "animset", AnimsSaved,    x, mx, my, clicked) : x = result
+        result = Ribbon::drawDirtyBadge(self, "Seasons",  "environment", EnvironmentSaved, x, mx, my, clicked) : x = result
 
         // Center: broken-ref count chip -- danger-red when > 0, dim when 0.
         // Clickable when > 0 + BrokenRefs is wired: opens the finder modal
