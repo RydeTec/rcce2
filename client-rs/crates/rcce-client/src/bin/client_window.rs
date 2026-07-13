@@ -1783,6 +1783,51 @@ fn locomotion_clips(
     (swim, land)
 }
 
+/// ANIM-5: the clip a mounted rider plays, keyed off the MOUNT's gait — Blitz's
+/// mount loop drives `AI\Rider` with Ride run (mount running) / Ride walk (mount
+/// moving) / Ride idle (mount stopped), Client.bb:599-610 + :716-718. The rider
+/// mirrors the mount, NOT its own speed, and never swims: even underwater the
+/// mount plays Swim* while the rider still plays Ride* (Client.bb:629-636). Many
+/// races ship EMPTY (0-0) ride ranges — the caller uses this candidate only when
+/// it resolves to a real range and otherwise falls back to the land clip, the
+/// same no-op-on-empty shape as swim. Pure — unit-tested.
+fn ride_clip(mount_moving: bool, mount_running: bool) -> &'static [&'static str] {
+    if mount_running {
+        &["Ride run"]
+    } else if mount_moving {
+        &["Ride walk"]
+    } else {
+        &["Ride idle"]
+    }
+}
+
+/// Whether an actor is moving, from its authoritative position vs its movement
+/// destination. Reuses the existing Rust remote-locomotion convention (dest−pos
+/// squared > 1.0) verbatim — Blitz's own gate is `EntityDistance > 2.0`
+/// (Client.bb:549), so this is slightly looser, but sharing the one threshold
+/// keeps a mount's gait read identically to every other actor's (no new drift).
+/// Pure — shared by the rider/mount gait resolution.
+fn actor_moving(x: f32, z: f32, dest_x: f32, dest_z: f32) -> bool {
+    let dx = dest_x - x;
+    let dz = dest_z - z;
+    dx * dx + dz * dz > 1.0
+}
+
+/// ANIM-5: resolve a rider's mount handle into `Some((mount_moving,
+/// mount_running))` for [`ride_clip`], or `None` when the actor isn't mounted
+/// (`mount_id == 0`) OR its mount handle is stale/missing (the mount left the
+/// zone / was never seen). `None` means "not riding" → normal land locomotion.
+/// This is the soft-fail the invariant requires: a rider whose mount handle is
+/// dangling falls back to its own land anims instead of panicking. Pure —
+/// unit-tested for the mounted / unmounted / stale-handle cases.
+fn ride_gait(mount_id: u16, mount: Option<&rcce_client::world::Actor>) -> Option<(bool, bool)> {
+    if mount_id == 0 {
+        return None;
+    }
+    let m = mount?;
+    Some((actor_moving(m.x, m.z, m.dest_x, m.dest_z), m.is_running))
+}
+
 /// Seconds a memorise takes — the Blitz ~60-tick `MemorisingSpell` timer. SPL-4.
 const MEMORISE_SECS: f32 = 3.0;
 
@@ -1935,6 +1980,7 @@ fn build_actors(
                     moving: bool,
                     running: bool,
                     submerged: bool,
+                    ride: Option<(bool, bool)>,
                     combat: Option<(&[&str], ClipPlay)>,
                     pos: [f32; 3],
                     yaw: f32,
@@ -1966,14 +2012,30 @@ fn build_actors(
                 // ship EMPTY swim ranges (0-0); Blitz's PlayAnimation no-ops when
                 // AnimEnd=0, keeping the land clip, so a non-empty swim clip is
                 // required (`end > start`), else fall back to the land clip.
-                let (swim, land) = locomotion_clips(moving, running, submerged);
-                let clip = if swim.is_empty() {
-                    store.actor_clip(tmpl, gender, land)
-                } else {
+                let clip = if let Some((mount_moving, mount_running)) = ride {
+                    // ANIM-5: a mounted rider plays Ride run/walk/idle keyed off
+                    // the MOUNT's gait (not its own), and never swims — Blitz's
+                    // mount loop drives `AI\Rider` this way in both the surface
+                    // and underwater branches (Client.bb:599-610,629-636,716-718).
+                    // Empty ride ranges (many races ship 0-0) fall back to the
+                    // rider's own land clip at the mount's gait, the same
+                    // no-op-on-empty shape as the swim candidate below.
+                    let ride_names = ride_clip(mount_moving, mount_running);
+                    let (_, land) = locomotion_clips(mount_moving, mount_running, false);
                     store
-                        .actor_clip(tmpl, gender, swim)
+                        .actor_clip(tmpl, gender, ride_names)
                         .filter(|c| c.end > c.start)
                         .or_else(|| store.actor_clip(tmpl, gender, land))
+                } else {
+                    let (swim, land) = locomotion_clips(moving, running, submerged);
+                    if swim.is_empty() {
+                        store.actor_clip(tmpl, gender, land)
+                    } else {
+                        store
+                            .actor_clip(tmpl, gender, swim)
+                            .filter(|c| c.end > c.start)
+                            .or_else(|| store.actor_clip(tmpl, gender, land))
+                    }
                 };
                 clip.map(|c| clip_frame(c, fps, elapsed + rid as f32 * 0.13))
             }
@@ -2145,13 +2207,19 @@ fn build_actors(
     let me_submerged = store.actor_environment(world.me_actor_id)
         == rcce_data::actors::environment::AMPHIBIOUS
         && waters.actor_submerged(world.me_render_x, world.me_render_z, world.me_y);
+    // ANIM-5: if the local player is riding a mount, mirror the mount's gait —
+    // the same shared selection Blitz applies to Me via `AI\Rider`. A stale/absent
+    // mount handle (mount not in `actors`) soft-fails to None → normal locomotion.
+    let me_ride = ride_gait(world.me_mount_id, world.actors.get(&world.me_mount_id));
     if !hide_me {
-        push(store, &mut models, &mut textures, &mut place, &mut keys, &mut skinned, me_template, world.me_gender, world.me_face_tex, world.me_body_tex, world.me_hair, world.me_beard, me_weapon, me_shield, weapon_override, world.my_runtime_id, me_moving, me_running, me_submerged, me_combat, [world.me_render_x, world.me_y + me_jump_offset, world.me_render_z], world.me_yaw, [0.85, 0.95, 0.85]);
+        push(store, &mut models, &mut textures, &mut place, &mut keys, &mut skinned, me_template, world.me_gender, world.me_face_tex, world.me_body_tex, world.me_hair, world.me_beard, me_weapon, me_shield, weapon_override, world.my_runtime_id, me_moving, me_running, me_submerged, me_ride, me_combat, [world.me_render_x, world.me_y + me_jump_offset, world.me_render_z], world.me_yaw, [0.85, 0.95, 0.85]);
     }
     for a in world.actors.values() {
-        let dx = a.dest_x - a.x;
-        let dz = a.dest_z - a.z;
-        let moving = (dx * dx + dz * dz) > 1.0;
+        let moving = actor_moving(a.x, a.z, a.dest_x, a.dest_z);
+        // ANIM-5: a mounted remote actor rides, mirroring its mount's gait (the
+        // mount is another actor in the map). A stale/missing mount handle
+        // soft-fails to None → this actor's normal land locomotion (no panic).
+        let a_ride = ride_gait(a.mount_id, world.actors.get(&a.mount_id));
         let color = if a.is_player { [0.85, 0.9, 1.0] } else { [1.0, 1.0, 1.0] };
         // A dead actor holds its death pose (ANIM-8); a remote actor mid-jump
         // (P_Jump → world.jumps) plays the Jump clip + a sin-arc hop (ANIM-7); a
@@ -2187,7 +2255,7 @@ fn build_actors(
         let a_submerged = store.actor_environment(a.template_id)
             == rcce_data::actors::environment::AMPHIBIOUS
             && waters.actor_submerged(a.render_x, a.render_z, a.y);
-        push(store, &mut models, &mut textures, &mut place, &mut keys, &mut skinned, a.template_id, a.gender, a.face_tex, a.body_tex, a.hair, a.beard, a.equipped[0], a.equipped[1], weapon_override, a.runtime_id, moving, a.is_running, a_submerged, combat, [a.render_x, a.y + y_off, a.render_z], a.render_yaw, color);
+        push(store, &mut models, &mut textures, &mut place, &mut keys, &mut skinned, a.template_id, a.gender, a.face_tex, a.body_tex, a.hair, a.beard, a.equipped[0], a.equipped[1], weapon_override, a.runtime_id, moving, a.is_running, a_submerged, a_ride, combat, [a.render_x, a.y + y_off, a.render_z], a.render_yaw, color);
     }
     (models, textures, place, keys, skinned)
 }
@@ -10686,6 +10754,64 @@ mod tests {
         let (dry_swim, _) = locomotion_clips(true, true, false);
         let (wet_swim, _) = locomotion_clips(true, true, true);
         assert!(dry_swim.is_empty() && wet_swim == ["Swim fast"], "Run → Swim fast on submersion");
+    }
+
+    // ANIM-5: a mounted rider plays Ride run/walk/idle chosen by the MOUNT's
+    // gait at each speed threshold (Client.bb:599-610,716-718). Running wins
+    // over merely moving, exactly like the land/swim machine.
+    #[test]
+    fn anim5_ride_clip_by_mount_gait() {
+        assert_eq!(ride_clip(true, true), &["Ride run"]);   // mount running
+        assert_eq!(ride_clip(true, false), &["Ride walk"]);  // mount walking
+        assert_eq!(ride_clip(false, false), &["Ride idle"]); // mount stopped
+        // running implies moving → run wins (crossing walk→run mirrors the mount)
+        assert_eq!(ride_clip(true, true), &["Ride run"]);
+        // a "running" flag with moving=false still rides run (the mount decides)
+        assert_eq!(ride_clip(false, true), &["Ride run"]);
+    }
+
+    // The dest-vs-position moving gate shared by the rider/mount resolution.
+    #[test]
+    fn anim5_actor_moving_threshold() {
+        assert!(!actor_moving(0.0, 0.0, 0.5, 0.5), "|d|²=0.5 ≤ 1 → stopped");
+        assert!(actor_moving(0.0, 0.0, 1.0, 1.0), "|d|²=2 > 1 → moving");
+        assert!(!actor_moving(10.0, 10.0, 10.0, 10.0), "no delta → stopped");
+    }
+
+    // ANIM-5: ride_gait keys the ride anim off the MOUNT, and soft-fails.
+    #[test]
+    fn anim5_ride_gait_mounted_unmounted_stale() {
+        use rcce_client::world::Actor;
+        // Unmounted (mount_id 0) → None → the actor's own land locomotion.
+        assert_eq!(ride_gait(0, None), None, "unmounted → normal locomotion");
+        // mount_id set but the handle is stale/missing (mount left the zone /
+        // never seen) → None, NOT a panic. This is the required soft-fail.
+        assert_eq!(ride_gait(42, None), None, "stale mount handle → land fallback");
+        // Mounted on a RUNNING mount → Some((moving, running)) read off the mount,
+        // NOT the rider. Rider sits still (dest==pos) yet rides run because the
+        // mount is running and moving toward its destination.
+        let running_mount = Actor {
+            runtime_id: 42,
+            x: 0.0, z: 0.0, dest_x: 5.0, dest_z: 0.0, // moving
+            is_running: true,
+            ..Default::default()
+        };
+        assert_eq!(ride_gait(42, Some(&running_mount)), Some((true, true)));
+        assert_eq!(ride_clip(true, true), &["Ride run"], "→ Ride run");
+        // Mount walking (moving, not running) → Ride walk.
+        let walking_mount = Actor {
+            x: 0.0, z: 0.0, dest_x: 3.0, dest_z: 0.0, is_running: false,
+            ..Default::default()
+        };
+        assert_eq!(ride_gait(7, Some(&walking_mount)), Some((true, false)));
+        assert_eq!(ride_clip(true, false), &["Ride walk"], "→ Ride walk");
+        // Mount stopped (dest==pos) → Ride idle, regardless of the rider.
+        let idle_mount = Actor {
+            x: 4.0, z: 4.0, dest_x: 4.0, dest_z: 4.0, is_running: false,
+            ..Default::default()
+        };
+        assert_eq!(ride_gait(9, Some(&idle_mount)), Some((false, false)));
+        assert_eq!(ride_clip(false, false), &["Ride idle"], "→ Ride idle");
     }
 
     // A LOD terrain patch (grid N=2) builds a (N+1)² vertex grid with 2 triangles
