@@ -1,11 +1,11 @@
 {
-  "run_id": "rcce2-hourly-20260713T193353Z-0ee6092f-1b9",
-  "status": "released",
-  "started_at": "2026-07-13T19:33:53Z",
-  "heartbeat_at": "2026-07-13T19:58:27Z",
-  "expires_at": "2026-07-13T19:58:27Z",
-  "issue": 607,
-  "branch": "codex-automation/607-defender-resistance",
-  "pr": 608,
-  "phase": "released"
+  "run_id": "rcce2-hourly-20260713T203455Z-12a72e56",
+  "status": "active",
+  "started_at": "2026-07-13T20:34:55Z",
+  "heartbeat_at": "2026-07-13T20:34:55Z",
+  "expires_at": "2026-07-14T20:34:55Z",
+  "issue": null,
+  "branch": null,
+  "pr": null,
+  "phase": "preflight"
 }
