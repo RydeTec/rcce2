@@ -739,6 +739,53 @@ impl ServerState {
         ap
     }
 
+    /// Whether a client-selected destination can hold one item instance.
+    /// Backpack slots accept every item and stack size. Equipment slots mirror
+    /// `SlotsMatch` / `ActorHasSlot` in `Inventories.bb`: they accept only the
+    /// matching item type, exactly one item, an enabled actor slot, and an item
+    /// whose race and class restrictions match the actor template.
+    fn can_place_inventory_item(&self, actor_id: u16, slot: usize, item_id: u16, amount: i16) -> bool {
+        const BACKPACK_SLOT: usize = 14;
+        if slot >= BACKPACK_SLOT {
+            return true;
+        }
+        if amount != 1 {
+            return false;
+        }
+        let Some(item) = self.items.get(item_id) else {
+            return false;
+        };
+        let slot_matches = match item.item_type {
+            1 => slot == 0,
+            2 => matches!((item.slot_type, slot), (2, 1) | (3, 2) | (4, 3) | (5, 4) | (6, 5) | (7, 6) | (8, 7)),
+            3 => match item.slot_type {
+                9 => (8..=11).contains(&slot),
+                10 => (12..=13).contains(&slot),
+                _ => false,
+            },
+            _ => false,
+        };
+        if !slot_matches {
+            return false;
+        }
+        let Some(actor) = self.catalog.templates.get(&actor_id) else {
+            return false;
+        };
+        if !item.excl_race.is_empty() && !actor.race.eq_ignore_ascii_case(&item.excl_race) {
+            return false;
+        }
+        if !item.excl_class.is_empty() && !actor.class.eq_ignore_ascii_case(&item.excl_class) {
+            return false;
+        }
+        let capability_bit = match slot {
+            0..=7 => slot,
+            8..=11 => 8,
+            12..=13 => 9,
+            _ => unreachable!("equipment slot range was checked above"),
+        };
+        actor.inventory_slots & (1_i32 << capability_bit) != 0
+    }
+
     /// Defender resistance for an incoming damage-type byte. A malformed or
     /// absent index is neutral (100), avoiding an out-of-bounds combat failure.
     fn defender_resistance(resistances: &[i16], damage_type: u8) -> i32 {
@@ -5200,6 +5247,12 @@ impl ServerState {
         let Some(sess) = self.world.session(peer).cloned() else {
             return Vec::new();
         };
+        let Some(actor_id) = self.accounts.find(&sess.user).and_then(|account| account.characters.get(sess.char_slot as usize)).map(|record| record.actor.actor_id) else {
+            return Vec::new();
+        };
+        if !self.can_place_inventory_item(actor_id, slot, assigned.item_id, assigned.amount) {
+            return Vec::new();
+        }
         if let Some(islot) = self
             .accounts
             .find_mut(&sess.user)
@@ -5212,7 +5265,7 @@ impl ServerState {
                     islot.amount = assigned.amount;
                     self.accounts_dirty = true;
                 }
-                Some(existing) if existing.item_id == assigned.item_id => {
+                Some(existing) if slot >= 14 && existing.item_id == assigned.item_id => {
                     islot.amount = islot.amount.saturating_add(assigned.amount);
                     self.accounts_dirty = true;
                 }
@@ -5225,9 +5278,9 @@ impl ServerState {
     /// Swap two inventory slots `"S" + [u16 runtimeId][u8 slotA][u8 slotB][u16
     /// amount]` (`InventorySwap`, `Inventories.bb`). Supports the whole-slot swap
     /// (`amount == 0`) for the player's own inventory — the equip / rearrange
-    /// path. Partial-amount moves, pet inventories, and equip-slot compatibility
-    /// (`SlotsMatch`/`ActorHasSlot`) are deferred. No reply (the client predicts
-    /// its own inventory; the equipped-appearance broadcast is a follow-up).
+    /// path. Partial-amount moves and pet inventories are deferred. No reply
+    /// (the client predicts its own inventory; the equipped-appearance broadcast
+    /// is a follow-up).
     fn handle_swap_item(&mut self, peer: u32, payload: &[u8]) -> Vec<Outgoing> {
         if payload.len() < 7 {
             return Vec::new();
@@ -5243,16 +5296,34 @@ impl ServerState {
         if target_rid != sess.runtime_id || slot_a == slot_b || amount != 0 {
             return Vec::new();
         }
+        let Some((actor_id, from_item, from_amount, to_item, to_amount)) = self
+            .accounts
+            .find(&sess.user)
+            .and_then(|account| account.characters.get(sess.char_slot as usize))
+            .and_then(|record| {
+                let from = record.actor.inventory.get(slot_a)?;
+                let to = record.actor.inventory.get(slot_b)?;
+                Some((record.actor.actor_id, from.item.clone(), from.amount, to.item.clone(), to.amount))
+            })
+        else {
+            return Vec::new();
+        };
+        let Some(from_item) = from_item else {
+            return Vec::new();
+        };
+        if !self.can_place_inventory_item(actor_id, slot_b, from_item.item_id, from_amount)
+            || to_item.as_ref().is_some_and(|item| !self.can_place_inventory_item(actor_id, slot_a, item.item_id, to_amount))
+        {
+            return Vec::new();
+        }
         if let Some(rec) = self
             .accounts
             .find_mut(&sess.user)
             .and_then(|a| a.characters.get_mut(sess.char_slot as usize))
         {
             let inv = &mut rec.actor.inventory;
-            if slot_a < inv.len() && slot_b < inv.len() {
-                inv.swap(slot_a, slot_b);
-                self.accounts_dirty = true;
-            }
+            inv.swap(slot_a, slot_b);
+            self.accounts_dirty = true;
         }
         Vec::new()
     }
@@ -5353,9 +5424,15 @@ impl ServerState {
                 return Vec::new();
             }
         }
+        let dropped = self.dropped_items[idx].clone();
+        let Some(actor_id) = self.accounts.find(&sess.user).and_then(|account| account.characters.get(sess.char_slot as usize)).map(|record| record.actor.actor_id) else {
+            return Vec::new();
+        };
+        if !self.can_place_inventory_item(actor_id, slot, dropped.item.item_id, dropped.amount) {
+            return Vec::new();
+        }
         // Place into the requested slot only if it's empty + in range.
         let placed = {
-            let d = self.dropped_items[idx].clone();
             match self
                 .accounts
                 .find_mut(&sess.user)
@@ -5363,8 +5440,8 @@ impl ServerState {
                 .and_then(|r| r.actor.inventory.get_mut(slot))
             {
                 Some(islot) if islot.item.is_none() => {
-                    islot.item = Some(d.item);
-                    islot.amount = d.amount;
+                    islot.item = Some(dropped.item);
+                    islot.amount = dropped.amount;
                     true
                 }
                 _ => false,

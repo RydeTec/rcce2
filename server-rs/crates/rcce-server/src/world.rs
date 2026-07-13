@@ -5194,13 +5194,13 @@ End Function
         let handle = give_handle.expect("the merchant offered an item via GiveItem");
         let item_id = give_item_id.unwrap();
 
-        // Client accepts the item into slot 8.
+        // Client accepts the item into a backpack slot.
         let mut reply = vec![b'G', b'Y'];
         reply.extend_from_slice(&handle.to_le_bytes());
-        reply.push(8u8);
+        reply.push(14u8);
         state.handle_inventory_update(1, &reply);
         assert_eq!(
-            state.accounts.find("hero").unwrap().characters[0].actor.inventory[8].item.as_ref().map(|i| i.item_id),
+            state.accounts.find("hero").unwrap().characters[0].actor.inventory[14].item.as_ref().map(|i| i.item_id),
             Some(item_id),
             "the bought item lands in the inventory"
         );
@@ -5551,28 +5551,28 @@ End Function
         let offered_id = u16::from_le_bytes([g.payload[5], g.payload[6]]);
         assert_eq!(offered_id, item_id, "offer names the granted item");
 
-        // Client replies "G" + Y + handle + slot 8 → the item lands in slot 8.
+        // Client replies "G" + Y + handle + backpack slot 14.
         let mut reply = vec![b'G', b'Y'];
         reply.extend_from_slice(&handle.to_le_bytes());
-        reply.push(8u8);
+        reply.push(14u8);
         state.handle_inventory_update(1, &reply);
 
         let rec = &state.accounts.find("hero").unwrap().characters[0];
         assert_eq!(
-            rec.actor.inventory[8].item.as_ref().map(|i| i.item_id),
+            rec.actor.inventory[14].item.as_ref().map(|i| i.item_id),
             Some(item_id),
             "the granted item is placed in the chosen slot"
         );
-        assert_eq!(rec.actor.inventory[8].amount, 2, "with the granted amount");
+        assert_eq!(rec.actor.inventory[14].amount, 2, "with the granted amount");
 
         // A second reply for the now-consumed handle does nothing.
-        let before = state.accounts.find("hero").unwrap().characters[0].actor.inventory[9].item.clone();
+        let before = state.accounts.find("hero").unwrap().characters[0].actor.inventory[15].item.clone();
         let mut reply2 = vec![b'G', b'Y'];
         reply2.extend_from_slice(&handle.to_le_bytes());
-        reply2.push(9u8);
+        reply2.push(15u8);
         state.handle_inventory_update(1, &reply2);
         assert_eq!(
-            state.accounts.find("hero").unwrap().characters[0].actor.inventory[9].item, before,
+            state.accounts.find("hero").unwrap().characters[0].actor.inventory[15].item, before,
             "a consumed give-handle can't be replayed into another slot"
         );
     }
@@ -5656,37 +5656,173 @@ End Function
         handle_start_game(&start_packet("hero", MD5, 0), &mut state.accounts, &mut state.throttle, &mut state.world, &state.config, 1, 0);
         let rid = state.world.session(1).unwrap().runtime_id;
 
-        // An item in slot 8, slot 0 (weapon) empty.
+        let Some(weapon_id) = state.items.items.iter().find(|item| item.item_type == 1).map(|item| item.id) else {
+            eprintln!("skipping: no weapon in Items.dat");
+            return;
+        };
+        state.catalog.templates.get_mut(&template_id).unwrap().inventory_slots |= 1;
+
+        // A weapon in backpack slot 14, slot 0 (weapon) empty.
         {
             let rec = &mut state.accounts.find_mut("hero").unwrap().characters[0];
-            rec.actor.inventory[8].item = Some(ItemInstance::new(7));
-            rec.actor.inventory[8].amount = 1;
+            rec.actor.inventory[14].item = Some(ItemInstance::new(weapon_id));
+            rec.actor.inventory[14].amount = 1;
         }
 
-        // Swap slot 8 ↔ slot 0 (equip it).
+        // Swap backpack slot 14 ↔ slot 0 (equip it).
         let mut pkt = vec![b'S'];
         pkt.extend_from_slice(&rid.to_le_bytes()); // own runtime id
-        pkt.push(8); // slotA
+        pkt.push(14); // slotA
         pkt.push(0); // slotB
         pkt.extend_from_slice(&0u16.to_le_bytes()); // amount 0 = whole-slot
         state.handle_inventory_update(1, &pkt);
 
         let rec = &state.accounts.find("hero").unwrap().characters[0];
         assert!(rec.actor.inventory[0].item.is_some(), "item moved to slot 0");
-        assert_eq!(rec.actor.inventory[0].item.as_ref().unwrap().item_id, 7);
-        assert!(rec.actor.inventory[8].item.is_none(), "slot 8 is now empty");
+        assert_eq!(rec.actor.inventory[0].item.as_ref().unwrap().item_id, weapon_id);
+        assert!(rec.actor.inventory[14].item.is_none(), "slot 14 is now empty");
 
         // A swap targeting someone else's runtime id is rejected.
         let mut bad = vec![b'S'];
         bad.extend_from_slice(&(rid.wrapping_add(1)).to_le_bytes());
         bad.push(0);
-        bad.push(8);
+        bad.push(14);
         bad.extend_from_slice(&0u16.to_le_bytes());
         state.handle_inventory_update(1, &bad);
         assert!(
             state.accounts.find("hero").unwrap().characters[0].actor.inventory[0].item.is_some(),
             "a swap for another actor's id must not touch this player's inventory"
         );
+    }
+
+    #[test]
+    fn client_controlled_equipment_placement_obeys_blitz_slot_rules() {
+        use crate::state::{ServerState, Target};
+        use rcce_server_core::item::ItemInstance;
+
+        let dir = data_dir();
+        let catalog = rcce_server_core::ActorCatalog::load(dir.join("Server Data/Actors.dat"));
+        let template = catalog.templates.values().find(|t| t.playable).cloned().expect("shipped data has a playable actor template");
+        let mut store = tmp_store("equipment_placement");
+        let mut account = Account::new("hero", MD5, "h@x.com").unwrap();
+        let mut character = Character::blank();
+        character.actor_id = template.id;
+        character.name = "Hero".into();
+        character.area = template.start_area.clone();
+        account.characters.push(CharacterRecord::new(character));
+        store.push(account);
+        let mut state = ServerState::new(config_for(dir.clone()), store, catalog);
+        handle_start_game(&start_packet("hero", MD5, 0), &mut state.accounts, &mut state.throttle, &mut state.world, &state.config, 1, 0);
+        let rid = state.world.session(1).unwrap().runtime_id;
+
+        // Keep this test independent from which concrete items the starter
+        // project happens to ship: placement only needs the catalog metadata.
+        let mut weapon = state.items.items.first().cloned().expect("Items.dat is populated");
+        weapon.id = 65_000;
+        weapon.name = "Placement test weapon".into();
+        weapon.item_type = 1;
+        weapon.slot_type = 1;
+        weapon.stackable = true;
+        weapon.excl_race.clear();
+        weapon.excl_class.clear();
+        let mut wrong_race = weapon.clone();
+        wrong_race.id = 65_001;
+        wrong_race.name = "Wrong race weapon".into();
+        wrong_race.excl_race = "Not this race".into();
+        let mut wrong_class = weapon.clone();
+        wrong_class.id = 65_002;
+        wrong_class.name = "Wrong class weapon".into();
+        wrong_class.excl_class = "Not this class".into();
+        state.items.items.extend([weapon.clone(), wrong_race, wrong_class]);
+        state.catalog.templates.get_mut(&template.id).unwrap().inventory_slots = 0x7ff;
+
+        let swap = |state: &mut ServerState, from: u8, to: u8| {
+            let mut packet = vec![b'S'];
+            packet.extend_from_slice(&rid.to_le_bytes());
+            packet.extend_from_slice(&[from, to, 0, 0]);
+            state.handle_inventory_update(1, &packet);
+        };
+
+        // A compatible single weapon can still be equipped.
+        {
+            let inventory = &mut state.accounts.find_mut("hero").unwrap().characters[0].actor.inventory;
+            inventory[14].item = Some(ItemInstance::new(weapon.id));
+            inventory[14].amount = 1;
+        }
+        swap(&mut state, 14, 0);
+        assert_eq!(state.accounts.find("hero").unwrap().characters[0].actor.inventory[0].item.as_ref().map(|item| item.item_id), Some(weapon.id), "a compatible single item equips");
+
+        // Every client-controlled equipment route must reject an incompatible
+        // item/slot, disabled slot, restriction mismatch, and stacked item.
+        for (item_id, amount, enabled, destination, label) in [
+            (weapon.id, 1, 0x7ff, 1, "wrong equipment slot"),
+            (weapon.id, 1, 0, 0, "disabled equipment slot"),
+            (65_001, 1, 0x7ff, 0, "exclusive race mismatch"),
+            (65_002, 1, 0x7ff, 0, "exclusive class mismatch"),
+            (weapon.id, 2, 0x7ff, 0, "stacked equipment item"),
+        ] {
+            state.catalog.templates.get_mut(&template.id).unwrap().inventory_slots = enabled;
+            let inventory = &mut state.accounts.find_mut("hero").unwrap().characters[0].actor.inventory;
+            inventory[0] = Default::default();
+            inventory[1] = Default::default();
+            inventory[14].item = Some(ItemInstance::new(item_id));
+            inventory[14].amount = amount;
+            swap(&mut state, 14, destination);
+            let inventory = &state.accounts.find("hero").unwrap().characters[0].actor.inventory;
+            assert_eq!(inventory[14].item.as_ref().map(|item| item.item_id), Some(item_id), "{label}");
+            assert_eq!(inventory[14].amount, amount, "{label}");
+            assert!(inventory[destination as usize].item.is_none(), "{label}");
+        }
+        state.catalog.templates.get_mut(&template.id).unwrap().inventory_slots = 0x7ff;
+
+        // A GiveItem reply cannot forge a weapon into the shield slot, while a
+        // backpack reply continues to work.
+        let offer = state.give_item(rid, &weapon.name, 1);
+        let give_handle = u32::from_le_bytes(offer.iter().find(|outgoing| outgoing.payload.first() == Some(&b'G')).expect("GiveItem offers the test item").payload[1..5].try_into().unwrap());
+        let mut forged_give = vec![b'G', b'Y'];
+        forged_give.extend_from_slice(&give_handle.to_le_bytes());
+        forged_give.push(1);
+        state.handle_inventory_update(1, &forged_give);
+        assert!(state.accounts.find("hero").unwrap().characters[0].actor.inventory[1].item.is_none(), "GiveItem cannot place a weapon in the shield slot");
+
+        // Equipment never holds a stack, including when a GiveItem reply names
+        // an existing matching item instead of an empty slot.
+        {
+            let inventory = &mut state.accounts.find_mut("hero").unwrap().characters[0].actor.inventory;
+            inventory[0].item = Some(ItemInstance::new(weapon.id));
+            inventory[0].amount = 1;
+        }
+        let offer = state.give_item(rid, &weapon.name, 1);
+        let stacked_give_handle = u32::from_le_bytes(offer.iter().find(|outgoing| outgoing.payload.first() == Some(&b'G')).expect("GiveItem offers a stack attempt").payload[1..5].try_into().unwrap());
+        let mut stacked_give = vec![b'G', b'Y'];
+        stacked_give.extend_from_slice(&stacked_give_handle.to_le_bytes());
+        stacked_give.push(0);
+        state.handle_inventory_update(1, &stacked_give);
+        assert_eq!(state.accounts.find("hero").unwrap().characters[0].actor.inventory[0].amount, 1, "GiveItem cannot create an equipment stack");
+
+        let offer = state.give_item(rid, &weapon.name, 1);
+        let backpack_give_handle = u32::from_le_bytes(offer.iter().find(|outgoing| outgoing.payload.first() == Some(&b'G')).expect("GiveItem offers a second test item").payload[1..5].try_into().unwrap());
+        let mut backpack_give = vec![b'G', b'Y'];
+        backpack_give.extend_from_slice(&backpack_give_handle.to_le_bytes());
+        backpack_give.push(15);
+        state.handle_inventory_update(1, &backpack_give);
+        assert_eq!(state.accounts.find("hero").unwrap().characters[0].actor.inventory[15].item.as_ref().map(|item| item.item_id), Some(weapon.id), "GiveItem still accepts a valid backpack destination");
+
+        // Drop a legal backpack item, then forge the pickup destination to the
+        // shield slot. The item must remain on the ground and no pickup reply is sent.
+        {
+            let inventory = &mut state.accounts.find_mut("hero").unwrap().characters[0].actor.inventory;
+            inventory[14].item = Some(ItemInstance::new(weapon.id));
+            inventory[14].amount = 1;
+        }
+        let drop = state.handle_inventory_update(1, &[b'D', 14, 1, 0]);
+        let dropped_handle = u32::from_le_bytes(drop.iter().find(|outgoing| outgoing.payload.first() == Some(&b'D')).expect("drop broadcasts the item").payload[15..19].try_into().unwrap());
+        let mut forged_pickup = vec![b'P'];
+        forged_pickup.extend_from_slice(&dropped_handle.to_le_bytes());
+        forged_pickup.push(1);
+        let pickup = state.handle_inventory_update(1, &forged_pickup);
+        assert!(pickup.iter().all(|outgoing| !(outgoing.payload.first() == Some(&b'R') && matches!(outgoing.target, Target::Peer(1)))), "pickup cannot place a weapon in the shield slot");
+        assert!(state.accounts.find("hero").unwrap().characters[0].actor.inventory[1].item.is_none(), "forged pickup leaves equipment unchanged");
     }
 
     #[test]
@@ -5710,15 +5846,15 @@ End Function
         let mut state = ServerState::new(config_for(dir.clone()), store, catalog);
         handle_start_game(&start_packet("hero", MD5, 0), &mut state.accounts, &mut state.throttle, &mut state.world, &state.config, 1, 0);
 
-        // Put 3 of an item in backpack slot 8.
+        // Put 3 of an item in backpack slot 14.
         {
             let rec = &mut state.accounts.find_mut("hero").unwrap().characters[0];
-            rec.actor.inventory[8].item = Some(ItemInstance::new(1));
-            rec.actor.inventory[8].amount = 3;
+            rec.actor.inventory[14].item = Some(ItemInstance::new(1));
+            rec.actor.inventory[14].amount = 3;
         }
 
-        // Drop 2 from slot 8.
-        let drop = vec![b'D', 8u8, 2u8, 0u8];
+        // Drop 2 from slot 14.
+        let drop = vec![b'D', 14u8, 2u8, 0u8];
         let drop_out = state.handle_inventory_update(1, &drop);
         // The drop is broadcast as "D" to the area; extract the ground handle.
         let dbroadcast = drop_out
@@ -5731,13 +5867,13 @@ End Function
             dbroadcast.payload[17],
             dbroadcast.payload[18],
         ]);
-        // Slot 8 now holds 1.
-        assert_eq!(state.accounts.find("hero").unwrap().characters[0].actor.inventory[8].amount, 1);
+        // Slot 14 now holds 1.
+        assert_eq!(state.accounts.find("hero").unwrap().characters[0].actor.inventory[14].amount, 1);
 
-        // Pick it up into empty slot 9.
+        // Pick it up into empty backpack slot 15.
         let mut pick = vec![b'P'];
         pick.extend_from_slice(&handle.to_le_bytes());
-        pick.push(9u8);
+        pick.push(15u8);
         let pick_out = state.handle_inventory_update(1, &pick);
         // "R" reply to the picker (handle + slot).
         assert!(
@@ -5746,10 +5882,10 @@ End Function
                 && matches!(o.target, Target::Peer(1))),
             "pickup replies with R to the picker"
         );
-        // Slot 9 now holds the picked-up stack (amount 2).
+        // Slot 15 now holds the picked-up stack (amount 2).
         let rec = &state.accounts.find("hero").unwrap().characters[0];
-        assert!(rec.actor.inventory[9].item.is_some(), "item landed in slot 9");
-        assert_eq!(rec.actor.inventory[9].amount, 2, "picked up the dropped amount");
+        assert!(rec.actor.inventory[15].item.is_some(), "item landed in slot 15");
+        assert_eq!(rec.actor.inventory[15].amount, 2, "picked up the dropped amount");
 
         // The ground item is gone — a second pickup does nothing.
         let again = state.handle_inventory_update(1, &pick);
