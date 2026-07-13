@@ -45,6 +45,7 @@ Function EntityFactory_Create%(kind$, threads.Threads)
     If kind = "faction" Then Return EntityFactory_CreateFaction(threads)
     If kind = "animset" Then Return EntityFactory_CreateAnimSet(threads)
     If kind = "projectile" Then Return EntityFactory_CreateProjectile(threads)
+    If kind = "particle" Then Return EntityFactory_CreateParticle(threads)
 
     WriteLog(LoomLog, "EntityFactory: unknown kind '" + kind + "'")
     Return False
@@ -246,6 +247,7 @@ Function EntityFactory_Duplicate%(kind$, refID%, threads.Threads)
     If kind = "faction" Then Return EntityFactory_DuplicateFaction(refID, threads)
     If kind = "zone"   Then Return EntityFactory_DuplicateZone(refID, threads)
     If kind = "projectile" Then Return EntityFactory_DuplicateProjectile(refID, threads)
+    If kind = "particle" Then Return EntityFactory_DuplicateParticle(refID, threads)
     WriteLog(LoomLog, "EntityFactory: duplicate unknown kind '" + kind + "'")
     Return False
 End Function
@@ -433,6 +435,7 @@ Function EntityFactory_Delete%(kind$, refID%, threads.Threads)
     If kind = "faction" Then Return EntityFactory_DeleteFaction(refID, threads)
     If kind = "animset" Then Return EntityFactory_DeleteAnimSet(refID, threads)
     If kind = "projectile" Then Return EntityFactory_DeleteProjectile(refID, threads)
+    If kind = "particle" Then Return EntityFactory_DeleteParticle(refID, threads)
     // Media catalog kinds -- removal is an immediate .dat write via
     // MediaManager (no *Saved defer). MediaManager rebuilds the catalog +
     // toasts; we clear focus + back stack here so the composer doesn't sit
@@ -551,6 +554,80 @@ Function EntityFactory_DeleteProjectile%(refID%, threads.Threads)
     Threads::focus(threads, "", 0)
     Threads::clearStack(threads)
     WriteLog(LoomLog, "EntityFactory: deleted projectile #" + Str(refID))
+    Return True
+End Function
+
+
+// -----------------------------------------------------------------------------
+// Particle-emitter config create / duplicate / delete. refID is
+// Handle(RP_EmitterConfig). GUE gets the New / Copy name from a modal
+// dialog; Loom has no FUI so it auto-names uniquely (the user renames on
+// disk via Save -- the tab has no name editor, matching GUE). New +
+// Duplicate defer the file write to Save (ParticlesSaved = False); Delete
+// removes the .rpc immediately, exactly as GUE's Delete button does.
+// -----------------------------------------------------------------------------
+Function EntityFactory_CreateParticle%(threads.Threads)
+    Local name$ = Particles_UniqueName("New Emitter")
+    // Same seed values as GUE's New-emitter button (200 max, rate 1, 1x1
+    // tiles); Texture + FaceEntity 0 (Loom renders no preview). The rest of
+    // the field defaults come from RP_CreateEmitterConfig.
+    Local id% = RP_CreateEmitterConfig(200, 1, 0, 0, 1, 1, name)
+    If id = 0
+        WriteLog(LoomLog, "EntityFactory: RP_CreateEmitterConfig returned 0")
+        Toast_Show("Create emitter failed", "danger")
+        Return False
+    EndIf
+    Threads::focus(threads, "particle", id)
+    ParticlesSaved = False
+    Timeline_RecordCreate("particle", id, name)
+    Toast_Show("Created emitter " + name, "success")
+    WriteLog(LoomLog, "EntityFactory: created emitter '" + name + "'")
+    Return True
+End Function
+
+
+Function EntityFactory_DuplicateParticle%(srcID%, threads.Threads)
+    Local newID% = RP_CopyEmitterConfig(srcID)
+    If newID = 0
+        WriteLog(LoomLog, "EntityFactory: RP_CopyEmitterConfig failed (stale handle " + Str(srcID) + ")")
+        Toast_Show("Duplicate emitter failed (stale)", "danger")
+        Return False
+    EndIf
+    // RP_CopyEmitterConfig names the copy "Copied Emitter" -- make it unique
+    // so Save doesn't clobber another config's .rpc.
+    Local C.RP_EmitterConfig = Object.RP_EmitterConfig(newID)
+    Local label$ = "emitter"
+    If C <> Null
+        C\Name$ = Particles_UniqueName(C\Name$)
+        label = C\Name$
+    EndIf
+    Threads::focus(threads, "particle", newID)
+    ParticlesSaved = False
+    Timeline_RecordCreate("particle", newID, label)
+    Toast_Show("Duplicated emitter " + label, "success")
+    WriteLog(LoomLog, "EntityFactory: duplicated emitter #" + Str(srcID) + " -> '" + label + "'")
+    Return True
+End Function
+
+
+Function EntityFactory_DeleteParticle%(refID%, threads.Threads)
+    Local C.RP_EmitterConfig = Object.RP_EmitterConfig(refID)
+    If C = Null
+        WriteLog(LoomLog, "EntityFactory: delete emitter -- stale handle " + Str(refID))
+        Return False
+    EndIf
+    Local label$ = C\Name$
+    // GUE's Delete: remove the .rpc immediately, then free the config.
+    DeleteFile("Data\Emitter Configs\" + C\Name$ + ".rpc")
+    RP_FreeEmitterConfig(refID, False)
+    ParticlesSaved = False
+    Emitters_Rebuild()
+    Timeline_RecordDelete("particle", refID, label)
+    WorldCache_Invalidate()
+    Toast_Show("Deleted emitter " + label, "danger")
+    Threads::focus(threads, "", 0)
+    Threads::clearStack(threads)
+    WriteLog(LoomLog, "EntityFactory: deleted emitter '" + label + "'")
     Return True
 End Function
 

@@ -43,6 +43,7 @@ Function SaveAll_AnyDirty%()
     If FactionsSaved = False Then Return True
     If AnimsSaved    = False Then Return True
     If ProjectilesSaved = False Then Return True
+    If ParticlesSaved = False Then Return True
     If ZoneSaved     = False Then Return True
     If SettingsSaved = False Then Return True
     If EnvironmentSaved = False Then Return True
@@ -75,6 +76,7 @@ Function SaveAll_Persist(composer.Composer)
     If FactionsSaved = False Then Composer::commitSaveForKind(composer, "faction") : count = count + 1
     If AnimsSaved = False    Then Composer::commitSaveForKind(composer, "animset") : count = count + 1
     If ProjectilesSaved = False Then Composer::commitSaveForKind(composer, "projectile") : count = count + 1
+    If ParticlesSaved = False Then Composer::commitSaveForKind(composer, "particle") : count = count + 1
     If ZoneSaved = False     Then Composer::commitSaveForKind(composer, "zone")    : count = count + 1
     If SettingsSaved = False Then Composer::commitSaveForKind(composer, "settings"): count = count + 1
     If EnvironmentSaved = False Then Composer::commitSaveForKind(composer, "environment"): count = count + 1

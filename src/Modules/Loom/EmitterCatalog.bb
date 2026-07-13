@@ -64,6 +64,26 @@ End Function
 
 
 // =============================================================================
+// Emitters_Rebuild -- free the EmitterEntry pool and re-scan the directory.
+// Called after the Particles tab creates / deletes / saves a config so the
+// Projectiles composer's emitter picker + missing-name validator stay in
+// sync with what's on disk. After-cursor walk: Delete corrupts a For-Each
+// cursor (docs/loom/architecture.md iterator hazard).
+// =============================================================================
+Function Emitters_Rebuild()
+    Local e.EmitterEntry = First EmitterEntry
+    Local eNext.EmitterEntry = Null
+    While e <> Null
+        eNext = After e
+        Delete e
+        e = eNext
+    Wend
+    EmittersTotalCount = 0
+    Emitters_Init()
+End Function
+
+
+// =============================================================================
 // Emitters_GetByIndex.EmitterEntry -- O(N) walk, insertion order == Index.
 // Used by the Palette picker result dispatch.
 // =============================================================================

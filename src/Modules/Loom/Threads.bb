@@ -209,6 +209,13 @@ Type Threads
             Return Pr\Name$
         EndIf
 
+        If kind = "particle"
+            // refID is Handle(RP_EmitterConfig) -- Null for a stale handle.
+            Local Pc.RP_EmitterConfig = Object.RP_EmitterConfig(refID)
+            If Pc = Null Then Return ""
+            Return Pc\Name$
+        EndIf
+
         If kind = "settings"
             // Singleton project-config "entity". refID is ignored.
             Return "Project Settings"
@@ -352,6 +359,7 @@ Type Threads
         If kind = "faction" Then Return "F"
         If kind = "animset" Then Return "M"
         If kind = "projectile" Then Return "P"
+        If kind = "particle" Then Return "E"
         If kind = "script"  Then Return "x"      ; ".rsl" looks like an x-ish glyph
         If kind = "texture" Then Return "T"
         If kind = "mesh"    Then Return "m"

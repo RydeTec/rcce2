@@ -523,6 +523,8 @@ Type Composer
             Composer::renderSpell(self, x, scrolledBodyY, w, bodyH, mx, my, clicked, rightClicked)
         Else If kind = "projectile"
             Composer::renderProjectile(self, x, scrolledBodyY, w, bodyH, mx, my, clicked, rightClicked)
+        Else If kind = "particle"
+            Composer::renderParticle(self, x, scrolledBodyY, w, bodyH, mx, my, clicked, rightClicked)
         Else If kind = "zone"
             Composer::renderZone(self, x, scrolledBodyY, w, bodyH, mx, my, clicked, rightClicked)
         Else If kind = "faction"
@@ -729,6 +731,41 @@ Type Composer
         EndIf
         If enumKind = "projmesh"
             // Projectile\MeshID sentinel -- GUE's [NONE] button writes 65535.
+            If v = 65535 Then Return "none"
+            Return ""
+        EndIf
+        // Particle-emitter enums (RottParticles.bb constants, all 1-based).
+        If enumKind = "pblend"
+            If v = 1 Then Return "Normal"
+            If v = 2 Then Return "Multiply"
+            If v = 3 Then Return "Add"
+            Return ""
+        EndIf
+        If enumKind = "pshape"
+            If v = 1 Then Return "Sphere"
+            If v = 2 Then Return "Cylinder"
+            If v = 3 Then Return "Box"
+            Return ""
+        EndIf
+        If enumKind = "paxis"
+            If v = 1 Then Return "X axis"
+            If v = 2 Then Return "Y axis"
+            If v = 3 Then Return "Z axis"
+            Return ""
+        EndIf
+        If enumKind = "pvshape"
+            If v = 1 Then Return "None"
+            If v = 2 Then Return "Shaped"
+            If v = 3 Then Return "Strictly shaped"
+            Return ""
+        EndIf
+        If enumKind = "pfshape"
+            If v = 1 Then Return "Linear"
+            If v = 2 Then Return "Spherical"
+            Return ""
+        EndIf
+        If enumKind = "ptexnone"
+            // Emitter DefaultTextureID sentinel -- 65535 = no texture.
             If v = 65535 Then Return "none"
             Return ""
         EndIf
@@ -1375,6 +1412,76 @@ Type Composer
         EndIf
 
         // ---- PROJECTILE -----------------------------------------------------
+        // Particle-emitter config. Clamp ranges mirror GUE's Particles tab
+        // FUI_Spinner definitions (GUE.bb:513-630). Enums: BlendMode 1..3
+        // (Normal/Multiply/Add), Shape 1..3 (Sphere/Cylinder/Box), ShapeAxis
+        // 1..3 (X/Y/Z), VShapeBased 1..3 (None/Shaped/Strictly), ForceShaping
+        // 1..2 (Linear/Spherical). refID is Handle(config).
+        If kind = "particle"
+            Local C.RP_EmitterConfig = Object.RP_EmitterConfig(refID)
+            If C = Null Then Return
+            If fieldId = "max"       Then C\MaxParticles = Composer::parseIntClamped(self, value, C\MaxParticles, 1, 10000) : Return
+            If fieldId = "rate"      Then C\ParticlesPerFrame = Composer::parseIntClamped(self, value, C\ParticlesPerFrame, 1, 200) : Return
+            If fieldId = "life"      Then C\Lifespan = Composer::parseIntClamped(self, value, C\Lifespan, 1, 1000) : Return
+            If fieldId = "size"      Then C\ScaleStart# = Composer::parseFloatClamped(self, value, C\ScaleStart#, 0.01, 100.0) : Return
+            If fieldId = "sizechg"   Then C\ScaleChange# = Composer::parseFloatClamped(self, value, C\ScaleChange#, -10.0, 10.0) : Return
+            If fieldId = "blend"     Then C\BlendMode = Composer::parseIntClamped(self, value, C\BlendMode, 1, 3) : Return
+            If fieldId = "alpha"     Then C\AlphaStart# = Composer::parseFloatClamped(self, value, C\AlphaStart#, 0.0, 1.0) : Return
+            If fieldId = "alphachg"  Then C\AlphaChange# = Composer::parseFloatClamped(self, value, C\AlphaChange#, -1.0, 1.0) : Return
+            If fieldId = "r"         Then C\RStart = Composer::parseIntClamped(self, value, C\RStart, 0, 255) : Return
+            If fieldId = "g"         Then C\GStart = Composer::parseIntClamped(self, value, C\GStart, 0, 255) : Return
+            If fieldId = "b"         Then C\BStart = Composer::parseIntClamped(self, value, C\BStart, 0, 255) : Return
+            If fieldId = "rchg"      Then C\RChange# = Composer::parseFloatClamped(self, value, C\RChange#, -50.0, 50.0) : Return
+            If fieldId = "gchg"      Then C\GChange# = Composer::parseFloatClamped(self, value, C\GChange#, -50.0, 50.0) : Return
+            If fieldId = "bchg"      Then C\BChange# = Composer::parseFloatClamped(self, value, C\BChange#, -50.0, 50.0) : Return
+            // DefaultTextureID is a texture engine-ID (not a catalog index);
+            // assetIntRow writes the ID. 65535 = none (WriteShort field).
+            If fieldId = "tex"       Then C\DefaultTextureID = Composer::parseIntClamped(self, value, C\DefaultTextureID, 0, 65535) : Return
+            If fieldId = "texacross" Then C\TexAcross = Composer::parseIntClamped(self, value, C\TexAcross, 1, 50) : Return
+            If fieldId = "texdown"   Then C\TexDown = Composer::parseIntClamped(self, value, C\TexDown, 1, 50) : Return
+            // Anim speed: typed value is the display value (0..100). Re-invert
+            // to stored the way GUE does: display d>0 -> stored 101-d, d=0 -> 0.
+            If fieldId = "texspeed"
+                // Fallback is the current DISPLAY value so an empty / garbage
+                // commit is a no-op (keeps the current speed), matching every
+                // other field. Passing 0 here would silently disable the
+                // animation on an empty commit.
+                Local curDsp% = 0
+                If C\TexAnimSpeed > 0 Then curDsp = 101 - C\TexAnimSpeed
+                Local dsp% = Composer::parseIntClamped(self, value, curDsp, 0, 100)
+                If dsp > 0 Then C\TexAnimSpeed = 101 - dsp Else C\TexAnimSpeed = 0
+                Return
+            EndIf
+            If fieldId = "randframe"  Then C\RndStartFrame = (value = "1") : Return
+            If fieldId = "shape"      Then C\Shape = Composer::parseIntClamped(self, value, C\Shape, 1, 3) : Return
+            If fieldId = "axis"       Then C\ShapeAxis = Composer::parseIntClamped(self, value, C\ShapeAxis, 1, 3) : Return
+            If fieldId = "width"      Then C\Width# = Composer::parseFloatClamped(self, value, C\Width#, 0.0, 500.0) : Return
+            If fieldId = "height"     Then C\Height# = Composer::parseFloatClamped(self, value, C\Height#, 0.0, 500.0) : Return
+            If fieldId = "depth"      Then C\Depth# = Composer::parseFloatClamped(self, value, C\Depth#, 0.0, 500.0) : Return
+            // Inner radius clamps to <= outer radius, matching GUE's handler.
+            If fieldId = "minradius"
+                C\MinRadius# = Composer::parseFloatClamped(self, value, C\MinRadius#, 0.0, 500.0)
+                If C\MinRadius# > C\MaxRadius# Then C\MinRadius# = C\MaxRadius#
+                Return
+            EndIf
+            If fieldId = "maxradius"  Then C\MaxRadius# = Composer::parseFloatClamped(self, value, C\MaxRadius#, 0.1, 500.0) : Return
+            If fieldId = "vshape"     Then C\VShapeBased = Composer::parseIntClamped(self, value, C\VShapeBased, 1, 3) : Return
+            If fieldId = "velx"       Then C\VelocityX# = Composer::parseFloatClamped(self, value, C\VelocityX#, -500.0, 500.0) : Return
+            If fieldId = "vely"       Then C\VelocityY# = Composer::parseFloatClamped(self, value, C\VelocityY#, -500.0, 500.0) : Return
+            If fieldId = "velz"       Then C\VelocityZ# = Composer::parseFloatClamped(self, value, C\VelocityZ#, -500.0, 500.0) : Return
+            If fieldId = "velrx"      Then C\VelocityRndX# = Composer::parseFloatClamped(self, value, C\VelocityRndX#, -500.0, 500.0) : Return
+            If fieldId = "velry"      Then C\VelocityRndY# = Composer::parseFloatClamped(self, value, C\VelocityRndY#, -500.0, 500.0) : Return
+            If fieldId = "velrz"      Then C\VelocityRndZ# = Composer::parseFloatClamped(self, value, C\VelocityRndZ#, -500.0, 500.0) : Return
+            If fieldId = "fshape"     Then C\ForceShaping = Composer::parseIntClamped(self, value, C\ForceShaping, 1, 2) : Return
+            If fieldId = "fx"         Then C\ForceX# = Composer::parseFloatClamped(self, value, C\ForceX#, -500.0, 500.0) : Return
+            If fieldId = "fy"         Then C\ForceY# = Composer::parseFloatClamped(self, value, C\ForceY#, -500.0, 500.0) : Return
+            If fieldId = "fz"         Then C\ForceZ# = Composer::parseFloatClamped(self, value, C\ForceZ#, -500.0, 500.0) : Return
+            If fieldId = "fmodx"      Then C\ForceModX# = Composer::parseFloatClamped(self, value, C\ForceModX#, -500.0, 500.0) : Return
+            If fieldId = "fmody"      Then C\ForceModY# = Composer::parseFloatClamped(self, value, C\ForceModY#, -500.0, 500.0) : Return
+            If fieldId = "fmodz"      Then C\ForceModZ# = Composer::parseFloatClamped(self, value, C\ForceModZ#, -500.0, 500.0) : Return
+            Return
+        EndIf
+
         // Clamp ranges mirror GUE's Projectiles tab gadgets: HitChance /
         // Speed are 1..100 spinners, Damage is a 0..5000 spinner,
         // DamageType indexes DamageTypes$(0..19), MeshID 65535 = [NONE].
@@ -1878,6 +1985,7 @@ Type Composer
         If kind = "zone"    Then Return Not ZoneSaved
         If kind = "animset" Then Return Not AnimsSaved
         If kind = "projectile" Then Return Not ProjectilesSaved
+        If kind = "particle" Then Return Not ParticlesSaved
         If kind = "environment" Then Return Not EnvironmentSaved
         Return False
     End Method
@@ -1895,6 +2003,7 @@ Type Composer
         If kind = "zone"     Then ZoneSaved = False
         If kind = "animset"  Then AnimsSaved = False
         If kind = "projectile" Then ProjectilesSaved = False
+        If kind = "particle" Then ParticlesSaved = False
         If kind = "settings" Then SettingsSaved = False
         If kind = "environment" Then EnvironmentSaved = False
     End Method
@@ -2023,6 +2132,17 @@ Type Composer
             ProjectilesSaved = True
             WriteLog(LoomLog, "Composer: saved Projectiles.dat")
             Toast_Show("Saved Projectiles.dat", "success")
+            Return
+        EndIf
+
+        If kind = "particle"
+            // GUE's "Save emitters": write every config to its own .rpc under
+            // Data\Emitter Configs\. Particles_SaveAll also refreshes the
+            // projectile-picker roster (Emitters_Rebuild).
+            Particles_SaveAll()
+            ParticlesSaved = True
+            WriteLog(LoomLog, "Composer: saved emitter configs (*.rpc)")
+            Toast_Show("Saved emitter configs", "success")
             Return
         EndIf
 
@@ -2156,6 +2276,7 @@ Type Composer
         If kind = "faction" Then Return "F"
         If kind = "animset" Then Return "M"
         If kind = "projectile" Then Return "P"
+        If kind = "particle" Then Return "E"
         Return "?"
     End Method
 
@@ -2785,6 +2906,20 @@ Type Composer
             Composer::reFocusOrClose(self, kind)
             Return
         EndIf
+        If kind = "particle"
+            // Free every live config and reload from disk. Every config's
+            // Handle regenerates on reload, so the focused handle + back
+            // stack go stale -- close the composer (same shape as zone
+            // discard, the other Handle-based kind).
+            Threads::focus(self\threads, "", 0)
+            Threads::clearStack(self\threads)
+            Particles_FreeAll()
+            Particles_Init()
+            Emitters_Rebuild()
+            ParticlesSaved = True
+            WriteLog(LoomLog, "Composer: discarded -- reloaded emitter configs")
+            Return
+        EndIf
         If kind = "faction"
             // LoadFactions overwrites FactionNames$ in-place; no free needed.
             LoadFactions("Data\Server Data\Factions.dat")
@@ -3023,6 +3158,7 @@ Type Composer
         If kind = "faction" Then Return "FACTION"
         If kind = "animset" Then Return "ANIMATION SET"
         If kind = "projectile" Then Return "PROJECTILE"
+        If kind = "particle" Then Return "PARTICLE EMITTER"
         If kind = "environment" Then Return "DAYS & SEASONS"
         Return Upper$(kind)
     End Method
@@ -3230,6 +3366,7 @@ Type Composer
         If kind = "faction" Then Return "FACTION"
         If kind = "animset" Then Return "ANIM SETS"
         If kind = "projectile" Then Return "PROJECTILES"
+        If kind = "particle" Then Return "EMITTERS"
         If kind = "mesh"    Then Return "MESHES"
         If kind = "texture" Then Return "TEXTURES"
         If kind = "sound"   Then Return "SOUNDS"
@@ -3833,6 +3970,89 @@ Type Composer
             EndIf
             y = y + CMP_ROW_H
         EndIf
+
+        Composer::recordContentBottom(self, y)
+    End Method
+
+
+    // Particle-emitter config editor. Covers every field on GUE's Particles
+    // tab (GUE.bb:448-630), grouped exactly as GUE groups them, with the
+    // same clamp ranges as GUE's FUI_Spinner definitions. refID is
+    // Handle(config); Object.RP_EmitterConfig returns Null for a stale
+    // handle (e.g. after a Delete leaves focus dangling) -- guarded here.
+    // Name is display-only: GUE's tab has no name editor (the name is set
+    // once at New and is the .rpc filename).
+    Method renderParticle(panelX%, bodyY%, panelW%, bodyH%, mx%, my%, clicked%, rightClicked%)
+        Local refID% = self\threads\focusID
+        Local C.RP_EmitterConfig = Object.RP_EmitterConfig(refID)
+        If C = Null Then Return
+
+        Local y% = bodyY
+        y = Composer::row(self, panelX, panelW, y, "Name", C\Name$)
+
+        y = Composer::sectionHeader(self, panelX, panelW, y, "General")
+        y = Composer::editableIntRow(self, panelX, panelW, y, "Max particles", "particle", refID, "max", C\MaxParticles, mx, my, clicked)
+        y = Composer::editableIntRow(self, panelX, panelW, y, "Spawn rate", "particle", refID, "rate", C\ParticlesPerFrame, mx, my, clicked)
+        y = Composer::editableIntRow(self, panelX, panelW, y, "Lifespan", "particle", refID, "life", C\Lifespan, mx, my, clicked)
+        y = Composer::editableFloatRow(self, panelX, panelW, y, "Initial size", "particle", refID, "size", C\ScaleStart#, mx, my, clicked)
+        y = Composer::editableFloatRow(self, panelX, panelW, y, "Size change", "particle", refID, "sizechg", C\ScaleChange#, mx, my, clicked)
+        y = Composer::enumIntRow(self, panelX, panelW, y, "Blend mode", "particle", refID, "blend", C\BlendMode, "pblend", mx, my, clicked)
+        y = Composer::editableFloatRow(self, panelX, panelW, y, "Initial alpha", "particle", refID, "alpha", C\AlphaStart#, mx, my, clicked)
+        y = Composer::editableFloatRow(self, panelX, panelW, y, "Alpha change", "particle", refID, "alphachg", C\AlphaChange#, mx, my, clicked)
+
+        y = Composer::sectionHeader(self, panelX, panelW, y, "Colouring")
+        y = Composer::editableIntRow(self, panelX, panelW, y, "Initial red", "particle", refID, "r", C\RStart, mx, my, clicked)
+        y = Composer::editableIntRow(self, panelX, panelW, y, "Initial green", "particle", refID, "g", C\GStart, mx, my, clicked)
+        y = Composer::editableIntRow(self, panelX, panelW, y, "Initial blue", "particle", refID, "b", C\BStart, mx, my, clicked)
+        y = Composer::editableFloatRow(self, panelX, panelW, y, "Red change", "particle", refID, "rchg", C\RChange#, mx, my, clicked)
+        y = Composer::editableFloatRow(self, panelX, panelW, y, "Green change", "particle", refID, "gchg", C\GChange#, mx, my, clicked)
+        y = Composer::editableFloatRow(self, panelX, panelW, y, "Blue change", "particle", refID, "bchg", C\BChange#, mx, my, clicked)
+
+        y = Composer::sectionHeader(self, panelX, panelW, y, "Animated texture")
+        // DefaultTextureID is the persisted texture (GUE's "Preview texture"
+        // button writes it, GUE.bb:6138). 65535 = no texture (GUE's boot
+        // guard is `< 65535`), rendered as a plain int like the projectile
+        // [NONE] mesh so the catalog miss doesn't paint a misleading pill.
+        If C\DefaultTextureID = 65535
+            y = Composer::enumIntRow(self, panelX, panelW, y, "Texture", "particle", refID, "tex", C\DefaultTextureID, "ptexnone", mx, my, clicked)
+        Else
+            y = Composer::assetIntRow(self, panelX, panelW, y, "Texture", "particle", refID, "tex", C\DefaultTextureID, "texture", mx, my, clicked, rightClicked)
+        EndIf
+        y = Composer::editableIntRow(self, panelX, panelW, y, "Frames across", "particle", refID, "texacross", C\TexAcross, mx, my, clicked)
+        y = Composer::editableIntRow(self, panelX, panelW, y, "Frames down", "particle", refID, "texdown", C\TexDown, mx, my, clicked)
+        // GUE shows anim speed inverted (101 - stored) so higher = faster;
+        // 0 = off. We present the same display value and re-invert on write.
+        Local speedDisp% = 0
+        If C\TexAnimSpeed > 0 Then speedDisp = 101 - C\TexAnimSpeed
+        y = Composer::editableIntRow(self, panelX, panelW, y, "Anim speed (%)", "particle", refID, "texspeed", speedDisp, mx, my, clicked)
+        y = Composer::toggleRow(self, panelX, panelW, y, "Random start frame", "particle", refID, "randframe", C\RndStartFrame, mx, my, clicked)
+
+        y = Composer::sectionHeader(self, panelX, panelW, y, "Shape")
+        y = Composer::enumIntRow(self, panelX, panelW, y, "Emitter shape", "particle", refID, "shape", C\Shape, "pshape", mx, my, clicked)
+        y = Composer::enumIntRow(self, panelX, panelW, y, "Cylinder axis", "particle", refID, "axis", C\ShapeAxis, "paxis", mx, my, clicked)
+        y = Composer::editableFloatRow(self, panelX, panelW, y, "Width", "particle", refID, "width", C\Width#, mx, my, clicked)
+        y = Composer::editableFloatRow(self, panelX, panelW, y, "Height", "particle", refID, "height", C\Height#, mx, my, clicked)
+        y = Composer::editableFloatRow(self, panelX, panelW, y, "Depth", "particle", refID, "depth", C\Depth#, mx, my, clicked)
+        y = Composer::editableFloatRow(self, panelX, panelW, y, "Inner radius", "particle", refID, "minradius", C\MinRadius#, mx, my, clicked)
+        y = Composer::editableFloatRow(self, panelX, panelW, y, "Outer radius", "particle", refID, "maxradius", C\MaxRadius#, mx, my, clicked)
+
+        y = Composer::sectionHeader(self, panelX, panelW, y, "Velocity")
+        y = Composer::enumIntRow(self, panelX, panelW, y, "Velocity shaping", "particle", refID, "vshape", C\VShapeBased, "pvshape", mx, my, clicked)
+        y = Composer::editableFloatRow(self, panelX, panelW, y, "X velocity", "particle", refID, "velx", C\VelocityX#, mx, my, clicked)
+        y = Composer::editableFloatRow(self, panelX, panelW, y, "Y velocity", "particle", refID, "vely", C\VelocityY#, mx, my, clicked)
+        y = Composer::editableFloatRow(self, panelX, panelW, y, "Z velocity", "particle", refID, "velz", C\VelocityZ#, mx, my, clicked)
+        y = Composer::editableFloatRow(self, panelX, panelW, y, "X randomisation", "particle", refID, "velrx", C\VelocityRndX#, mx, my, clicked)
+        y = Composer::editableFloatRow(self, panelX, panelW, y, "Y randomisation", "particle", refID, "velry", C\VelocityRndY#, mx, my, clicked)
+        y = Composer::editableFloatRow(self, panelX, panelW, y, "Z randomisation", "particle", refID, "velrz", C\VelocityRndZ#, mx, my, clicked)
+
+        y = Composer::sectionHeader(self, panelX, panelW, y, "Forces")
+        y = Composer::enumIntRow(self, panelX, panelW, y, "Force shaping", "particle", refID, "fshape", C\ForceShaping, "pfshape", mx, my, clicked)
+        y = Composer::editableFloatRow(self, panelX, panelW, y, "X force", "particle", refID, "fx", C\ForceX#, mx, my, clicked)
+        y = Composer::editableFloatRow(self, panelX, panelW, y, "Y force", "particle", refID, "fy", C\ForceY#, mx, my, clicked)
+        y = Composer::editableFloatRow(self, panelX, panelW, y, "Z force", "particle", refID, "fz", C\ForceZ#, mx, my, clicked)
+        y = Composer::editableFloatRow(self, panelX, panelW, y, "X force modifier", "particle", refID, "fmodx", C\ForceModX#, mx, my, clicked)
+        y = Composer::editableFloatRow(self, panelX, panelW, y, "Y force modifier", "particle", refID, "fmody", C\ForceModY#, mx, my, clicked)
+        y = Composer::editableFloatRow(self, panelX, panelW, y, "Z force modifier", "particle", refID, "fmodz", C\ForceModZ#, mx, my, clicked)
 
         Composer::recordContentBottom(self, y)
     End Method
