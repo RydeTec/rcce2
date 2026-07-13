@@ -1,1 +1,1 @@
-{"run_id":"rcce2-hourly-20260713T213612Z-98918cc4-764","status":"active","started_at":"2026-07-13T21:36:12Z","heartbeat_at":"2026-07-13T21:36:12Z","expires_at":"2026-07-14T21:36:12Z","issue":null,"branch":null,"pr":null,"phase":"preflight"}
+{"run_id":"rcce2-hourly-20260713T213612Z-98918cc4-764","status":"active","started_at":"2026-07-13T21:36:12Z","heartbeat_at":"2026-07-13T21:40:42Z","expires_at":"2026-07-14T21:40:42Z","issue":null,"branch":null,"pr":null,"phase":"issue-contract"}
