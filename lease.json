@@ -2,10 +2,10 @@
   "run_id": "rcce2-hourly-20260713T203455Z-12a72e56",
   "status": "active",
   "started_at": "2026-07-13T20:34:55Z",
-  "heartbeat_at": "2026-07-13T20:34:55Z",
-  "expires_at": "2026-07-14T20:34:55Z",
+  "heartbeat_at": "2026-07-13T20:38:26Z",
+  "expires_at": "2026-07-14T20:38:26Z",
   "issue": null,
   "branch": null,
   "pr": null,
-  "phase": "preflight"
+  "phase": "reconnaissance"
 }
