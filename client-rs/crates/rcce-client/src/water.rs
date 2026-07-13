@@ -41,19 +41,14 @@ pub const UNDERWATER_FOG_NEAR: f32 = 1.0;
 pub const UNDERWATER_FOG_FAR: f32 = 50.0;
 
 /// CAM-6: the fog/clear colour + near/far view distance for a camera submerged in
-/// water tinted `water_color` (0..1 RGB). Blitz (Client.bb:903-911) sets
-/// `CameraFogColor`/`CameraClsColor` to the raw water RGB and `FogNear/Far` to
-/// `1/50`, and hides the Sky/Stars/Cloud entities. The Rust port darkens the fog
-/// to `0.7×` the water colour — the additive full-screen wash (alpha 0.6) the
-/// caller draws supplies the remaining near-water film that Blitz gets "for free"
-/// from the hidden sky + saturated fog; near/far match Blitz exactly. The caller
-/// also calls `WorldView::set_hide_sky(true)` and draws the wash when submerged.
+/// water tinted `water_color` (0..1 RGB). Exact Blitz parity (Client.bb:903-911):
+/// `CameraClsColor`/`CameraFogColor` are set to the **raw** water RGB (no
+/// multiplier) and `FogNear/Far` to `1/50`; the Sky/Stars/Cloud entities are
+/// hidden (`WorldView::set_hide_sky(true)`, called by the consumer). Blitz draws
+/// NO separate overlay — the fog + clear colour + hidden sky ARE the whole effect,
+/// so the port relies on them alone (no full-screen wash).
 pub fn underwater_fog(water_color: [f32; 3]) -> ([f32; 3], f32, f32) {
-    (
-        [water_color[0] * 0.7, water_color[1] * 0.7, water_color[2] * 0.7],
-        UNDERWATER_FOG_NEAR,
-        UNDERWATER_FOG_FAR,
-    )
+    (water_color, UNDERWATER_FOG_NEAR, UNDERWATER_FOG_FAR)
 }
 
 /// The current zone's water planes, replaced wholesale on every zone load.
@@ -207,23 +202,28 @@ mod tests {
         assert!(w.contains([0.0, 9.6, 0.0]) && !w.actor_submerged(0.0, 0.0, 9.6));
     }
 
-    // CAM-6: the underwater camera parameters — near/far clamp to Blitz's 1/50
-    // and the fog tints to 0.7× the water colour — apply only when the eye is
+    // CAM-6: the underwater camera parameters — near/far clamp to Blitz's 1/50 and
+    // the fog/clear are the RAW water colour (no multiplier — exact Blitz
+    // `CameraClsColor/FogColor W\Red,W\Green,W\Blue`) — apply only when the eye is
     // submerged. Above the surface there's no tint (the caller keeps the zone fog).
     #[test]
     fn cam6_underwater_fog_values() {
+        // The shipped Plains pond colour is rgb(0,0,150)/255 = (0,0,0.588…). The fog
+        // must come back as EXACTLY that, not a darkened 0.7× of it.
+        let plains = [0.0, 0.0, 150.0 / 255.0];
         let mut w = WaterVolumes::default();
-        // Deep blue-green water plane, surface Y = 0.
-        let col = [0.1, 0.3, 0.5];
-        w.set([WaterPlane { color: col, ..plane([0.0, 0.0, 0.0], 200.0, 200.0) }]);
-        // Submerged eye → Some(tint); the render path tints fog + clamps near/far.
+        w.set([WaterPlane { color: plains, ..plane([0.0, 0.0, 0.0], 200.0, 200.0) }]);
         let wc = w.underwater_color([0.0, -3.0, 0.0]).expect("eye below surface is underwater");
         let (fog, near, far) = underwater_fog(wc);
         assert!((near - 1.0).abs() < 1e-6, "Blitz FogNear = 1 (got {near})");
         assert!((far - 50.0).abs() < 1e-6, "Blitz FogFar = 50 (got {far})");
-        assert!((fog[0] - col[0] * 0.7).abs() < 1e-6, "fog R = 0.7× water R");
-        assert!((fog[1] - col[1] * 0.7).abs() < 1e-6, "fog G = 0.7× water G");
-        assert!((fog[2] - col[2] * 0.7).abs() < 1e-6, "fog B = 0.7× water B");
+        // RAW water RGB — no 0.7× (regression guard: (0,0,0.588) must NOT become
+        // (0,0,0.412)). Exact equality: the mapping is the identity on colour.
+        assert_eq!(fog, plains, "fog/clear = raw water RGB (no multiplier)");
+        assert_eq!(fog, wc, "underwater_fog passes the water colour through untouched");
+        // A second colour to pin down that every channel is untouched.
+        let (fog2, ..) = underwater_fog([0.1, 0.3, 0.5]);
+        assert_eq!(fog2, [0.1, 0.3, 0.5], "all channels raw, no scaling");
         // Surfaced eye → no tint (the render path leaves the zone fog + shows sky).
         assert_eq!(w.underwater_color([0.0, 1.0, 0.0]), None, "above the surface → no underwater tint");
         // The exported consts match the Blitz literals exactly.

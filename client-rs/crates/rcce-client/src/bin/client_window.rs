@@ -5701,14 +5701,9 @@ impl App {
             });
             let oview = tex.create_view(&Default::default());
             view.render(&gfx.device, &gfx.queue, &oview, vp, eye, fog, fn_, ff_, ambient, sun, clear, yaw, elapsed, night, target);
-            // Composite the underwater wash onto the shot (the in-world path draws
-            // this in the HUD overlay), so the headless preview shows the full look.
-            if let Some(wc) = underwater {
-                if let Some(overlay) = self.overlay.as_mut() {
-                    overlay.rect(0.0, 0.0, w as f32, h as f32, [wc[0], wc[1], wc[2], 0.6]);
-                    overlay.render(&gfx.device, &gfx.queue, &oview, w as f32, h as f32);
-                }
-            }
+            // (No underwater wash: Blitz draws none — the raw water-colour fog +
+            // clear + hidden sky, already applied by view.render + set_hide_sky, ARE
+            // the whole CAM-6 effect. Client.bb:895-922.)
             match rcce_render::save_texture_png(&gfx.device, &gfx.queue, &tex, w, h, gfx.config.format, &path) {
                 Ok(()) => println!("[client-window] zone preview -> {path}"),
                 Err(e) => eprintln!("[client-window] zone preview failed: {e}"),
@@ -8321,17 +8316,15 @@ impl App {
         let mut fog_dn = rcce_client::daynight::modulate(wfog_color, &sky);
         let ambient_dn = rcce_client::daynight::modulate(self.ambient, &sky);
         // Underwater (Blitz CameraUnderwater): when the camera dips below a water
-        // plane, tint the fog/clear to the water colour and clamp to a short murky
-        // view distance. The full-screen water wash added to the overlay below also
-        // hides the sky/sun (Blitz hides Sky/Stars/Cloud entities underwater).
+        // plane, tint the fog/clear to the RAW water colour and clamp to the short
+        // murky 1/50 view distance, and hide the sky/sun/stars/clouds (below). Blitz
+        // draws NO overlay — fog + clear colour + hidden sky ARE the whole effect.
         let underwater = self.water.underwater_color(eye);
         let mut fog_near_eff = wfog_near;
         let mut fog_far_eff = wfog_far;
         if let Some(wc) = underwater {
-            // Blitz (Client.bb:903-911): CameraFogColor/ClsColor = the water RGB,
-            // FogNear/Far = 1/50, and the Sky/Stars/Cloud entities are hidden. The
-            // 0.7× darkens the murk a touch (the wash below adds the near-water
-            // film); near/far match Blitz exactly.
+            // Blitz (Client.bb:903-911): CameraClsColor/CameraFogColor = the raw
+            // water RGB (no multiplier), FogNear/Far = 1/50, Sky/Stars/Cloud hidden.
             let (fc, near, far) = rcce_client::water::underwater_fog(wc);
             fog_dn = fc;
             fog_near_eff = near;
@@ -8491,12 +8484,9 @@ impl App {
             let (sw, sh) = (gfx.config.width as f32, gfx.config.height as f32);
             let white = [1.0, 1.0, 1.0, 1.0];
 
-            // Underwater wash: a translucent full-screen water-colour tint, drawn
-            // FIRST so it sits over the (already murk-fogged) world + sky but under
-            // the HUD/nameplates — hiding the sky/sun and giving the submerged look.
-            if let Some(wc) = underwater {
-                overlay.rect(0.0, 0.0, sw, sh, [wc[0], wc[1], wc[2], 0.6]);
-            }
+            // (No underwater overlay: Blitz draws none — the raw water-colour fog +
+            // clear + hidden sky, applied above in the world render, ARE the entire
+            // CAM-6 effect. Client.bb:895-922.)
 
             // Weather particles (rain/snow) — drawn first so they sit behind the
             // HUD/nameplates. Driven by the zone's weather byte.
