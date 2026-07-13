@@ -2,10 +2,10 @@
   "run_id": "rcce2-hourly-20260713T193353Z-0ee6092f-1b9",
   "status": "active",
   "started_at": "2026-07-13T19:33:53Z",
-  "heartbeat_at": "2026-07-13T19:55:26Z",
-  "expires_at": "2026-07-14T19:55:26Z",
+  "heartbeat_at": "2026-07-13T19:56:36Z",
+  "expires_at": "2026-07-14T19:56:36Z",
   "issue": 607,
   "branch": "codex-automation/607-defender-resistance",
   "pr": 608,
-  "phase": "merge-ready"
+  "phase": "merge-attempt"
 }
