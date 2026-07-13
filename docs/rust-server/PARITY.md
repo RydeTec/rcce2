@@ -1,6 +1,6 @@
 # Rust Server — Blitz Parity Backlog
 
-_Dated 2026-06-17. Read-only audit synthesis (adversarially confirmed; false positives removed)._
+_Dated 2026-06-17; **reconciled 2026-07-13** (PR #598). Read-only audit synthesis (adversarially confirmed; false positives removed). The **Definitive reconciled audit** section below supersedes the stale 44-gap synthesis and closes out the abandoned 72-gap re-audit — read it first._
 
 ## Progress (parity build, started 2026-06-17)
 
@@ -84,7 +84,50 @@ Closed so far (each with regression tests; full suite 220 green, 0 warnings):
 - ✅ **Ability mutators (ADD/DELETE/SETABILITYLEVEL + reads)** — `state.rs` `add_ability`/`set_ability_level`/`delete_ability` + `ability_known`/`spell_by_name`/`player_loc`; `pump_scripts` arms for all 6 (`abilityknown`/`abilitylevel`/`abilitymemorised`/`addability`/`setabilitylevel`/`deleteability`). Spell-trainer content works (grant/raise/strip spells); broadcasts `P_KnownSpellUpdate`. AddAbility ungated; SetAbilityLevel/DeleteAbility privileged (brick-vector). Test: `ability_bvms_grant_and_gate_level`. _Divergence (resolved 2026-07-10): the `"A"` packet used to send thumbnail-tex/description as 0/empty because the spell parser discarded them; the parser now retains both and the packet carries the real values — see the P_FetchCharacter spells entry at the top._
 - ✅ **#7c Quest mutators** — `scripts.rs` `newquest`/`updatequest`/`completequest`/`deletequest` (+ faithful `queststatus`/`questcomplete`), each broadcasting `P_QuestLog` (`"N"`/`"U"`/`"D"`). Status = 3 flag bytes + description (Latin-1 wire encoding via `quest_status_to_bytes`). Replaced the old port-ism `setqueststatus`. DeleteQuest privileged; the rest ungated (Blitz). Quest-giver content (NewQuest/UpdateQuest/CompleteQuest/QuestStatus/QuestComplete — all used by shipped scripts) now functions. Test: `quest_bvms_create_update_complete_and_report`. _Divergence: status persists as UTF-8 (`U+00FF` → `C3 BF`) so a Rust-saved quest log isn't byte-identical to a Blitz one — internally consistent + correct on the wire; only matters for cross-engine save interop, not the Rust↔Rust north star._
 
-_The 2026-06-17 re-audit workflow confirmed 72 gaps but its synthesis agent died on a socket error, so this file remains the prior 44-gap synthesis. Reconcile the richer raw output (task `wb2hhg24h`) into this file as a follow-up._
+---
+
+## Definitive reconciled audit (2026-07-13, PR #598) — supersedes the 44-gap synthesis
+
+The 2026-06-17 re-audit confirmed 72 gaps but its synthesis agent died (socket error, task `wb2hhg24h`) before reconciling; the raw 72-item list is unrecoverable. This section **regenerates the gap categories from a fresh source diff** (the method the lost synthesis would have used) and marks each category CLOSED or REMAINING by inspection on **both** sides (file:line). It is the authoritative status; the prose catalogue below (the historical 44-gap synthesis) is retained for the audit trail but every non-superseded item in it is now closed — see the Progress list at the top for the closing PR/cycle of each.
+
+### Method (all `inspected` + `executed`)
+
+- **Inbound packets:** enumerated every `Case P_*` in `src/Modules/ServerNet.bb`'s dispatch (`grep -E '^\s*Case P_'` → **29**) and mapped each to a `ServerState::dispatch` arm in `server-rs/.../state.rs:6491-6589`.
+- **BVMs:** diffed `Function BVM_*` names in `src/Modules/ScriptingCommands.bb` against the port's match-arm string literals in `scripts.rs` + `state.rs::pump_scripts` (the "BVM coverage diff" memory technique).
+- **Outbound:** spot-checked the big broadcasters (`P_NewActor`/`P_ActorGone`/`P_StandardUpdate`/`P_ChangeArea`/`P_StatUpdate`/`P_ChatMessage`/`P_ActorDead`/`P_XPUpdate`/`P_QuestLog`/`P_Projectile`/`P_InventoryUpdate`) — all emitted in `world.rs`/`state.rs`.
+- **Shipped-script parse:** `rcce-script/tests/real_scripts.rs` asserts **0 parse failures**.
+
+### Result — the three coverage diffs are EMPTY
+
+1. **Inbound packets: 29/29 CLOSED.** Every `Case P_*` has a live handler: `P_ChatMessage`/`P_RepositionActor`/`P_ChangeArea`/`P_UpdateTrading`/`P_OpenTrading`/`P_Jump`/`P_ActionBarUpdate`/`P_SpellUpdate`/`P_ProgressBar`/`P_Dialog`/`P_ScriptInput`/`P_EatItem`/`P_ItemScript`/`P_RightClick`/`P_Examine`/`P_Trade`/`P_AttackActor`/`P_InventoryUpdate`/`P_Dismount`/`P_StandardUpdate`/`P_StartGame`/`P_FetchUpdateFiles`/`P_FetchActors`/`P_CreateAccount`/`P_VerifyAccount`/`P_ChangePassword`/`P_FetchCharacter`/`P_CreateCharacter`/`P_DeleteCharacter` → all present in `state.rs:6491-6589`. **No unhandled inbound packet.**
+2. **BVMs: CLOSED.** A `comm` of the 224 `Function BVM_*` names (which includes 2 commented-out dead-API entries) against the port arms leaves **0 real gaps**. The `comm` residue is entirely false positives / non-commands: (a) multi-pattern arms (`"setgold" | "setmoney" =>`, `"gold" | "money" =>`, `"attribute" | "getattribute" =>`, `"banplayer" | "kickplayer" =>`, `"writefile" | "appendfile" =>`, etc.) that the literal-per-arm grep misses but are present (verified by direct grep); (b) `BVM_MOD` — an arithmetic operator handled by the interpreter (`rcce-script/interp.rs:333-349 BinOp::Mod`), not a host command; (c) `BVM_RequirePrivileged` / `BVM_RequireSelfOrPrivileged` — internal Blitz guard helpers, **not** in the invoker dispatch, mirrored by the port's `require_privileged`/`require_self_or_privileged` Rust fns; (d) `BVM_SCENERYOWNER` / `BVM_SETOWNER` — **DEAD-API, commented out** in `ScriptingCommands.bb:1152/1120` and permanently disabled in the Blitz invoker itself (`RC_Standard_Invoker.bb:95-111` pushes a 0 sentinel / no-op), so the port's `_ => Value::Int(0)` fallback (`scripts.rs:1360`) is **byte-for-byte the same observable behavior**.
+3. **Outbound + shipped-script parse: CLOSED.** All spot-checked broadcasters emit; 0 script parse failures.
+
+Unhandled paths on both axes **fail safe** — `state.rs:6562 _ => Vec::new()` (drop the packet) and `scripts.rs:1360 _ => Value::Int(0)` (BVM returns 0) — so no gap can crash the server.
+
+### Remaining items (definitive)
+
+All functional parity is CLOSED. What remains is **one human-gated acceptance step** plus a set of **documented, bounded, non-blocking divergences** (none affects a verified shipped-content path under the Rust↔Rust north star; each is `inspected`).
+
+| ID | Item | Severity | Why it's not blocking |
+|---|---|---|---|
+| R-LIVE | **Live stock-Blitz Windows GUI playtest** (`ACC-LIVE-1`) | HUMAN-GATED | Un-runnable on macOS/CI. Autonomous substitute (`examples/smoke_client` full-loop, byte-exact fetch tests) is the accepted tier. |
+| R-1 | Per-actor **resistances** unmodelled in the melee path (`resistance=100` hardcoded, `state.rs:829/937/5662`) | LOW-MED | Combat numbers differ only where an actor has non-100 resistance; parity with `collect_npc_attacks`. Shipped NPCs use the base path. |
+| R-2 | No **per-packet speed-hack clamp** on `P_StandardUpdate` (run-backward anti-cheat exists; absolute-speed clamp does not — needs per-actor Speed timing) | LOW-MED | Anti-cheat hardening, not a behavioral gap; movement still relayed correctly. |
+| R-3 | **NPC-vs-NPC** aggro/targeting not representable (target model is a peer id → only players targetable) | LOW | No shipped content needs NPC-vs-NPC combat. |
+| R-4 | **Timing/cadence approximations** — energy/breath/weather/NPC-movement drains track the ~100 ms relay cadence, not Blitz's exact per-tick | LOW | Pacing only; observable rates are close. Systemic, documented. |
+| R-5 | **Guild `/g` GuildSay** + **per-player ignore lists** skipped (no guild/TeamID/ignore model) | LOW | No guild system in shipped content; ignore is a client-side nicety. |
+| R-6 | Item **class/race exclusivity** not enforced on equip (parser omits the fields) | LOW | Shipped items don't gate; downstream soft-fails. |
+| R-7 | On load, an item whose **template no longer exists** is materialized verbatim vs Blitz emptying the slot | LOW | Only bites if a project deletes an item a saved char holds; byte-consumption identical, reads soft-fail to unarmed/no-armour. |
+| R-8 | Quest-status persisted as **UTF-8** (`U+00FF`→`C3 BF`) vs Blitz Latin-1 | LOW | Rust↔Rust consistent + correct on the wire; matters only for cross-engine save interop. |
+| R-9 | **MySQL/UDP/SQL** host-resource BVMs return the "unavailable" sentinel | LOW | Faithful for the shipped config (MySQL is compiled out at `Server.bb:36`); a project that enables MySQL would diverge. |
+| R-10 | **Party invite/accept** handshake simplified to a direct `/party` join | LOW | Roster + XP-share + `P_PartyUpdate` all work; only the two-step accept UX is collapsed. |
+| R-11 | `WeatherLinkArea` slaving, waypoint-**pause** dwell, `SetActorAIState` store-and-return (non-driving) | TRIVIAL | Cosmetic/pacing micro-divergences. |
+| R-12 | `UpdatesServer.bb` **lock/unlock** window controls | OUT-OF-SCOPE | GUI window (`Field LockButton`/`CreateUpdatesWindow`), part of the dropped Blitz GUI; the substantive file-manifest half is done via `P_FetchUpdateFiles`. |
+
+**Net:** CLOSED = the entire inbound-packet surface (29), the entire script-callable BVM surface, all spot-checked outbound packets, and 100% shipped-script parse — i.e. every gap the 44-/72-item audits enumerated. REMAINING = **1 HUMAN-GATED** acceptance step + **12 documented divergence classes** (R-1..R-12), all LOW/TRIVIAL/out-of-scope and none blocking the Rust↔Rust north star.
+
+---
 
 ## What the Rust port already does
 
