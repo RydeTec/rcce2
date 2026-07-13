@@ -121,6 +121,7 @@ Type Ribbon
         If clicked And x = -1 Then consumed = True
         result = Ribbon::drawDirtyBadge(self, "Spells",   "spell",   SpellsSaved,   x, mx, my, clicked) : x = result
         result = Ribbon::drawDirtyBadge(self, "Projectiles", "projectile", ProjectilesSaved, x, mx, my, clicked) : x = result
+        result = Ribbon::drawDirtyBadge(self, "Emitters", "particle", ParticlesSaved, x, mx, my, clicked) : x = result
         result = Ribbon::drawDirtyBadge(self, "Zone",     "zone",    ZoneSaved,     x, mx, my, clicked) : x = result
         result = Ribbon::drawDirtyBadge(self, "Factions", "faction", FactionsSaved, x, mx, my, clicked) : x = result
         result = Ribbon::drawDirtyBadge(self, "Anims",    "animset", AnimsSaved,    x, mx, my, clicked) : x = result

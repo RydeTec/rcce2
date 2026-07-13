@@ -164,6 +164,9 @@ Include "Modules\Loom\MediaManager.bb"
 // include sits AFTER Composer.bb in file order but BlitzForge resolves
 // functions program-wide, so Composer's Emitters_GetByName call is fine.
 Include "Modules\Loom\EmitterCatalog.bb"
+// Particle-emitter editor backend -- loads the full RP_EmitterConfig
+// objects (fields, not just filenames) for the Particles browser tab.
+Include "Modules\Loom\ParticleEditor.bb"
 Include "Modules\Loom\Recents.bb"
 Include "Modules\Loom\EntityFactory.bb"
 Include "Modules\Loom\SaveAll.bb"
@@ -510,6 +513,10 @@ WriteLog(LoomLog, "Music catalog: " + Str(MusicTotalCount) + " tracks indexed")
 ; Projectiles composer's emitter picker + missing-name validation.
 Emitters_Init()
 WriteLog(LoomLog, "Emitter catalog: " + Str(EmittersTotalCount) + " configs indexed")
+; Particle editor: load the full RP_EmitterConfig objects (field data) for
+; the Particles browser tab. Separate from the filename-only catalog above.
+Particles_Init()
+WriteLog(LoomLog, "Particle editor: " + Str(Particles_Count()) + " emitter configs loaded")
 
 
 // -----------------------------------------------------------------------------

@@ -177,6 +177,11 @@ Type Browser
         // ammo templates (mesh + emitters + damage); referenced from
         // Item\RangedProjectile.
         Browser::addCategory(self, "projectile", "Projectiles")
+        // Particles tab: GUE "Particles" tab parity. Named RP_EmitterConfig
+        // templates (spawn / lifespan / colour / velocity / force / shape),
+        // one .rpc file each under Data\Emitter Configs\. Referenced by name
+        // from Projectile\Emitter1$ / Emitter2$ and zone emitters.
+        Browser::addCategory(self, "particle", "Particles")
         Browser::addCategory(self, "zone",    "Zones")
         Browser::addCategory(self, "faction", "Factions")
         Browser::addCategory(self, "animset", "Animation Sets")
@@ -588,6 +593,7 @@ Type Browser
         If kind = "item"    Then Return "Item"
         If kind = "spell"   Then Return "Spell"
         If kind = "projectile" Then Return "Projectile"
+        If kind = "particle" Then Return "Emitter"
         If kind = "zone"    Then Return "Zone"
         If kind = "faction" Then Return "Faction"
         If kind = "animset" Then Return "Anim Set"
@@ -796,6 +802,9 @@ Type Browser
         If cat = "projectile"
             count = Browser::drawProjectileGrid(self, sw, sh, mx, my, clicked, gridX, gridY, cols)
         EndIf
+        If cat = "particle"
+            count = Browser::drawParticleGrid(self, sw, sh, mx, my, clicked, gridX, gridY, cols)
+        EndIf
         If cat = "zone"
             count = Browser::drawZoneGrid(self, sw, sh, mx, my, clicked, gridX, gridY, cols)
         EndIf
@@ -962,6 +971,30 @@ Type Browser
                 If Browser::cardVisible(self, cy, sh) = True
                     Browser::drawCardChrome(self, "projectile", Pj\ID, cx, cy, mx, my, clicked, count)
                     Browser::drawProjectileCardBody(self, Pj, cx, cy)
+                EndIf
+                count = count + 1
+                col = col + 1
+                If col >= cols Then col = 0 : row = row + 1
+            EndIf
+        Next
+        Return count
+    End Method
+
+
+    // Particle-emitter config grid. Configs are a Blitz type pool (not an
+    // array), addressed by Handle(C) -- same Handle-based refID as zones
+    // (unstable across sessions; resolved via Object.RP_EmitterConfig).
+    Method drawParticleGrid%(sw%, sh%, mx%, my%, clicked%, gridX%, gridY%, cols%)
+        Local col% = 0
+        Local row% = 0
+        Local count% = 0
+        For C.RP_EmitterConfig = Each RP_EmitterConfig
+            If Browser::matchesFilter(self, C\Name$) = True
+                Local cx% = gridX + col * (BR_CARD_W + BR_CARD_GAP)
+                Local cy% = gridY + row * (BR_CARD_H + BR_CARD_GAP)
+                If Browser::cardVisible(self, cy, sh) = True
+                    Browser::drawCardChrome(self, "particle", Handle(C), cx, cy, mx, my, clicked, count)
+                    Browser::drawParticleCardBody(self, C, cx, cy)
                 EndIf
                 count = count + 1
                 col = col + 1
@@ -1780,6 +1813,26 @@ Type Browser
 
         LoomText(x + 208, y + 44, "Speed", LOOM_BRASS_500_R, LOOM_BRASS_500_G, LOOM_BRASS_500_B)
         LoomText(x + 208, y + 60, Str(Pj\Speed) + "%", LOOM_PARCHMENT_100_R, LOOM_PARCHMENT_100_G, LOOM_PARCHMENT_100_B)
+    End Method
+
+
+    Method drawParticleCardBody(C.RP_EmitterConfig, x%, y%)
+        LoomText(x + 12, y + 18, C\Name$, LOOM_PARCHMENT_100_R, LOOM_PARCHMENT_100_G, LOOM_PARCHMENT_100_B)
+
+        // Top-right badge -- emitter shape (Sphere / Cylinder / Box).
+        Local shapeTxt$ = "SPHERE"
+        If C\Shape = 2 Then shapeTxt = "CYLINDER"
+        If C\Shape = 3 Then shapeTxt = "BOX"
+        Browser::drawBadge(self, x + BR_CARD_W - 12, y + 18, shapeTxt, LOOM_ARCANE_500_R, LOOM_ARCANE_500_G, LOOM_ARCANE_500_B)
+
+        LoomText(x + 12, y + 44, "Max", LOOM_BRASS_500_R, LOOM_BRASS_500_G, LOOM_BRASS_500_B)
+        LoomText(x + 12, y + 60, Str(C\MaxParticles), LOOM_PARCHMENT_100_R, LOOM_PARCHMENT_100_G, LOOM_PARCHMENT_100_B)
+
+        LoomText(x + 110, y + 44, "Rate", LOOM_BRASS_500_R, LOOM_BRASS_500_G, LOOM_BRASS_500_B)
+        LoomText(x + 110, y + 60, Str(C\ParticlesPerFrame), LOOM_PARCHMENT_100_R, LOOM_PARCHMENT_100_G, LOOM_PARCHMENT_100_B)
+
+        LoomText(x + 208, y + 44, "Life", LOOM_BRASS_500_R, LOOM_BRASS_500_G, LOOM_BRASS_500_B)
+        LoomText(x + 208, y + 60, Str(C\Lifespan), LOOM_PARCHMENT_100_R, LOOM_PARCHMENT_100_G, LOOM_PARCHMENT_100_B)
     End Method
 
 
