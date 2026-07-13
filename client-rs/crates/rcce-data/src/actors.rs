@@ -54,6 +54,28 @@ pub struct ActorTemplate {
     /// `Blood.rpc` particle emitter (textured with this id) at the actor on a
     /// connecting combat hit (ClientNet.bb:1136/1168). 0 = no blood for this race.
     pub blood_tex: i16,
+    /// Locomotion environment (`Actors.dat` Environment, Actors.bb:26-29):
+    /// [`environment::AMPHIBIOUS`] (0, can walk on land and swim underwater),
+    /// [`environment::SWIM`] (1), [`environment::FLY`] (2), or
+    /// [`environment::WALK`] (3, ground-only — blocked from entering water,
+    /// MOVE-8). Drives the swim-anim (ANIM-4) and water-destination-rejection
+    /// (MOVE-8) behaviours.
+    pub environment: u8,
+}
+
+/// Locomotion environment values (`Actors.bb:26-29`).
+pub mod environment {
+    /// Walks on land, swims underwater (the default player mode). ANIM-4 swim
+    /// anims apply to this mode when submerged (Client.bb:478 gates `Underwater`
+    /// on `Environment_Amphibious`).
+    pub const AMPHIBIOUS: u8 = 0;
+    /// Water-only creature (fish).
+    pub const SWIM: u8 = 1;
+    /// Flying creature.
+    pub const FLY: u8 = 2;
+    /// Ground-only. MOVE-8 rejects a destination inside a water volume below its
+    /// surface for this mode (Client.bb:1000 `If EType = Environment_Walk`).
+    pub const WALK: u8 = 3;
 }
 
 #[derive(Debug, Default, Clone)]
@@ -75,6 +97,14 @@ impl ActorCatalog {
             }
         }
         Ok(ActorCatalog { templates })
+    }
+
+    /// Locomotion environment for a template `id`, or [`environment::AMPHIBIOUS`]
+    /// (the default player mode, 0) when the template is unknown — the same
+    /// soft-default the swim/anim code wants for an unresolved actor (never
+    /// spuriously blocks movement or forces a swim clip). MOVE-8 / ANIM-4.
+    pub fn environment_for(&self, id: u16) -> u8 {
+        self.templates.get(&id).map(|t| t.environment).unwrap_or(environment::AMPHIBIOUS)
     }
 
     /// Base body mesh id for an actor of `id` with `gender` (0 male / 1 female).
@@ -166,7 +196,7 @@ fn parse_record(r: &mut BlitzReader) -> Result<ActorTemplate, ReadError> {
     let aggressiveness = r.read_byte()?;
     let _aggressive_range = r.read_int()?;
     let _trade_mode = r.read_byte()?;
-    let _environment = r.read_byte()?;
+    let environment = r.read_byte()?;
     let _inventory_slots = r.read_int()?;
     let _default_damage_type = r.read_byte()?;
     let _default_faction = r.read_byte()?;
@@ -194,6 +224,7 @@ fn parse_record(r: &mut BlitzReader) -> Result<ActorTemplate, ReadError> {
         playable,
         aggressiveness,
         blood_tex,
+        environment,
     })
 }
 
@@ -228,5 +259,23 @@ mod tests {
         assert_eq!(ActorTemplate::default().blood_tex, 0);
         let t = ActorTemplate { id: 5, blood_tex: 42, ..Default::default() };
         assert_eq!(t.blood_tex, 42);
+    }
+
+    // MOVE-8 / ANIM-4: the locomotion environment resolves per template and
+    // soft-defaults to AMPHIBIOUS (the player mode) for an unknown template, so
+    // an unresolved actor never spuriously blocks movement or forces a swim clip.
+    #[test]
+    fn environment_resolves_and_defaults_amphibious() {
+        let mut cat = ActorCatalog::default();
+        cat.templates.insert(1, ActorTemplate { id: 1, environment: environment::WALK, ..Default::default() });
+        cat.templates.insert(2, ActorTemplate { id: 2, environment: environment::AMPHIBIOUS, ..Default::default() });
+        cat.templates.insert(3, ActorTemplate { id: 3, environment: environment::FLY, ..Default::default() });
+        assert_eq!(cat.environment_for(1), environment::WALK);
+        assert_eq!(cat.environment_for(2), environment::AMPHIBIOUS);
+        assert_eq!(cat.environment_for(3), environment::FLY);
+        // Unknown template → AMPHIBIOUS (0), never WALK — an unresolved actor must
+        // not be blocked from water (MOVE-8) as a side effect.
+        assert_eq!(cat.environment_for(999), environment::AMPHIBIOUS);
+        assert_eq!(environment::AMPHIBIOUS, 0);
     }
 }

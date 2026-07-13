@@ -1751,6 +1751,38 @@ const FIDGET_CLIPS: [&[&str]; 2] = [&["Look around"], &["Yawn"]];
 /// Seconds a fidget plays before returning to idle (covers the longer Yawn).
 const FIDGET_SECS: f32 = 3.5;
 
+/// ANIM-4 + locomotion clip selection (Blitz Client.bb:596-727, the shared
+/// local/remote anim machine). Returns `(swim, land)`: `swim` is the ordered
+/// swim-clip candidate for a submerged actor (EMPTY for a dry actor — no swim),
+/// `land` is the ground locomotion fallback. Running → fast, moving → slow/walk,
+/// stopped → idle. The caller uses the swim clip only when it resolves to a
+/// non-empty range (Blitz PlayAnimation no-ops on an empty `AnimEnd=0` swim
+/// range, so those races keep walking/running), else falls back to `land`. Pure —
+/// unit-tested for the entering/leaving-water transition at each speed threshold.
+fn locomotion_clips(
+    moving: bool,
+    running: bool,
+    submerged: bool,
+) -> (&'static [&'static str], &'static [&'static str]) {
+    let land: &[&str] = if running {
+        &["Run"]
+    } else if moving {
+        &["Walk"]
+    } else {
+        &["Idle", "Sit idle"]
+    };
+    let swim: &[&str] = if !submerged {
+        &[]
+    } else if running {
+        &["Swim fast"]
+    } else if moving {
+        &["Swim slow"]
+    } else {
+        &["Swim idle"]
+    };
+    (swim, land)
+}
+
 /// Seconds a memorise takes — the Blitz ~60-tick `MemorisingSpell` timer. SPL-4.
 const MEMORISE_SECS: f32 = 3.0;
 
@@ -1902,6 +1934,7 @@ fn build_actors(
                     rid: u16,
                     moving: bool,
                     running: bool,
+                    submerged: bool,
                     combat: Option<(&[&str], ClipPlay)>,
                     pos: [f32; 3],
                     yaw: f32,
@@ -1926,16 +1959,23 @@ fn build_actors(
                     }
                 }),
             None => {
-                let names: &[&str] = if running {
-                    &["Run"]
-                } else if moving {
-                    &["Walk"]
+                // ANIM-4 + locomotion. `locomotion_clips` gives the swim candidate
+                // (empty for a dry actor) and the land fallback. A submerged
+                // amphibious actor swims — Swim fast (run) / Swim slow (walk) /
+                // Swim idle (stop), Client.bb:625-637 + :720-727 — but many races
+                // ship EMPTY swim ranges (0-0); Blitz's PlayAnimation no-ops when
+                // AnimEnd=0, keeping the land clip, so a non-empty swim clip is
+                // required (`end > start`), else fall back to the land clip.
+                let (swim, land) = locomotion_clips(moving, running, submerged);
+                let clip = if swim.is_empty() {
+                    store.actor_clip(tmpl, gender, land)
                 } else {
-                    &["Idle", "Sit idle"]
+                    store
+                        .actor_clip(tmpl, gender, swim)
+                        .filter(|c| c.end > c.start)
+                        .or_else(|| store.actor_clip(tmpl, gender, land))
                 };
-                store
-                    .actor_clip(tmpl, gender, names)
-                    .map(|c| clip_frame(c, fps, elapsed + rid as f32 * 0.13))
+                clip.map(|c| clip_frame(c, fps, elapsed + rid as f32 * 0.13))
             }
         };
         let scale = store.actor_render_scale(tmpl, gender).unwrap_or(0.05);
@@ -2100,8 +2140,13 @@ fn build_actors(
     } else {
         me_fidget.map(|f| (f, ClipPlay::Loop))
     };
+    // ANIM-4: the local player swims when its (amphibious) body is submerged.
+    // Tested on the authoritative Y (me_y), like Blitz's collision-entity check.
+    let me_submerged = store.actor_environment(world.me_actor_id)
+        == rcce_data::actors::environment::AMPHIBIOUS
+        && waters.actor_submerged(world.me_render_x, world.me_render_z, world.me_y);
     if !hide_me {
-        push(store, &mut models, &mut textures, &mut place, &mut keys, &mut skinned, me_template, world.me_gender, world.me_face_tex, world.me_body_tex, world.me_hair, world.me_beard, me_weapon, me_shield, weapon_override, world.my_runtime_id, me_moving, me_running, me_combat, [world.me_render_x, world.me_y + me_jump_offset, world.me_render_z], world.me_yaw, [0.85, 0.95, 0.85]);
+        push(store, &mut models, &mut textures, &mut place, &mut keys, &mut skinned, me_template, world.me_gender, world.me_face_tex, world.me_body_tex, world.me_hair, world.me_beard, me_weapon, me_shield, weapon_override, world.my_runtime_id, me_moving, me_running, me_submerged, me_combat, [world.me_render_x, world.me_y + me_jump_offset, world.me_render_z], world.me_yaw, [0.85, 0.95, 0.85]);
     }
     for a in world.actors.values() {
         let dx = a.dest_x - a.x;
@@ -2137,7 +2182,12 @@ fn build_actors(
                 (phase * std::f32::consts::PI).sin() * JUMP_REMOTE_APEX
             })
             .unwrap_or(0.0);
-        push(store, &mut models, &mut textures, &mut place, &mut keys, &mut skinned, a.template_id, a.gender, a.face_tex, a.body_tex, a.hair, a.beard, a.equipped[0], a.equipped[1], weapon_override, a.runtime_id, moving, a.is_running, combat, [a.render_x, a.y + y_off, a.render_z], a.render_yaw, color);
+        // ANIM-4: a remote amphibious actor swims when submerged, driven by the
+        // same shared selection as the local player (Blitz Client.bb:546-728).
+        let a_submerged = store.actor_environment(a.template_id)
+            == rcce_data::actors::environment::AMPHIBIOUS
+            && waters.actor_submerged(a.render_x, a.render_z, a.y);
+        push(store, &mut models, &mut textures, &mut place, &mut keys, &mut skinned, a.template_id, a.gender, a.face_tex, a.body_tex, a.hair, a.beard, a.equipped[0], a.equipped[1], weapon_override, a.runtime_id, moving, a.is_running, a_submerged, combat, [a.render_x, a.y + y_off, a.render_z], a.render_yaw, color);
     }
     (models, textures, place, keys, skinned)
 }
@@ -5477,7 +5527,7 @@ impl App {
         // wash headlessly (the wash itself is composited onto the shot below).
         let underwater = self.water.underwater_color(eye);
         let fog = match underwater {
-            Some(wc) => [wc[0] * 0.7, wc[1] * 0.7, wc[2] * 0.7],
+            Some(wc) => rcce_client::water::underwater_fog(wc).0,
             None => rcce_client::daynight::modulate(self.fog_color, &sky_mod),
         };
         // Clear/horizon = the modulated fog colour so the sky fades into it (and
@@ -5500,7 +5550,8 @@ impl App {
                 }
             });
         let (fn_, ff_) = match underwater {
-            Some(_) => (2.0, 60.0), // murky short-range underwater view distance
+            // Blitz underwater view distance (Client.bb:905).
+            Some(_) => (rcce_client::water::UNDERWATER_FOG_NEAR, rcce_client::water::UNDERWATER_FOG_FAR),
             None => (self.fog_near.max(500.0), self.fog_far.max(40000.0)),
         };
 
@@ -5634,6 +5685,9 @@ impl App {
         let (Some(gfx), Some(view)) = (self.gfx.as_ref(), self.view.as_ref()) else {
             return;
         };
+        // CAM-6: hide the sky when the preview camera is submerged (Blitz HideEntity
+        // Sky/Stars/Cloud); the water-colour clear fills the background.
+        view.set_hide_sky(underwater.is_some());
         if let Some(path) = shot {
             let tex = gfx.device.create_texture(&wgpu::TextureDescriptor {
                 label: Some("zone-shot"),
@@ -6474,6 +6528,36 @@ impl App {
                     self.move_running = false; // stop running once we get there
                 }
             }
+        }
+        // MOVE-8 (Blitz SetDestination, Client.bb:997-1011): a walking-only
+        // (Environment_Walk) local player can't be steered into a water volume
+        // below its surface — the engine refuses to set the destination, so the
+        // body simply doesn't move that way. Amphibious players (the default mode)
+        // swim in, so this only fires for WALK-mode races. The rejection tests the
+        // would-be destination (16 units ahead, matching the P_StandardUpdate Dest)
+        // against the same `WaterVolumes::contains` the camera/swim code uses.
+        let block_water = {
+            let m = (dir[0] * dir[0] + dir[1] * dir[1]).sqrt();
+            if m > 0.01 {
+                if let Some(net) = self.net.as_ref() {
+                    let env = store.actor_environment(net.world.me_actor_id);
+                    let dest = [
+                        net.world.me_render_x + dir[0] / m * 16.0,
+                        net.world.me_y,
+                        net.world.me_render_z + dir[1] / m * 16.0,
+                    ];
+                    env == rcce_data::actors::environment::WALK && self.water.contains(dest)
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        };
+        if block_water {
+            dir = [0.0, 0.0];
+            self.move_target = None;
+            self.move_running = false;
         }
         let mag = (dir[0] * dir[0] + dir[1] * dir[1]).sqrt();
         let moving = mag > 0.01;
@@ -8244,10 +8328,20 @@ impl App {
         let mut fog_near_eff = wfog_near;
         let mut fog_far_eff = wfog_far;
         if let Some(wc) = underwater {
-            fog_dn = [wc[0] * 0.7, wc[1] * 0.7, wc[2] * 0.7];
-            fog_near_eff = 2.0;
-            fog_far_eff = 60.0;
+            // Blitz (Client.bb:903-911): CameraFogColor/ClsColor = the water RGB,
+            // FogNear/Far = 1/50, and the Sky/Stars/Cloud entities are hidden. The
+            // 0.7× darkens the murk a touch (the wash below adds the near-water
+            // film); near/far match Blitz exactly.
+            let (fc, near, far) = rcce_client::water::underwater_fog(wc);
+            fog_dn = fc;
+            fog_near_eff = near;
+            fog_far_eff = far;
         }
+        // CAM-6: hide the sky/sun/stars/clouds while the eye is submerged (Blitz
+        // HideEntity Sky/Stars/Cloud), restored automatically when it surfaces
+        // (recomputed every frame from the live eye). The clear colour (set to the
+        // water fog colour below) fills the background instead.
+        view.set_hide_sky(underwater.is_some());
         // Move the sun with the time-of-day so shadows rotate + lengthen across the
         // day — but only when day/night is actually driving the phase (server clock
         // / RCCE_PHASE / RCCE_DAYNIGHT). With the static noon default, keep the
@@ -10576,6 +10670,32 @@ mod tests {
         // Below the surface but outside the X / Z footprint → none.
         assert_eq!(vols.underwater_color([50.0, 5.0, 0.0]), None);
         assert_eq!(vols.underwater_color([0.0, 5.0, 50.0]), None);
+    }
+
+    // ANIM-4: the locomotion state machine picks Swim {fast,slow,idle} for a
+    // submerged actor and Run/Walk/Idle for a dry one, at each speed threshold —
+    // the entering/leaving-water transition. The swim candidate is EMPTY for a dry
+    // actor (so the caller never even looks up a swim clip on land), and a submerged
+    // actor always carries a land fallback (for races whose swim range is empty).
+    #[test]
+    fn anim4_swim_state_transitions() {
+        // Dry: no swim candidate, land clip per speed.
+        assert_eq!(locomotion_clips(true, true, false), (&[] as &[&str], &["Run"] as &[&str]));
+        assert_eq!(locomotion_clips(true, false, false), (&[] as &[&str], &["Walk"] as &[&str]));
+        assert_eq!(locomotion_clips(false, false, false), (&[] as &[&str], &["Idle", "Sit idle"] as &[&str]));
+        // Submerged: swim candidate per speed, with the land clip as the fallback
+        // (used when the race ships an empty swim range).
+        assert_eq!(locomotion_clips(true, true, true), (&["Swim fast"] as &[&str], &["Run"] as &[&str]));
+        assert_eq!(locomotion_clips(true, false, true), (&["Swim slow"] as &[&str], &["Walk"] as &[&str]));
+        assert_eq!(
+            locomotion_clips(false, false, true),
+            (&["Swim idle"] as &[&str], &["Idle", "Sit idle"] as &[&str])
+        );
+        // Running implies moving, so `running` wins over `moving` in both realms —
+        // crossing into water while running goes Run → Swim fast (not Swim slow).
+        let (dry_swim, _) = locomotion_clips(true, true, false);
+        let (wet_swim, _) = locomotion_clips(true, true, true);
+        assert!(dry_swim.is_empty() && wet_swim == ["Swim fast"], "Run → Swim fast on submersion");
     }
 
     // A LOD terrain patch (grid N=2) builds a (N+1)² vertex grid with 2 triangles

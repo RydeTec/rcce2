@@ -114,6 +114,12 @@ pub struct WorldView {
     /// `set_sun_color` — a `Cell` so it works through `&self` (the menu render path
     /// holds the view immutably). WorldView is render-thread-only, so `Cell` is fine.
     sun_color: std::cell::Cell<[f32; 3]>,
+    /// CAM-6: when set, `render` skips the sky/sun/stars/cloud draw so an
+    /// underwater camera sees only the water-coloured clear + fog (Blitz hides the
+    /// Sky/Stars/Cloud entities underwater, Client.bb:909-911). A `Cell` for the
+    /// same `&self`-render reason as `sun_color`; reset to `false` each frame by
+    /// the caller (`set_hide_sky`) so it never sticks after surfacing.
+    hide_sky: std::cell::Cell<bool>,
     /// Reusable per-actor skinning uniform buffers + binds (grown as needed).
     actor_pool: Vec<(wgpu::Buffer, wgpu::BindGroup)>,
     /// This frame's skinned draws.
@@ -288,6 +294,7 @@ impl WorldView {
             skin_static: HashMap::new(),
             particle_tex: HashMap::new(),
             sun_color: std::cell::Cell::new([1.0; 3]),
+            hide_sky: std::cell::Cell::new(false),
             actor_pool: Vec::new(),
             skinned: Vec::new(),
             zone_lights: Vec::new(),
@@ -396,6 +403,15 @@ impl WorldView {
     /// `Suns.dat` light, normalised; `[1,1,1]` = neutral white).
     pub fn set_sun_color(&self, color: [f32; 3]) {
         self.sun_color.set(color);
+    }
+
+    /// CAM-6: hide (or show) the sky/sun/stars/clouds for the next `render`.
+    /// Set `true` when the camera eye is submerged so the underwater view is only
+    /// the water-coloured clear + fog, matching Blitz's `HideEntity Sky/Stars/Cloud`
+    /// (Client.bb:909-911). Call every frame (it does not auto-reset) so surfacing
+    /// restores the sky (Blitz's `ShowEntity` on the surface transition).
+    pub fn set_hide_sky(&self, hide: bool) {
+        self.hide_sky.set(hide);
     }
 
     /// Replace the static scene geometry (terrain/scenery + ground plane).
@@ -671,7 +687,14 @@ impl WorldView {
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
-            self.sky.draw(&mut rp); // behind the world (far plane, no depth write)
+            // Sky behind the world (far plane, no depth write) — unless the eye is
+            // submerged (CAM-6): Blitz hides Sky/Stars/Cloud underwater, leaving
+            // only the water-coloured clear + fog. Skipping the draw here is the
+            // exact analogue; the clear (set to the water fog colour by the caller)
+            // fills the background.
+            if !self.hide_sky.get() {
+                self.sky.draw(&mut rp);
+            }
             // View-frustum cull: a drawable is submitted only when its world
             // bounding sphere is inside the camera frustum. Conservative, so the
             // image is unchanged; it just skips the textured+shaded draw of props

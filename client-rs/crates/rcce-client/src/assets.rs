@@ -575,6 +575,14 @@ impl AssetStore {
         self.actors.templates.get(&template_id).map(|t| t.aggressiveness).unwrap_or(0)
     }
 
+    /// The template's locomotion environment (`Actors.dat` Environment):
+    /// `environment::{AMPHIBIOUS,SWIM,FLY,WALK}`. Defaults to AMPHIBIOUS (0, the
+    /// player mode) for an unknown template. Drives MOVE-8 water-destination
+    /// rejection (WALK only) and ANIM-4 swim anims (AMPHIBIOUS underwater).
+    pub fn actor_environment(&self, template_id: u16) -> u8 {
+        self.actors.environment_for(template_id)
+    }
+
     /// The template's blood-spurt texture id (`Actors.dat` BloodTexID), or `None`
     /// when the race has no blood (id <= 0). When present, a connecting combat hit
     /// spawns a `Blood.rpc` emitter textured with this id (Blitz ClientNet.bb:1136).
