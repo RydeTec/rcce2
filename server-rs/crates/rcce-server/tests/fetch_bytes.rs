@@ -136,7 +136,9 @@ fn fetch_actors_round_trips_real_data_through_the_client_parser() {
     let mut month0 = (String::new(), 0i32);
     let mut faction0 = String::new();
     let mut item_ids: Vec<u16> = Vec::new();
-    let mut item_by_id: std::collections::HashMap<u16, (u8, String)> = Default::default();
+    #[allow(clippy::type_complexity)]
+    let mut item_by_id: std::collections::HashMap<u16, (u8, String, [u8; 6], [i32; 40])> =
+        Default::default();
     let mut actor_ids: Vec<u16> = Vec::new();
     let mut actor_by_id: std::collections::HashMap<u16, (String, f32)> = Default::default();
 
@@ -220,12 +222,22 @@ fn fetch_actors_round_trips_real_data_through_the_client_parser() {
                     o += 4; // value
                     o += 2; // mass
                     o += 2; // thumbnail
-                    o += 6; // gubbins (6×1)
+                    // Gubbins: 6 × 1 byte (Blitz sends the low byte only).
+                    let mut gubbins = [0u8; 6];
+                    for g in &mut gubbins {
+                        *g = pa[o];
+                        o += 1;
+                    }
                     o += 2; // mmesh
                     o += 2; // fmesh
                     o += 2; // slot
                     o += 1; // stackable
-                    o += 80; // 40 attrs ×2
+                    // 40 attribute deltas, each wire-biased +5000 (client subtracts).
+                    let mut attrs = [0i32; 40];
+                    for a in &mut attrs {
+                        *a = u16le(pa, o) as i32 - 5000;
+                        o += 2;
+                    }
                     let (name, no) = str8(pa, o);
                     o = no;
                     let (_er, no) = str8(pa, o);
@@ -240,7 +252,7 @@ fn fetch_actors_round_trips_real_data_through_the_client_parser() {
                     let (_misc, no) = str8(pa, o);
                     o = no;
                     item_ids.push(id);
-                    item_by_id.insert(id, (item_type, name));
+                    item_by_id.insert(id, (item_type, name, gubbins, attrs));
                 }
             }
             b'N' | b'Y' => {
@@ -327,9 +339,18 @@ fn fetch_actors_round_trips_real_data_through_the_client_parser() {
     );
     assert_eq!(item_ids.len(), items.items.len(), "all items streamed");
     for it in &items.items {
-        let (ty, name) = item_by_id.get(&it.id).expect("item id present on wire");
+        let (ty, name, gubbins, attrs) = item_by_id.get(&it.id).expect("item id present on wire");
         assert_eq!(*ty, it.item_type, "item {} type", it.id);
         assert_eq!(name, &it.name, "item {} name", it.id);
+        // Gubbins low-byte truncation round-trips.
+        for (j, g) in it.gubbins.iter().enumerate() {
+            assert_eq!(gubbins[j], *g as u8, "item {} gubbin {j} low byte", it.id);
+        }
+        // The +5000 attribute bias is applied in the right direction: decoding
+        // it back (u16 - 5000) recovers the source ItemDef attribute exactly.
+        for (j, v) in it.attributes.iter().enumerate() {
+            assert_eq!(attrs[j], *v as i32, "item {} attr {j} (bias direction)", it.id);
+        }
     }
 
     let catalog = ActorCatalog::load(dir.join("Server Data/Actors.dat"));
