@@ -2,10 +2,10 @@
   "run_id": "rcce2-hourly-20260713T203455Z-12a72e56",
   "status": "active",
   "started_at": "2026-07-13T20:34:55Z",
-  "heartbeat_at": "2026-07-13T20:40:44Z",
-  "expires_at": "2026-07-14T20:40:44Z",
-  "issue": null,
-  "branch": null,
+  "heartbeat_at": "2026-07-13T20:41:32Z",
+  "expires_at": "2026-07-14T20:41:32Z",
+  "issue": 609,
+  "branch": "codex-automation/609-spatial-aud4",
   "pr": null,
-  "phase": "issue-creation-retry"
+  "phase": "reserved"
 }
