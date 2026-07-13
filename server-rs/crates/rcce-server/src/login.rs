@@ -190,12 +190,18 @@ pub fn handle_verify_account(
     // Success.
     throttle.record(peer, true, now_ms);
 
-    // Lazy-migrate a legacy MD5 record to v1 in memory + persist.
+    // Lazy-migrate a legacy MD5 record to v1 only when the atomic save can
+    // commit it. Login itself remains successful when this optional upgrade
+    // cannot persist.
     if password::password_is_legacy(&acct.pass) {
         if let Ok(upgraded) = password::upgrade_password_if_legacy(&acct.pass, &pass_s) {
-            if let Some(m) = store.find_mut(&user_s) {
-                m.pass = upgraded;
-                if let Err(e) = store.save() {
+            if store.find(&user_s).is_some() {
+                if let Err(e) = store.transaction(|store| {
+                    store
+                        .find_mut(&user_s)
+                        .expect("account verified above")
+                        .pass = upgraded;
+                }) {
                     eprintln!("[login] password upgrade: save failed: {e}");
                 }
             }
@@ -368,6 +374,18 @@ mod tests {
     }
 
     const MD5_HELLO: &str = "5d41402abc4b2a76b9719d911017c592";
+
+    fn legacy_account() -> Account {
+        Account {
+            user: "hero".into(),
+            pass: MD5_HELLO.into(),
+            email: "h@x.com".into(),
+            is_dm: false,
+            is_banned: false,
+            ignore: String::new(),
+            characters: Vec::new(),
+        }
+    }
 
     #[test]
     fn create_then_verify_succeeds() {
@@ -591,5 +609,40 @@ mod tests {
 
         assert_eq!(handle_change_password(&change, &mut store, 7, Some(7)).1, b"P");
         assert_eq!(store.find("hero").unwrap().pass, old_hash);
+    }
+
+    #[test]
+    fn legacy_password_upgrade_save_failure_keeps_legacy_hash() {
+        let mut store = failing_store("legacy_upgrade");
+        store.push(legacy_account());
+        let mut throttle = LoginThrottle::new();
+        let mut verify = field(b"hero");
+        verify.extend_from_slice(&field(MD5_HELLO.as_bytes()));
+
+        assert_eq!(
+            handle_verify_account(&verify, &mut store, &mut throttle, 1, 0).1,
+            b"Y"
+        );
+        assert_eq!(store.find("hero").unwrap().pass, MD5_HELLO);
+    }
+
+    #[test]
+    fn legacy_password_upgrade_persists_after_successful_login() {
+        let mut store = tmp_store("legacy_upgrade_persists");
+        store.push(legacy_account());
+        store.save().unwrap();
+        let mut throttle = LoginThrottle::new();
+        let mut verify = field(b"hero");
+        verify.extend_from_slice(&field(MD5_HELLO.as_bytes()));
+
+        assert_eq!(
+            handle_verify_account(&verify, &mut store, &mut throttle, 1, 0).1,
+            b"Y"
+        );
+        let persisted = AccountStore::load(store_path("legacy_upgrade_persists")).unwrap();
+        let hash = &persisted.find("hero").unwrap().pass;
+        assert!(hash.starts_with("$1$"));
+        assert!(password::verify_password(hash, MD5_HELLO));
+        std::fs::remove_file(store_path("legacy_upgrade_persists")).ok();
     }
 }
