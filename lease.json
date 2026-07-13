@@ -2,10 +2,10 @@
   "run_id": "rcce2-hourly-20260713T173346Z-ce131efb-21408",
   "status": "active",
   "started_at": "2026-07-13T17:33:46Z",
-  "heartbeat_at": "2026-07-13T17:37:34Z",
-  "expires_at": "2026-07-14T17:37:34Z",
-  "issue": null,
-  "branch": null,
+  "heartbeat_at": "2026-07-13T17:39:17Z",
+  "expires_at": "2026-07-14T17:39:17Z",
+  "issue": 603,
+  "branch": "codex-automation/603-account-save-atomic",
   "pr": null,
-  "phase": "issue-contract"
+  "phase": "baseline-and-tdd"
 }
