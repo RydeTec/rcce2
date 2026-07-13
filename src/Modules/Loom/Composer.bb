@@ -176,6 +176,16 @@ Type Composer
     Field editOldValue$    // snapshot at beginEdit, used by commitEdit
                            // to record the Timeline before/after pair
 
+    // Media-register scratch state (the Media catalog composer views).
+    // The "Register a file" section edits these two scratch fields via the
+    // normal editableRow / toggleRow plumbing (fieldIds "media_reg_name" /
+    // "media_reg_flag"), then the Register button feeds them to
+    // MediaManager_AddX. They are composer-global (not per-entry) because
+    // registration creates a NEW catalog entry rather than mutating the
+    // focused one.
+    Field mediaRegName$
+    Field mediaRegFlag%
+
     // Delete-arm state. When the user clicks Delete, we record the kind/
     // refID and a timestamp. A second click within CMP_DELETE_ARM_MS on
     // the same (kind, refID) commits; clicking anywhere else cancels.
@@ -1322,6 +1332,23 @@ Type Composer
     // value string; we just compare to "1".
     // -------------------------------------------------------------------------
     Method writeField(kind$, refID%, fieldId$, value$)
+        // ---- MEDIA (texture / mesh / sound / music) -------------------------
+        // These fieldIds are composer-scratch or immediate-write, NOT entity
+        // fields, so they're handled before the per-kind entity lookups.
+        //   media_reg_name -- scratch filename for the Register section
+        //   media_reg_flag -- scratch anim/3D flag for the Register section
+        //   mesh_scale     -- immediate SetMeshScale write (no dirty flag);
+        //                     refID is the MeshCatalog Index
+        If fieldId = "media_reg_name" Then self\mediaRegName$ = value : Return
+        If fieldId = "media_reg_flag" Then self\mediaRegFlag% = (value = "1") : Return
+        If fieldId = "mesh_scale"
+            // GUE's Initial-scale spinner is 1..5000 as an integer percent
+            // (value/100), i.e. 0.01..50.0. Mirror that range here.
+            Local sc# = Composer::parseFloatClamped(self, value, 1.0, 0.01, 50.0)
+            MediaManager_SetMeshScale(refID, sc#)
+            Return
+        EndIf
+
         // ---- SPELL ----------------------------------------------------------
         If kind = "spell"
             If refID < 0 Or refID > 65534 Then Return
@@ -4777,6 +4804,96 @@ Type Composer
 
 
     // -------------------------------------------------------------------------
+    // renderMediaRegister -- the shared "Register a file" section for the four
+    // media catalog composer views. Portable subset of GUE's "Add New File"
+    // (GUE.bb:6325): registers a file that is ALREADY under the media folder,
+    // by relative path -- no native file dialog / disk copy (see MediaManager
+    // header + ADR notes). The filename + flag rows edit composer-scratch
+    // fields (media_reg_name / media_reg_flag) through the normal editable
+    // plumbing; the Register button feeds them to MediaManager_AddX.
+    //
+    // The editable rows carry the FOCUSED entity's kind+id (not the register
+    // pseudo-target) so renderAndUpdate's focus-change-cancel guard doesn't
+    // abort the filename edit mid-type.
+    //
+    // folder$    -- display hint ("Data\Textures\" etc.)
+    // flagLabel$ -- toggle label ("Animated" / "3D spatial") or "" for none
+    // -------------------------------------------------------------------------
+    Method renderMediaRegister%(kind$, folder$, flagLabel$, panelX%, panelW%, y%, mx%, my%, clicked%)
+        y = Composer::sectionHeader(self, panelX, panelW, y, "Register a file")
+
+        If Composer::canPaintRow(self, y, CMP_ROW_H) = True
+            LoomText(panelX + CMP_PAD, y + 4, "Path is relative to " + folder + " (file must already be there).", LOOM_STONE_300_R, LOOM_STONE_300_G, LOOM_STONE_300_B)
+        EndIf
+        y = y + CMP_ROW_H
+
+        Local focusK$ = self\threads\focusKind
+        Local focusID% = self\threads\focusID
+        y = Composer::editableRow(self, panelX, panelW, y, "Filename", focusK, focusID, "media_reg_name", self\mediaRegName$, mx, my, clicked)
+
+        If flagLabel <> ""
+            y = Composer::toggleRow(self, panelX, panelW, y, flagLabel, focusK, focusID, "media_reg_flag", self\mediaRegFlag%, mx, my, clicked)
+        EndIf
+
+        // Register button
+        Local btnW% = 120
+        Local btnH% = 26
+        Local btnX% = panelX + CMP_PAD
+        Local btnY% = y
+        Local btnHovered% = (mx >= btnX And mx < btnX + btnW And my >= btnY And my < btnY + btnH)
+        If Composer::canPaintRow(self, y, btnH) = True
+            If btnHovered = True
+                LoomFill(btnX, btnY, btnW, btnH, LOOM_BRASS_500_R, LOOM_BRASS_500_G, LOOM_BRASS_500_B)
+                LoomBorder(btnX, btnY, btnW, btnH, LOOM_PARCHMENT_100_R, LOOM_PARCHMENT_100_G, LOOM_PARCHMENT_100_B)
+                LoomText(btnX + 14, btnY + 6, "+ Register", LOOM_PARCHMENT_100_R, LOOM_PARCHMENT_100_G, LOOM_PARCHMENT_100_B)
+            Else
+                LoomFill(btnX, btnY, btnW, btnH, LOOM_STONE_700_R, LOOM_STONE_700_G, LOOM_STONE_700_B)
+                LoomBorder(btnX, btnY, btnW, btnH, LOOM_BRASS_500_R, LOOM_BRASS_500_G, LOOM_BRASS_500_B)
+                LoomText(btnX + 14, btnY + 6, "+ Register", LOOM_BRASS_500_R, LOOM_BRASS_500_G, LOOM_BRASS_500_B)
+            EndIf
+        EndIf
+        If btnHovered = True And clicked = True
+            // Flush any pending filename edit so the buffer lands in
+            // mediaRegName before we read it.
+            If self\editKind <> "" Then Composer::commitEdit(self)
+            Composer::doMediaRegister(self, kind)
+        EndIf
+        y = y + btnH + 6
+
+        Return y
+    End Method
+
+
+    // -------------------------------------------------------------------------
+    // doMediaRegister -- dispatch the Register button to the matching
+    // MediaManager_AddX. On success, clear the scratch fields and focus the
+    // new catalog entry (MediaManager returns its new Index). MediaManager
+    // toasts success; we toast the failure cases (empty name / missing file /
+    // duplicate) here.
+    // -------------------------------------------------------------------------
+    Method doMediaRegister(kind$)
+        Local nm$ = self\mediaRegName$
+        If nm = ""
+            Toast_Show("Enter a filename to register", "warning")
+            Return
+        EndIf
+        Local newIdx% = -1
+        If kind = "texture" Then newIdx = MediaManager_AddTexture(nm, self\mediaRegFlag%)
+        If kind = "mesh"    Then newIdx = MediaManager_AddMesh(nm, self\mediaRegFlag%)
+        If kind = "sound"   Then newIdx = MediaManager_AddSound(nm, self\mediaRegFlag%)
+        If kind = "music"   Then newIdx = MediaManager_AddMusic(nm)
+        If newIdx < 0
+            Toast_Show("Could not register " + nm + " -- missing file or already cataloged", "danger")
+            WriteLog(LoomLog, "Composer: media register failed for " + kind + " " + nm)
+            Return
+        EndIf
+        self\mediaRegName$ = ""
+        self\mediaRegFlag% = False
+        Threads::focus(self\threads, kind, newIdx)
+    End Method
+
+
+    // -------------------------------------------------------------------------
     // renderTexture -- composer view for a focused texture from the
     // TextureCatalog. Shows metadata + large preview + every entity
     // that references this texture ID across the project.
@@ -4871,6 +4988,11 @@ Type Composer
         EndIf
         y = y + CMP_ROW_H
 
+        // Register-a-file section (portable subset of GUE's "Add New File").
+        // Texture flags default to 0; GUE's wrap/clamp TextureDialog flags are
+        // not exposed here (advanced, rarely user-visible per the catalog).
+        y = Composer::renderMediaRegister(self, "texture", "Data\Textures\", "", panelX, panelW, y, mx, my, clicked)
+
         Composer::recordContentBottom(self, y)
     End Method
 
@@ -4896,6 +5018,11 @@ Type Composer
         y = Composer::row(self, panelX, panelW, y, "ID",        Str(mh\ID))
         y = Composer::row(self, panelX, panelW, y, "Animated",  Composer::boolLabel(self, mh\IsAnim))
         y = Composer::row(self, panelX, panelW, y, "Path",      "Data\Meshes\" + mh\Filename$)
+
+        // Initial scale -- editable, immediate SetMeshScale write (GUE's
+        // Media-tab "Initial scale" spinner, GUE.bb:6526). refID = catalog
+        // Index; writeField routes "mesh_scale" -> MediaManager_SetMeshScale.
+        y = Composer::editableFloatRow(self, panelX, panelW, y, "Initial scale", "mesh", mh\Index, "mesh_scale", mh\Scale#, mx, my, clicked)
 
         // No 3D preview here (removed: full-backbuffer bleed + wheel
         // conflict with the body scroll -- see renderActor / ADR 004).
@@ -4954,6 +5081,10 @@ Type Composer
             LoomText(panelX + CMP_PAD, y + 4, Str(itemHits) + " item(s) | " + Str(actorHits) + " actor(s)", LOOM_BRASS_500_R, LOOM_BRASS_500_G, LOOM_BRASS_500_B)
         EndIf
         y = y + CMP_ROW_H
+
+        // Register-a-file section. "Animated" flag maps to AddMeshToDatabase's
+        // IsAnim byte (GUE's MeshDialog "animated" checkbox).
+        y = Composer::renderMediaRegister(self, "mesh", "Data\Meshes\", "Animated", panelX, panelW, y, mx, my, clicked)
 
         Composer::recordContentBottom(self, y)
     End Method
@@ -5037,6 +5168,10 @@ Type Composer
         EndIf
         y = y + CMP_ROW_H
 
+        // Register-a-file section. "3D spatial" flag maps to
+        // AddSoundToDatabase's Is3D byte (GUE's SoundDialog "3D" checkbox).
+        y = Composer::renderMediaRegister(self, "sound", "Data\Sounds\", "3D spatial", panelX, panelW, y, mx, my, clicked)
+
         Composer::recordContentBottom(self, y)
     End Method
 
@@ -5087,6 +5222,9 @@ Type Composer
             LoomText(panelX + CMP_PAD, y + 4, "(music tracks have no in-data references)", LOOM_STONE_300_R, LOOM_STONE_300_G, LOOM_STONE_300_B)
         EndIf
         y = y + CMP_ROW_H
+
+        // Register-a-file section. Music has no add-time flag.
+        y = Composer::renderMediaRegister(self, "music", "Data\Music\", "", panelX, panelW, y, mx, my, clicked)
 
         Composer::recordContentBottom(self, y)
     End Method
