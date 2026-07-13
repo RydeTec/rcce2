@@ -2625,6 +2625,25 @@ fn actor_world_pos(world: &rcce_client::world::World, rid: u16) -> Option<[f32; 
     world.actors.get(&rid).map(|a| [a.render_x, a.y, a.render_z])
 }
 
+/// Resolve a `P_Speech` payload into the actor template/gender plus its u8
+/// speech-table slot. Unlike `P_Sound`, this protocol field is not a Sounds.dat
+/// id; Blitz resolves it through the emitting actor before playback.
+fn speech_actor_template(
+    world: &rcce_client::world::World,
+    runtime_id: u16,
+    speech_slot: u16,
+) -> Option<(u16, u8, u8)> {
+    let speech_slot = u8::try_from(speech_slot).ok()?;
+    if runtime_id == world.my_runtime_id {
+        Some((world.me_actor_id, world.me_gender, speech_slot))
+    } else {
+        world
+            .actors
+            .get(&runtime_id)
+            .map(|actor| (actor.template_id, actor.gender, speech_slot))
+    }
+}
+
 /// The weapon-damage tooltip line, with the project's damage-type name appended
 /// when the weapon has a named type in `Damage.dat` (e.g. "Damage: 12 (Fire)"),
 /// else just "Damage: 12". Mirrors Blitz's `DamageTypes$(WeaponDamageType)` tooltip
@@ -6980,49 +6999,6 @@ impl App {
                 };
                 net.world.chat.push((line, [0.3, 1.0, 0.3, 1.0]));
             }
-            // Inbound sound (AUD-4/5: P_Sound/P_Speech) + mid-zone music switch
-            // (AUD-1: P_Music). Drain the queued events to the audio engine —
-            // one-shots play 2D for the alpha; the music switch replaces the
-            // looping track. (3D positional attenuation is a noted follow-up.)
-            if let Some(audio) = self.audio.as_mut() {
-                for sid in net.world.pending_sounds.drain(..) {
-                    if let Some(path) = store.sound_path_by_id(sid) {
-                        audio.play_oneshot(&path, 0.7);
-                    }
-                }
-                // Combat voice sounds (Attack/Hit/Death): resolve each (rid, slot)
-                // intent to the actor's template+gender voice id, then a file. All
-                // soft-fail to silence (unknown actor / unset slot / no sound file
-                // shipped), so the default project — which ships no combat voices —
-                // is silent, exactly like the engine's `If Result < 65535` gate.
-                // Collect first to release the drain borrow before the actor lookup.
-                let combat: Vec<(u16, u8)> = net.world.pending_combat_sounds.drain(..).collect();
-                for (rid, slot) in combat {
-                    if let Some(a) = net.world.actors.get(&rid) {
-                        if let Some(sid) = store.actor_speech_id(a.template_id, a.gender, slot) {
-                            if let Some(path) = store.sound_path_by_id(sid) {
-                                audio.play_oneshot(&path, 0.7);
-                            }
-                        }
-                    }
-                }
-                // The LOCAL player's own combat voice (Attack/Hit). `Me` isn't in
-                // the `actors` map, so resolve against our own template (`me_actor_id`,
-                // captured from our P_NewActor) + gender. Same soft-fail-to-silence:
-                // the default project ships no combat voices, so this is silent.
-                let self_sounds: Vec<u8> = net.world.pending_self_sounds.drain(..).collect();
-                for slot in self_sounds {
-                    if let Some(sid) = store.actor_speech_id(net.world.me_actor_id, net.world.me_gender, slot) {
-                        if let Some(path) = store.sound_path_by_id(sid) {
-                            audio.play_oneshot(&path, 0.7);
-                        }
-                    }
-                }
-                if let Some(mid) = net.world.pending_music.take() {
-                    audio.set_music(mid, 0.4, |id| store.music_path(id));
-                    println!("[audio] P_Music -> music id {mid}");
-                }
-            }
             // Send a P_StandardUpdate toward the input direction (unreliable,
             // like ClientNet.bb): the server walks the actor toward Dest and
             // echoes its authoritative position, which on_standard_update
@@ -7434,6 +7410,68 @@ impl App {
             let eye = [self.center[0] + r * ang.cos(), self.ground_y + self.span * 0.55, self.center[2] + r * ang.sin()];
             (eye, [self.center[0], self.ground_y + self.span * 0.05, self.center[2]])
         };
+
+        // Inbound audio intents are drained even in silent/headless mode. When an
+        // output device exists, AUD-4 keeps actor-attached protocol events spatial
+        // and preserves ordinary P_Sound playback as 2D.
+        if let Some(net) = self.net.as_mut() {
+            let sounds = net.world.take_pending_sounds();
+            let combat: Vec<(u16, u8)> = net.world.pending_combat_sounds.drain(..).collect();
+            let self_sounds: Vec<u8> = net.world.pending_self_sounds.drain(..).collect();
+            let music = net.world.pending_music.take();
+            if let Some(audio) = self.audio.as_mut() {
+                for sound in sounds {
+                    let (path, positioned) = if sound.is_speech {
+                        let Some(runtime_id) = sound.runtime_id else { continue };
+                        let Some((template_id, gender, slot)) =
+                            speech_actor_template(&net.world, runtime_id, sound.id)
+                        else {
+                            continue;
+                        };
+                        let Some(sound_id) = store.actor_speech_id(template_id, gender, slot) else { continue };
+                        let Some(path) = store.sound_path_by_id(sound_id) else { continue };
+                        (path, true)
+                    } else {
+                        let Some(path) = store.sound_path_by_id(sound.id) else { continue };
+                        (path, store.sound_is_positional(sound.id))
+                    };
+                    if positioned {
+                        let Some(emitter) = sound.runtime_id.and_then(|rid| actor_world_pos(&net.world, rid)) else { continue };
+                        audio.play_spatial_oneshot(&path, 0.7, emitter, eye, target);
+                    } else {
+                        audio.play_oneshot(&path, 0.7);
+                    }
+                }
+                // Combat voice sounds (Attack/Hit/Death) are actor-attached in
+                // Blitz too; resolve them through the same bounded spatial path.
+                for (rid, slot) in combat {
+                    if let Some(a) = net.world.actors.get(&rid) {
+                        if let Some(sid) = store.actor_speech_id(a.template_id, a.gender, slot) {
+                            if let Some(path) = store.sound_path_by_id(sid) {
+                                if let Some(emitter) = actor_world_pos(&net.world, rid) {
+                                    audio.play_spatial_oneshot(&path, 0.7, emitter, eye, target);
+                                }
+                            }
+                        }
+                    }
+                }
+                // The local player is outside `actors`, so resolve its voice
+                // separately while still anchoring it to the displayed body.
+                for slot in self_sounds {
+                    if let Some(sid) = store.actor_speech_id(net.world.me_actor_id, net.world.me_gender, slot) {
+                        if let Some(path) = store.sound_path_by_id(sid) {
+                            if let Some(emitter) = actor_world_pos(&net.world, net.world.my_runtime_id) {
+                                audio.play_spatial_oneshot(&path, 0.7, emitter, eye, target);
+                            }
+                        }
+                    }
+                }
+                if let Some(mid) = music {
+                    audio.set_music(mid, 0.4, |id| store.music_path(id));
+                    println!("[audio] P_Music -> music id {mid}");
+                }
+            }
+        }
         let aspect = gfx.config.width as f32 / gfx.config.height.max(1) as f32;
         let vp = rcce_render::view_proj(eye, target, aspect);
         self.vp = vp; // cache for world-click picking
@@ -10361,6 +10399,29 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn speech_slot_uses_the_emitter_template_and_gender() {
+        let mut world = rcce_client::world::World {
+            my_runtime_id: 1,
+            me_actor_id: 7,
+            me_gender: 1,
+            ..Default::default()
+        };
+        world.actors.insert(
+            2,
+            rcce_client::world::Actor {
+                template_id: 44,
+                gender: 0,
+                ..Default::default()
+            },
+        );
+
+        assert_eq!(speech_actor_template(&world, 2, 3), Some((44, 0, 3)));
+        assert_eq!(speech_actor_template(&world, 1, 4), Some((7, 1, 4)));
+        assert_eq!(speech_actor_template(&world, 2, 256), None);
+        assert_eq!(speech_actor_template(&world, 99, 1), None);
+    }
 
     // The create-character cursor: Up/Down move the active field (wrap over 6),
     // Left/Right cycle the field's value (Race over playable, Gender 0..=1, the

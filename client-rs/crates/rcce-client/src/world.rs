@@ -109,6 +109,18 @@ pub struct ScreenFlash {
     pub length: f32,
 }
 
+/// A one-shot requested by the wire protocol. `runtime_id` is retained so the
+/// window can resolve an actor position after it has access to the asset store
+/// and audio device. `is_speech` records the protocol's distinct payload:
+/// `P_Speech.id` is a template speech-slot, whereas `P_Sound.id` is a direct
+/// Sounds.dat catalog id whose 3D marker decides playback mode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PendingSound {
+    pub id: u16,
+    pub runtime_id: Option<u16>,
+    pub is_speech: bool,
+}
+
 /// A known spell tracked live via `P_KnownSpellUpdate` (SPL-7): id + name +
 /// rank/level. The full record (icon/recharge/desc) is in the P_FetchCharacter
 /// sheet; this is the live add/remove/level state. Displayed name-sorted, but the
@@ -442,10 +454,9 @@ pub struct World {
     /// Active status effects (buffs/debuffs) on the local player, from
     /// P_ActorEffect. Shown as a HUD icon row.
     pub active_effects: Vec<ActiveEffect>,
-    /// Sound ids to play one-shot, from `P_Sound`/`P_Speech` (AUD-4/AUD-5). The
-    /// App drains these to `audio.play_oneshot` each frame. 2D playback for the
-    /// alpha; the `P_Speech`/3D positional attenuation is a noted follow-up.
-    pub pending_sounds: Vec<u16>,
+    /// One-shot sounds from `P_Sound`/`P_Speech` (AUD-4). The App drains these
+    /// every frame, even when no audio device is available.
+    pub pending_sounds: Vec<PendingSound>,
     /// Pending combat voice sounds as `(runtime_id, Speech_* slot)` intents: an
     /// actor's Attack/Hit/Death cry. The handlers can't resolve the sound id here
     /// (the speech ids live in the actor *template* in the AssetStore, which the
@@ -1469,25 +1480,29 @@ impl World {
         }
     }
 
+    /// Drain sound intents so silent/headless operation cannot retain an
+    /// unbounded queue. The window owns asset lookup and audio playback.
+    pub fn take_pending_sounds(&mut self) -> Vec<PendingSound> {
+        std::mem::take(&mut self.pending_sounds)
+    }
+
     /// `P_Sound` (ClientNet.bb:739): `[2]soundID [+ [2]runtimeID]`. The optional
-    /// runtime id is present only for sounds whose name carries the 3D marker;
-    /// for the alpha we play every sound 2D, so we read just the id and queue it.
-    /// (3D positional attenuation by the actor's position is a noted follow-up.)
+    /// runtime id is present only for a catalog-marked 3D sound; retain it for
+    /// the asset-aware playback step without trusting it as a live actor.
     fn on_sound(&mut self, d: &[u8]) {
         let mut r = MsgReader::new(d);
         if let Some(id) = r.u16() {
-            self.pending_sounds.push(id);
+            self.pending_sounds.push(PendingSound { id, runtime_id: r.u16(), is_speech: false });
         }
     }
 
-    /// `P_Speech` (ClientNet.bb:733): `[2]soundID [2]runtimeID` — a positional
-    /// actor sound. Queued as a 2D one-shot for the alpha (the actor-anchored 3D
-    /// `PlayActorSound` is a follow-up; the rid is parsed but not yet used).
+    /// `P_Speech` (ClientNet.bb:733): `[2]speechSlot [2]runtimeID`. The slot is
+    /// resolved through the emitting actor's template/gender speech table by
+    /// the window, then played positionally. Truncated packets soft-fail.
     fn on_speech(&mut self, d: &[u8]) {
         let mut r = MsgReader::new(d);
-        if let Some(id) = r.u16() {
-            let _rid = r.u16();
-            self.pending_sounds.push(id);
+        if let (Some(id), Some(runtime_id)) = (r.u16(), r.u16()) {
+            self.pending_sounds.push(PendingSound { id, runtime_id: Some(runtime_id), is_speech: true });
         }
     }
 
@@ -2773,17 +2788,32 @@ mod tests {
     #[test]
     fn sound_speech_music_dispatch() {
         let mut w = World::default();
-        // P_Sound: [2]soundID (+ optional rid, ignored for 2D alpha playback).
+        // Plain P_Sound remains a non-positional event.
         let mut s = MsgWriter::new();
         s.u16(42);
         w.apply(&msg(pk::SOUND, s.into_bytes()));
-        assert_eq!(w.pending_sounds, vec![42]);
+        // P_Sound with a runtime id preserves it for a marker-flagged catalog
+        // entry to decide whether spatial playback applies.
+        let mut positioned = MsgWriter::new();
+        positioned.u16(43).u16(8);
+        w.apply(&msg(pk::SOUND, positioned.into_bytes()));
 
-        // P_Speech: [2]soundID [2]runtimeID → queues the sound (rid parsed, unused).
+        // P_Speech is always actor-attached, so a truncated packet soft-fails.
         let mut sp = MsgWriter::new();
         sp.u16(99).u16(7);
         w.apply(&msg(pk::SPEECH, sp.into_bytes()));
-        assert_eq!(w.pending_sounds, vec![42, 99]);
+        let mut truncated = MsgWriter::new();
+        truncated.u16(100);
+        w.apply(&msg(pk::SPEECH, truncated.into_bytes()));
+        assert_eq!(
+            w.take_pending_sounds(),
+            vec![
+                PendingSound { id: 42, runtime_id: None, is_speech: false },
+                PendingSound { id: 43, runtime_id: Some(8), is_speech: false },
+                PendingSound { id: 99, runtime_id: Some(7), is_speech: true },
+            ]
+        );
+        assert!(w.pending_sounds.is_empty(), "draining releases silent-mode intents");
 
         // P_Music: [2]musicID → pending switch.
         let mut mu = MsgWriter::new();
