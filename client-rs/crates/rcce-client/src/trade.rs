@@ -72,13 +72,23 @@ pub struct PlayerTradeSlot {
     pub amount: u16,
 }
 
+/// Clamp on the gold I add to a player trade — a held `+`/`-` key can't overflow
+/// or produce an absurd `TradeCost` display. Blitz itself does not clamp; this is
+/// a safety bound only (well beyond any real gold balance).
+const COST_LIMIT: i32 = 1_000_000_000;
+
 /// State of an open player↔player trade window. `his` holds the partner's offered
 /// items (driven by inbound `P_UpdateTrading`); `mine` holds what I have staged
 /// (echoed locally — the server forwards my offers to the partner, not back to me).
+/// `cost` is the gold I add to the deal (Blitz `TradeCost`), adjusted locally and
+/// sent only in the confirm packet — the engine does not live-sync cost.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct PlayerTrade {
     pub his: Vec<PlayerTradeSlot>,
     pub mine: Vec<PlayerTradeSlot>,
+    /// Gold I contribute to the trade (positive) or demand from the partner
+    /// (negative). Blitz `TradeCost`, reset to 0 when the window opens.
+    pub cost: i32,
 }
 
 impl PlayerTrade {
@@ -124,6 +134,16 @@ impl PlayerTrade {
     /// Whether one of my backpack slots is currently staged in my offer.
     pub fn mine_has(&self, slot: u8) -> bool {
         self.mine.iter().any(|o| o.slot == slot)
+    }
+
+    /// Adjust the gold I add to the deal (Blitz `TradeCost`; BCostUp/BCostDown at
+    /// `Interface3D.bb:2305-2310` step ±1 per click). Positive = I give gold to the
+    /// partner, negative = I demand gold from them. Sent as the `TradeCost i32`
+    /// prefix of the confirm packet (`net::player_trade_confirm_packet`), never a
+    /// live sync — the engine only reconciles cost when both sides confirm.
+    /// Saturating + clamped so a held key can't overflow or overflow the display.
+    pub fn adjust_cost(&mut self, delta: i32) {
+        self.cost = self.cost.saturating_add(delta).clamp(-COST_LIMIT, COST_LIMIT);
     }
 }
 
@@ -234,6 +254,39 @@ mod tests {
         assert_eq!(pt.mine[0].slot, 15);
         // Inbound (his) is independent of my staging.
         assert!(pt.his.is_empty());
+    }
+
+    #[test]
+    fn player_trade_cost_adjust() {
+        let mut pt = PlayerTrade::default();
+        assert_eq!(pt.cost, 0, "fresh player trade starts at 0 gold (TradeCost reset)");
+        pt.adjust_cost(1);
+        pt.adjust_cost(1);
+        assert_eq!(pt.cost, 2, "two BCostUp clicks");
+        pt.adjust_cost(-5);
+        assert_eq!(pt.cost, -3, "BCostDown past zero → I demand gold from the partner");
+        // A held key can't overflow: it saturates at the clamp, no panic.
+        pt.adjust_cost(i32::MAX);
+        assert_eq!(pt.cost, COST_LIMIT);
+        pt.adjust_cost(i32::MIN);
+        assert_eq!(pt.cost, -COST_LIMIT);
+        // Cost lives on the state that resets each open: a fresh window is 0 again.
+        assert_eq!(PlayerTrade::default().cost, 0);
+    }
+
+    #[test]
+    fn player_trade_unknown_item_id_stored_without_deref() {
+        // The soft-fallback for a since-removed / unknown item is split in two: the
+        // STATE layer (this test) must record the raw id without ever looking it up,
+        // and the RENDER layer falls back to a placeholder name/icon via
+        // `AssetStore::item_name` / `item_icon_path` (exercised where those are
+        // called, not here). This test pins the state-layer half only: an inbound
+        // offer naming an id absent from every item DB is stored verbatim — no
+        // lookup, no deref, so the sync cannot panic on a stale/unknown item.
+        let mut pt = PlayerTrade::default();
+        pt.apply_his_update(&his_add(0, 1, 65535)); // 65535: absent from any item DB
+        assert_eq!(pt.his.len(), 1);
+        assert_eq!(pt.his[0].item_id, 65535, "unknown id stored verbatim, no lookup");
     }
 
     #[test]
