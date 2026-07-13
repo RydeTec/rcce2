@@ -146,6 +146,17 @@ mod tests {
     }
 
     #[test]
+    fn zero_resistance_increases_damage_relative_to_neutral() {
+        let neutral = SwingInput { strength: 80, weapon_damage: None, armour: 0, resistance: 100, toughness: None };
+        let vulnerable = SwingInput { resistance: 0, ..neutral };
+
+        // Zero is a valid stored resistance, not a missing-value sentinel: Blitz
+        // applies `(resistance - 100)` as armour, so zero adds 100 damage here.
+        assert_eq!(melee_swing(1, &neutral, &rolls(50)), SwingResult::Hit { damage: 10, crit: false });
+        assert_eq!(melee_swing(1, &vulnerable, &rolls(50)), SwingResult::Hit { damage: 110, crit: false });
+    }
+
+    #[test]
     fn formula3_multiplies_weapon_by_strength() {
         let input = SwingInput { strength: 5, weapon_damage: Some(10), armour: 0, resistance: 100, toughness: None };
         // 10 * 5 = 50, no crit, no armour.

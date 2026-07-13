@@ -4124,8 +4124,11 @@ mod tests {
                 x: 1.0,
                 y: 0.0,
                 z: 1.0,
-                hp: 100,
-                hp_max: 100,
+                // A zero resistance intentionally gives this template 100 fewer
+                // armour-equivalent points than neutral. Keep this fixture alive
+                // through one legal hit so it can observe retaliation and help.
+                hp: 10_000,
+                hp_max: 10_000,
                 target_peer: None,
                 last_attack_ms: 0,
                 script: String::new(),

@@ -79,6 +79,12 @@ Headless Rust server at full feature parity with `bin/Server.exe`, runnable in a
 
 ## Cycle log
 
+### Cycle 108 — 2026-07-13 — TEST RELIABILITY: retain zero-resistance semantics in ally-help coverage (#612)
+- **Why:** the full Rust-server baseline was red: `world::tests::attacked_npc_calls_nearby_allies_for_help` selected an aggressive template with a valid zero resistance, then gave its NPC fixture only 100 HP. Blitz `ActorAttack` treats resistance as an armour adjustment `(resistance - 100)`, so this was a legitimately vulnerable target that could be removed before the test observed retaliation or `AICallForHelp`.
+- **Did:** preserved the live combat formula unchanged; added a direct pure-combat regression proving zero resistance causes 100 more damage than neutral in the deterministic scenario, and raised only the ally-help fixture's staged health to 10,000 so one legal hit cannot erase the observation subject.
+- **Proof (executed):** baseline `cd server-rs && cargo test --workspace --locked` with Rust 1.94.1 → exit 101 (145 passed, 1 failed); focused Red `cargo test -p rcce-server attacked_npc_calls_nearby_allies_for_help --locked -- --nocapture` → exit 101 (panic at `world.rs:4144`). Focused Green: the new core test and ally-help test both pass. Final `cargo test --workspace --locked` → exit 0 (252 passed, 0 failed); `cargo clippy --workspace --all-targets --locked -- -D warnings` → exit 0.
+- **Next:** submit #612 for independent review and merge; this restores a trustworthy server baseline before resuming blocked equipment-placement validation #611.
+
 ### Cycle 107 — 2026-07-13 — PARITY FIX: honor defender resistance in live melee (#607)
 - **Why:** player→NPC, PvP, and NPC→player constructed `SwingInput` with neutral `resistance: 100` even though both character and NPC-template resistance data were already loaded. Any non-neutral defender resistance therefore had no effect on live combat, despite the shared formula and Blitz `ActorAttack` applying it.
 - **Did:** added one bounded defender-resistance lookup (invalid/missing damage-type index → neutral 100) and supplied it to all three live melee paths. NPC defenders read their actor-template array; player defenders read their persisted character array. Extended the existing live combat tests to force a high-resistance defender and assert every landed hit floors at one; added the invalid-index fallback test. Updated PARITY.md and ACCEPTANCE.md: R-1 is closed and ACC-PLAY-3 is DONE.
