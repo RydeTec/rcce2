@@ -764,6 +764,11 @@ Type Composer
             If v = 2 Then Return "Spherical"
             Return ""
         EndIf
+        If enumKind = "ptexnone"
+            // Emitter DefaultTextureID sentinel -- 65535 = no texture.
+            If v = 65535 Then Return "none"
+            Return ""
+        EndIf
         Return ""
     End Method
 
@@ -1429,6 +1434,9 @@ Type Composer
             If fieldId = "rchg"      Then C\RChange# = Composer::parseFloatClamped(self, value, C\RChange#, -50.0, 50.0) : Return
             If fieldId = "gchg"      Then C\GChange# = Composer::parseFloatClamped(self, value, C\GChange#, -50.0, 50.0) : Return
             If fieldId = "bchg"      Then C\BChange# = Composer::parseFloatClamped(self, value, C\BChange#, -50.0, 50.0) : Return
+            // DefaultTextureID is a texture engine-ID (not a catalog index);
+            // assetIntRow writes the ID. 65535 = none (WriteShort field).
+            If fieldId = "tex"       Then C\DefaultTextureID = Composer::parseIntClamped(self, value, C\DefaultTextureID, 0, 65535) : Return
             If fieldId = "texacross" Then C\TexAcross = Composer::parseIntClamped(self, value, C\TexAcross, 1, 50) : Return
             If fieldId = "texdown"   Then C\TexDown = Composer::parseIntClamped(self, value, C\TexDown, 1, 50) : Return
             // Anim speed: typed value is the display value (0..100). Re-invert
@@ -3995,6 +4003,15 @@ Type Composer
         y = Composer::editableFloatRow(self, panelX, panelW, y, "Blue change", "particle", refID, "bchg", C\BChange#, mx, my, clicked)
 
         y = Composer::sectionHeader(self, panelX, panelW, y, "Animated texture")
+        // DefaultTextureID is the persisted texture (GUE's "Preview texture"
+        // button writes it, GUE.bb:6138). 65535 = no texture (GUE's boot
+        // guard is `< 65535`), rendered as a plain int like the projectile
+        // [NONE] mesh so the catalog miss doesn't paint a misleading pill.
+        If C\DefaultTextureID = 65535
+            y = Composer::enumIntRow(self, panelX, panelW, y, "Texture", "particle", refID, "tex", C\DefaultTextureID, "ptexnone", mx, my, clicked)
+        Else
+            y = Composer::assetIntRow(self, panelX, panelW, y, "Texture", "particle", refID, "tex", C\DefaultTextureID, "texture", mx, my, clicked, rightClicked)
+        EndIf
         y = Composer::editableIntRow(self, panelX, panelW, y, "Frames across", "particle", refID, "texacross", C\TexAcross, mx, my, clicked)
         y = Composer::editableIntRow(self, panelX, panelW, y, "Frames down", "particle", refID, "texdown", C\TexDown, mx, my, clicked)
         // GUE shows anim speed inverted (101 - stored) so higher = faster;
