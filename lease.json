@@ -1,1 +1,1 @@
-{"run_id":"rcce2-hourly-20260713T203455Z-12a72e56","status":"active","started_at":"2026-07-13T20:34:55Z","heartbeat_at":"2026-07-13T20:59:05Z","expires_at":"2026-07-14T20:59:05Z","issue":609,"branch":"codex-automation/609-spatial-aud4","pr":null,"phase":"push"}
+{"run_id":"rcce2-hourly-20260713T203455Z-12a72e56","status":"active","started_at":"2026-07-13T20:34:55Z","heartbeat_at":"2026-07-13T20:59:41Z","expires_at":"2026-07-14T20:59:41Z","issue":609,"branch":"codex-automation/609-spatial-aud4","pr":null,"phase":"pr-create"}
