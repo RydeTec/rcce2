@@ -3720,9 +3720,25 @@ impl ApplicationHandler for App {
                         // still available as a fallback when mouse-look is off.
                         KeyCode::ArrowLeft | KeyCode::KeyQ if pressed => self.cam_yaw -= 0.18,
                         KeyCode::ArrowRight | KeyCode::KeyE if pressed => self.cam_yaw += 0.18,
-                        // Keyboard camera zoom (CAM-3): `-` zooms out, `=` zooms in.
-                        KeyCode::Minus if pressed => self.cam_dist = zoom_step(self.cam_dist, 1.5),
-                        KeyCode::Equal if pressed => self.cam_dist = zoom_step(self.cam_dist, -1.5),
+                        // Keyboard camera zoom (CAM-3): `-` zooms out, `=` zooms in —
+                        // UNLESS a player↔player trade is open, in which case `-`/`=`
+                        // adjust the gold I add to the deal (TradeCost, Blitz
+                        // BCostUp/BCostDown at Interface3D.bb:2305-2310). Purely local:
+                        // like Blitz, cost is only sent at confirm, not live-synced.
+                        KeyCode::Minus if pressed => {
+                            if let Some(pt) = self.net.as_mut().and_then(|n| n.world.player_trade.as_mut()) {
+                                pt.adjust_cost(-1);
+                            } else {
+                                self.cam_dist = zoom_step(self.cam_dist, 1.5);
+                            }
+                        }
+                        KeyCode::Equal if pressed => {
+                            if let Some(pt) = self.net.as_mut().and_then(|n| n.world.player_trade.as_mut()) {
+                                pt.adjust_cost(1);
+                            } else {
+                                self.cam_dist = zoom_step(self.cam_dist, -1.5);
+                            }
+                        }
                         // Toggle mouse-look (grab/hide the cursor).
                         KeyCode::Tab if pressed => {
                             let on = !self.mouse_look;
@@ -4945,16 +4961,16 @@ impl App {
     /// Unlike the vendor confirm, the server completes the swap only once BOTH
     /// players have confirmed, then ends the trade via `P_CloseTrading` — so this
     /// does NOT close the window locally (that happens on the server's
-    /// CLOSE_TRADING, or when the player cancels with Esc). TradeCost is 0; gold in
-    /// the trade is a Phase 2 concern.
+    /// CLOSE_TRADING, or when the player cancels with Esc). `TradeCost` is the gold
+    /// I add to the deal (`+`/`-` while the window is open; Blitz BCostUp/BCostDown).
     fn player_confirm_trade(&mut self) {
         let Some(net) = self.net.as_ref() else { return };
         let Some(pt) = net.world.player_trade.as_ref() else { return };
         // "His" = the partner's offered trade-slots I accept; "mine" = my staged
-        // offers keyed by backpack slot.
+        // offers keyed by backpack slot; cost = the gold I contribute (TradeCost).
         let his: Vec<(u8, u16)> = pt.his.iter().map(|o| (o.slot, o.amount)).collect();
         let mine: Vec<(u8, u16)> = pt.mine.iter().map(|o| (o.slot, o.amount)).collect();
-        let pkt = rcce_client::net::player_trade_confirm_packet(&his, &mine, 0);
+        let pkt = rcce_client::net::player_trade_confirm_packet(&his, &mine, pt.cost);
         if let Some(net) = self.net.as_mut() {
             net.transport.send(net.peer, rcce_net::packet_id::OPEN_TRADING, &pkt, true);
         }
@@ -8174,6 +8190,8 @@ impl App {
                             ],
                             // Backpack-relative slot 0 (= absolute slot 14) staged.
                             mine: vec![PlayerTradeSlot { slot: 0, item_id: 3, amount: 1 }],
+                            // A non-zero TradeCost so the gold line renders in the probe.
+                            cost: 25,
                         });
                         // A couple of backpack items so the numbered "Your items" list
                         // renders (slot 14 is the staged one).
@@ -9627,6 +9645,13 @@ impl App {
                     .and_then(|n| n.world.player_trade.as_ref())
                     .map(|pt| pt.his.clone())
                     .unwrap_or_default();
+                // The gold I add to the deal (TradeCost); `+`/`-` adjust it.
+                let trade_cost: i32 = self
+                    .net
+                    .as_ref()
+                    .and_then(|n| n.world.player_trade.as_ref())
+                    .map(|pt| pt.cost)
+                    .unwrap_or(0);
                 // My backpack items (slots >= 14, ordered by slot) and which of them
                 // I've staged into my offer — for the player-trade "Your items" list.
                 let (my_backpack, my_staged): (Vec<(u8, u16, u16)>, std::collections::HashSet<u8>) = self
@@ -9830,6 +9855,16 @@ impl App {
                     let btw = rcce_render::font::text_width(&btxt, 1.0);
                     overlay.text_shadow(bx + bw_ * 0.5 - btw * 0.5, by_ + 3.0, 1.0, &btxt, if active { white } else { dimc });
                 } else if matches!(trade.kind, TradeKind::Player) {
+                    // My offered gold (TradeCost). `+`/`-` adjust it; positive = I give
+                    // gold, negative = I demand it. Shown above the Confirm button.
+                    let (c_txt, c_col) = if trade_cost > 0 {
+                        (format!("Your gold: +{trade_cost}  [+/- adjust]"), gold)
+                    } else if trade_cost < 0 {
+                        (format!("Your gold: {trade_cost}  [+/- adjust]"), [1.0, 0.6, 0.5, 1.0])
+                    } else {
+                        ("Your gold: 0  [+/- adjust]".to_string(), dimc)
+                    };
+                    overlay.text(px + 12.0, py + ph - 42.0, 1.0, &c_txt, c_col);
                     // Player↔player Confirm button — commits my staged offer (+ accepts
                     // theirs). The server completes the swap once BOTH sides confirm.
                     let (bx, by_, bw_, bh_) = vendor_confirm_button_rect(sw, sh);
