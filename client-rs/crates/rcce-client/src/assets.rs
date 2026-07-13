@@ -384,6 +384,12 @@ impl AssetStore {
         path.exists().then_some(path)
     }
 
+    /// Whether this sound id carries the engine's trailing `chr(1)` marker for
+    /// actor-attached playback. Unknown entries deliberately remain 2D/silent.
+    pub fn sound_is_positional(&self, id: u16) -> bool {
+        self.sounds.get(id).is_some_and(|entry| entry.is_3d())
+    }
+
     /// Path to the looping menu track `Data/Music/Menu.ogg` (MENU-10), or `None`
     /// if the starter project doesn't ship it. ref `MainMenu.bb:99-103`.
     pub fn menu_music_path(&self) -> Option<std::path::PathBuf> {

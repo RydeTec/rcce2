@@ -10,7 +10,33 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
 
-use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink, Source};
+use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink, Source, SpatialSink};
+
+/// The bounded number of actor-attached one-shots retained by the audio backend.
+/// A new event reclaims the oldest slot, mirroring Blitz's actor sound pool.
+pub const SPATIAL_SOUND_POOL: usize = 24;
+
+/// Reserve the next bounded spatial-sink slot, wrapping after the final slot.
+/// Kept pure so the source-cap invariant stays independently testable.
+pub fn next_spatial_slot(cursor: &mut usize) -> usize {
+    let slot = *cursor;
+    *cursor = (*cursor + 1) % SPATIAL_SOUND_POOL;
+    slot
+}
+
+/// Return listener ear positions for a view from `eye` to `target`. The fallback
+/// keeps ears distinct when a degenerate camera target is supplied.
+pub fn listener_ears(eye: [f32; 3], target: [f32; 3]) -> ([f32; 3], [f32; 3]) {
+    let dx = target[0] - eye[0];
+    let dz = target[2] - eye[2];
+    let len = (dx * dx + dz * dz).sqrt();
+    let (rx, rz) = if len > f32::EPSILON { (dz / len, -dx / len) } else { (1.0, 0.0) };
+    const HALF_EAR_SEPARATION: f32 = 0.09;
+    (
+        [eye[0] - rx * HALF_EAR_SEPARATION, eye[1], eye[2] - rz * HALF_EAR_SEPARATION],
+        [eye[0] + rx * HALF_EAR_SEPARATION, eye[1], eye[2] + rz * HALF_EAR_SEPARATION],
+    )
+}
 
 /// Effective linear gain for a sound: its base volume scaled by the master
 /// volume, or 0 when muted. Pure so it's testable without an audio device.
@@ -39,6 +65,9 @@ pub struct Audio {
     /// Looped weather-ambient layers keyed by name (e.g. "rain", "wind"), each
     /// with its pre-master base volume. Lets storm play rain + wind together.
     ambient: std::collections::HashMap<&'static str, (Sink, f32)>,
+    /// Retained rather than detached so actor sound sources stay bounded.
+    spatial: Vec<Option<SpatialSink>>,
+    spatial_cursor: usize,
 }
 
 impl Audio {
@@ -55,6 +84,8 @@ impl Audio {
                 muted: false,
                 music_base: 0.0,
                 ambient: std::collections::HashMap::new(),
+                spatial: std::iter::repeat_with(|| None).take(SPATIAL_SOUND_POOL).collect(),
+                spatial_cursor: 0,
             }),
             Err(e) => {
                 eprintln!("[audio] no output device ({e}); running silent");
@@ -217,6 +248,33 @@ impl Audio {
         sink.append(decoder);
         sink.detach();
     }
+
+    /// Play a bounded actor-attached one-shot. The caller supplies a snapshot of
+    /// the current emitter and camera listener positions; stale actors are filtered
+    /// before this boundary, so file/device errors stay non-fatal here.
+    pub fn play_spatial_oneshot(
+        &mut self,
+        path: &Path,
+        volume: f32,
+        emitter: [f32; 3],
+        listener: [f32; 3],
+        target: [f32; 3],
+    ) {
+        let gain = effective_gain(self.master_volume, volume, self.muted);
+        if gain <= 0.0 {
+            return;
+        }
+        let Ok(file) = File::open(path) else { return };
+        let Ok(decoder) = Decoder::new(BufReader::new(file)) else { return };
+        let (left, right) = listener_ears(listener, target);
+        let Ok(sink) = SpatialSink::try_new(&self.handle, emitter, left, right) else { return };
+        sink.set_volume(gain);
+        sink.append(decoder);
+        let slot = next_spatial_slot(&mut self.spatial_cursor);
+        if let Some(previous) = self.spatial[slot].replace(sink) {
+            previous.stop();
+        }
+    }
 }
 
 /// Decides when the local player's footstep one-shot should fire, based on a
@@ -283,6 +341,24 @@ mod tests {
         assert_eq!(effective_gain(2.0, 1.0, false), 1.0); // master clamped
         assert_eq!(effective_gain(1.0, 2.0, false), 1.0); // product clamped
         assert_eq!(effective_gain(-1.0, 0.5, false), 0.0); // negative master → 0
+    }
+
+    #[test]
+    fn spatial_slots_wrap_without_exceeding_the_bound() {
+        let mut cursor = 0;
+        let slots: Vec<usize> = (0..SPATIAL_SOUND_POOL + 2)
+            .map(|_| next_spatial_slot(&mut cursor))
+            .collect();
+        assert_eq!(&slots[..SPATIAL_SOUND_POOL], &(0..SPATIAL_SOUND_POOL).collect::<Vec<_>>());
+        assert_eq!(&slots[SPATIAL_SOUND_POOL..], &[0, 1]);
+        assert_eq!(cursor, 2);
+    }
+
+    #[test]
+    fn listener_ears_follow_camera_right_axis() {
+        let (left, right) = listener_ears([0.0, 2.0, 0.0], [0.0, 2.0, 10.0]);
+        assert_eq!(left, [-0.09, 2.0, 0.0]);
+        assert_eq!(right, [0.09, 2.0, 0.0]);
     }
 
     #[test]
