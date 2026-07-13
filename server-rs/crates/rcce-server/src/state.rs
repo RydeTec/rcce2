@@ -33,6 +33,16 @@ fn clamp_coord(v: f32) -> f32 {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::ServerState;
+
+    #[test]
+    fn missing_defender_resistance_is_neutral() {
+        assert_eq!(ServerState::defender_resistance(&[150], 9), 100);
+    }
+}
+
 /// High tag bit marking a synthetic item-instance handle (see `equip_handle`),
 /// so it can't be mistaken for a plain actor runtime id (which are < 65536).
 const ITEM_HANDLE_TAG: i64 = 0x4000_0000;
@@ -729,6 +739,12 @@ impl ServerState {
         ap
     }
 
+    /// Defender resistance for an incoming damage-type byte. A malformed or
+    /// absent index is neutral (100), avoiding an out-of-bounds combat failure.
+    fn defender_resistance(resistances: &[i16], damage_type: u8) -> i32 {
+        resistances.get(damage_type as usize).copied().map(i32::from).unwrap_or(100)
+    }
+
     /// Decrement the durability of the item in `slot` of `c`'s inventory by 1,
     /// returning the new health, or `None` if the slot is empty or the item is
     /// already broken. Guards the `u8` against underflow — a wrap to 255 inside a
@@ -838,6 +854,11 @@ impl ServerState {
         if npc.area != sess.area {
             return Vec::new();
         }
+        let defender_resistance = self
+            .catalog
+            .get(npc.actor_id)
+            .map(|t| Self::defender_resistance(&t.resistances, damage_type))
+            .unwrap_or(100);
 
         // Roll + resolve (unarmed / no armour for now — equipment is a follow-up).
         let rolls = combat::Rolls {
@@ -850,7 +871,7 @@ impl ServerState {
             strength,
             weapon_damage,
             armour: 0, // NPCs carry no equipped armour in the port (innate only)
-            resistance: 100,
+            resistance: defender_resistance,
             toughness: None,
         };
         let swing = combat::melee_swing(self.combat_formula, &input, &rolls);
@@ -940,13 +961,16 @@ impl ServerState {
     ) -> Vec<Outgoing> {
         let target_rid = tsess.runtime_id;
         // The defender's equipped armour mitigates the incoming hit.
-        let defender_armour = match self
+        let (defender_armour, defender_resistance) = match self
             .accounts
             .find(&tsess.user)
             .and_then(|a| a.characters.get(tsess.char_slot as usize))
         {
-            Some(rec) => Self::equipped_armour(&self.items, &rec.actor),
-            None => 0,
+            Some(rec) => (
+                Self::equipped_armour(&self.items, &rec.actor),
+                Self::defender_resistance(&rec.actor.resistances, damage_type),
+            ),
+            None => (0, 100),
         };
         let rolls = combat::Rolls {
             to_hit: self.rng.rand(100) as u32,
@@ -958,7 +982,7 @@ impl ServerState {
             strength,
             weapon_damage,
             armour: defender_armour,
-            resistance: 100, // per-actor resistances unmodelled in the melee path (parity with collect_npc_attacks)
+            resistance: defender_resistance,
             toughness: None,
         };
         let swing = combat::melee_swing(self.combat_formula, &input, &rolls);
@@ -5671,19 +5695,22 @@ impl ServerState {
                 crit_roll: self.rng.rand(10) as u32,
             };
             // The victim's equipped armour mitigates the incoming hit.
-            let victim_armour = match self
+            let (victim_armour, victim_resistance) = match self
                 .accounts
                 .find(&tsess.user)
                 .and_then(|a| a.characters.get(tsess.char_slot as usize))
             {
-                Some(rec) => Self::equipped_armour(&self.items, &rec.actor),
-                None => 0,
+                Some(rec) => (
+                    Self::equipped_armour(&self.items, &rec.actor),
+                    Self::defender_resistance(&rec.actor.resistances, dtype),
+                ),
+                None => (0, 100),
             };
             let input = combat::SwingInput {
                 strength,
                 weapon_damage: None,
                 armour: victim_armour,
-                resistance: 100,
+                resistance: victim_resistance,
                 toughness: None,
             };
             let swing = combat::melee_swing(self.combat_formula, &input, &rolls);
