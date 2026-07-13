@@ -323,8 +323,8 @@ pub struct ServerState {
     pending_kicks: Vec<u32>,
     /// In-game clock (`Environment.bb`): hour 0..23, minute 0..59, day, year.
     /// Advances one game-minute every `60000/time_factor` ms.
-    game_time: (i32, i32, i32, i32),
-    time_factor: i32,
+    pub(crate) game_time: (i32, i32, i32, i32),
+    pub(crate) time_factor: i32,
     /// `now_ms()` of the last game-minute advance.
     last_minute_ms: u64,
     /// Attribute slot display names (`Attributes.dat`) — for `SetAttribute` /
@@ -342,6 +342,13 @@ pub struct ServerState {
     /// Damage-type names (`Damage.dat`) — for `SetResistance`/`Resistance`
     /// name→index resolution.
     pub damage_types: rcce_data::damage::DamageTypes,
+    /// World environment (`Environment.dat`) — season/month tables streamed to a
+    /// stock Blitz client in the `P_FetchActors` `"E"` block; the boot clock is
+    /// seeded from it.
+    pub environment: rcce_server_core::environment::Environment,
+    /// Update-system file manifest (`Files.dat`) — streamed to a stock Blitz
+    /// client in reply to `P_FetchUpdateFiles`. Empty in the shipped project.
+    pub update_files: Vec<rcce_server_core::update_files::UpdateFile>,
     /// Localized slash-command words (`Language.txt`) for the chat-command dispatch.
     pub language: crate::language::Language,
     /// Lazily-loaded area files, cached for the per-tick portal check.
@@ -451,6 +458,19 @@ impl ServerState {
             .map(|b| rcce_data::damage::DamageTypes::parse(&b))
             .unwrap_or_default();
 
+        // World environment (Environment.dat) — season/month tables + the boot
+        // game clock. Missing file → CreateEnvironment defaults (year 1, day 1,
+        // noon, TimeFactor 10), exactly like the Blitz server on a fresh project.
+        let environment = rcce_server_core::environment::Environment::load(
+            config.data_dir.join("Server Data").join("Environment.dat"),
+        );
+
+        // Update-system file manifest (Files.dat) — the stock-Blitz-client
+        // patch list. Empty in the shipped project.
+        let update_files = rcce_server_core::update_files::load_update_files(
+            config.data_dir.join("Server Data").join("Files.dat"),
+        );
+
         // Localized slash-command words (Language.txt) for chat-command dispatch.
         let language = crate::language::Language::load(
             config.data_dir.join("Server Data").join("Language.txt"),
@@ -508,8 +528,10 @@ impl ServerState {
             pending_memorise: Vec::new(),
             area_pvp_cache: std::collections::HashMap::new(),
             pending_kicks: Vec::new(),
-            game_time: (12, 0, 0, 0), // noon, day 0 (Environment.bb default)
-            time_factor: 10,
+            // Seed the live clock from Environment.dat (Blitz: LoadEnvironment
+            // sets these globals at boot). game_time = (hour, minute, day, year).
+            game_time: (environment.time_h, environment.time_m, environment.day, environment.year),
+            time_factor: environment.time_factor,
             last_minute_ms: 0,
             attr_names,
             items,
@@ -517,6 +539,8 @@ impl ServerState {
             projectiles,
             factions,
             damage_types,
+            environment,
+            update_files,
             language,
             area_cache: std::collections::HashMap::new(),
             area_weather: std::collections::HashMap::new(),
@@ -6559,6 +6583,10 @@ impl ServerState {
             world::P_JUMP => self.handle_jump(peer_id, payload),
             world::P_ACTION_BAR_UPDATE => self.handle_action_bar_update(peer_id, payload),
             world::P_ITEM_SCRIPT => self.handle_item_script(peer_id, payload),
+            // Stock-Blitz-client onboarding (`ServerNet.bb:2242`/`:2257`). Empty
+            // request body — nothing to parse; stream the catalog / manifest.
+            crate::fetch::P_FETCH_UPDATE_FILES => to_sender(self.handle_fetch_update_files()),
+            crate::fetch::P_FETCH_ACTORS => to_sender(self.handle_fetch_actors()),
             _ => Vec::new(),
         }
     }
@@ -6595,6 +6623,8 @@ impl ServerState {
                 | world::P_JUMP
                 | world::P_ACTION_BAR_UPDATE
                 | world::P_ITEM_SCRIPT
+                | crate::fetch::P_FETCH_UPDATE_FILES
+                | crate::fetch::P_FETCH_ACTORS
         )
     }
 }
