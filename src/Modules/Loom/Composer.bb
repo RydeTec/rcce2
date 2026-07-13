@@ -1442,7 +1442,13 @@ Type Composer
             // Anim speed: typed value is the display value (0..100). Re-invert
             // to stored the way GUE does: display d>0 -> stored 101-d, d=0 -> 0.
             If fieldId = "texspeed"
-                Local dsp% = Composer::parseIntClamped(self, value, 0, 0, 100)
+                // Fallback is the current DISPLAY value so an empty / garbage
+                // commit is a no-op (keeps the current speed), matching every
+                // other field. Passing 0 here would silently disable the
+                // animation on an empty commit.
+                Local curDsp% = 0
+                If C\TexAnimSpeed > 0 Then curDsp = 101 - C\TexAnimSpeed
+                Local dsp% = Composer::parseIntClamped(self, value, curDsp, 0, 100)
                 If dsp > 0 Then C\TexAnimSpeed = 101 - dsp Else C\TexAnimSpeed = 0
                 Return
             EndIf
