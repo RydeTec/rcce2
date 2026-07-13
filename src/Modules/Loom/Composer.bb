@@ -185,6 +185,11 @@ Type Composer
     // focused one.
     Field mediaRegName$
     Field mediaRegFlag%
+    Field mediaRegKind$    // last media kind the Register section drew for;
+                           // when it changes we reset name+flag so a flag
+                           // toggled on one kind (e.g. sound "3D spatial")
+                           // can't leak into a register of another kind
+                           // (e.g. texture, whose view has no toggle to undo it)
 
     // Delete-arm state. When the user clicks Delete, we record the kind/
     // refID and a timestamp. A second click within CMP_DELETE_ARM_MS on
@@ -1176,7 +1181,10 @@ Type Composer
 
         // Record only when the value actually changed (avoids spamming
         // the timeline with no-op commits from click-away-without-typing).
-        If val <> oldVal
+        // Skip the media Register scratch field -- it's composer-local state,
+        // not an entity edit, so it doesn't belong in the undo timeline and
+        // mustn't invalidate the world cache on every keystroke-commit.
+        If val <> oldVal And Left$(fid, 10) <> "media_reg_"
             Timeline_RecordEdit(k, id, fid, oldVal, val, Threads::lookupName(self\threads, k, id))
             // Reference-field edits + faction renames can change the
             // broken-ref count, and any edit changes "what to show in
@@ -1342,8 +1350,10 @@ Type Composer
         If fieldId = "media_reg_name" Then self\mediaRegName$ = value : Return
         If fieldId = "media_reg_flag" Then self\mediaRegFlag% = (value = "1") : Return
         If fieldId = "mesh_scale"
-            // GUE's Initial-scale spinner is 1..5000 as an integer percent
-            // (value/100), i.e. 0.01..50.0. Mirror that range here.
+            // The stored Scale# is a raw multiplier (1.0 = native size). The
+            // row edits it directly as a float; the 0.01..50.0 clamp is the
+            // same span GUE's Initial-scale spinner covers (its 1..5000
+            // integer is that value x100). Type the multiplier, not a percent.
             Local sc# = Composer::parseFloatClamped(self, value, 1.0, 0.01, 50.0)
             MediaManager_SetMeshScale(refID, sc#)
             Return
@@ -4820,6 +4830,16 @@ Type Composer
     // flagLabel$ -- toggle label ("Animated" / "3D spatial") or "" for none
     // -------------------------------------------------------------------------
     Method renderMediaRegister%(kind$, folder$, flagLabel$, panelX%, panelW%, y%, mx%, my%, clicked%)
+        // Reset scratch state when the media kind changes so a flag/filename
+        // entered under one kind can't bleed into a register of another
+        // (the focus-change guard has already cancelled any active edit by
+        // the time we get here, so this write is safe).
+        If self\mediaRegKind$ <> kind
+            self\mediaRegName$ = ""
+            self\mediaRegFlag% = False
+            self\mediaRegKind$ = kind
+        EndIf
+
         y = Composer::sectionHeader(self, panelX, panelW, y, "Register a file")
 
         If Composer::canPaintRow(self, y, CMP_ROW_H) = True
