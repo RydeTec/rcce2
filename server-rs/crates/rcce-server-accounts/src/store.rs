@@ -175,6 +175,22 @@ impl AccountStore {
         atomic_write(&self.path, &w.into_bytes())
     }
 
+    /// Apply an account mutation only if the resulting store can be persisted.
+    ///
+    /// The server must not acknowledge an account, password, or character
+    /// change that would disappear on the next restart. Account records are
+    /// cloneable, so retain a snapshot until the atomic write succeeds and
+    /// restore it on any I/O failure.
+    pub fn transaction<T>(&mut self, mutate: impl FnOnce(&mut Self) -> T) -> io::Result<T> {
+        let snapshot = self.accounts.clone();
+        let result = mutate(self);
+        if let Err(error) = self.save() {
+            self.accounts = snapshot;
+            return Err(error);
+        }
+        Ok(result)
+    }
+
     /// Case-insensitive lookup (`Upper$(User$)` scan in the handlers).
     pub fn find(&self, user: &str) -> Option<&Account> {
         self.accounts.iter().find(|a| a.user.eq_ignore_ascii_case(user))
