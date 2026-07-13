@@ -23,6 +23,7 @@ Type MeshEntry
     Field Filename$     // basename relative to Data\Meshes\
     Field IsAnim%       // animation flag byte (1 = animated mesh, 0 = static)
     Field Index%        // 0-based catalog index for Threads::focus refID
+    Field Scale#        // initial scale (SetMeshScale); read at Init, edited via MediaManager
 End Type
 
 
@@ -57,6 +58,7 @@ Function Meshes_Init()
             me\Filename = name
             me\IsAnim = isAnim
             me\Index = idx
+            me\Scale# = GetMeshScale#(id)
             idx = idx + 1
         EndIf
     Next
@@ -85,4 +87,18 @@ Function Meshes_GetByID.MeshEntry(id%)
         If me\ID = id Then Return me
     Next
     Return Null
+End Function
+
+
+// =============================================================================
+// Meshes_Rebuild -- discard every cached MeshEntry and re-walk Meshes.dat.
+// Called after MediaManager add/remove so the Browser grid + Composer view
+// reflect the on-disk catalog. `Delete Each` is the safe bulk-clear (no
+// iterator-during-iteration hazard); Meshes_Init re-populates + resets the
+// count. Strict module has no GC so the explicit Delete is required.
+// =============================================================================
+Function Meshes_Rebuild()
+    Delete Each MeshEntry
+    MeshesTotalCount = 0
+    Meshes_Init()
 End Function

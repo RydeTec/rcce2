@@ -37,6 +37,15 @@ src/
         ├── EmitterCatalog.bb        .rpc basenames under Data\Emitter Configs\;
         │                            picker roster + name validator for the
         │                            Projectile composer's emitter fields
+        ├── {Texture,Mesh,Sound,     browseable asset catalogs (walk the
+        │    Music}Catalog.bb        Data\Game Data\*.dat index files); each
+        │                            exposes *_Rebuild for post-write refresh
+        ├── MediaManager.bb          add / remove / mesh-scale editing for the
+        │                            four catalogs above, routed through GUE's
+        │                            own Media.bb writers (immediate .dat write,
+        │                            no dirty flag — GUE's Media tab isn't in
+        │                            menuSaveAll); portable subset of the
+        │                            native-dialog "Add New File"
         ├── Seasons.bb               non-Strict write path for the Days &
         │                            seasons composer (Environment.bb's Dim'd
         │                            calendar tables + Sun fields; GUE tab

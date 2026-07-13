@@ -76,6 +76,18 @@ End Function
 
 
 // =============================================================================
+// Music_Rebuild -- discard every cached MusicEntry and re-walk Music.dat.
+// Called after a MediaManager add/remove. `Delete Each` bulk-clear +
+// Music_Init re-populate.
+// =============================================================================
+Function Music_Rebuild()
+    Delete Each MusicEntry
+    MusicTotalCount = 0
+    Music_Init()
+End Function
+
+
+// =============================================================================
 // Music_Play -- audition a track. Uses LoadSound + PlaySound directly
 // (engine plays music via the sound channel, not a CD track), matching
 // the path used in ClientAreas.bb for the loading-screen music.

@@ -155,6 +155,10 @@ Include "Modules\Loom\TextureCatalog.bb"
 Include "Modules\Loom\MeshCatalog.bb"
 Include "Modules\Loom\SoundCatalog.bb"
 Include "Modules\Loom\MusicCatalog.bb"
+// MediaManager -- portable editing (add / remove / mesh-scale) for the four
+// media catalogs above, routed through GUE's own Media.bb writers. See the
+// module header for the immediate-write (no dirty flag) + file-dialog notes.
+Include "Modules\Loom\MediaManager.bb"
 // Emitter catalog -- .rpc basenames under Data\Emitter Configs\; roster
 // + validator for the Projectile composer's emitter fields. NOTE: this
 // include sits AFTER Composer.bb in file order but BlitzForge resolves

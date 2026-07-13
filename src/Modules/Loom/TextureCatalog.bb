@@ -109,3 +109,16 @@ Function Textures_GetByID.TextureEntry(id%)
     Next
     Return Null
 End Function
+
+
+// =============================================================================
+// Textures_Rebuild -- discard every cached TextureEntry and re-walk
+// Textures.dat. Called after a MediaManager add/remove so the Browser grid
+// + Composer view reflect the on-disk catalog. `Delete Each` is the safe
+// bulk-clear; Textures_Init re-populates + resets the count.
+// =============================================================================
+Function Textures_Rebuild()
+    Delete Each TextureEntry
+    TexturesTotalCount = 0
+    Textures_Init()
+End Function
