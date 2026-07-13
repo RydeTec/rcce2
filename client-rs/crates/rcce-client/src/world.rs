@@ -294,6 +294,12 @@ pub struct World {
     /// actor); without it the local body fell back to template 0, rendering the
     /// wrong race for any non-default-race character.
     pub me_actor_id: u16,
+    /// Runtime id of the mount the local player is riding, or 0 when unmounted
+    /// (ANIM-5). Captured from our own `P_StandardUpdate` (the mount field at
+    /// byte 21, same as any actor) so the local body plays the Ride* anims keyed
+    /// off the mount's gait, exactly as Blitz drives Me through `AI\Rider`
+    /// (Client.bb:541,599-610,716-718). 0 = ride nothing → normal locomotion.
+    pub me_mount_id: u16,
     /// Local player's appearance (from our own P_NewActor).
     pub me_gender: u8,
     pub me_face_tex: u8,
@@ -969,6 +975,9 @@ impl World {
         if rid == self.my_runtime_id {
             self.me_x = x;
             self.me_z = z;
+            // ANIM-5: track our own mount so the local body rides. Blitz sets
+            // `A\Mount` here for Me too (ClientNet.bb:1509-1538); 0 = unmounted.
+            self.me_mount_id = mount_id;
         }
         if let Some(a) = self.actors.get_mut(&rid) {
             a.x = x;
