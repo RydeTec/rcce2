@@ -2,10 +2,10 @@
   "run_id": "rcce2-hourly-20260713T183413Z-41c7e526-3ff",
   "status": "active",
   "started_at": "2026-07-13T18:34:15Z",
-  "heartbeat_at": "2026-07-13T18:44:46Z",
-  "expires_at": "2026-07-14T18:44:46Z",
+  "heartbeat_at": "2026-07-13T18:45:48Z",
+  "expires_at": "2026-07-14T18:45:48Z",
   "issue": 605,
   "branch": "codex-automation/605-lazy-password-rollback",
-  "pr": null,
-  "phase": "commit-and-pr"
+  "pr": 606,
+  "phase": "independent-review"
 }
