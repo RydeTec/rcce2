@@ -62,6 +62,21 @@ pub struct ItemDef {
     /// Duration in **seconds** of the timed buff a potion/ingredient applies
     /// (`EatEffectsLength`, item types 4/5); 0 = no timed effect.
     pub eat_effects_length: i16,
+    /// `TakesDamage` — durability wear flag. Retained for the Rust server's
+    /// `P_FetchActors` item stream (`ServerNet.bb:2293`).
+    pub takes_damage: u8,
+    /// Attachment-point ids (`Gubbins[0..5]`). Stored i16 on disk; the
+    /// `P_FetchActors` wire sends only the low byte of each.
+    pub gubbins: [i16; 6],
+    /// Attribute deltas the item applies when equipped
+    /// (`Attributes\Value[0..39]`; sent wire-biased `+5000`).
+    pub attributes: [i16; 40],
+    /// Race restriction (`ExclusiveRace$`; empty = none).
+    pub excl_race: String,
+    /// Class restriction (`ExclusiveClass$`; empty = none).
+    pub excl_class: String,
+    /// Free-form `MiscData$` tail.
+    pub misc_data: String,
 }
 
 /// All item definitions from `Items.dat`, in file order.
@@ -94,24 +109,26 @@ impl ItemCatalog {
             return Err(ReadError::UnexpectedEof { offset: 0, needed: 0, available: 0 });
         }
         let name = r.read_string(256)?;
-        let _excl_race = r.read_string(256)?;
-        let _excl_class = r.read_string(256)?;
+        let excl_race = r.read_string(256)?;
+        let excl_class = r.read_string(256)?;
         let script = r.read_string(1024)?;
         let smethod = r.read_string(1024)?;
         let item_type = r.read_byte()?;
         let value = r.read_int()?;
         let mass = r.read_short()?;
-        let _takes_damage = r.read_byte()?;
+        let takes_damage = r.read_byte()?;
         let thumbnail_tex_id = r.read_short()?;
-        for _ in 0..6 {
-            r.read_short()?; // Gubbins[0..5]
+        let mut gubbins = [0i16; 6];
+        for g in &mut gubbins {
+            *g = r.read_short()?; // Gubbins[0..5]
         }
         let mmesh = r.read_short()?;
         let fmesh = r.read_short()?;
         let slot_type = r.read_short()?;
         let stackable = r.read_byte()? != 0;
-        for _ in 0..40 {
-            r.read_short()?; // Attributes\Value[0..39]
+        let mut attributes = [0i16; 40];
+        for a in &mut attributes {
+            *a = r.read_short()?; // Attributes\Value[0..39]
         }
         // ItemType-conditional tail (Items.bb:378-404).
         let mut weapon_damage = 0i16;
@@ -143,7 +160,7 @@ impl ItemCatalog {
             }
             _ => {} // Ring (3), Other (7): no tail
         }
-        let _misc = r.read_string(4096)?;
+        let misc_data = r.read_string(4096)?;
         Ok(ItemDef {
             id: id as u16,
             name,
@@ -164,6 +181,12 @@ impl ItemCatalog {
             script,
             smethod,
             eat_effects_length,
+            takes_damage,
+            gubbins,
+            attributes,
+            excl_race,
+            excl_class,
+            misc_data,
         })
     }
 

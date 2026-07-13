@@ -8,15 +8,19 @@ pub mod area;
 pub mod blitz_io;
 pub mod character;
 pub mod combat;
+pub mod environment;
 pub mod faction;
 pub mod item;
 pub mod record;
 pub mod rng;
+pub mod update_files;
 pub mod world;
 
 pub use actor_catalog::{ActorCatalog, ActorTemplate};
 pub use area::{Area, Portal, SpawnPoint};
+pub use environment::Environment;
 pub use faction::FactionData;
+pub use update_files::UpdateFile;
 pub use world::RuntimeIdAllocator;
 
 pub use character::{read_character, write_character, Attributes, Character, InventorySlot};
