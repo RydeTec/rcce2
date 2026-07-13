@@ -121,19 +121,19 @@ Status: **DONE**.
 Input: two clients in the same area; one moves / leaves.
 Observable: `P_NewActor` (byte-exact `ActorInstanceToString`), `P_StandardUpdate` relay (~10 Hz), `P_ActorGone` on leave; idempotent introduction reconciliation.
 Verify: `executed` — two-player introduce/move/leave tests (Cycles 12/13).
-Status: **DONE**. *Divergence: relay cadence is tick-approximate, not Blitz per-tick (PARITY: timing approximation).*
+Status: **PARTIAL** (PARITY R-4). *Divergence: relay cadence is tick-approximate, not Blitz per-tick (PARITY: timing approximation).*
 
 **ACC-WORLD-4 — Server-authoritative position + warp.**
 Input: `P_StandardUpdate`; `P_ChangeArea` / portal walk.
 Observable: `ClampWorldCoord` sanitise, run-backward anti-cheat, warp arms `IgnoreUpdate` (cleared by the warp-acks / 500 ms fallback), position/area persisted across logout.
 Verify: `executed` — move/NaN-clamp, warp-ack, disconnect-persist tests (Cycles 11/102, PARITY #2).
-Status: **DONE**. *Divergence: no per-packet speed-hack clamp (needs per-actor Speed timing).*
+Status: **PARTIAL** (PARITY R-2). *Divergence: no per-packet speed-hack clamp (needs per-actor Speed timing).*
 
 **ACC-WORLD-5 — Populated world: NPC spawn + AI.**
 Input: a player enters a zone.
 Observable: NPCs spawn to each slot's `max`; respawn on frequency timer; chase/range-swing/wander/patrol/aggro-on-sight/call-for-help/pet-follow.
 Verify: `executed` — data-driven AI tests across `spawn.rs` (Cycles 16–19 + AI closeout batch).
-Status: **DONE**. *Divergences: NPC-vs-NPC aggro not representable (target model is a peer id); waypoint-pause dwell unmodelled; speed cadence-approximate (PARITY).*
+Status: **PARTIAL** (PARITY R-3, R-11). *Divergences: NPC-vs-NPC aggro not representable (target model is a peer id); waypoint-pause dwell unmodelled; speed cadence-approximate (PARITY).*
 
 **ACC-WORLD-6 — Weather + game clock.**
 Input: per-tick zone update.
@@ -149,19 +149,19 @@ Status: **DONE**. *Divergence: `WeatherLinkArea` slaving unmodelled (each area r
 Input: `P_ChatMessage`, plain or `/`…`\`.
 Observable: plain chat broadcasts to same-area players; social commands (`/me` `/yell` `/gm` `/p` `/pm`) + DM commands (`/kick` `/xp` `/gold` `/setattribute` `/setattributemax` `/script`) + `In-game Commands` script dispatch, localized via `Language.txt`.
 Verify: `executed` — social/DM command recipient + gating tests.
-Status: **DONE**. *Divergences: `/g` GuildSay skipped (no guild/TeamID model); per-player ignore-list filter skipped (no ignore model); benign DM-gated formatting nits (PARITY).*
+Status: **PARTIAL** (PARITY R-5). *Divergences: `/g` GuildSay skipped (no guild/TeamID model); per-player ignore-list filter skipped (no ignore model); benign DM-gated formatting nits (PARITY).*
 
 **ACC-PLAY-2 — Inventory (equip/drop/pickup/swap/stack/give).**
 Input: `P_InventoryUpdate` variants.
 Observable: equip/unequip, ground drop + pickup, slot swap, stack merge, give-item; durability wear + `P_ItemHealth`.
 Verify: `executed` — inventory + combat-wear tests.
-Status: **DONE**. *Divergence: item class/race exclusivity not enforced (parser omits those fields).*
+Status: **PARTIAL** (PARITY R-6). *Divergence: item class/race exclusivity not enforced (parser omits those fields).*
 
 **ACC-PLAY-3 — Melee combat + death + XP.**
 Input: `P_AttackActor` vs an NPC or (PvP area) a player.
 Observable: combat-delay gate, `CombatFormula` 1/2/3 with weapon/armour/resistance, crit, min-1; `H`/`Y`/`O` feedback; on death `P_ActorDead` + XP grant + LevelUp script; two-way (NPCs retaliate + damage the player).
 Verify: `executed` — kill-an-NPC, retaliation, PvP-damage tests (Cycles 17–19 + PvP).
-Status: **DONE**. *Divergence: per-actor resistances unmodelled in the melee path (`resistance=100`); `CombatFormula 4` routes to an attack script (BVM).*
+Status: **PARTIAL** (PARITY R-1). *Divergence: per-actor resistances unmodelled in the melee path (`resistance=100`); `CombatFormula 4` routes to an attack script (BVM).*
 
 **ACC-PLAY-4 — Spell-casting.**
 Input: `P_SpellUpdate` (`M`/`U`/cast).
@@ -253,14 +253,15 @@ Status: **DONE**. *Out-of-scope: the Blitz `UpdatesServer.bb` lock/unlock is a *
 
 ## Summary
 
-| Phase | Criteria | DONE | PARTIAL/divergence | HUMAN-GATED |
+| Phase | Criteria | DONE | PARTIAL | HUMAN-GATED |
 |---|---|---|---|---|
 | 0 Foundation | ACC-BOOT-1..2 | 2 | – | – |
-| 1 Accounts/login | ACC-1..9 | 9 | (divergences noted) | ACC-9 live leg |
-| 2 Enter world | ACC-WORLD-1..6 | 6 | (divergences noted) | – |
-| 3 Interaction | ACC-PLAY-1..6 | 6 | (divergences noted) | – |
-| 4 Scripting | ACC-SCRIPT-1..6 | 6 | (faithful-for-shipped) | – |
+| 1 Accounts/login | ACC-1..9 | 9 | – | ACC-9 live leg |
+| 2 Enter world | ACC-WORLD-1..6 | 3 | 3 (WORLD-3/4/5) | – |
+| 3 Interaction | ACC-PLAY-1..6 | 3 | 3 (PLAY-1/2/3) | – |
+| 4 Scripting | ACC-SCRIPT-1..6 | 6 | – | – |
 | 5 Packaging | ACC-DEPLOY-1..4 | 4 | – | – |
 | Standing | ACC-LIVE-1 | – | – | 1 |
+| **Total (34)** | | **27** | **6** | **1** |
 
-**Every functional criterion is `DONE` at the `executed` tier.** The divergences under PARTIAL are documented, bounded, and (per the Rust↔Rust north star) non-blocking — they are catalogued in [`PARITY.md`](PARITY.md). The single irreducible acceptance step is **`ACC-LIVE-1`** — a human running a Windows GUI client against the container.
+**Every functional criterion is verified at the `executed` tier.** The **6 `PARTIAL`** criteria each carry a bounded, documented, non-blocking divergence cross-linked to a `PARITY.md` R-number (R-1..R-6, R-11); none affects a verified shipped-content path under the Rust↔Rust north star. The remaining **27 are `DONE`**. A handful of `DONE` criteria carry a clarifying italic note that is *not* a behavioral divergence — ACC-5 (name-uniqueness is **stricter** than Blitz, not weaker), ACC-WORLD-6 (game clock is server-side **by design** — clients render their own time), and ACC-SCRIPT-6 (host-resource BVMs are **faithful for the shipped config**, where MySQL is compiled out) — so they stay `DONE`. The single irreducible acceptance step is **`ACC-LIVE-1`** — a human running a Windows GUI client against the container.
