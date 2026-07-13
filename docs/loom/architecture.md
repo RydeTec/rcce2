@@ -37,6 +37,10 @@ src/
         ├── EmitterCatalog.bb        .rpc basenames under Data\Emitter Configs\;
         │                            picker roster + name validator for the
         │                            Projectile composer's emitter fields
+        ├── Seasons.bb               non-Strict write path for the Days &
+        │                            seasons composer (Environment.bb's Dim'd
+        │                            calendar tables + Sun fields; GUE tab
+        │                            parity semantics + clamps)
         └── EntityFactory.bb         create / delete dispatch wrapping
                                      GUE's Create* + (new) DeleteXTemplate
 ```
@@ -197,12 +201,13 @@ Lives as fields on the `Threads` instance, which is the source of truth shared b
 | `faction` | `FactionNames$` array index 0..99 | yes |
 | `animset` | `AnimSet\ID` | yes |
 | `projectile` | `Projectile\ID` (array index into `ProjectileList`, 0..5000) | yes |
+| `environment` | ignored (singleton — calendar + suns; sun sub-entities addressed by `Handle(Sun)` inside fieldIds) | n/a |
 
 The zone-handle instability is why `Recents` persists zones by `Ar\Name$` instead of refID — see [Recents.bb](../../src/Modules/Loom/Recents.bb) "STABLE KEYS" comment.
 
 ## Edit / save / dirty-flag plumbing
 
-The per-kind `*Saved` globals (`ItemsSaved`, `ActorsSaved`, `SpellsSaved`, `FactionsSaved`, `ZoneSaved`, `AnimsSaved`, `ProjectilesSaved`) are **shared with GUE** — `Loom.bb` redeclares the same set at lines 58-69 so writes from Loom's Composer / EntityFactory flip the same flags GUE inspects. `False` = unsaved changes pending; `True` = on-disk == in-memory.
+The per-kind `*Saved` globals (`ItemsSaved`, `ActorsSaved`, `SpellsSaved`, `FactionsSaved`, `ZoneSaved`, `AnimsSaved`, `ProjectilesSaved`, `EnvironmentSaved`) are **shared with GUE** — `Loom.bb` redeclares the same set at lines 58-69 so writes from Loom's Composer / EntityFactory flip the same flags GUE inspects. `False` = unsaved changes pending; `True` = on-disk == in-memory.
 
 The edit lifecycle:
 

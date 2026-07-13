@@ -133,6 +133,10 @@ Include "Modules\Loom\Threads.bb"
 // Settings BEFORE Composer so the LoomCfg_* / SettingsSaved globals
 // are declared by the time Strict Composer methods reference them.
 Include "Modules\Loom\Settings.bb"
+// Seasons (Days & seasons write path) also before Composer -- its
+// LoomEnv_* setters are the non-Strict bridge Composer::writeField uses
+// to mutate Environment.bb's Dim'd calendar tables + Sun fields.
+Include "Modules\Loom\Seasons.bb"
 // ImageCache also before Composer -- its globals + Loom_GetItemImage
 // helper are called from renderItem.
 Include "Modules\Loom\ImageCache.bb"
@@ -550,6 +554,15 @@ WriteLog(LoomLog, "Loaded " + Str(TotalZones) + " zones")
 // since ClientLoaders.bb isn't included. Tolerant of missing files for
 // half-set-up projects.
 Loom_LoadSettings()
+
+// Days & seasons -- same loader pair GUE boots with (GUE.bb "Load
+// environment" block). LoadEnvironment self-heals a missing
+// Environment.dat via CreateEnvironment (which writes fresh defaults,
+// exactly as GUE does); only a write failure is fatal. LoadSuns simply
+// returns False when Suns.dat is absent -- GUE leaves it unchecked too.
+Loom_LoadStep("environment", LoadEnvironment(), False)
+LoadSuns()
+WriteLog(LoomLog, "Loaded environment + suns")
 
 // 3D mesh preview infrastructure -- creates a hidden camera + light +
 // render-to-texture. Used by the actor composer to show a spinning

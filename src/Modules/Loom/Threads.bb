@@ -214,6 +214,12 @@ Type Threads
             Return "Project Settings"
         EndIf
 
+        If kind = "environment"
+            // Singleton Days & seasons "entity" (calendar + suns). refID
+            // is ignored.
+            Return "Days & Seasons"
+        EndIf
+
         If kind = "script"
             // refID is the ScriptFile\Index from Scripts_Init.
             Local sf.ScriptFile = Scripts_GetByIndex(refID)
