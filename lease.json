@@ -1,1 +1,1 @@
-{"run_id":"rcce2-hourly-20260713T223729Z-a8ef7da3-a5a","status":"released","started_at":"2026-07-13T22:37:29Z","heartbeat_at":"2026-07-13T22:56:03Z","expires_at":"2026-07-13T22:56:03Z","issue":612,"branch":"codex-automation/612-zero-resistance-regression","pr":613,"phase":"merged"}
+{"run_id":"rcce2-hourly-20260713T233808Z-fcf4e732-4c3","status":"active","started_at":"2026-07-13T23:38:08Z","heartbeat_at":"2026-07-13T23:38:08Z","expires_at":"2026-07-14T23:38:08Z","issue":611,"branch":null,"pr":null,"phase":"preflight"}
