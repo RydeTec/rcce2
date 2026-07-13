@@ -79,6 +79,12 @@ Headless Rust server at full feature parity with `bin/Server.exe`, runnable in a
 
 ## Cycle log
 
+### Cycle 105 — 2026-07-13 — RELIABILITY: never acknowledge volatile account mutations (#603)
+- **Why:** account creation, password changes, character creation, and character deletion mutated the in-memory `AccountStore`, logged an atomic-save error, and still returned their success reply. A full disk, missing directory, or permissions failure could therefore tell a player a durable change succeeded even though it would disappear after restart.
+- **Did:** added `AccountStore::transaction`, which snapshots account records, applies one mutation, saves atomically, and restores the snapshot on any I/O error. The four wire handlers now return their established failure reply on a failed commit: create-account and character-create return `N`, password-change returns `P`, and character-delete returns `N`; successful replies and wire/file formats are unchanged. Added one deterministic missing-parent regression test per handler, each proving both the failure reply and in-memory rollback.
+- **Proof (executed):** baseline `cargo test --workspace --locked` (Rust 1.94 toolchain) → **244 passed, 0 failed**. RED `cargo test -p rcce-server --locked` → **139 passed, 4 failed** for the new save-failure tests (each observed the old success reply after `No such file or directory`). GREEN same command → **151 passed, 0 failed**. Final `cargo test --workspace --locked` → **248 passed, 0 failed**; `cargo clippy --workspace --all-targets --locked -- -D warnings` → exit 0.
+- **Compatibility / rollback:** no packet, account-file, or migration change; the only observable change is truthful failure replies when persistence fails. Revert the increment commit to restore the former behavior.
+
 ### Cycle 104 — 2026-07-13 — VERIFICATION/CLOSURE: authored ACCEPTANCE.md + reconciled the gap audit (PR #598)
 - **Why:** two dangling loose ends — (a) `ACCEPTANCE.md` (backlog #9, the contract `PLAN.md` references) was never written; (b) PARITY.md still carried the stale 44-gap synthesis with an unresolved note that the richer 2026-06-17 72-gap re-audit died before reconciling (task `wb2hhg24h`, raw list unrecoverable). Docs-/audit-only cycle: **no server behavior changed**.
 - **Did:**

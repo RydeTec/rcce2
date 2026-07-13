@@ -182,14 +182,15 @@ pub fn handle_create_character(
 
     // Free-slot / max-character check, then persist.
     let max = config.max_account_chars.min(10) as usize;
-    let acct = store.find_mut(&user_s).expect("account verified above");
-    if acct.characters.len() >= max {
+    if store.find(&user_s).expect("account verified above").characters.len() >= max {
         return deny;
     }
-    acct.characters.push(CharacterRecord::new(c));
     throttle.record(peer, true, now_ms);
-    if let Err(e) = store.save() {
+    if let Err(e) = store.transaction(|store| {
+        store.find_mut(&user_s).expect("account verified above").characters.push(CharacterRecord::new(c));
+    }) {
         eprintln!("[characters] CreateCharacter: save failed: {e}");
+        return deny;
     }
     (P_CREATE_CHARACTER, b"Y".to_vec())
 }
@@ -393,6 +394,14 @@ mod tests {
         AccountStore::load(&p).unwrap()
     }
 
+    /// A missing parent makes `AccountStore::save` fail deterministically.
+    fn failing_store(name: &str) -> AccountStore {
+        let mut parent = std::env::temp_dir();
+        parent.push(format!("rcce_createchar_save_failure_{name}_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&parent);
+        AccountStore::load(parent.join("Accounts.dat")).unwrap()
+    }
+
     fn field(b: &[u8]) -> Vec<u8> {
         let mut v = vec![b.len() as u8];
         v.extend_from_slice(b);
@@ -466,6 +475,24 @@ mod tests {
         })
         .unwrap();
         assert_eq!(reloaded.find("hero").unwrap().characters[0].actor.name, "Aragorn");
+    }
+
+    #[test]
+    fn create_character_save_failure_returns_n_and_rolls_back() {
+        let dir = data_dir();
+        let catalog = ActorCatalog::load(dir.join("Server Data/Actors.dat"));
+        let Some(template) = catalog.templates.values().find(|t| t.playable && Area::load(&dir, &t.start_area).is_some()) else {
+            eprintln!("skipping: no playable race with loadable start area");
+            return;
+        };
+        let mut store = failing_store("create");
+        store.push(Account::new("hero", MD5, "h@x.com").unwrap());
+        let mut throttle = LoginThrottle::new();
+        let config = config_for(dir);
+        let packet = create_packet("hero", MD5, template.id, b"Aragorn");
+
+        assert_eq!(handle_create_character(&packet, &mut store, &mut throttle, &catalog, &config, 1, 0).1, b"N");
+        assert!(store.find("hero").unwrap().characters.is_empty());
     }
 
     #[test]

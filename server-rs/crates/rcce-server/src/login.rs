@@ -122,9 +122,9 @@ pub fn handle_create_account(
     let email_s = String::from_utf8_lossy(&email).into_owned();
     match Account::new(&user_s, &pass_s, &email_s) {
         Ok(account) => {
-            store.push(account);
-            if let Err(e) = store.save() {
+            if let Err(e) = store.transaction(|store| store.push(account)) {
                 eprintln!("[login] AddAccount: save failed: {e}");
+                return deny();
             }
             Some((P_CREATE_ACCOUNT, b"Y".to_vec()))
         }
@@ -251,11 +251,12 @@ pub fn handle_change_password(
     let Ok(hashed) = password::hash_password(&new_s) else {
         return p;
     };
-    if let Some(m) = store.find_mut(&user_s) {
-        m.pass = hashed;
-        if let Err(e) = store.save() {
-            eprintln!("[login] change-password: save failed: {e}");
-        }
+    if let Err(e) = store.transaction(|store| {
+        let account = store.find_mut(&user_s).expect("account verified above");
+        account.pass = hashed;
+    }) {
+        eprintln!("[login] change-password: save failed: {e}");
+        return p;
     }
     (P_CHANGE_PASSWORD, b"Y".to_vec())
 }
@@ -317,18 +318,23 @@ pub fn handle_delete_character(
         return deny;
     }
 
-    let acct = store.find_mut(&user_s).expect("account found above");
-    // Characters are stored compacted in slot order, so removing index `slot`
-    // shifts the rest down exactly like the Blitz slot shift. Deleting an empty
-    // slot is a no-op (Blitz guards `Character[Number] <> Null`).
-    if (slot as usize) < acct.characters.len() {
-        acct.characters.remove(slot as usize);
-    }
-    let summary = char_summary(acct);
     throttle.record(peer, true, now_ms);
-    if let Err(e) = store.save() {
-        eprintln!("[login] DeleteCharacter: save failed: {e}");
-    }
+    let summary = match store.transaction(|store| {
+        let account = store.find_mut(&user_s).expect("account found above");
+        // Characters are stored compacted in slot order, so removing index
+        // `slot` shifts the rest down exactly like the Blitz slot shift.
+        // Deleting an empty slot is a no-op (Blitz guards it with Null).
+        if (slot as usize) < account.characters.len() {
+            account.characters.remove(slot as usize);
+        }
+        char_summary(account)
+    }) {
+        Ok(summary) => summary,
+        Err(e) => {
+            eprintln!("[login] DeleteCharacter: save failed: {e}");
+            return deny;
+        }
+    };
     (P_DELETE_CHARACTER, summary)
 }
 
@@ -343,6 +349,15 @@ mod tests {
         let _ = std::fs::remove_file(&p);
         // Load from the (absent) path so the store remembers it for save().
         AccountStore::load(&p).unwrap()
+    }
+
+    /// A path whose parent does not exist makes `AccountStore::save` fail
+    /// without relying on host permissions or a full disk.
+    fn failing_store(name: &str) -> AccountStore {
+        let mut parent = std::env::temp_dir();
+        parent.push(format!("rcce_login_save_failure_{name}_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&parent);
+        AccountStore::load(parent.join("Accounts.dat")).unwrap()
     }
 
     /// Encode a 1-byte-length-prefixed field.
@@ -441,6 +456,18 @@ mod tests {
         );
     }
 
+    #[test]
+    fn create_account_save_failure_returns_n_and_rolls_back() {
+        let mut store = failing_store("create");
+        let enc: Vec<u8> = b"a@b.com".iter().rev().map(|b| b.wrapping_sub(26)).collect();
+        let mut create = field(b"alice");
+        create.extend_from_slice(&field(MD5_HELLO.as_bytes()));
+        create.extend_from_slice(&field(&enc));
+
+        assert_eq!(handle_create_account(&create, &mut store, true).unwrap().1, b"N");
+        assert!(!store.exists("alice"));
+    }
+
     fn account_with_chars(user: &str, chars: &[(u16, &str)]) -> rcce_server_accounts::store::Account {
         use rcce_server_core::character::Character;
         use rcce_server_core::record::CharacterRecord;
@@ -501,6 +528,19 @@ mod tests {
     }
 
     #[test]
+    fn delete_character_save_failure_returns_n_and_rolls_back() {
+        let mut store = failing_store("delete");
+        store.push(account_with_chars("hero", &[(5, "Aaa")]));
+        let mut throttle = LoginThrottle::new();
+        let mut del = field(b"hero");
+        del.extend_from_slice(&field(MD5_HELLO.as_bytes()));
+        del.push(0);
+
+        assert_eq!(handle_delete_character(&del, &mut store, &mut throttle, 1, 0).1, b"N");
+        assert_eq!(store.find("hero").unwrap().characters.len(), 1);
+    }
+
+    #[test]
     fn delete_wrong_password_is_n_and_keeps_chars() {
         let mut store = tmp_store("delete_bad");
         store.push(account_with_chars("hero", &[(5, "Aaa")]));
@@ -538,5 +578,18 @@ mod tests {
             handle_create_account(&create, &mut store, true).unwrap().1,
             b"N"
         );
+    }
+
+    #[test]
+    fn change_password_save_failure_returns_p_and_rolls_back() {
+        let mut store = failing_store("password");
+        store.push(Account::new("hero", MD5_HELLO, "h@x.com").unwrap());
+        let old_hash = store.find("hero").unwrap().pass.clone();
+        let mut change = field(b"hero");
+        change.extend_from_slice(&field(MD5_HELLO.as_bytes()));
+        change.extend_from_slice(&field(b"ffffffffffffffffffffffffffffffff"));
+
+        assert_eq!(handle_change_password(&change, &mut store, 7, Some(7)).1, b"P");
+        assert_eq!(store.find("hero").unwrap().pass, old_hash);
     }
 }
