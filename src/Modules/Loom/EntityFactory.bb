@@ -433,8 +433,40 @@ Function EntityFactory_Delete%(kind$, refID%, threads.Threads)
     If kind = "faction" Then Return EntityFactory_DeleteFaction(refID, threads)
     If kind = "animset" Then Return EntityFactory_DeleteAnimSet(refID, threads)
     If kind = "projectile" Then Return EntityFactory_DeleteProjectile(refID, threads)
+    // Media catalog kinds -- removal is an immediate .dat write via
+    // MediaManager (no *Saved defer). MediaManager rebuilds the catalog +
+    // toasts; we clear focus + back stack here so the composer doesn't sit
+    // on a now-renumbered index.
+    If kind = "texture" Then Return EntityFactory_DeleteMedia(kind, refID, threads)
+    If kind = "mesh"    Then Return EntityFactory_DeleteMedia(kind, refID, threads)
+    If kind = "sound"   Then Return EntityFactory_DeleteMedia(kind, refID, threads)
+    If kind = "music"   Then Return EntityFactory_DeleteMedia(kind, refID, threads)
     WriteLog(LoomLog, "EntityFactory: delete unknown kind '" + kind + "'")
     Return False
+End Function
+
+
+// =============================================================================
+// EntityFactory_DeleteMedia -- shared delete path for the four media catalog
+// kinds. Dispatches to the matching MediaManager_RemoveX (which persists +
+// rebuilds + toasts + Timeline-records), then unfocuses so the composer
+// releases the stale catalog index. Returns False (no focus change) if the
+// removal reported failure.
+// =============================================================================
+Function EntityFactory_DeleteMedia%(kind$, refID%, threads.Threads)
+    Local ok% = False
+    If kind = "texture" Then ok = MediaManager_RemoveTexture(refID)
+    If kind = "mesh"    Then ok = MediaManager_RemoveMesh(refID)
+    If kind = "sound"   Then ok = MediaManager_RemoveSound(refID)
+    If kind = "music"   Then ok = MediaManager_RemoveMusic(refID)
+    If ok = False
+        WriteLog(LoomLog, "EntityFactory: media delete failed for " + kind + " #" + Str(refID))
+        Return False
+    EndIf
+    WorldCache_Invalidate()
+    Threads::focus(threads, "", 0)
+    Threads::clearStack(threads)
+    Return True
 End Function
 
 

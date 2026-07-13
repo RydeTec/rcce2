@@ -581,6 +581,41 @@ Function GetMeshName$(ID)
 
 End Function
 
+; Gets the initial scale for a given mesh (the value written by
+; SetMeshScale). Read straight from the mesh's data record so callers
+; that only cataloged the index (e.g. Loom's MeshCatalog) can display /
+; edit the scale without a full GetMesh load. Bound-checked like the
+; sibling getters. Returns 1.0 (the CreateDatabase default) on any miss.
+Function GetMeshScale#(ID)
+
+	If ID < 0 Or ID > 65534 Then Return 1.0
+
+	; Open index file
+	If LockedMeshes = 0
+		F = OpenFile("Data\Game Data\Meshes.dat")
+		If F = 0 Then Return 1.0
+	Else
+		F = LockedMeshes
+	EndIf
+
+	; Find data address in file index
+	SeekFile(F, ID * 4)
+	DataAddress = ReadInt(F)
+	If DataAddress = 0
+		If LockedMeshes = 0 Then CloseFile(F)
+		Return 1.0
+	EndIf
+	; Scale# sits at DataAddress + 1 (after the IsAnim byte); matches
+	; SetMeshScale's write offset and RemoveMeshFromDatabase's read order.
+	SeekFile(F, DataAddress + 1)
+	Scale# = ReadFloat#(F)
+
+	If LockedMeshes = 0 Then CloseFile(F)
+
+	Return Scale#
+
+End Function
+
 ; Gets the name and flags for a given texture
 Function GetTextureName$(ID)
 

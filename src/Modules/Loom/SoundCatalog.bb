@@ -81,6 +81,18 @@ End Function
 
 
 // =============================================================================
+// Sounds_Rebuild -- discard every cached SoundEntry and re-walk Sounds.dat.
+// Called after a MediaManager add/remove. `Delete Each` bulk-clear +
+// Sounds_Init re-populate.
+// =============================================================================
+Function Sounds_Rebuild()
+    Delete Each SoundEntry
+    SoundsTotalCount = 0
+    Sounds_Init()
+End Function
+
+
+// =============================================================================
 // Sounds_Play -- audition a sound by its engine-side ID. Uses the
 // existing GetSound (which lazy-loads via LoadSound + caches in
 // LoadedSounds[]) so repeat-play is cheap. PlaySound is fire-and-
