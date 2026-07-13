@@ -1231,6 +1231,11 @@ mod tests {
             target_peer: None, last_attack_ms: 0,
             script: String::new(), death_script: String::new(), stock: Vec::new(),
         });
+        // A defender's resistance must feed the live melee path, not merely the
+        // pure formula. Make any landed hit deterministic: 30,000 mitigation
+        // floors it to one point, while an ignored resistance would deal far more.
+        state.accounts.find_mut("hero").unwrap().characters[0].actor.attributes.value[state.strength_stat] = 30_000;
+        state.catalog.templates.get_mut(&mob_id).unwrap().resistances.fill(30_000);
 
         // Attack repeatedly (advancing the clock past the combat delay each time)
         // until the NPC dies. Min damage is 1, so this always terminates.
@@ -1246,6 +1251,14 @@ mod tests {
             let outs = state.handle_attack(1, &attack, now);
             // Every swing yields at least the "H" feedback to the attacker.
             assert!(outs.iter().any(|o| o.msg_type == P_ATTACK_ACTOR));
+            let damage = outs
+                .iter()
+                .find(|o| o.msg_type == P_ATTACK_ACTOR && o.payload.first() == Some(&b'H'))
+                .map(|o| u16::from_le_bytes([o.payload[3], o.payload[4]]).saturating_sub(1))
+                .unwrap();
+            if damage > 0 {
+                assert_eq!(damage, 1, "NPC defender resistance applies to a live hit");
+            }
             if outs.iter().any(|o| o.msg_type == P_ACTOR_DEAD) {
                 killed = true;
                 break;
@@ -1368,6 +1381,9 @@ mod tests {
         // NPC retaliate and run the AI tick.
         let npos = state.spawns.npc(npc_rid).map(|n| (n.x, n.y, n.z)).unwrap();
         state.world.warp_session(1, area.clone(), npos.0, npos.1, npos.2);
+        let npc_actor_id = state.spawns.npc(npc_rid).unwrap().actor_id;
+        state.catalog.templates.get_mut(&npc_actor_id).unwrap().attr_value[state.strength_stat] = 30_000;
+        state.accounts.find_mut("hero").unwrap().characters[0].actor.resistances.fill(30_000);
         state.spawns.set_target(npc_rid, 1);
         let hp_before = state.accounts.find("hero").unwrap().characters[0].actor.attributes.value[state.health_stat];
         let outs = state.collect_npc_attacks(state.combat_delay as u64 + 1);
@@ -1379,8 +1395,15 @@ mod tests {
             "damage feedback to the victim"
         );
         // The player's HP did not increase (it dropped, unless the NPC missed).
-        let hp_after = state.accounts.find("hero").unwrap().characters[0].actor.attributes.value[state.health_stat];
-        assert!(hp_after <= hp_before);
+        let mut hp_after = state.accounts.find("hero").unwrap().characters[0].actor.attributes.value[state.health_stat];
+        for tick in 2..=40 {
+            if hp_after < hp_before {
+                break;
+            }
+            state.collect_npc_attacks(tick * (state.combat_delay as u64 + 1));
+            hp_after = state.accounts.find("hero").unwrap().characters[0].actor.attributes.value[state.health_stat];
+        }
+        assert_eq!(hp_after, hp_before - 1, "player defender resistance applies to an NPC live hit");
     }
 
     #[test]
@@ -2006,6 +2029,8 @@ mod tests {
             if let Some(m) = rec.actor.attributes.maximum.get_mut(hs) { *m = 300; }
             if let Some(v) = rec.actor.attributes.value.get_mut(hs) { *v = 300; }
         }
+        state.accounts.find_mut("alice").unwrap().characters[0].actor.attributes.value[state.strength_stat] = 30_000;
+        state.accounts.find_mut("bob").unwrap().characters[0].actor.resistances.fill(30_000);
         if let Some(wid) = state.items.items.iter().find(|d| d.item_type == 1).map(|d| d.id) {
             state.accounts.find_mut("alice").unwrap().characters[0].actor.inventory[0].item =
                 Some(rcce_server_core::item::ItemInstance::new(wid));
@@ -2031,9 +2056,15 @@ mod tests {
         // Damage eventually lands (swings can miss).
         let hp0 = hp(&state);
         for _ in 0..40 {
-            if hp(&state) < hp0 { break; }
+            let before = hp(&state);
+            if before < hp0 { break; }
             state.handle_attack(1, &bob.to_le_bytes(), now);
             now += step;
+            let after = hp(&state);
+            if after < before {
+                assert_eq!(after, before - 1, "player defender resistance applies to a PvP live hit");
+                break;
+            }
         }
         assert!(hp(&state) < hp0, "PvP damage eventually drops the defender's HP");
 

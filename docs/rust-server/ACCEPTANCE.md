@@ -161,7 +161,7 @@ Status: **PARTIAL** (PARITY R-6). *Divergence: item class/race exclusivity not e
 Input: `P_AttackActor` vs an NPC or (PvP area) a player.
 Observable: combat-delay gate, `CombatFormula` 1/2/3 with weapon/armour/resistance, crit, min-1; `H`/`Y`/`O` feedback; on death `P_ActorDead` + XP grant + LevelUp script; two-way (NPCs retaliate + damage the player).
 Verify: `executed` — kill-an-NPC, retaliation, PvP-damage tests (Cycles 17–19 + PvP).
-Status: **PARTIAL** (PARITY R-1). *Divergence: per-actor resistances unmodelled in the melee path (`resistance=100`); `CombatFormula 4` routes to an attack script (BVM).*
+Status: **DONE.** Defender resistance is applied in player→NPC, PvP, and NPC→player melee; `CombatFormula 4` routes to its attack script as designed.
 
 **ACC-PLAY-4 — Spell-casting.**
 Input: `P_SpellUpdate` (`M`/`U`/cast).
@@ -262,6 +262,6 @@ Status: **DONE**. *Out-of-scope: the Blitz `UpdatesServer.bb` lock/unlock is a *
 | 4 Scripting | ACC-SCRIPT-1..6 | 6 | – | – |
 | 5 Packaging | ACC-DEPLOY-1..4 | 4 | – | – |
 | Standing | ACC-LIVE-1 | – | – | 1 |
-| **Total (34)** | | **27** | **6** | **1** |
+| **Total (34)** | | **28** | **5** | **1** |
 
-**Every functional criterion is verified at the `executed` tier.** The **6 `PARTIAL`** criteria each carry a bounded, documented, non-blocking divergence cross-linked to a `PARITY.md` R-number (R-1..R-6, R-11); none affects a verified shipped-content path under the Rust↔Rust north star. The remaining **27 are `DONE`**. A handful of `DONE` criteria carry a clarifying italic note that is *not* a behavioral divergence — ACC-5 (name-uniqueness is **stricter** than Blitz, not weaker), ACC-WORLD-6 (game clock is server-side **by design** — clients render their own time), and ACC-SCRIPT-6 (host-resource BVMs are **faithful for the shipped config**, where MySQL is compiled out) — so they stay `DONE`. The single irreducible acceptance step is **`ACC-LIVE-1`** — a human running a Windows GUI client against the container.
+**Every functional criterion is verified at the `executed` tier.** The **5 `PARTIAL`** criteria each carry a bounded, documented, non-blocking divergence cross-linked to a `PARITY.md` R-number (R-2..R-6, R-11); none affects a verified shipped-content path under the Rust↔Rust north star. The remaining **28 are `DONE`**. A handful of `DONE` criteria carry a clarifying italic note that is *not* a behavioral divergence — ACC-5 (name-uniqueness is **stricter** than Blitz, not weaker), ACC-WORLD-6 (game clock is server-side **by design** — clients render their own time), and ACC-SCRIPT-6 (host-resource BVMs are **faithful for the shipped config**, where MySQL is compiled out) — so they stay `DONE`. The single irreducible acceptance step is **`ACC-LIVE-1`** — a human running a Windows GUI client against the container.
