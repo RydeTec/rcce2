@@ -62,6 +62,44 @@ Function SwapAddPacketLenOk%(PayloadLen%)
 	Return True
 End Function
 
+; --- Replicated nested AreaInstance\Area guard ---------------------------
+
+; Mirrors the P_AttackActor / BVM_ACTORINTRIGGER / BVM_ACTOROUTDOORS gates.
+; A live AreaInstance may briefly lose its backing Area during teardown, so
+; both references must exist before the production code reads PvP, triggers,
+; or Outdoors from the nested Area. The production implementation must use
+; nested If branches: BlitzForge And is non-short-circuit.
+Function NestedAreaUsable%(InstancePresent%, AreaPresent%)
+	If InstancePresent = False Then Return False
+	If AreaPresent = False Then Return False
+	Return True
+End Function
+
+; The network/world graph cannot be Included into this standalone harness, so
+; also pin the source-level safety contract. This catches a future regression
+; that removes the production nested guard while leaving this model unchanged.
+Function FunctionBodyContains%(Path$, FunctionMarker$, Needle$)
+	Local F.BBStream = ReadFile(Path$)
+	Local InFunction%
+	Local Line$
+	; test.sh runs each test from src\Tests, whereas an IDE may run it from
+	; src. Support both working directories without touching production paths.
+	If F = Null Then F = ReadFile("..\" + Path$)
+	If F = Null Then Return False
+	InFunction = False
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		If Instr(Line$, FunctionMarker$) > 0 Then InFunction = True
+		If InFunction = True And Instr(Line$, Needle$) > 0
+			CloseFile F
+			Return True
+		EndIf
+		If InFunction = True And Instr(Line$, "End Function") > 0 Then Exit
+	Wend
+	CloseFile F
+	Return False
+End Function
+
 ; ====================================================================
 ; RuntimeActorFromWire -- rejection: out of range
 ; ====================================================================
@@ -143,4 +181,29 @@ Test testSwapAddBoundaryAtSeven()
 	; 7 accepts. A future refactor that widens a field must update both.
 	Assert(SwapAddPacketLenOk%(6) = False)
 	Assert(SwapAddPacketLenOk%(7) = True)
+End Test
+
+; ====================================================================
+; Nested AreaInstance\Area -- stale-area rejection
+; ====================================================================
+
+Test testMissingAreaRejectsPacketAndBVMPaths()
+	; Outer lookup succeeds but the backing Area has been torn down. The
+	; production paths must return their existing no-op/default instead of
+	; dereferencing AInstance\Area.
+	Assert(NestedAreaUsable%(True, False) = False)
+End Test
+
+Test testLiveNestedAreaRemainsUsable()
+	Assert(NestedAreaUsable%(True, True) = True)
+	Assert(NestedAreaUsable%(False, True) = False)
+End Test
+
+Test testProductionGuardsUseSafeNestedIfBranches()
+	Assert(FunctionBodyContains%("Modules\ServerNet.bb", "Case P_AttackActor", "If AInstance\Area <> Null") = True)
+	Assert(FunctionBodyContains%("Modules\ServerNet.bb", "Case P_AttackActor", "AInstance <> Null And AInstance\Area <> Null") = False)
+	Assert(FunctionBodyContains%("Modules\ScriptingCommands.bb", "Function BVM_ACTORINTRIGGER", "If AInstance\Area <> Null") = True)
+	Assert(FunctionBodyContains%("Modules\ScriptingCommands.bb", "Function BVM_ACTORINTRIGGER", "AInstance <> Null And AInstance\Area <> Null") = False)
+	Assert(FunctionBodyContains%("Modules\ScriptingCommands.bb", "Function BVM_ACTOROUTDOORS", "If AInstance\Area <> Null") = True)
+	Assert(FunctionBodyContains%("Modules\ScriptingCommands.bb", "Function BVM_ACTOROUTDOORS", "AInstance <> Null And AInstance\Area <> Null") = False)
 End Test
