@@ -538,9 +538,12 @@ struct App {
     login_rx: Option<std::sync::mpsc::Receiver<LoginResult>>,
     /// Open menu-connection peer handle (valid in CharSelect).
     login_peer: i32,
-    /// Editable credential fields + which one has focus (0 = user, 1 = pass).
+    /// Editable credential fields + which one has focus (0 = user, 1 = pass,
+    /// 2 = email — MENU-2, the three fields Tab cycles through like
+    /// `MainMenu.bb:771-783`; email is display-only, unused by login auth).
     login_user: String,
     login_pass: String,
+    login_email: String,
     login_focus: u8,
     /// MD5 of the password, cached after a successful login for create/delete.
     login_md5: String,
@@ -680,7 +683,12 @@ impl App {
                     String::new()
                 }
             }),
-            login_focus: 0,
+            login_email: std::env::var("RCCE_EMAIL").unwrap_or_default(),
+            // MENU-2: start focus on the password field like Blitz, which
+            // `GY_ActivateTextField(TPass)` before the login loop (MainMenu.bb:772)
+            // — the account name is pre-filled from `Last Username.dat`, so the
+            // user just types their password.
+            login_focus: 1,
             login_md5: String::new(),
             login_msg: String::new(),
             chars: Vec::new(),
@@ -1426,6 +1434,18 @@ fn initial_menu_mode(eula_present: bool) -> Mode {
 const CAM_DIST_MIN: f32 = 5.0;
 const CAM_DIST_MAX: f32 = 50.0;
 const CAM_DIST_DEFAULT: f32 = 13.0;
+/// MOVE-9: third-person mouse-look pitch clamp, matching Blitz's
+/// `CamPitch#` limits [−70°, +85°] (`Interface3D.bb:637-641`). `cam_pitch` is
+/// stored in radians (fed straight into `pitch.sin_cos()` for the boom), so the
+/// Blitz degree limits convert once here. The range is asymmetric — more room to
+/// look down (top-down at +85°) than up from below (−70°) — same as Blitz.
+const CAM_PITCH_MIN: f32 = -70.0 * std::f32::consts::PI / 180.0;
+const CAM_PITCH_MAX: f32 = 85.0 * std::f32::consts::PI / 180.0;
+/// MOVE-10: the outbound `P_StandardUpdate` send cadence, matching Blitz's
+/// `NetworkMS = 1000 / 5 = 200`ms (`Client.bb:99`, gated at `ClientNet.bb:1804`).
+/// The local body still advances every frame via `tick_movement`; this only
+/// throttles the network propagation, exactly like Blitz.
+const NETWORK_MS: u128 = 200;
 /// Minimum clearance (world units) the camera eye keeps above the terrain at its
 /// own X/Z, so the boom doesn't sink into a hill behind the player.
 const CAM_GROUND_CLEARANCE: f32 = 1.5;
@@ -1531,6 +1551,20 @@ fn zoom_step(dist: f32, delta: f32) -> f32 {
 /// Apply a volume delta and clamp to [0,1] for the Sound options screen. Pure.
 fn volume_step(vol: f32, delta: f32) -> f32 {
     (vol + delta).clamp(0.0, 1.0)
+}
+
+/// MOVE-9: clamp the third-person mouse-look pitch to Blitz's [−70°, +85°]
+/// (in radians). Pure.
+fn pitch_clamp(pitch: f32) -> f32 {
+    pitch.clamp(CAM_PITCH_MIN, CAM_PITCH_MAX)
+}
+
+/// MENU-2: advance the login-field focus among the three fields (0 = Name,
+/// 1 = Pass, 2 = Email), wrapping — `delta = +1` for Tab / Down, `-1` for Up.
+/// Mirrors Blitz's Name→Pass→Email→Name Tab cycle (`MainMenu.bb:771-783`). Pure.
+fn cycle_login_focus(focus: u8, delta: i8) -> u8 {
+    // rem_euclid(3) already yields 0..2 for any input.
+    (focus as i8 + delta).rem_euclid(3) as u8
 }
 
 /// Compose a chat-line for one combat event under DamageInfoStyle 2 (CBT-5),
@@ -4035,8 +4069,8 @@ impl ApplicationHandler for App {
         if let DeviceEvent::MouseMotion { delta: (dx, dy) } = event {
             const SENS: f32 = 0.0032;
             self.cam_yaw += dx as f32 * SENS;
-            // Up-drag looks up; clamp so the camera can't flip past the poles.
-            self.cam_pitch = (self.cam_pitch - dy as f32 * SENS).clamp(-0.35, 1.30);
+            // Up-drag looks up; clamp to Blitz's [−70°, +85°] pitch limits (MOVE-9).
+            self.cam_pitch = pitch_clamp(self.cam_pitch - dy as f32 * SENS);
         }
     }
 }
@@ -4504,14 +4538,24 @@ impl App {
                 _ => {}
             },
             Mode::Login => match code {
+                // Enter logs in (Blitz `GY_TextFieldHit(TPass)` → Goto Login);
+                // we accept it in any field, a harmless superset.
                 KeyCode::Enter | KeyCode::NumpadEnter => self.submit_login(),
                 KeyCode::F1 => self.mode = Mode::Options,
-                KeyCode::Tab | KeyCode::ArrowDown | KeyCode::ArrowUp => {
-                    self.login_focus ^= 1;
+                // MENU-2: Tab cycles Name→Pass→Email→Name (MainMenu.bb:771-783);
+                // Up/Down step the same three-field focus.
+                KeyCode::Tab | KeyCode::ArrowDown => {
+                    self.login_focus = cycle_login_focus(self.login_focus, 1);
+                }
+                KeyCode::ArrowUp => {
+                    self.login_focus = cycle_login_focus(self.login_focus, -1);
                 }
                 KeyCode::Backspace => {
-                    let f = if self.login_focus == 0 { &mut self.login_user } else { &mut self.login_pass };
-                    f.pop();
+                    match self.login_focus {
+                        0 => self.login_user.pop(),
+                        1 => self.login_pass.pop(),
+                        _ => self.login_email.pop(),
+                    };
                 }
                 KeyCode::Escape => {
                     self.shutdown_net();
@@ -4519,9 +4563,16 @@ impl App {
                 }
                 _ => {
                     if let Some(t) = text {
-                        let f = if self.login_focus == 0 { &mut self.login_user } else { &mut self.login_pass };
+                        // Email caps at 30 like Blitz's `TEmail` MaxLength
+                        // (MainMenu.bb:466); name/pass keep their pre-existing
+                        // 24-cap. No spaces (matching the old filter).
+                        let (f, cap) = match self.login_focus {
+                            0 => (&mut self.login_user, 24),
+                            1 => (&mut self.login_pass, 24),
+                            _ => (&mut self.login_email, 30),
+                        };
                         for ch in t.chars().filter(|c| !c.is_control() && *c != ' ') {
-                            if f.chars().count() < 24 {
+                            if f.chars().count() < cap {
                                 f.push(ch);
                             }
                         }
@@ -6392,6 +6443,15 @@ impl App {
             if self.login_focus == 1 && (elapsed * 2.0) as i32 % 2 == 0 {
                 overlay.text(fx + 8.0 + masked.chars().count() as f32 * 9.0 * fs, y + 7.0, fs, "_", [1.0, 1.0, 1.0, 1.0]);
             }
+            // MENU-2: the Email field (third Tab stop; display-only, MainMenu.bb:466).
+            y += 52.0;
+            overlay.text(fx, y, 1.1, "EMAIL", lbl);
+            y += 18.0;
+            field_bg(overlay, fx, y, fw, self.login_focus == 2);
+            overlay.text(fx + 8.0, y + 7.0, fs, &self.login_email, [1.0, 1.0, 1.0, 1.0]);
+            if self.login_focus == 2 && (elapsed * 2.0) as i32 % 2 == 0 {
+                overlay.text(fx + 8.0 + self.login_email.chars().count() as f32 * 9.0 * fs, y + 7.0, fs, "_", [1.0, 1.0, 1.0, 1.0]);
+            }
             y += 50.0;
             if !self.login_msg.is_empty() {
                 overlay.text(fx, y, 1.05, &self.login_msg, [1.0, 0.7, 0.5, 1.0]);
@@ -6659,7 +6719,7 @@ impl App {
         }
         let mag = (dir[0] * dir[0] + dir[1] * dir[1]).sqrt();
         let moving = mag > 0.01;
-        let want_send = self.last_move.elapsed().as_millis() >= 110;
+        let want_send = self.last_move.elapsed().as_millis() >= NETWORK_MS;
         // MOVE-6: a double-click move runs; Shift-run always wins.
         // RCCE_RUN forces running for headless diagnosis of the run-speed path.
         let run = move_run(self.run, self.move_target.is_some(), self.move_running)
@@ -11334,6 +11394,27 @@ mod tests {
     }
 
     // Sound options master-volume step clamps to [0,1].
+    #[test]
+    fn pitch_clamp_matches_blitz_limits() {
+        // MOVE-9: [−70°, +85°] in radians (Interface3D.bb:637-641).
+        assert!((pitch_clamp(10.0) - 85f32.to_radians()).abs() < 1e-6); // clamp high → +85°
+        assert!((pitch_clamp(-10.0) - (-70f32).to_radians()).abs() < 1e-6); // clamp low → −70°
+        // A mid value passes through unchanged.
+        let mid = 0.25;
+        assert_eq!(pitch_clamp(mid), mid);
+    }
+
+    #[test]
+    fn login_focus_cycles_three_fields() {
+        // MENU-2: Tab/Down (+1) → Name→Pass→Email→Name; Up (-1) reverses.
+        assert_eq!(cycle_login_focus(0, 1), 1);
+        assert_eq!(cycle_login_focus(1, 1), 2);
+        assert_eq!(cycle_login_focus(2, 1), 0); // wraps back to Name
+        assert_eq!(cycle_login_focus(0, -1), 2); // Up from Name wraps to Email
+        assert_eq!(cycle_login_focus(2, -1), 1);
+        assert_eq!(cycle_login_focus(1, -1), 0);
+    }
+
     #[test]
     fn volume_step_clamps() {
         assert_eq!(volume_step(0.5, 0.05), 0.55);
