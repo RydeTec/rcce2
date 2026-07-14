@@ -651,6 +651,11 @@ struct App {
     assignable_attrs: Vec<usize>,
     /// The project's attribute-point pool (`AttributeAssignment`). 0 = no spend UI.
     attr_pool: u8,
+    /// Headless `RCCE_AUTOCREATE` one-shot latch. The auto-driver creates at most
+    /// ONE character; without this, a rejected create (e.g. a name collision)
+    /// would loop every frame, spamming the server. Set the first time the
+    /// auto-create branch runs, regardless of success.
+    auto_create_tried: bool,
 }
 
 impl App {
@@ -793,6 +798,7 @@ impl App {
             create_templates: Vec::new(),
             assignable_attrs: Vec::new(),
             attr_pool: 0,
+            auto_create_tried: false,
             data_root: String::new(),
             loaded_zone: String::new(),
             // GPU skinning is the default; RCCE_CPUSKIN forces the legacy CPU
@@ -6095,9 +6101,46 @@ impl App {
             && self.login_rx.is_none()
         {
             if self.chars.is_empty() {
-                if std::env::var_os("RCCE_AUTOCREATE").is_some() && !self.playable.is_empty() {
-                    self.creating = Some(Creating { name: "Shotbot".to_string(), ..Default::default() });
+                if std::env::var_os("RCCE_AUTOCREATE").is_some()
+                    && !self.playable.is_empty()
+                    && !self.auto_create_tried
+                {
+                    // Latch BEFORE the attempt: a rejected create (name taken,
+                    // throttle, misconfig) must not loop every frame spamming the
+                    // server. One shot only.
+                    self.auto_create_tried = true;
+                    // Character names are GLOBALLY unique server-side and the
+                    // shipped `data\Server Data\Accounts.dat` already contains a
+                    // char literally named "Shotbot" — a fixed name is rejected
+                    // with 'I' ("name taken") on every run, wedging the harness.
+                    // Derive a per-run unique name so the create always lands on a
+                    // fresh account. Digits only (no filtered title words, and the
+                    // charset is the printable-ASCII the server accepts).
+                    let suffix = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| d.as_millis() as u64)
+                        .unwrap_or(0)
+                        % 1_000_000;
+                    let name = std::env::var("RCCE_AUTOCREATE_NAME")
+                        .ok()
+                        .filter(|s| !s.trim().is_empty())
+                        .unwrap_or_else(|| format!("Shot{suffix:06}"));
+                    println!("[autodrive] AUTOCREATE: creating character '{name}'");
+                    self.creating = Some(Creating { name, ..Default::default() });
                     self.submit_create();
+                    // On success `submit_create` populates `chars` and clears
+                    // `creating`; the next frame's else-branch enters the world.
+                    // On failure `creating` is left `Some`, which would freeze the
+                    // `creating.is_none()` guard forever — clear it so the harness
+                    // fails visibly (a menu screenshot) instead of hanging, and
+                    // surface why.
+                    if self.chars.is_empty() {
+                        println!(
+                            "[autodrive] AUTOCREATE failed: {} (no character to enter)",
+                            self.login_msg
+                        );
+                        self.creating = None;
+                    }
                 }
             } else {
                 self.enter_selected();
