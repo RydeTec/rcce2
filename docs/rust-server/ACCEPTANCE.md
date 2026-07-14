@@ -154,7 +154,7 @@ Status: **PARTIAL** (PARITY R-5). *Divergences: `/g` GuildSay skipped (no guild/
 **ACC-PLAY-2 — Inventory (equip/drop/pickup/swap/stack/give).**
 Input: `P_InventoryUpdate` variants.
 Observable: equip/unequip, ground drop + pickup, slot swap, stack merge, give-item; durability wear + `P_ItemHealth`.
-Verify: `executed` — inventory + combat-wear tests, including client-controlled equipment placement validation across swap, GiveItem, and pickup.
+Verify: `executed` — inventory + combat-wear tests, including client-controlled equipment placement validation across swap, GiveItem, and pickup. Standard equipment requires its matching slot, one item, enabled actor capability, and matching restrictions; a matching `ExclusiveRace` deliberately overrides class and disabled-slot checks, matching Blitz `ActorHasSlot`.
 Status: **DONE**.
 
 **ACC-PLAY-3 — Melee combat + death + XP.**

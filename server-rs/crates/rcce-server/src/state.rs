@@ -743,7 +743,9 @@ impl ServerState {
     /// Backpack slots accept every item and stack size. Equipment slots mirror
     /// `SlotsMatch` / `ActorHasSlot` in `Inventories.bb`: they accept only the
     /// matching item type, exactly one item, an enabled actor slot, and an item
-    /// whose race and class restrictions match the actor template.
+    /// whose race and class restrictions match the actor template. As in
+    /// Blitz, a matching `ExclusiveRace` is an early override of the class
+    /// and enabled-slot checks.
     fn can_place_inventory_item(&self, actor_id: u16, slot: usize, item_id: u16, amount: i16) -> bool {
         const BACKPACK_SLOT: usize = 14;
         if slot >= BACKPACK_SLOT {
@@ -771,8 +773,8 @@ impl ServerState {
         let Some(actor) = self.catalog.templates.get(&actor_id) else {
             return false;
         };
-        if !item.excl_race.is_empty() && !actor.race.eq_ignore_ascii_case(&item.excl_race) {
-            return false;
+        if !item.excl_race.is_empty() {
+            return actor.race.eq_ignore_ascii_case(&item.excl_race);
         }
         if !item.excl_class.is_empty() && !actor.class.eq_ignore_ascii_case(&item.excl_class) {
             return false;

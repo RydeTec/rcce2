@@ -5733,7 +5733,12 @@ End Function
         wrong_class.id = 65_002;
         wrong_class.name = "Wrong class weapon".into();
         wrong_class.excl_class = "Not this class".into();
-        state.items.items.extend([weapon.clone(), wrong_race, wrong_class]);
+        let mut race_override = weapon.clone();
+        race_override.id = 65_003;
+        race_override.name = "Race override weapon".into();
+        race_override.excl_race = template.race.clone();
+        race_override.excl_class = "Not this class".into();
+        state.items.items.extend([weapon.clone(), wrong_race, wrong_class, race_override]);
         state.catalog.templates.get_mut(&template.id).unwrap().inventory_slots = 0x7ff;
 
         let swap = |state: &mut ServerState, from: u8, to: u8| {
@@ -5773,6 +5778,23 @@ End Function
             assert_eq!(inventory[14].amount, amount, "{label}");
             assert!(inventory[destination as usize].item.is_none(), "{label}");
         }
+        state.catalog.templates.get_mut(&template.id).unwrap().inventory_slots = 0x7ff;
+
+        // Blitz's ActorHasSlot grants a matching ExclusiveRace item an early
+        // override: it may use an otherwise disabled slot and ignores its
+        // class restriction. Keep this compatibility rule on the shared
+        // client-controlled placement path.
+        state.catalog.templates.get_mut(&template.id).unwrap().inventory_slots = 0;
+        {
+            let inventory = &mut state.accounts.find_mut("hero").unwrap().characters[0].actor.inventory;
+            inventory[0] = Default::default();
+            inventory[14].item = Some(ItemInstance::new(65_003));
+            inventory[14].amount = 1;
+        }
+        swap(&mut state, 14, 0);
+        let inventory = &state.accounts.find("hero").unwrap().characters[0].actor.inventory;
+        assert_eq!(inventory[0].item.as_ref().map(|item| item.item_id), Some(65_003), "a matching ExclusiveRace item overrides class and disabled-slot checks");
+        assert!(inventory[14].item.is_none());
         state.catalog.templates.get_mut(&template.id).unwrap().inventory_slots = 0x7ff;
 
         // A GiveItem reply cannot forge a weapon into the shield slot, while a
