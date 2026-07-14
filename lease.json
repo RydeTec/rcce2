@@ -1,16 +1,16 @@
 {
   "run_id": "rcce2-hourly-replacement-20260714T230800Z-1e79386d3b3b",
-  "status": "released",
-  "started_at": "2026-07-14T23:08:00Z",
-  "heartbeat_at": "2026-07-14T23:09:07Z",
-  "expires_at": "2026-07-14T23:09:07Z",
+  "status": "active",
+  "started_at": "2026-07-14T23:24:04Z",
+  "heartbeat_at": "2026-07-14T23:24:04Z",
+  "expires_at": "2026-07-14T23:34:04Z",
   "issue": 625,
   "branch": "codex-automation/625-atomic-gue-area-save",
-  "pr": null,
-  "phase": "released-after-reserving-issue-625",
+  "pr": 626,
+  "phase": "final-merge-validation",
   "scope": {
     "subsystems": ["GUE legacy area persistence"],
-    "paths": ["src/Modules/ClientAreas_FE.bb", "src/Tests/Modules/"],
+    "paths": ["src/Modules/ClientAreas_FE.bb", "src/Tests/Modules/ClientAreasFEAtomicSaveTest.bb"],
     "interfaces": ["SaveArea(Name$)", "area .dat atomic save contract"]
   }
 }
