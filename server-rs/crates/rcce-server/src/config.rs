@@ -30,9 +30,12 @@ pub struct ServerConfig {
     pub max_account_chars: u8,
     pub start_gold: i32,
     pub start_reputation: i32,
-    /// Free attribute points a new character may distribute. Lives in
-    /// `Attributes.dat` (not `Misc.dat`); defaulted to 0 until that loader
-    /// lands — with 0, `P_CreateCharacter` ignores the 40 attribute-point bytes.
+    /// Free attribute points a new character may distribute across the 40
+    /// attribute slots at creation. Byte 0 of `Attributes.dat` (Blitz
+    /// `Actors.bb` `LoadAttributes` reads it with the first `ReadByte(F)`;
+    /// `SaveAttributes` writes it with the first `WriteByte`). Shipped project
+    /// value is 10. When 0, `P_CreateCharacter` ignores the 40 attribute-point
+    /// bytes (parity with Blitz `ServerNet.bb:2905` `If AttributeAssignment > 0`).
     pub attribute_assignment: u8,
     /// Resolved project `data/` directory (holds `Server Data/`, etc.).
     pub data_dir: PathBuf,
@@ -58,8 +61,24 @@ impl ServerConfig {
             Ok(bytes) => cfg.apply_misc(&bytes),
             Err(_) => { /* defaults; logged by the caller if desired */ }
         }
+        // AttributeAssignment lives in a separate file (Attributes.dat), byte 0.
+        // Missing/empty file → keep the default 0 (char-create ignores the spend).
+        let attrs = data_dir.join("Server Data").join("Attributes.dat");
+        if let Ok(bytes) = std::fs::read(&attrs) {
+            cfg.apply_attributes(&bytes);
+        }
         cfg.apply_env_overrides();
         cfg
+    }
+
+    /// Populate `attribute_assignment` from `Attributes.dat` byte 0. Mirrors the
+    /// first `ReadByte(F)` in Blitz `Actors.bb` `LoadAttributes` — the byte that
+    /// precedes the 40 `Name`/`IsSkill`/`Hidden` records. An empty file leaves
+    /// the default 0 (Blitz `ReadByte` on EOF also yields 0).
+    fn apply_attributes(&mut self, b: &[u8]) {
+        if let Some(&first) = b.first() {
+            self.attribute_assignment = first;
+        }
     }
 
     fn apply_misc(&mut self, b: &[u8]) {
@@ -166,6 +185,60 @@ mod tests {
         cfg.apply_misc(&[0u8; 5]);
         assert_eq!(cfg.port, DEFAULT_PORT);
         assert!(cfg.allow_account_creation);
+    }
+
+    #[test]
+    fn apply_attributes_reads_byte_zero() {
+        let mut cfg = ServerConfig {
+            port: DEFAULT_PORT,
+            allow_account_creation: true,
+            max_account_chars: 4,
+            start_gold: 0,
+            start_reputation: 0,
+            attribute_assignment: 0,
+            data_dir: PathBuf::new(),
+        };
+        // Byte 0 is AttributeAssignment; the rest are name/flag records we ignore.
+        cfg.apply_attributes(&[0x0a, 0x06, 0x00, 0x00]);
+        assert_eq!(cfg.attribute_assignment, 10);
+    }
+
+    #[test]
+    fn apply_attributes_empty_keeps_default() {
+        let mut cfg = ServerConfig {
+            port: DEFAULT_PORT,
+            allow_account_creation: true,
+            max_account_chars: 4,
+            start_gold: 0,
+            start_reputation: 0,
+            attribute_assignment: 7,
+            data_dir: PathBuf::new(),
+        };
+        cfg.apply_attributes(&[]);
+        assert_eq!(cfg.attribute_assignment, 7, "empty file must not clobber");
+    }
+
+    /// The real shipped project file must yield AttributeAssignment = 10, the
+    /// value the Blitz server loads and honors. Guards the parity gap that made
+    /// the Rust server silently drop every new character's attribute spend.
+    #[test]
+    fn loads_ten_from_shipped_attributes_dat() {
+        // Walk up from the crate dir to the repo root's data/ tree.
+        let dat = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../data/Server Data/Attributes.dat");
+        let bytes = std::fs::read(&dat)
+            .unwrap_or_else(|e| panic!("read {}: {e}", dat.display()));
+        let mut cfg = ServerConfig {
+            port: DEFAULT_PORT,
+            allow_account_creation: true,
+            max_account_chars: 4,
+            start_gold: 0,
+            start_reputation: 0,
+            attribute_assignment: 0,
+            data_dir: PathBuf::new(),
+        };
+        cfg.apply_attributes(&bytes);
+        assert_eq!(cfg.attribute_assignment, 10);
     }
 
     #[test]
