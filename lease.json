@@ -1,16 +1,26 @@
 {
-  "run_id": "rcce2-hourly-replacement-20260714T210431Z-0908b396d436",
-  "status": "released",
-  "started_at": "2026-07-14T21:04:31Z",
-  "heartbeat_at": "2026-07-14T21:06:15Z",
-  "expires_at": "2026-07-14T21:06:15Z",
+  "run_id": "rcce2-hourly-replacement-20260714T220800Z-e43743290938",
+  "status": "active",
+  "started_at": "2026-07-14T22:07:54Z",
+  "heartbeat_at": "2026-07-14T22:07:54Z",
+  "expires_at": "2026-07-14T22:17:54Z",
   "issue": null,
   "branch": null,
   "pr": null,
-  "phase": "no-eligible-disjoint-increment",
+  "phase": "select-and-reserve",
   "scope": {
-    "subsystems": [],
-    "paths": [],
-    "interfaces": []
+    "subsystems": [
+      "Blitz server packet and script area safety"
+    ],
+    "paths": [
+      "src/Modules/ServerNet.bb",
+      "src/Modules/ScriptingCommands.bb",
+      "src/Tests/Modules/"
+    ],
+    "interfaces": [
+      "P_AttackActor same-area/PvP gate",
+      "BVM_ACTORINTRIGGER",
+      "BVM_ACTOROUTDOORS"
+    ]
   }
 }
