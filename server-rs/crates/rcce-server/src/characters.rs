@@ -422,13 +422,32 @@ mod tests {
 
     /// Build a P_CreateCharacter payload body (after user/pass).
     fn create_packet(user: &str, md5: &str, actor_id: u16, name: &[u8]) -> Vec<u8> {
+        create_packet_attrs(user, md5, actor_id, name, &[0u8; ATTR_POINT_BYTES])
+    }
+
+    /// Same, but with caller-chosen attribute-point bytes (the 40 the client
+    /// sends). `attrs` shorter than 40 is zero-padded; longer is truncated.
+    fn create_packet_attrs(user: &str, md5: &str, actor_id: u16, name: &[u8], attrs: &[u8]) -> Vec<u8> {
+        let mut points = [0u8; ATTR_POINT_BYTES];
+        for (dst, &src) in points.iter_mut().zip(attrs.iter()) {
+            *dst = src;
+        }
         let mut p = field(user.as_bytes());
         p.extend_from_slice(&field(md5.as_bytes()));
         p.extend_from_slice(&actor_id.to_le_bytes()); // u16 LE
         p.extend_from_slice(&[0u8, 0, 0, 0, 0]); // gender, face, hair, beard, body
-        p.extend_from_slice(&[0u8; ATTR_POINT_BYTES]); // 40 attribute points
+        p.extend_from_slice(&points); // 40 attribute points
         p.extend_from_slice(name);
         p
+    }
+
+    /// Find a playable race with a loadable start area, or skip the test.
+    fn playable_template(dir: &PathBuf, catalog: &ActorCatalog) -> Option<rcce_server_core::actor_catalog::ActorTemplate> {
+        catalog
+            .templates
+            .values()
+            .find(|t| t.playable && Area::load(dir, &t.start_area).is_some())
+            .cloned()
     }
 
     #[test]
@@ -475,6 +494,99 @@ mod tests {
         })
         .unwrap();
         assert_eq!(reloaded.find("hero").unwrap().characters[0].actor.name, "Aragorn");
+    }
+
+    /// With AttributeAssignment > 0 (the shipped ruleset), the 40 attribute
+    /// bytes the client sends are added to the race's base attributes — the
+    /// parity fix. Blitz `ServerNet.bb:2905-2912`: `Value[i] += Amount`.
+    #[test]
+    fn attribute_spend_applies_when_assignment_positive() {
+        let dir = data_dir();
+        let catalog = ActorCatalog::load(dir.join("Server Data/Actors.dat"));
+        let Some(template) = playable_template(&dir, &catalog) else {
+            eprintln!("skipping: no playable race with a loadable start area");
+            return;
+        };
+        let base = template.new_character().attributes.value;
+
+        let mut store = tmp_store("spend");
+        store.push(Account::new("hero", MD5, "h@x.com").unwrap());
+        let mut throttle = LoginThrottle::new();
+        let mut config = config_for(dir);
+        config.attribute_assignment = 10;
+
+        // Spend 3 into slot 0, 7 into slot 5 → total 10, exactly the pool.
+        let mut attrs = [0u8; ATTR_POINT_BYTES];
+        attrs[0] = 3;
+        attrs[5] = 7;
+        let pkt = create_packet_attrs("hero", MD5, template.id, b"Spender", &attrs);
+        let (_t, body) = handle_create_character(&pkt, &mut store, &mut throttle, &catalog, &config, 1, 0);
+        assert_eq!(body, b"Y", "spend at exactly the pool must succeed");
+
+        let ch = &store.find("hero").unwrap().characters[0].actor;
+        assert_eq!(ch.attributes.value[0], base[0] + 3, "slot 0 gains 3");
+        assert_eq!(ch.attributes.value[5], base[5] + 7, "slot 5 gains 7");
+        // Untouched slots keep the race base.
+        assert_eq!(ch.attributes.value[1], base[1]);
+    }
+
+    /// A malicious client that spends more than the pool is rejected wholesale
+    /// (Blitz `TotalAmount > AttributeAssignment → FreeActorInstance + "N"`),
+    /// not silently trusted or clamped per-slot.
+    #[test]
+    fn attribute_overspend_is_rejected() {
+        let dir = data_dir();
+        let catalog = ActorCatalog::load(dir.join("Server Data/Actors.dat"));
+        let Some(template) = playable_template(&dir, &catalog) else {
+            eprintln!("skipping: no playable race with a loadable start area");
+            return;
+        };
+        let mut store = tmp_store("overspend");
+        store.push(Account::new("hero", MD5, "h@x.com").unwrap());
+        let mut throttle = LoginThrottle::new();
+        let mut config = config_for(dir);
+        config.attribute_assignment = 10;
+
+        // 11 total > pool of 10 → reject, no character persisted.
+        let mut attrs = [0u8; ATTR_POINT_BYTES];
+        attrs[0] = 11;
+        let pkt = create_packet_attrs("hero", MD5, template.id, b"Cheater", &attrs);
+        let (_t, body) = handle_create_character(&pkt, &mut store, &mut throttle, &catalog, &config, 1, 0);
+        assert_eq!(body, b"N", "overspend must be rejected");
+        assert!(store.find("hero").unwrap().characters.is_empty(), "no character on reject");
+
+        // A 40-byte all-0xFF flood (10200 total) is likewise rejected, not trusted.
+        let pkt = create_packet_attrs("hero", MD5, template.id, b"Flooder", &[0xFFu8; ATTR_POINT_BYTES]);
+        let (_t, body) = handle_create_character(&pkt, &mut store, &mut throttle, &catalog, &config, 1, 0);
+        assert_eq!(body, b"N", "max-byte flood must be rejected");
+        assert!(store.find("hero").unwrap().characters.is_empty());
+    }
+
+    /// With AttributeAssignment == 0 the ruleset grants no points, so the 40
+    /// bytes are ignored entirely — the created character keeps the race base
+    /// even if the client sends non-zero spend (Blitz gate at `:2905`).
+    #[test]
+    fn attribute_spend_ignored_when_assignment_zero() {
+        let dir = data_dir();
+        let catalog = ActorCatalog::load(dir.join("Server Data/Actors.dat"));
+        let Some(template) = playable_template(&dir, &catalog) else {
+            eprintln!("skipping: no playable race with a loadable start area");
+            return;
+        };
+        let base = template.new_character().attributes.value;
+
+        let mut store = tmp_store("nopool");
+        store.push(Account::new("hero", MD5, "h@x.com").unwrap());
+        let mut throttle = LoginThrottle::new();
+        let config = config_for(dir); // attribute_assignment defaults to 0
+
+        let mut attrs = [0u8; ATTR_POINT_BYTES];
+        attrs[0] = 50; // would overspend any real pool, but the gate ignores it
+        let pkt = create_packet_attrs("hero", MD5, template.id, b"Nopool", &attrs);
+        let (_t, body) = handle_create_character(&pkt, &mut store, &mut throttle, &catalog, &config, 1, 0);
+        assert_eq!(body, b"Y", "with no pool, spend bytes are ignored (not a reject)");
+        let ch = &store.find("hero").unwrap().characters[0].actor;
+        assert_eq!(ch.attributes.value[0], base[0], "no points applied when pool is 0");
     }
 
     #[test]
