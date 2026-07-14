@@ -326,6 +326,42 @@ mod tests {
         assert!(resolved > 0, "no actor resolved to a loadable mesh");
     }
 
+    /// Ground-truth: the real `Actors.dat` parses the character-create `class`
+    /// name and the per-attribute Value/Maximum arrays (MENU-6). The shipped
+    /// starter has one playable template: Human / Fighter with Strength 20/100.
+    #[test]
+    fn parse_real_actors_class_and_attributes() {
+        let root = repo_root();
+        let Ok(bytes) = std::fs::read(root.join("data/Server Data/Actors.dat")) else {
+            eprintln!("skipping: no Actors.dat");
+            return;
+        };
+        let actors = ActorCatalog::parse(&bytes).expect("Actors.dat parse");
+        let playable: Vec<_> = actors.templates.values().filter(|t| t.playable).collect();
+        assert!(!playable.is_empty(), "no playable templates");
+        for t in &playable {
+            eprintln!(
+                "playable #{} race='{}' class='{}' str={}/{}",
+                t.id, t.race, t.class, t.attr_value[2], t.attr_max[2]
+            );
+            // Value must never exceed Maximum for any assignable slot (the create
+            // screen relies on `value < max` to gate a spend).
+            for i in 0..40 {
+                assert!(
+                    t.attr_value[i] <= t.attr_max[i],
+                    "actor {} slot {i}: value {} > max {}",
+                    t.id, t.attr_value[i], t.attr_max[i]
+                );
+            }
+        }
+        // The starter's single playable race+class.
+        if let Some(t) = actors.templates.get(&0) {
+            assert_eq!(t.race, "Human");
+            assert_eq!(t.class, "Fighter");
+            assert_eq!((t.attr_value[2], t.attr_max[2]), (20, 100), "Strength 20/100");
+        }
+    }
+
     /// Parse real client area files and sanity-check the scenery list: a sane
     /// count, and mesh ids that resolve through the mesh catalog to loadable
     /// `.b3d` files (confirms the 41-byte header offset is correct).
