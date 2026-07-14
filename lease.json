@@ -1,17 +1,16 @@
 {
   "run_id": "rcce2-hourly-replacement-20260714T220800Z-e43743290938",
-  "status": "released",
-  "started_at": "2026-07-14T22:47:02Z",
-  "heartbeat_at": "2026-07-14T22:48:25Z",
-  "expires_at": "2026-07-14T22:48:25Z",
+  "status": "active",
+  "started_at": "2026-07-14T22:57:46Z",
+  "heartbeat_at": "2026-07-14T22:57:46Z",
+  "expires_at": "2026-07-14T23:07:46Z",
   "issue": 622,
   "branch": "codex-automation/622-stale-area-guards",
   "pr": 623,
-  "phase": "released-develop-advanced-before-merge",
+  "phase": "final-merge-validation",
   "scope": {
     "subsystems": [
-      "Blitz server packet and script area safety",
-      "generated protocol documentation"
+      "Blitz server packet and script area safety"
     ],
     "paths": [
       "src/Modules/ServerNet.bb",
@@ -22,8 +21,7 @@
     "interfaces": [
       "P_AttackActor same-area/PvP gate",
       "BVM_ACTORINTRIGGER",
-      "BVM_ACTOROUTDOORS",
-      "packet handler source-line index"
+      "BVM_ACTOROUTDOORS"
     ]
   }
 }
