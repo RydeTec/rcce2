@@ -69,6 +69,17 @@ Function ReadBoundedString$(F, MaxLen)
 	Return ""
 End Function
 
+; SaveArea (relocated into AreaLoader.bb) uses the atomic-write helpers; the
+; test is a compile gate and never runs the save path, so stub them as
+; pass-throughs (same shape as ItemsTest.bb).
+Function SafeWriteOpen$(FinalPath$)
+	Return FinalPath$
+End Function
+
+Function SafeWriteCommit%(TempPath$, FinalPath$, F)
+	Return True
+End Function
+
 ; --- Media stubs (Media.bb) --------------------------------------------------
 ; Signatures match Media.bb. Bodies are no-ops: the test never runs the
 ; load path (needs Graphics3D), the compiler only needs resolution.
