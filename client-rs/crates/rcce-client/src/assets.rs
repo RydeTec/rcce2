@@ -561,6 +561,53 @@ impl AssetStore {
         out
     }
 
+    /// Playable create-templates as `(id, race, class)` for every `playable`
+    /// template with a usable body mesh, sorted by id. The create screen's Race
+    /// picker steps between distinct `race` values and the Class picker cycles
+    /// the classes within a race (Blitz `MainMenu.bb:2173-2187` race combobox +
+    /// `:2565` class buttons, both filtered on `A\Playable`).
+    pub fn playable_create_templates(&self) -> Vec<(u16, String, String)> {
+        let mut out: Vec<(u16, String, String)> = self
+            .actors
+            .templates
+            .values()
+            .filter(|t| t.playable && (t.mesh_ids[0] != 65535 || t.mesh_ids[1] != 65535))
+            .map(|t| (t.id, t.race.clone(), t.class.clone()))
+            .collect();
+        out.sort_by_key(|&(id, _, _)| id);
+        out
+    }
+
+    /// The project's attribute-assignment pool (`Attributes.dat` byte 0,
+    /// Actors.bb:1077). `0` = no point-spend step in character create. The
+    /// create screen shows the `+/-` UI and sends the 40 point-spend bytes only
+    /// when this is `> 0` (MainMenu.bb:2257/2392).
+    pub fn attribute_assignment(&self) -> u8 {
+        self.attribute_names.as_ref().map(|a| a.assignment).unwrap_or(0)
+    }
+
+    /// The slot indices (0..39) that are *assignable* in character create:
+    /// named, not a skill, not hidden (MainMenu.bb:2154). Returned in slot order
+    /// so the create screen lists them the way Blitz iterates them.
+    pub fn assignable_attribute_slots(&self) -> Vec<usize> {
+        let Some(a) = self.attribute_names.as_ref() else { return Vec::new() };
+        (0..rcce_data::AttributeNames::COUNT)
+            .filter(|&i| {
+                a.attrs
+                    .get(i)
+                    .is_some_and(|d| !d.name.is_empty() && !d.is_skill && !d.hidden)
+            })
+            .collect()
+    }
+
+    /// Base `(value, maximum)` for actor template `id`'s attribute slot, or
+    /// `None` when the template or slot is unknown. The create screen displays
+    /// `value` (+ any spent points) and clamps an increase below `maximum`.
+    pub fn template_attribute(&self, id: u16, slot: usize) -> Option<(i16, i16)> {
+        let t = self.actors.templates.get(&id)?;
+        Some((*t.attr_value.get(slot)?, *t.attr_max.get(slot)?))
+    }
+
     /// The actor's in-world render scale, matching the engine
     /// (`Actors3D.bb:45`): `0.05 × LoadedMeshScales[mesh] × Actor.Scale`.
     /// Positions stay in raw world units. Falls back to `0.05` if a stored

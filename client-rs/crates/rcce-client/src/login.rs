@@ -46,13 +46,26 @@ pub struct CharAppearance {
 
 /// Build the `P_CreateCharacter` payload, matching the reference client's field
 /// order (`MainMenu.bb:2388-2397`): `user · md5 · actorID(u16) · gender · face ·
-/// hair · beard · body · 40 attribute-point bytes · name(raw)`. The 40 attribute
-/// bytes are always sent (the server skips them when `AttributeAssignment` is 0).
-fn create_char_payload(user: &str, md5: &str, actor_id: u16, a: CharAppearance, name: &str) -> Vec<u8> {
+/// hair · beard · body · 40 attribute-point bytes · name(raw)`. `actor_id`
+/// encodes both the race AND the chosen class (each is a distinct `Actor`
+/// record). `points[slot]` is the number of attribute points spent on that slot
+/// (0 for non-assignable slots); the 40 bytes are always sent — byte-exact with
+/// the Blitz client when `AttributeAssignment > 0`, and the Rust server always
+/// reads them (`characters.rs`). The Blitz client omits the block entirely when
+/// `AttributeAssignment == 0`; the shipped project sets it to 10, so all three
+/// sides agree on the 40-byte layout for real data.
+fn create_char_payload(
+    user: &str,
+    md5: &str,
+    actor_id: u16,
+    a: CharAppearance,
+    points: &[u8; 40],
+    name: &str,
+) -> Vec<u8> {
     let mut w = MsgWriter::new();
     w.str8(user).str8(md5);
     w.u16(actor_id).u8(a.gender).u8(a.face).u8(a.hair).u8(a.beard).u8(a.body);
-    w.raw(&[0u8; 40]);
+    w.raw(points);
     w.raw(name.as_bytes());
     w.into_bytes()
 }
@@ -124,8 +137,11 @@ pub fn account_login<T: Transport>(
 }
 
 /// **Create a character** on the open login connection, then return the refreshed
-/// roster. `actor_id` is a playable template; `appear` carries the player's
-/// face/hair/beard/body/gender selections.
+/// roster. `actor_id` is the chosen race+class template; `appear` carries the
+/// player's face/hair/beard/body/gender selections; `points[slot]` is the
+/// attribute points spent on each of the 40 slots (all-zero when the project
+/// grants no assignment pool).
+#[allow(clippy::too_many_arguments)]
 pub fn create_char<T: Transport>(
     t: &mut T,
     peer: i32,
@@ -133,9 +149,10 @@ pub fn create_char<T: Transport>(
     md5: &str,
     actor_id: u16,
     appear: CharAppearance,
+    points: &[u8; 40],
     name: &str,
 ) -> Result<Vec<CharInfo>, String> {
-    let payload = create_char_payload(user, md5, actor_id, appear, name);
+    let payload = create_char_payload(user, md5, actor_id, appear, points, name);
     t.send(peer, pk::CREATE_CHARACTER, &payload, true);
     match pump(t, 1500)
         .iter()
@@ -474,7 +491,7 @@ mod tests {
         // MainMenu.bb:2388-2397: user · md5 · actorID(u16) · gender · face · hair ·
         // beard · body · 40 attribute-point bytes · name.
         let a = CharAppearance { gender: 1, face: 2, hair: 3, beard: 4, body: 0 };
-        let p = create_char_payload("bob", "abc123", 0x1234, a, "Hero");
+        let p = create_char_payload("bob", "abc123", 0x1234, a, &[0u8; 40], "Hero");
         let mut r = MsgReader::new(&p);
         assert_eq!(r.str8().unwrap(), "bob");
         assert_eq!(r.str8().unwrap(), "abc123");
@@ -488,6 +505,39 @@ mod tests {
             assert_eq!(r.u8().unwrap(), 0, "attribute-point byte {i} is 0");
         }
         assert_eq!(&p[p.len() - 4..], b"Hero", "name is the trailing raw bytes");
+    }
+
+    #[test]
+    fn create_char_payload_encodes_class_and_spent_attributes() {
+        // Class is carried entirely by `actor_id` (each race+class is a distinct
+        // Actor record). Spend 3 on slot 2 (Strength) + 7 on slot 4 (Speed) =
+        // AttributeAssignment 10, exactly what MainMenu.bb:2392-2395 emits: one
+        // byte per slot 0..39 in slot order, the rest 0.
+        let mut points = [0u8; 40];
+        points[2] = 3;
+        points[4] = 7;
+        let a = CharAppearance { gender: 0, face: 1, hair: 0, beard: 2, body: 3 };
+        let p = create_char_payload("u", "m", 0x0007, a, &points, "Rin");
+
+        // Assemble the exact expected byte string and compare in full — this is
+        // the byte-for-byte parity assertion against the Blitz wire.
+        let mut expected = Vec::new();
+        expected.push(1); // user len
+        expected.extend_from_slice(b"u");
+        expected.push(1); // md5 len
+        expected.extend_from_slice(b"m");
+        expected.extend_from_slice(&0x0007u16.to_le_bytes()); // actor id (race+class)
+        expected.extend_from_slice(&[0, 1, 0, 2, 3]); // gender, face, hair, beard, body
+        let mut attrs = [0u8; 40];
+        attrs[2] = 3;
+        attrs[4] = 7;
+        expected.extend_from_slice(&attrs); // 40 point-spend bytes
+        expected.extend_from_slice(b"Rin"); // name, raw trailing bytes
+        assert_eq!(p, expected, "byte-exact P_CreateCharacter payload");
+
+        // And the total spend equals the pool (the server's anti-cheat sum check,
+        // ServerNet.bb:2914 / characters.rs).
+        assert_eq!(attrs.iter().map(|&b| b as u32).sum::<u32>(), 10);
     }
 
     #[test]
