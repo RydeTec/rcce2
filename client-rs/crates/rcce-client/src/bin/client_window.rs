@@ -1539,11 +1539,19 @@ fn initial_menu_mode(eula_present: bool) -> Mode {
 /// Server-side character names are GLOBALLY unique and validated against a
 /// printable-ASCII charset + a banned-word filter (`characters.rs`
 /// `name_charset_ok` / `name_is_banned`). A FIXED name (the old hardcoded
-/// "Shotbot", which the shipped `Accounts.dat` already owns) is rejected on every
-/// run, so the default is `Shot` + 6 decimal digits derived from `suffix_ms`
-/// (millisecond clock) — digits only, so it can never collide with a filtered
-/// title word and always passes the charset. A non-blank `name_override`
-/// (`RCCE_AUTOCREATE_NAME`) wins, trimmed, for callers that manage uniqueness
+/// "Shotbot") collides as soon as the server's `Accounts.dat` already holds it —
+/// and that file is a persistent, gitignored save that accumulates every
+/// character created against a data dir, so any re-run against the same server
+/// data hits the collision (in the environment this was diagnosed in, a prior
+/// harness run had already left a "Shotbot" behind). A rejected create wedges the
+/// AUTOENTER path, so the default name is `Shot` + 6 decimal digits from
+/// `suffix_ms` (millisecond clock) — digits only, so it can never collide with a
+/// filtered title word and always passes the charset. The `% 1_000_000` wraps
+/// every ~1000 s, so this is "time-varying" rather than provably globally unique,
+/// but the one-shot latch at the call site means only ONE name is ever generated
+/// per process (no within-run collision), and against a fresh data copy there is
+/// no pre-existing `Shot*` to collide with. A non-blank `name_override`
+/// (`RCCE_AUTOCREATE_NAME`) wins, trimmed, for callers that manage naming
 /// themselves.
 fn auto_create_name(name_override: Option<String>, suffix_ms: u64) -> String {
     if let Some(n) = name_override.map(|s| s.trim().to_string()).filter(|s| !s.is_empty()) {
@@ -6129,12 +6137,12 @@ impl App {
                     // throttle, misconfig) must not loop every frame spamming the
                     // server. One shot only.
                     self.auto_create_tried = true;
-                    // Character names are GLOBALLY unique server-side and the
-                    // shipped `data\Server Data\Accounts.dat` already contains a
-                    // char literally named "Shotbot" — a fixed name is rejected
-                    // with 'I' ("name taken") on every run, wedging the harness.
-                    // Derive a per-run unique name so the create always lands on a
-                    // fresh account (see `auto_create_name`).
+                    // Character names are GLOBALLY unique server-side. A fixed name
+                    // is rejected with 'I' ("name taken") as soon as the server's
+                    // persistent (gitignored) `Accounts.dat` already holds it —
+                    // which any re-run against the same data dir hits — wedging the
+                    // harness. Derive a time-varying name so the create lands on a
+                    // fresh account against a fresh data copy (see `auto_create_name`).
                     let suffix = std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
                         .map(|d| d.as_millis() as u64)
@@ -11373,9 +11381,9 @@ mod tests {
     }
 
     // Headless AUTOCREATE harness: the auto-generated character name must be
-    // per-run unique (never the old fixed "Shotbot" that the shipped Accounts.dat
-    // owns) and stay within the server's name rules (<=32 bytes, printable ASCII,
-    // no filtered title words — digits-only guarantees the last two).
+    // time-varying (never the old fixed "Shotbot" that collides with a persistent
+    // Accounts.dat) and stay within the server's name rules (<=32 bytes, printable
+    // ASCII, no filtered title words — digits-only guarantees the last two).
     #[test]
     fn auto_create_name_is_unique_and_valid() {
         let n = auto_create_name(None, 1_234_567);
