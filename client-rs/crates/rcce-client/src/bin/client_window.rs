@@ -4534,12 +4534,13 @@ impl App {
                 }
                 _ => {
                     if let Some(t) = text {
-                        // Email allows longer input + '@'/'.'; name/pass stay 24-cap,
-                        // no spaces (matching the old filter).
+                        // Email caps at 30 like Blitz's `TEmail` MaxLength
+                        // (MainMenu.bb:466); name/pass keep their pre-existing
+                        // 24-cap. No spaces (matching the old filter).
                         let (f, cap) = match self.login_focus {
                             0 => (&mut self.login_user, 24),
                             1 => (&mut self.login_pass, 24),
-                            _ => (&mut self.login_email, 40),
+                            _ => (&mut self.login_email, 30),
                         };
                         for ch in t.chars().filter(|c| !c.is_control() && *c != ' ') {
                             if f.chars().count() < cap {
