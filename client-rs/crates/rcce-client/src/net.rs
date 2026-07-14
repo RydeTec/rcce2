@@ -274,6 +274,27 @@ mod tests {
     use super::*;
 
     #[test]
+    fn movement_packet_layout() {
+        // MOVE-10: P_StandardUpdate is exactly 22 bytes — DestX, DestZ, Y, X, Z
+        // (f32 LE) then IsRunning, WalkingBackward (u8), matching the Blitz send
+        // order `RCE_StrFromFloat$(DestX)+DestZ+EntityY+EntityX+EntityZ` then the
+        // two `RCE_StrFromInt$(_,1)` flags (ClientNet.bb:1801-1803).
+        let p = movement_packet(1.0, 2.0, 3.0, 4.0, 5.0, true, false);
+        assert_eq!(p.len(), 22);
+        assert_eq!(&p[0..4], &1.0f32.to_le_bytes()); // DestX
+        assert_eq!(&p[4..8], &2.0f32.to_le_bytes()); // DestZ
+        assert_eq!(&p[8..12], &3.0f32.to_le_bytes()); // Y
+        assert_eq!(&p[12..16], &4.0f32.to_le_bytes()); // X
+        assert_eq!(&p[16..20], &5.0f32.to_le_bytes()); // Z
+        assert_eq!(p[20], 1); // IsRunning
+        assert_eq!(p[21], 0); // WalkingBackward
+        // Walk-backward stop packet: running clears, backward sets.
+        let b = movement_packet(0.0, 0.0, 0.0, 0.0, 0.0, false, true);
+        assert_eq!(b[20], 0);
+        assert_eq!(b[21], 1);
+    }
+
+    #[test]
     fn trade_confirm_one_buy_layout() {
         let p = trade_confirm_packet(&[(1001, 3)], &[]);
         // 32*(4+2) + 32*(1+2) = 192 + 96 = 288 bytes.

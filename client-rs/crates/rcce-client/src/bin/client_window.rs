@@ -538,9 +538,12 @@ struct App {
     login_rx: Option<std::sync::mpsc::Receiver<LoginResult>>,
     /// Open menu-connection peer handle (valid in CharSelect).
     login_peer: i32,
-    /// Editable credential fields + which one has focus (0 = user, 1 = pass).
+    /// Editable credential fields + which one has focus (0 = user, 1 = pass,
+    /// 2 = email — MENU-2, the three fields Tab cycles through like
+    /// `MainMenu.bb:771-783`; email is display-only, unused by login auth).
     login_user: String,
     login_pass: String,
+    login_email: String,
     login_focus: u8,
     /// MD5 of the password, cached after a successful login for create/delete.
     login_md5: String,
@@ -680,6 +683,7 @@ impl App {
                     String::new()
                 }
             }),
+            login_email: std::env::var("RCCE_EMAIL").unwrap_or_default(),
             login_focus: 0,
             login_md5: String::new(),
             login_msg: String::new(),
@@ -1531,6 +1535,13 @@ fn zoom_step(dist: f32, delta: f32) -> f32 {
 /// Apply a volume delta and clamp to [0,1] for the Sound options screen. Pure.
 fn volume_step(vol: f32, delta: f32) -> f32 {
     (vol + delta).clamp(0.0, 1.0)
+}
+
+/// MENU-2: advance the login-field focus among the three fields (0 = Name,
+/// 1 = Pass, 2 = Email), wrapping — `delta = +1` for Tab / Down, `-1` for Up.
+/// Mirrors Blitz's Name→Pass→Email→Name Tab cycle (`MainMenu.bb:771-783`). Pure.
+fn cycle_login_focus(focus: u8, delta: i8) -> u8 {
+    (((focus as i8 + delta).rem_euclid(3)) as u8) % 3
 }
 
 /// Compose a chat-line for one combat event under DamageInfoStyle 2 (CBT-5),
@@ -4485,14 +4496,24 @@ impl App {
                 _ => {}
             },
             Mode::Login => match code {
+                // Enter logs in (Blitz `GY_TextFieldHit(TPass)` → Goto Login);
+                // we accept it in any field, a harmless superset.
                 KeyCode::Enter | KeyCode::NumpadEnter => self.submit_login(),
                 KeyCode::F1 => self.mode = Mode::Options,
-                KeyCode::Tab | KeyCode::ArrowDown | KeyCode::ArrowUp => {
-                    self.login_focus ^= 1;
+                // MENU-2: Tab cycles Name→Pass→Email→Name (MainMenu.bb:771-783);
+                // Up/Down step the same three-field focus.
+                KeyCode::Tab | KeyCode::ArrowDown => {
+                    self.login_focus = cycle_login_focus(self.login_focus, 1);
+                }
+                KeyCode::ArrowUp => {
+                    self.login_focus = cycle_login_focus(self.login_focus, -1);
                 }
                 KeyCode::Backspace => {
-                    let f = if self.login_focus == 0 { &mut self.login_user } else { &mut self.login_pass };
-                    f.pop();
+                    match self.login_focus {
+                        0 => self.login_user.pop(),
+                        1 => self.login_pass.pop(),
+                        _ => self.login_email.pop(),
+                    };
                 }
                 KeyCode::Escape => {
                     self.shutdown_net();
@@ -4500,9 +4521,15 @@ impl App {
                 }
                 _ => {
                     if let Some(t) = text {
-                        let f = if self.login_focus == 0 { &mut self.login_user } else { &mut self.login_pass };
+                        // Email allows longer input + '@'/'.'; name/pass stay 24-cap,
+                        // no spaces (matching the old filter).
+                        let (f, cap) = match self.login_focus {
+                            0 => (&mut self.login_user, 24),
+                            1 => (&mut self.login_pass, 24),
+                            _ => (&mut self.login_email, 40),
+                        };
                         for ch in t.chars().filter(|c| !c.is_control() && *c != ' ') {
-                            if f.chars().count() < 24 {
+                            if f.chars().count() < cap {
                                 f.push(ch);
                             }
                         }
@@ -6372,6 +6399,15 @@ impl App {
             overlay.text(fx + 8.0, y + 7.0, fs, &masked, [1.0, 1.0, 1.0, 1.0]);
             if self.login_focus == 1 && (elapsed * 2.0) as i32 % 2 == 0 {
                 overlay.text(fx + 8.0 + masked.chars().count() as f32 * 9.0 * fs, y + 7.0, fs, "_", [1.0, 1.0, 1.0, 1.0]);
+            }
+            // MENU-2: the Email field (third Tab stop; display-only, MainMenu.bb:466).
+            y += 52.0;
+            overlay.text(fx, y, 1.1, "EMAIL", lbl);
+            y += 18.0;
+            field_bg(overlay, fx, y, fw, self.login_focus == 2);
+            overlay.text(fx + 8.0, y + 7.0, fs, &self.login_email, [1.0, 1.0, 1.0, 1.0]);
+            if self.login_focus == 2 && (elapsed * 2.0) as i32 % 2 == 0 {
+                overlay.text(fx + 8.0 + self.login_email.chars().count() as f32 * 9.0 * fs, y + 7.0, fs, "_", [1.0, 1.0, 1.0, 1.0]);
             }
             y += 50.0;
             if !self.login_msg.is_empty() {
@@ -11273,6 +11309,17 @@ mod tests {
     }
 
     // Sound options master-volume step clamps to [0,1].
+    #[test]
+    fn login_focus_cycles_three_fields() {
+        // MENU-2: Tab/Down (+1) → Name→Pass→Email→Name; Up (-1) reverses.
+        assert_eq!(cycle_login_focus(0, 1), 1);
+        assert_eq!(cycle_login_focus(1, 1), 2);
+        assert_eq!(cycle_login_focus(2, 1), 0); // wraps back to Name
+        assert_eq!(cycle_login_focus(0, -1), 2); // Up from Name wraps to Email
+        assert_eq!(cycle_login_focus(2, -1), 1);
+        assert_eq!(cycle_login_focus(1, -1), 0);
+    }
+
     #[test]
     fn volume_step_clamps() {
         assert_eq!(volume_step(0.5, 0.05), 0.55);
