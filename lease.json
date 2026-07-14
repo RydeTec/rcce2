@@ -1,0 +1,16 @@
+{
+  "run_id": "rcce2-hourly-replacement-20260714T210431Z-0908b396d436",
+  "status": "active",
+  "started_at": "2026-07-14T21:04:31Z",
+  "heartbeat_at": "2026-07-14T21:04:31Z",
+  "expires_at": "2026-07-14T21:14:31Z",
+  "issue": null,
+  "branch": null,
+  "pr": null,
+  "phase": "selection",
+  "scope": {
+    "subsystems": [],
+    "paths": [],
+    "interfaces": []
+  }
+}
