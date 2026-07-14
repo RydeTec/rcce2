@@ -182,6 +182,52 @@ Global LoomComposer.Composer = Null
 ; globals. See ImageCache.bb / feedback_loom_module_include_order.
 
 
+; ---- Scenery editing (Phase D-1) --------------------------------------------
+; Scenery placement is WORLD-MODE ONLY: scenery lives in the visual .dat
+; (loaded by LoadAreaData, persisted by SaveArea) -- it does not exist in the
+; schematic gameplay data. So all scenery ops below are gated on VPWorldMode /
+; VPWorldLoaded, and are mutually exclusive with the schematic portal/trigger/
+; spawn ops (those pick against VPGround, which is hidden in world mode).
+;
+; DATA-LOSS GUARD: SaveArea rewrites the ENTIRE visual .dat (terrain / water /
+; scenery / emitters / colboxes / sound zones) from the live Each-<Type> lists.
+; It must NEVER run unless VPWorldLoaded is True (every section in memory), or
+; it zeroes the on-disk file. SceneryDirty is a SEPARATE flag from the shared
+; ZoneSaved so a scenery edit can never trigger the gameplay ServerSaveArea and
+; a gameplay edit can never trigger SaveArea. See ADR-007.
+;
+; These MUST be module-level Global / Const: this file is Non-Strict, so an
+; undeclared identifier silently auto-declares as a per-function local (zero-
+; init each call) -- which would make every scenery interaction inert. Do not
+; remove.
+Global SceneryDirty = False        ; True = unsaved scenery edits pending
+
+; "Add scenery" brush mode: a mesh is chosen from the MeshCatalog picker, then
+; each LMB click on the terrain drops an instance of it.
+Global ScnAddMode      = False     ; picker panel open + placement armed
+Global ScnBrushMeshID  = 0         ; ENGINE mesh id of the selected brush (0 = none)
+Global ScnBrushName$   = ""        ; display name of the selected brush mesh
+Global ScnPickerScroll = 0         ; first visible row in the mesh picker list
+
+; Currently-selected scenery instance (Handle(Scenery), 0 = none). Drives the
+; property readout + is the move/delete target.
+Global ScnSelectedH    = 0
+
+; Scenery move-drag state (RMB-drag a scenery entity on the terrain). Mirrors
+; the schematic marker-drag shape (XZ by default, Shift at press = Y mode).
+Global ScnDragging     = False
+Global ScnDragEN       = 0         ; entity handle being dragged
+Global ScnDragH        = 0         ; Handle(Scenery) being dragged
+Global ScnDragYMode    = False
+Global ScnDragLastMY   = 0
+Global ScnDragChanged  = False
+
+; Picker-panel layout (drawn inside the viewport rect, right edge).
+Const SCN_PICK_W       = 168
+Const SCN_PICK_ROW_H   = 15
+Const SCN_PICK_ROWS    = 18        ; visible rows before scroll
+
+
 ; =============================================================================
 ; AreaLoad* presentation hooks -- the contract AreaLoader.bb requires of any
 ; including target (GUE implements them with the Gooey loading screen in
@@ -1228,6 +1274,16 @@ Function Loom_DeleteSceneryAtClick(zoneHandle, localX, localY)
 
     Local meshID = S\MeshID
     If Handle(S) = ScnSelectedH Then ScnSelectedH = 0
+    ; If an RMB scenery-drag is in progress on this same instance (RMB held +
+    ; Ctrl+LMB delete), cancel the drag so the next drag frame doesn't
+    ; PositionEntity a freed handle. Clear the whole drag latch.
+    If Handle(S) = ScnDragH Or S\EN = ScnDragEN
+        ScnDragging    = False
+        ScnDragEN      = 0
+        ScnDragH       = 0
+        ScnDragYMode   = False
+        ScnDragChanged = False
+    EndIf
     If S\EN <> 0 Then FreeEntity S\EN
     Delete S
 
@@ -1275,7 +1331,14 @@ Function Loom_SaveScenery(zoneHandle)
         Return
     EndIf
 
-    SaveArea(Ar\Name$)
+    ; SaveArea returns False if WriteFile fails (disk full / locked / bad path).
+    ; Only clear the dirty flag + report success when the write actually
+    ; committed -- otherwise keep the edits marked dirty and warn.
+    If SaveArea(Ar\Name$) = False
+        Toast_Show("Scenery save FAILED for " + Ar\Name$ + " (edits kept)", "danger")
+        WriteLog(LoomLog, "ZoneViewport: SaveArea returned False for " + Ar\Name$ + " -- SceneryDirty kept")
+        Return
+    EndIf
     SceneryDirty = False
     Toast_Show("Saved scenery for " + Ar\Name$, "success")
     WriteLog(LoomLog, "ZoneViewport: SaveArea wrote visual .dat for " + Ar\Name$)
