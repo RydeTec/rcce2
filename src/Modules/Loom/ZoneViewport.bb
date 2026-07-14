@@ -272,6 +272,20 @@ End Function
 ; =============================================================================
 Function Loom_UnloadWorld()
     If VPWorldLoaded = False Then Return
+    ; Scenery edit state is world-scoped and lives only in memory until saved.
+    ; UnloadArea frees the scenery entities below, so any pending edits are
+    ; lost -- warn once, then clear all scenery edit state.
+    If SceneryDirty = True
+        Toast_Show("Unsaved scenery changes discarded (use 'save scenery' before leaving world view)", "warning")
+        WriteLog(LoomLog, "ZoneViewport: discarded unsaved scenery edits on world unload")
+    EndIf
+    SceneryDirty   = False
+    ScnAddMode     = False
+    ScnSelectedH   = 0
+    ScnDragging    = False
+    ScnDragEN      = 0
+    ScnDragH       = 0
+    ScnDragChanged = False
     UnloadArea()
     VPWorldLoaded = False
     ; LoadAreaData set the camera's range/fog/cls colors (SetViewDistance +
@@ -323,6 +337,10 @@ Function Loom_SetWorldMode(zoneHandle, enable)
         VPWorldMode = True
         VPSceneYOff# = 0.0
         If VPGround <> 0 Then HideEntity VPGround
+        ; Make every loaded scenery instance editor-pickable (pickmode 2),
+        ; including collision-0 scenery LoadAreaData left unpickable. pickmode
+        ; is runtime-only -- not serialized -- so this changes no on-disk data.
+        Loom_MakeSceneryPickable()
         Loom_LoadZoneMarkers(Ar)
         VPDirty = True
         Toast_Show("World view: " + Ar\Name$, "success")
@@ -1093,6 +1111,242 @@ End Function
 
 
 ; =============================================================================
+; Loom_MakeSceneryPickable -- force EntityPickMode 2 (polygon pick) on every
+; loaded Scenery entity so CameraPick can select / move / delete them in the
+; editor. pickmode is a RUNTIME property, NOT serialized (SaveArea writes
+; GetEntityType, not pickmode), so this is a pure editor affordance -- it does
+; not change the on-disk collision type. Called after each world load. Loaded
+; scenery whose collision type is 0 would otherwise be unpickable (LoadAreaData
+; only sets a pickmode for C_Sphere/Triangle/Box).
+; =============================================================================
+Function Loom_MakeSceneryPickable()
+    Local S.Scenery
+    For S = Each Scenery
+        If S\EN <> 0 Then EntityPickMode S\EN, 2
+    Next
+End Function
+
+
+; =============================================================================
+; Loom_SceneryFromEN -- resolve a picked entity handle to its Scenery record,
+; or Null if the entity is not a scenery instance (terrain / marker / miss).
+; LoadAreaData + GUE both NameEntity(S\EN, Handle(S)), so the entity's name
+; round-trips through Object.Scenery. Null-safe per handle-lookup discipline.
+; =============================================================================
+Function Loom_SceneryFromEN.Scenery(en)
+    If en = 0 Then Return Null
+    Return Object.Scenery(EntityName$(en))
+End Function
+
+
+; =============================================================================
+; Loom_AddSceneryAtClick -- WORLD MODE ONLY. Drop a new scenery instance of the
+; selected brush mesh at the terrain point under the cursor. Initializes EVERY
+; field SaveArea serializes (no uninitialized field -- #618 review check), and
+; writes the ENGINE mesh id, not a catalog index (#592). Falls back to a point
+; in front of the camera if the pick misses (indoor zones without terrain).
+; =============================================================================
+Function Loom_AddSceneryAtClick(zoneHandle, localX, localY)
+    If VPInitOK = False Then Return
+    If VPWorldMode = False Or VPWorldLoaded = False Then Return
+    If ScnBrushMeshID <= 0
+        Toast_Show("Pick a mesh from the list first", "warning")
+        Return
+    EndIf
+
+    ; Placement point: reuse the shared ground/terrain pick (world mode lands
+    ; on the real loaded geometry; markers are temporarily disabled so the ray
+    ; passes through them). A miss is a no-op -- never drop floating scenery.
+    If Loom_PickGround(localX, localY) = False
+        Toast_Show("Aim at the terrain to place scenery", "warning")
+        Return
+    EndIf
+    Local px# = VPPickX#
+    Local py# = VPPickY#
+    Local pz# = VPPickZ#
+
+    Local en = GetMesh(ScnBrushMeshID, False)
+    If en = 0
+        Toast_Show("Could not load mesh " + Str(ScnBrushMeshID), "warning")
+        Return
+    EndIf
+
+    ; Brush scale mirrors GUE's place-from-browser: mesh's catalog scale * 0.05.
+    Local sc# = 1.0
+    Local mEnt.MeshEntry = Meshes_GetByID(ScnBrushMeshID)
+    If mEnt <> Null And mEnt\Scale# > 0.0 Then sc# = mEnt\Scale# * 0.05
+    If sc# <= 0.0 Then sc# = 1.0
+
+    ; --- Create + fully initialize every serialized field ---
+    Local S.Scenery = New Scenery
+    S\MeshID        = ScnBrushMeshID     ; engine mesh id (SaveArea WriteShort)
+    S\EN            = en
+    S\ScaleX#       = sc#
+    S\ScaleY#       = sc#
+    S\ScaleZ#       = sc#
+    S\AnimationMode = 0
+    S\SceneryID     = 0
+    S\TextureID     = 65535              ; 65535 = no retexture (GUE default)
+    S\CatchRain     = 0
+    S\Lightmap$     = ""
+    S\RCTE$         = ""
+    S\CastShadow    = 0
+    S\ReceiveShadow = 0
+    S\RenderRange   = 0
+    NameEntity S\EN, Handle(S)
+    ; Collision type 0 (parity with GUE's implicit default -> GetEntityType
+    ; writes 0). pickmode 2 makes it editor-selectable without persisting a
+    ; collision (pickmode isn't serialized).
+    EntityType     S\EN, 0
+    EntityPickMode S\EN, 2
+    PositionEntity S\EN, px#, py#, pz#
+    RotateEntity   S\EN, 0.0, 0.0, 0.0   ; Pitch/Yaw/Roll all 0 (serialized)
+    ScaleEntity    S\EN, S\ScaleX#, S\ScaleY#, S\ScaleZ#
+
+    ScnSelectedH = Handle(S)
+    SceneryDirty = True
+    VPDirty = True
+    Toast_Show("Added scenery " + ScnBrushName$ + " at (" + Int(px#) + ", " + Int(pz#) + ")", "success")
+    WriteLog(LoomLog, "ZoneViewport: added scenery mesh " + Str(ScnBrushMeshID) + " at " + px# + ", " + py# + ", " + pz#)
+End Function
+
+
+; =============================================================================
+; Loom_DeleteSceneryAtClick -- WORLD MODE ONLY. Ctrl+LMB on a scenery instance
+; frees its entity + Deletes the record. Single-target delete (find-then-delete-
+; then-return), so no iterator-during-iteration hazard.
+; =============================================================================
+Function Loom_DeleteSceneryAtClick(zoneHandle, localX, localY)
+    If VPInitOK = False Then Return
+    If VPWorldMode = False Or VPWorldLoaded = False Then Return
+
+    CameraPick VPCam, localX, localY
+    Local picked = PickedEntity()
+    If picked = 0 Then Return
+    Local S.Scenery = Loom_SceneryFromEN(picked)
+    If S = Null Then Return
+
+    Local meshID = S\MeshID
+    If Handle(S) = ScnSelectedH Then ScnSelectedH = 0
+    If S\EN <> 0 Then FreeEntity S\EN
+    Delete S
+
+    SceneryDirty = True
+    VPDirty = True
+    Toast_Show("Deleted scenery (mesh " + Str(meshID) + ")", "danger")
+    WriteLog(LoomLog, "ZoneViewport: deleted scenery mesh " + Str(meshID))
+End Function
+
+
+; =============================================================================
+; Loom_SelectSceneryAtClick -- WORLD MODE ONLY. Plain LMB pick sets the
+; selected scenery (drives the property readout + is the move target). Miss
+; clears the selection.
+; =============================================================================
+Function Loom_SelectSceneryAtClick(localX, localY)
+    If VPInitOK = False Then Return
+    CameraPick VPCam, localX, localY
+    Local S.Scenery = Loom_SceneryFromEN(PickedEntity())
+    If S = Null
+        ScnSelectedH = 0
+    Else
+        ScnSelectedH = Handle(S)
+        Toast_Show("Selected scenery (mesh " + Str(S\MeshID) + ")", "info")
+    EndIf
+    VPDirty = True
+End Function
+
+
+; =============================================================================
+; Loom_SaveScenery -- persist scenery (and the rest of the visual area) via the
+; relocated SaveArea. DATA-LOSS GUARD: SaveArea rewrites the ENTIRE visual .dat
+; from the live Each-<Type> lists, so it must run ONLY when VPWorldLoaded is
+; True. If the world is not fully loaded this is a no-op + a warning toast --
+; NEVER a partial write. Clears the SEPARATE SceneryDirty flag (not ZoneSaved).
+; =============================================================================
+Function Loom_SaveScenery(zoneHandle)
+    Local Ar.Area = Object.Area(zoneHandle)
+    If Ar = Null Then Return
+
+    ; The airtight guard: no fully-loaded world -> refuse to write.
+    If VPWorldLoaded = False Or VPWorldMode = False
+        Toast_Show("Scenery save skipped: world not loaded (switch to world view first)", "warning")
+        WriteLog(LoomLog, "ZoneViewport: Loom_SaveScenery refused -- VPWorldLoaded=" + Str(VPWorldLoaded))
+        Return
+    EndIf
+
+    SaveArea(Ar\Name$)
+    SceneryDirty = False
+    Toast_Show("Saved scenery for " + Ar\Name$, "success")
+    WriteLog(LoomLog, "ZoneViewport: SaveArea wrote visual .dat for " + Ar\Name$)
+End Function
+
+
+; =============================================================================
+; Loom_DrawSceneryPicker -- mesh-catalog picker panel, drawn on the right edge
+; of the viewport when ScnAddMode is on. Rows list mesh filenames; click a row
+; to arm that mesh as the placement brush. Wheel over the panel scrolls. Returns
+; True when the cursor is over the panel (caller suppresses orbit + zoom).
+; =============================================================================
+Function Loom_DrawSceneryPicker(x, y, w, h, mx, my)
+    If ScnAddMode = False Then Return False
+
+    Local pickX = x + w - SCN_PICK_W
+    Local pickY = y + 28
+    Local pickH = SCN_PICK_ROWS * SCN_PICK_ROW_H + 20
+    Local over = (mx >= pickX And mx < x + w And my >= pickY And my < pickY + pickH)
+
+    ; Panel backdrop + header
+    LoomFill pickX, pickY, SCN_PICK_W, pickH, LOOM_STONE_900_R, LOOM_STONE_900_G, LOOM_STONE_900_B
+    LoomBorder pickX, pickY, SCN_PICK_W, pickH, LOOM_ARCANE_500_R, LOOM_ARCANE_500_G, LOOM_ARCANE_500_B
+    LoomText pickX + 6, pickY + 3, "SCENERY MESH (" + Str(MeshesTotalCount) + ")", LOOM_ARCANE_500_R, LOOM_ARCANE_500_G, LOOM_ARCANE_500_B
+
+    ; Wheel scroll (only while hovering the panel)
+    If over = True
+        Local wheel = Loom_MouseWheel()
+        If wheel <> 0
+            ScnPickerScroll = ScnPickerScroll - wheel
+            Loom_ConsumeWheel()
+        EndIf
+    EndIf
+    Local maxScroll = MeshesTotalCount - SCN_PICK_ROWS
+    If maxScroll < 0 Then maxScroll = 0
+    If ScnPickerScroll > maxScroll Then ScnPickerScroll = maxScroll
+    If ScnPickerScroll < 0 Then ScnPickerScroll = 0
+
+    Local rowY = pickY + 18
+    Local i
+    For i = 0 To SCN_PICK_ROWS - 1
+        Local idx = ScnPickerScroll + i
+        If idx >= MeshesTotalCount Then Exit
+        Local mEnt.MeshEntry = Meshes_GetByIndex(idx)
+        If mEnt <> Null
+            Local rHover = (mx >= pickX And mx < pickX + SCN_PICK_W And my >= rowY And my < rowY + SCN_PICK_ROW_H)
+            Local isBrush = (mEnt\ID = ScnBrushMeshID)
+            If isBrush = True
+                LoomFill pickX + 1, rowY, SCN_PICK_W - 2, SCN_PICK_ROW_H, LOOM_ARCANE_500_R, LOOM_ARCANE_500_G, LOOM_ARCANE_500_B
+                LoomText pickX + 6, rowY + 1, mEnt\Filename$, LOOM_PARCHMENT_100_R, LOOM_PARCHMENT_100_G, LOOM_PARCHMENT_100_B
+            Else If rHover = True
+                LoomFill pickX + 1, rowY, SCN_PICK_W - 2, SCN_PICK_ROW_H, LOOM_STONE_700_R, LOOM_STONE_700_G, LOOM_STONE_700_B
+                LoomText pickX + 6, rowY + 1, mEnt\Filename$, LOOM_PARCHMENT_100_R, LOOM_PARCHMENT_100_G, LOOM_PARCHMENT_100_B
+            Else
+                LoomText pickX + 6, rowY + 1, mEnt\Filename$, LOOM_STONE_300_R, LOOM_STONE_300_G, LOOM_STONE_300_B
+            EndIf
+            If rHover = True And Loom_MouseClicked() = True
+                ScnBrushMeshID = mEnt\ID
+                ScnBrushName$  = mEnt\Filename$
+                Loom_ConsumeClick()
+                Toast_Show("Brush: " + mEnt\Filename$ + " -- click terrain to place", "info")
+            EndIf
+        EndIf
+        rowY = rowY + SCN_PICK_ROW_H
+    Next
+
+    Return over
+End Function
+
+
+; =============================================================================
 ; Loom_DrawZoneViewport -- public render entry. Lazy-loads markers for the
 ; zone if the zone handle changed since last frame. Then handles orbit/
 ; zoom input, repositions the camera, renders to RT, blits to back buffer.
@@ -1152,13 +1406,28 @@ Function Loom_DrawZoneViewport(zoneHandle, x, y, w, h)
     Local my = MouseY()
     Local inside = (mx >= x And mx < x + w And my >= y And my < y + h)
 
+    ; Scenery picker panel occupies the right strip in world + add mode.
+    ; Clicks there select a brush (handled at draw time), so orbit-start and
+    ; scenery placement are suppressed while the cursor is over it.
+    Local overSceneryPanel = False
+    If ScnAddMode = True And VPWorldMode = True
+        Local spX = x + w - SCN_PICK_W
+        Local spY = y + 28
+        Local spH = SCN_PICK_ROWS * SCN_PICK_ROW_H + 20
+        overSceneryPanel = (mx >= spX And mx < x + w And my >= spY And my < spY + spH)
+    EndIf
+
     If MouseDown(1) = True And inside = True
         If VPDragging = False
-            VPDragging = True
-            VPLastMX = mx
-            VPLastMY = my
-            VPDragStartMX = mx     ; remember initial press for click-vs-drag distinguish
-            VPDragStartMY = my
+            ; Don't start an orbit when the press begins over the picker panel
+            ; -- that click belongs to the mesh list.
+            If overSceneryPanel = False
+                VPDragging = True
+                VPLastMX = mx
+                VPLastMY = my
+                VPDragStartMX = mx     ; remember initial press for click-vs-drag distinguish
+                VPDragStartMY = my
+            EndIf
         Else
             Local dx = mx - VPLastMX
             Local dy = my - VPLastMY
@@ -1174,22 +1443,40 @@ Function Loom_DrawZoneViewport(zoneHandle, x, y, w, h)
         EndIf
     Else
         ; On LMB release: if the press-to-release total movement was
-        ; small (no real drag), treat as a click. Shift held =
-        ; add a new portal at the clicked ground position; else
-        ; treat as marker pick. Loom_MouseClicked() is False here
-        ; (it fires on PRESS not release), so check VPDragging
+        ; small (no real drag), treat as a click. Loom_MouseClicked() is
+        ; False here (it fires on PRESS not release), so check VPDragging
         ; transitioning to False.
         If VPDragging = True
             Local moveDist = Abs(mx - VPDragStartMX) + Abs(my - VPDragStartMY)
             If moveDist < 4 And inside = True
                 ; KeyDown(42) = LShift, KeyDown(54) = RShift
                 ; KeyDown(29) = LCtrl,  KeyDown(157) = RCtrl
-                If KeyDown(29) = True Or KeyDown(157) = True
-                    Loom_DeleteMarkerAtClick(zoneHandle, mx - x, my - y)
-                Else If KeyDown(42) = True Or KeyDown(54) = True
-                    Loom_AddPortalAtClick(zoneHandle, mx - x, my - y)
+                If VPWorldMode = True And ScnAddMode = True And overSceneryPanel = False
+                    ; Scenery edit mode: Ctrl = delete scenery; a click on an
+                    ; existing scenery selects it; a click on empty terrain
+                    ; with a brush armed places a new instance.
+                    If KeyDown(29) = True Or KeyDown(157) = True
+                        Loom_DeleteSceneryAtClick(zoneHandle, mx - x, my - y)
+                    Else
+                        CameraPick VPCam, mx - x, my - y
+                        Local sHit.Scenery = Loom_SceneryFromEN(PickedEntity())
+                        If sHit <> Null
+                            ScnSelectedH = Handle(sHit)
+                            VPDirty = True
+                        Else If ScnBrushMeshID > 0
+                            Loom_AddSceneryAtClick(zoneHandle, mx - x, my - y)
+                        EndIf
+                    EndIf
                 Else
-                    Loom_PickZoneMarker(mx - x, my - y)
+                    ; Schematic / marker editing (both modes when not in
+                    ; scenery mode): delete / add-portal / pick marker.
+                    If KeyDown(29) = True Or KeyDown(157) = True
+                        Loom_DeleteMarkerAtClick(zoneHandle, mx - x, my - y)
+                    Else If KeyDown(42) = True Or KeyDown(54) = True
+                        Loom_AddPortalAtClick(zoneHandle, mx - x, my - y)
+                    Else
+                        Loom_PickZoneMarker(mx - x, my - y)
+                    EndIf
                 EndIf
             EndIf
         EndIf
@@ -1204,7 +1491,65 @@ Function Loom_DrawZoneViewport(zoneHandle, x, y, w, h)
     Local rmbJustPressed = (rmbDown = True And VPRMBPrevDown = False)
     VPRMBPrevDown = rmbDown
 
-    If rmbDown = True And inside = True
+    ; ---- Scenery move-drag (RMB, world + scenery mode) ---------------------
+    ; In scenery mode RMB grabs the scenery instance under the cursor and
+    ; drags it on the terrain (XZ; Shift at press = Y). Scenery position lives
+    ; on the LIVE entity (SaveArea reads EntityX/Y/Z), so PositionEntity IS the
+    ; data write -- no field commit needed. Owns RMB while active, so the
+    ; marker-drag + fly blocks below are gated off.
+    Local sceneryDragActive = (VPWorldMode = True And ScnAddMode = True)
+    If sceneryDragActive = True And rmbDown = True And inside = True
+        If ScnDragging = False
+            CameraPick VPCam, mx - x, my - y
+            Local sRec.Scenery = Loom_SceneryFromEN(PickedEntity())
+            If sRec <> Null
+                ScnDragging    = True
+                ScnDragEN      = sRec\EN
+                ScnDragH       = Handle(sRec)
+                ScnSelectedH   = ScnDragH
+                ScnDragYMode   = (KeyDown(42) = True Or KeyDown(54) = True)
+                ScnDragLastMY  = my
+                ScnDragChanged = False
+            EndIf
+        Else
+            If ScnDragYMode = True
+                Local sdy = my - ScnDragLastMY
+                ScnDragLastMY = my
+                If sdy <> 0
+                    Local sYD# = Float(-sdy) * (VPDistance# / 200.0)
+                    PositionEntity ScnDragEN, EntityX#(ScnDragEN), EntityY#(ScnDragEN) + sYD#, EntityZ#(ScnDragEN)
+                    ScnDragChanged = True
+                    VPDirty = True
+                EndIf
+            Else
+                ; XZ drag: hide the dragged scenery so the ray passes through
+                ; it, then pick the terrain beneath via the shared helper.
+                HideEntity ScnDragEN
+                Local scnGot = Loom_PickGround(mx - x, my - y)
+                ShowEntity ScnDragEN
+                If scnGot = True
+                    PositionEntity ScnDragEN, VPPickX#, EntityY#(ScnDragEN), VPPickZ#
+                    ScnDragChanged = True
+                    VPDirty = True
+                EndIf
+            EndIf
+        EndIf
+    Else
+        If ScnDragging = True
+            If ScnDragChanged = True
+                SceneryDirty = True
+                Toast_Show("Moved scenery", "success")
+                WriteLog(LoomLog, "ZoneViewport: scenery drag commit (mesh handle " + Str(ScnDragH) + ")")
+            EndIf
+            ScnDragging    = False
+            ScnDragEN      = 0
+            ScnDragH       = 0
+            ScnDragYMode   = False
+            ScnDragChanged = False
+        EndIf
+    EndIf
+
+    If rmbDown = True And inside = True And sceneryDragActive = False
         If VPMarkerDragging = False
             ; Press: hit-test for a marker. Need to render the scene
             ; first so the camera + entity positions are current for
@@ -1309,7 +1654,9 @@ Function Loom_DrawZoneViewport(zoneHandle, x, y, w, h)
         EndIf
     EndIf
 
-    If inside = True
+    ; Wheel zooms -- unless the cursor is over the scenery picker panel, where
+    ; the wheel scrolls the mesh list instead (handled in Loom_DrawSceneryPicker).
+    If inside = True And overSceneryPanel = False
         Local wheel = Loom_MouseWheel()
         If wheel <> 0
             VPDistance# = VPDistance# - Float(wheel) * (VPDistance# * 0.08)
@@ -1374,7 +1721,7 @@ Function Loom_DrawZoneViewport(zoneHandle, x, y, w, h)
     ; (Loom.bb silences the browser keyboard while a zone is focused, so
     ; these keys don't dribble into the card filter.) Scancodes: W17 A30 S31
     ; D32 Q16 E18.
-    If rmbDown = True And inside = True And VPMarkerDragging = False
+    If rmbDown = True And inside = True And VPMarkerDragging = False And ScnDragging = False
         Local flyStep# = VPDistance# * 0.03
         If flyStep# < 2.0 Then flyStep# = 2.0
         Local ffX# = Sin(VPYaw#)
@@ -1574,6 +1921,67 @@ Function Loom_DrawZoneViewport(zoneHandle, x, y, w, h)
         Loom_ConsumeClick()
     EndIf
 
+    ; Scenery pills -- WORLD MODE ONLY (scenery is visual world data). "add
+    ; scenery" toggles the placement brush + mesh picker; "save scenery"
+    ; persists via SaveArea (guarded on a fully-loaded world in Loom_SaveScenery).
+    If VPWorldMode = True
+        Local scAddW = 76
+        Local scAddX = wmX - scAddW - 6
+        Local scAddHover = (mx >= scAddX And mx < scAddX + scAddW And my >= rsY And my < rsY + 16)
+        Local scAddLbl$ = "add scenery"
+        If ScnAddMode = True Then scAddLbl$ = "done adding"
+        If ScnAddMode = True Or scAddHover = True
+            LoomFill scAddX, rsY, scAddW, 16, LOOM_ARCANE_500_R, LOOM_ARCANE_500_G, LOOM_ARCANE_500_B
+            LoomText scAddX + 4, rsY + 1, scAddLbl$, LOOM_PARCHMENT_100_R, LOOM_PARCHMENT_100_G, LOOM_PARCHMENT_100_B
+        Else
+            LoomBorder scAddX, rsY, scAddW, 16, LOOM_ARCANE_500_R, LOOM_ARCANE_500_G, LOOM_ARCANE_500_B
+            LoomText scAddX + 4, rsY + 1, scAddLbl$, LOOM_ARCANE_500_R, LOOM_ARCANE_500_G, LOOM_ARCANE_500_B
+        EndIf
+        If scAddHover = True And Loom_MouseClicked() = True
+            ScnAddMode = Not ScnAddMode
+            Loom_ConsumeClick()
+        EndIf
+
+        Local scSaveW = 84
+        Local scSaveX = scAddX - scSaveW - 6
+        Local scSaveLbl$ = "save scenery"
+        If SceneryDirty = True Then scSaveLbl$ = "save scenery*"
+        Local scSaveHover = (mx >= scSaveX And mx < scSaveX + scSaveW And my >= rsY And my < rsY + 16)
+        If scSaveHover = True
+            LoomFill scSaveX, rsY, scSaveW, 16, LOOM_BRASS_500_R, LOOM_BRASS_500_G, LOOM_BRASS_500_B
+            LoomText scSaveX + 4, rsY + 1, scSaveLbl$, LOOM_PARCHMENT_100_R, LOOM_PARCHMENT_100_G, LOOM_PARCHMENT_100_B
+        Else
+            LoomBorder scSaveX, rsY, scSaveW, 16, LOOM_BRASS_500_R, LOOM_BRASS_500_G, LOOM_BRASS_500_B
+            LoomText scSaveX + 4, rsY + 1, scSaveLbl$, LOOM_BRASS_500_R, LOOM_BRASS_500_G, LOOM_BRASS_500_B
+        EndIf
+        If scSaveHover = True And Loom_MouseClicked() = True
+            Loom_SaveScenery(zoneHandle)
+            Loom_ConsumeClick()
+        EndIf
+    Else
+        ; Leaving world mode retires the scenery brush affordance.
+        ScnAddMode = False
+    EndIf
+
+    ; Scenery mesh picker panel (right strip) -- only paints in world+add mode.
+    Loom_DrawSceneryPicker(x, y, w, h, mx, my)
+
+    ; Selected-scenery property readout (bottom-left, above the hint bar).
+    If VPWorldMode = True And ScnSelectedH <> 0
+        Local selS.Scenery = Object.Scenery(ScnSelectedH)
+        If selS = Null
+            ScnSelectedH = 0    ; stale handle -> clear
+        Else If selS\EN <> 0
+            Local roX = x + 8
+            Local roY = y + h - 66
+            LoomFill roX, roY, 216, 44, LOOM_STONE_900_R, LOOM_STONE_900_G, LOOM_STONE_900_B
+            LoomBorder roX, roY, 216, 44, LOOM_ARCANE_500_R, LOOM_ARCANE_500_G, LOOM_ARCANE_500_B
+            LoomText roX + 5, roY + 2, "SCENERY  mesh " + Str(selS\MeshID), LOOM_ARCANE_500_R, LOOM_ARCANE_500_G, LOOM_ARCANE_500_B
+            LoomText roX + 5, roY + 15, "pos " + Int(EntityX#(selS\EN, True)) + ", " + Int(EntityY#(selS\EN, True)) + ", " + Int(EntityZ#(selS\EN, True)), LOOM_STONE_300_R, LOOM_STONE_300_G, LOOM_STONE_300_B
+            LoomText roX + 5, roY + 28, "yaw " + Int(EntityYaw#(selS\EN, True)) + "   scale " + selS\ScaleX#, LOOM_STONE_300_R, LOOM_STONE_300_G, LOOM_STONE_300_B
+        EndIf
+    EndIf
+
     ; Highlighted-marker name label: project the highlighted marker's
     ; world position to screen via CameraProject and float its label
     ; above the marker. Gives a clear visual cross-reference between
@@ -1603,8 +2011,10 @@ Function Loom_DrawZoneViewport(zoneHandle, x, y, w, h)
     EndIf
 
     If inside = True
-        If VPWorldMode = True
-            LoomText x + 8, y + h - 18, "WORLD VIEW (editable)  |  LMB: orbit  |  MMB: pan  |  wheel: zoom  |  hold RMB + WASD fly  |  RMB drag marker: move on terrain  |  Shift+LMB: add portal on terrain  |  Ctrl+LMB: delete", LOOM_STONE_300_R, LOOM_STONE_300_G, LOOM_STONE_300_B
+        If VPWorldMode = True And ScnAddMode = True
+            LoomText x + 8, y + h - 18, "SCENERY MODE  |  pick a mesh (right)  |  LMB terrain: place  |  LMB scenery: select  |  RMB drag: move (Shift+RMB = height)  |  Ctrl+LMB: delete  |  'save scenery' to persist", LOOM_ARCANE_500_R, LOOM_ARCANE_500_G, LOOM_ARCANE_500_B
+        Else If VPWorldMode = True
+            LoomText x + 8, y + h - 18, "WORLD VIEW (editable)  |  LMB: orbit  |  MMB: pan  |  wheel: zoom  |  hold RMB + WASD fly  |  RMB drag marker: move on terrain  |  Shift+LMB: add portal on terrain  |  Ctrl+LMB: delete  |  'add scenery' for meshes", LOOM_STONE_300_R, LOOM_STONE_300_G, LOOM_STONE_300_B
         Else
             LoomText x + 8, y + h - 18, "LMB: orbit  |  MMB: pan  |  wheel: zoom  |  hold RMB + WASD fly / QE up-down  |  RMB drag a marker: move  |  Shift+LMB: add portal  |  Ctrl+LMB: delete", LOOM_STONE_300_R, LOOM_STONE_300_G, LOOM_STONE_300_B
         EndIf
