@@ -1430,6 +1430,13 @@ fn initial_menu_mode(eula_present: bool) -> Mode {
 const CAM_DIST_MIN: f32 = 5.0;
 const CAM_DIST_MAX: f32 = 50.0;
 const CAM_DIST_DEFAULT: f32 = 13.0;
+/// MOVE-9: third-person mouse-look pitch clamp, matching Blitz's
+/// `CamPitch#` limits [−70°, +85°] (`Interface3D.bb:637-641`). `cam_pitch` is
+/// stored in radians (fed straight into `pitch.sin_cos()` for the boom), so the
+/// Blitz degree limits convert once here. The range is asymmetric — more room to
+/// look down (top-down at +85°) than up from below (−70°) — same as Blitz.
+const CAM_PITCH_MIN: f32 = -70.0 * std::f32::consts::PI / 180.0;
+const CAM_PITCH_MAX: f32 = 85.0 * std::f32::consts::PI / 180.0;
 /// Minimum clearance (world units) the camera eye keeps above the terrain at its
 /// own X/Z, so the boom doesn't sink into a hill behind the player.
 const CAM_GROUND_CLEARANCE: f32 = 1.5;
@@ -1535,6 +1542,12 @@ fn zoom_step(dist: f32, delta: f32) -> f32 {
 /// Apply a volume delta and clamp to [0,1] for the Sound options screen. Pure.
 fn volume_step(vol: f32, delta: f32) -> f32 {
     (vol + delta).clamp(0.0, 1.0)
+}
+
+/// MOVE-9: clamp the third-person mouse-look pitch to Blitz's [−70°, +85°]
+/// (in radians). Pure.
+fn pitch_clamp(pitch: f32) -> f32 {
+    pitch.clamp(CAM_PITCH_MIN, CAM_PITCH_MAX)
 }
 
 /// MENU-2: advance the login-field focus among the three fields (0 = Name,
@@ -4027,8 +4040,8 @@ impl ApplicationHandler for App {
         if let DeviceEvent::MouseMotion { delta: (dx, dy) } = event {
             const SENS: f32 = 0.0032;
             self.cam_yaw += dx as f32 * SENS;
-            // Up-drag looks up; clamp so the camera can't flip past the poles.
-            self.cam_pitch = (self.cam_pitch - dy as f32 * SENS).clamp(-0.35, 1.30);
+            // Up-drag looks up; clamp to Blitz's [−70°, +85°] pitch limits (MOVE-9).
+            self.cam_pitch = pitch_clamp(self.cam_pitch - dy as f32 * SENS);
         }
     }
 }
@@ -11309,6 +11322,16 @@ mod tests {
     }
 
     // Sound options master-volume step clamps to [0,1].
+    #[test]
+    fn pitch_clamp_matches_blitz_limits() {
+        // MOVE-9: [−70°, +85°] in radians (Interface3D.bb:637-641).
+        assert!((pitch_clamp(10.0) - 85f32.to_radians()).abs() < 1e-6); // clamp high → +85°
+        assert!((pitch_clamp(-10.0) - (-70f32).to_radians()).abs() < 1e-6); // clamp low → −70°
+        // A mid value passes through unchanged.
+        let mid = 0.25;
+        assert_eq!(pitch_clamp(mid), mid);
+    }
+
     #[test]
     fn login_focus_cycles_three_fields() {
         // MENU-2: Tab/Down (+1) → Name→Pass→Email→Name; Up (-1) reverses.
