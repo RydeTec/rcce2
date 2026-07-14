@@ -651,6 +651,11 @@ struct App {
     assignable_attrs: Vec<usize>,
     /// The project's attribute-point pool (`AttributeAssignment`). 0 = no spend UI.
     attr_pool: u8,
+    /// Headless `RCCE_AUTOCREATE` one-shot latch. The auto-driver creates at most
+    /// ONE character; without this, a rejected create (e.g. a name collision)
+    /// would loop every frame, spamming the server. Set the first time the
+    /// auto-create branch runs, regardless of success.
+    auto_create_tried: bool,
 }
 
 impl App {
@@ -793,6 +798,7 @@ impl App {
             create_templates: Vec::new(),
             assignable_attrs: Vec::new(),
             attr_pool: 0,
+            auto_create_tried: false,
             data_root: String::new(),
             loaded_zone: String::new(),
             // GPU skinning is the default; RCCE_CPUSKIN forces the legacy CPU
@@ -1524,6 +1530,34 @@ fn initial_menu_mode(eula_present: bool) -> Mode {
     } else {
         Mode::Login
     }
+}
+
+/// The character name the `RCCE_AUTOCREATE` headless harness creates. Pure so the
+/// call site can inject the env override and a time source, and so the regression
+/// is unit-testable.
+///
+/// Server-side character names are GLOBALLY unique and validated against a
+/// printable-ASCII charset + a banned-word filter (`characters.rs`
+/// `name_charset_ok` / `name_is_banned`). A FIXED name (the old hardcoded
+/// "Shotbot") collides as soon as the server's `Accounts.dat` already holds it —
+/// and that file is a persistent, gitignored save that accumulates every
+/// character created against a data dir, so any re-run against the same server
+/// data hits the collision (in the environment this was diagnosed in, a prior
+/// harness run had already left a "Shotbot" behind). A rejected create wedges the
+/// AUTOENTER path, so the default name is `Shot` + 6 decimal digits from
+/// `suffix_ms` (millisecond clock) — digits only, so it can never collide with a
+/// filtered title word and always passes the charset. The `% 1_000_000` wraps
+/// every ~1000 s, so this is "time-varying" rather than provably globally unique,
+/// but the one-shot latch at the call site means only ONE name is ever generated
+/// per process (no within-run collision), and against a fresh data copy there is
+/// no pre-existing `Shot*` to collide with. A non-blank `name_override`
+/// (`RCCE_AUTOCREATE_NAME`) wins, trimmed, for callers that manage naming
+/// themselves.
+fn auto_create_name(name_override: Option<String>, suffix_ms: u64) -> String {
+    if let Some(n) = name_override.map(|s| s.trim().to_string()).filter(|s| !s.is_empty()) {
+        return n;
+    }
+    format!("Shot{:06}", suffix_ms % 1_000_000)
 }
 
 /// Camera zoom bounds (CAM-3). Blitz clamps the mouse-wheel zoom to [5,50] and
@@ -6095,9 +6129,41 @@ impl App {
             && self.login_rx.is_none()
         {
             if self.chars.is_empty() {
-                if std::env::var_os("RCCE_AUTOCREATE").is_some() && !self.playable.is_empty() {
-                    self.creating = Some(Creating { name: "Shotbot".to_string(), ..Default::default() });
+                if std::env::var_os("RCCE_AUTOCREATE").is_some()
+                    && !self.playable.is_empty()
+                    && !self.auto_create_tried
+                {
+                    // Latch BEFORE the attempt: a rejected create (name taken,
+                    // throttle, misconfig) must not loop every frame spamming the
+                    // server. One shot only.
+                    self.auto_create_tried = true;
+                    // Character names are GLOBALLY unique server-side. A fixed name
+                    // is rejected with 'I' ("name taken") as soon as the server's
+                    // persistent (gitignored) `Accounts.dat` already holds it —
+                    // which any re-run against the same data dir hits — wedging the
+                    // harness. Derive a time-varying name so the create lands on a
+                    // fresh account against a fresh data copy (see `auto_create_name`).
+                    let suffix = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| d.as_millis() as u64)
+                        .unwrap_or(0);
+                    let name = auto_create_name(std::env::var("RCCE_AUTOCREATE_NAME").ok(), suffix);
+                    println!("[autodrive] AUTOCREATE: creating character '{name}'");
+                    self.creating = Some(Creating { name, ..Default::default() });
                     self.submit_create();
+                    // On success `submit_create` populates `chars` and clears
+                    // `creating`; the next frame's else-branch enters the world.
+                    // On failure `creating` is left `Some`, which would freeze the
+                    // `creating.is_none()` guard forever — clear it so the harness
+                    // fails visibly (a menu screenshot) instead of hanging, and
+                    // surface why.
+                    if self.chars.is_empty() {
+                        println!(
+                            "[autodrive] AUTOCREATE failed: {} (no character to enter)",
+                            self.login_msg
+                        );
+                        self.creating = None;
+                    }
                 }
             } else {
                 self.enter_selected();
@@ -11312,6 +11378,24 @@ mod tests {
     fn eula_gate_initial_mode() {
         assert_eq!(initial_menu_mode(true), Mode::Eula);
         assert_eq!(initial_menu_mode(false), Mode::Login);
+    }
+
+    // Headless AUTOCREATE harness: the auto-generated character name must be
+    // time-varying (never the old fixed "Shotbot" that collides with a persistent
+    // Accounts.dat) and stay within the server's name rules (<=32 bytes, printable
+    // ASCII, no filtered title words — digits-only guarantees the last two).
+    #[test]
+    fn auto_create_name_is_unique_and_valid() {
+        let n = auto_create_name(None, 1_234_567);
+        assert_eq!(n, "Shot234567");
+        assert!(n.len() <= 32);
+        assert!(n.starts_with("Shot"));
+        assert!(n["Shot".len()..].bytes().all(|b| b.is_ascii_digit()));
+        // Distinct clock ticks -> distinct names (no fixed collision-prone value).
+        assert_ne!(auto_create_name(None, 1), auto_create_name(None, 2));
+        // A non-blank override wins, trimmed; a blank one falls back to generated.
+        assert_eq!(auto_create_name(Some("  Hero ".to_string()), 0), "Hero");
+        assert_eq!(auto_create_name(Some("   ".to_string()), 42), "Shot000042");
     }
 
     // ESC close-precedence (DELTA blocker #1): ESC dismisses the topmost open
