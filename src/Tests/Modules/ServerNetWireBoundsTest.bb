@@ -67,7 +67,8 @@ End Function
 ; Mirrors the P_AttackActor / BVM_ACTORINTRIGGER / BVM_ACTOROUTDOORS gates.
 ; A live AreaInstance may briefly lose its backing Area during teardown, so
 ; both references must exist before the production code reads PvP, triggers,
-; or Outdoors from the nested Area.
+; or Outdoors from the nested Area. The production implementation must use
+; nested If branches: BlitzForge And is non-short-circuit.
 Function NestedAreaUsable%(InstancePresent%, AreaPresent%)
 	If InstancePresent = False Then Return False
 	If AreaPresent = False Then Return False

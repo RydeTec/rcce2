@@ -1606,10 +1606,16 @@ Function UpdateNetwork()
 							; area apply.
 							AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea)
 							TInstance.AreaInstance = Object.AreaInstance(A2\ServerArea)
-							If AInstance <> Null And AInstance\Area <> Null And AInstance = TInstance
-								If A2\RNID < 0 Or AInstance\Area\PvP = True
-									ActorAttack(AI, A2)
-									AI\AITarget = A2
+							If AInstance <> Null
+								; BlitzForge And is non-short-circuit, so guard the
+								; nested Area separately before dereferencing it.
+								If AInstance\Area <> Null
+									If AInstance = TInstance
+										If A2\RNID < 0 Or AInstance\Area\PvP = True
+											ActorAttack(AI, A2)
+											AI\AITarget = A2
+										EndIf
+									EndIf
 								EndIf
 							EndIf
 						EndIf
