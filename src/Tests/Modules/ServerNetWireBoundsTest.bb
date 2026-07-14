@@ -79,7 +79,9 @@ End Function
 ; also pin the source-level safety contract. This catches a future regression
 ; that removes the production nested guard while leaving this model unchanged.
 Function FunctionBodyContains%(Path$, FunctionMarker$, Needle$)
-	F = ReadFile(Path$)
+	Local F.BBStream = ReadFile(Path$)
+	Local InFunction%
+	Local Line$
 	; test.sh runs each test from src\Tests, whereas an IDE may run it from
 	; src. Support both working directories without touching production paths.
 	If F = 0 Then F = ReadFile("..\" + Path$)
