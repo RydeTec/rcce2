@@ -684,7 +684,11 @@ impl App {
                 }
             }),
             login_email: std::env::var("RCCE_EMAIL").unwrap_or_default(),
-            login_focus: 0,
+            // MENU-2: start focus on the password field like Blitz, which
+            // `GY_ActivateTextField(TPass)` before the login loop (MainMenu.bb:772)
+            // — the account name is pre-filled from `Last Username.dat`, so the
+            // user just types their password.
+            login_focus: 1,
             login_md5: String::new(),
             login_msg: String::new(),
             chars: Vec::new(),
@@ -1437,6 +1441,11 @@ const CAM_DIST_DEFAULT: f32 = 13.0;
 /// look down (top-down at +85°) than up from below (−70°) — same as Blitz.
 const CAM_PITCH_MIN: f32 = -70.0 * std::f32::consts::PI / 180.0;
 const CAM_PITCH_MAX: f32 = 85.0 * std::f32::consts::PI / 180.0;
+/// MOVE-10: the outbound `P_StandardUpdate` send cadence, matching Blitz's
+/// `NetworkMS = 1000 / 5 = 200`ms (`Client.bb:99`, gated at `ClientNet.bb:1804`).
+/// The local body still advances every frame via `tick_movement`; this only
+/// throttles the network propagation, exactly like Blitz.
+const NETWORK_MS: u128 = 200;
 /// Minimum clearance (world units) the camera eye keeps above the terrain at its
 /// own X/Z, so the boom doesn't sink into a hill behind the player.
 const CAM_GROUND_CLEARANCE: f32 = 1.5;
@@ -1554,7 +1563,8 @@ fn pitch_clamp(pitch: f32) -> f32 {
 /// 1 = Pass, 2 = Email), wrapping — `delta = +1` for Tab / Down, `-1` for Up.
 /// Mirrors Blitz's Name→Pass→Email→Name Tab cycle (`MainMenu.bb:771-783`). Pure.
 fn cycle_login_focus(focus: u8, delta: i8) -> u8 {
-    (((focus as i8 + delta).rem_euclid(3)) as u8) % 3
+    // rem_euclid(3) already yields 0..2 for any input.
+    (focus as i8 + delta).rem_euclid(3) as u8
 }
 
 /// Compose a chat-line for one combat event under DamageInfoStyle 2 (CBT-5),
@@ -6690,7 +6700,7 @@ impl App {
         }
         let mag = (dir[0] * dir[0] + dir[1] * dir[1]).sqrt();
         let moving = mag > 0.01;
-        let want_send = self.last_move.elapsed().as_millis() >= 110;
+        let want_send = self.last_move.elapsed().as_millis() >= NETWORK_MS;
         // MOVE-6: a double-click move runs; Shift-run always wins.
         // RCCE_RUN forces running for headless diagnosis of the run-speed path.
         let run = move_run(self.run, self.move_target.is_some(), self.move_running)
