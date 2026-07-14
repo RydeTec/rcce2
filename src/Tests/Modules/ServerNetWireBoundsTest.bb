@@ -84,8 +84,8 @@ Function FunctionBodyContains%(Path$, FunctionMarker$, Needle$)
 	Local Line$
 	; test.sh runs each test from src\Tests, whereas an IDE may run it from
 	; src. Support both working directories without touching production paths.
-	If F = 0 Then F = ReadFile("..\" + Path$)
-	If F = 0 Then Return False
+	If F = Null Then F = ReadFile("..\" + Path$)
+	If F = Null Then Return False
 	InFunction = False
 	While Not Eof(F)
 		Line$ = ReadLine$(F)
