@@ -1,13 +1,13 @@
 {
   "run_id": "rcce2-hourly-replacement-20260714T220800Z-e43743290938",
-  "status": "active",
-  "started_at": "2026-07-14T22:20:44Z",
-  "heartbeat_at": "2026-07-14T22:20:44Z",
-  "expires_at": "2026-07-14T22:30:44Z",
+  "status": "released",
+  "started_at": "2026-07-14T22:19:53Z",
+  "heartbeat_at": "2026-07-14T22:21:58Z",
+  "expires_at": "2026-07-14T22:21:58Z",
   "issue": 622,
   "branch": "codex-automation/622-stale-area-guards",
   "pr": 623,
-  "phase": "scope-expand-generated-packet-index",
+  "phase": "scope-expanded",
   "scope": {
     "subsystems": [
       "Blitz server packet and script area safety",
