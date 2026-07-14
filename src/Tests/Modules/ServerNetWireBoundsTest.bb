@@ -75,6 +75,29 @@ Function NestedAreaUsable%(InstancePresent%, AreaPresent%)
 	Return True
 End Function
 
+; The network/world graph cannot be Included into this standalone harness, so
+; also pin the source-level safety contract. This catches a future regression
+; that removes the production nested guard while leaving this model unchanged.
+Function FunctionBodyContains%(Path$, FunctionMarker$, Needle$)
+	F = ReadFile(Path$)
+	; test.sh runs each test from src\Tests, whereas an IDE may run it from
+	; src. Support both working directories without touching production paths.
+	If F = 0 Then F = ReadFile("..\" + Path$)
+	If F = 0 Then Return False
+	InFunction = False
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		If Instr(Line$, FunctionMarker$) > 0 Then InFunction = True
+		If InFunction = True And Instr(Line$, Needle$) > 0
+			CloseFile F
+			Return True
+		EndIf
+		If InFunction = True And Instr(Line$, "End Function") > 0 Then Exit
+	Wend
+	CloseFile F
+	Return False
+End Function
+
 ; ====================================================================
 ; RuntimeActorFromWire -- rejection: out of range
 ; ====================================================================
@@ -172,4 +195,13 @@ End Test
 Test testLiveNestedAreaRemainsUsable()
 	Assert(NestedAreaUsable%(True, True) = True)
 	Assert(NestedAreaUsable%(False, True) = False)
+End Test
+
+Test testProductionGuardsUseSafeNestedIfBranches()
+	Assert(FunctionBodyContains%("Modules\ServerNet.bb", "Case P_AttackActor", "If AInstance\Area <> Null") = True)
+	Assert(FunctionBodyContains%("Modules\ServerNet.bb", "Case P_AttackActor", "AInstance <> Null And AInstance\Area <> Null") = False)
+	Assert(FunctionBodyContains%("Modules\ScriptingCommands.bb", "Function BVM_ACTORINTRIGGER", "If AInstance\Area <> Null") = True)
+	Assert(FunctionBodyContains%("Modules\ScriptingCommands.bb", "Function BVM_ACTORINTRIGGER", "AInstance <> Null And AInstance\Area <> Null") = False)
+	Assert(FunctionBodyContains%("Modules\ScriptingCommands.bb", "Function BVM_ACTOROUTDOORS", "If AInstance\Area <> Null") = True)
+	Assert(FunctionBodyContains%("Modules\ScriptingCommands.bb", "Function BVM_ACTOROUTDOORS", "AInstance <> Null And AInstance\Area <> Null") = False)
 End Test
