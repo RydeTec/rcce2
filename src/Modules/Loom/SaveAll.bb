@@ -47,6 +47,7 @@ Function SaveAll_AnyDirty%()
     If ZoneSaved     = False Then Return True
     If SettingsSaved = False Then Return True
     If EnvironmentSaved = False Then Return True
+    If InterfaceSaved = False Then Return True
     Return False
 End Function
 
@@ -80,6 +81,7 @@ Function SaveAll_Persist(composer.Composer)
     If ZoneSaved = False     Then Composer::commitSaveForKind(composer, "zone")    : count = count + 1
     If SettingsSaved = False Then Composer::commitSaveForKind(composer, "settings"): count = count + 1
     If EnvironmentSaved = False Then Composer::commitSaveForKind(composer, "environment"): count = count + 1
+    If InterfaceSaved = False Then Composer::commitSaveForKind(composer, "interface"): count = count + 1
 
     // Each commitSaveForKind already fires its own per-kind success
     // toast; the Save All summary kicks in only when there's more than

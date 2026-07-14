@@ -56,6 +56,14 @@ src/
         │                            seasons composer (Environment.bb's Dim'd
         │                            calendar tables + Sun fields; GUE tab
         │                            parity semantics + clamps)
+        ├── InterfaceLayout.bb       non-Strict write path for the Interface
+        │                            (HUD) composer (Interface.bb's
+        │                            InterfaceComponent roster — AttributeDisplays
+        │                            + InventoryButtons are Dim'd arrays; GUE
+        │                            tab parity + clamps; boot-load, discard-
+        │                            reload + save through GUE's own
+        │                            Load/SaveInterfaceSettings; deferred
+        │                            InterfaceSaved dirty flag)
         └── EntityFactory.bb         create / delete dispatch wrapping
                                      GUE's Create* + (new) DeleteXTemplate
 ```
@@ -223,7 +231,7 @@ The zone-handle instability is why `Recents` persists zones by `Ar\Name$` instea
 
 ## Edit / save / dirty-flag plumbing
 
-The per-kind `*Saved` globals (`ItemsSaved`, `ActorsSaved`, `SpellsSaved`, `FactionsSaved`, `ZoneSaved`, `AnimsSaved`, `ProjectilesSaved`, `ParticlesSaved`, `EnvironmentSaved`) are **shared with GUE** — `Loom.bb` redeclares the same set at lines 58-69 so writes from Loom's Composer / EntityFactory flip the same flags GUE inspects. `False` = unsaved changes pending; `True` = on-disk == in-memory.
+The per-kind `*Saved` globals (`ItemsSaved`, `ActorsSaved`, `SpellsSaved`, `FactionsSaved`, `ZoneSaved`, `AnimsSaved`, `ProjectilesSaved`, `ParticlesSaved`, `EnvironmentSaved`, `InterfaceSaved`) are **shared with GUE** — `Loom.bb` redeclares the same set at lines 58-69 so writes from Loom's Composer / EntityFactory flip the same flags GUE inspects. `False` = unsaved changes pending; `True` = on-disk == in-memory. Each singleton kind (`environment` → `EnvironmentSaved`, `interface` → `InterfaceSaved`) plugs into the same `SaveAll` (Ctrl+S) + `ExitPrompt` + Conscience-Ribbon-badge fleet as the entity kinds.
 
 The edit lifecycle:
 

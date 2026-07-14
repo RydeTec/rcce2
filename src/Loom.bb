@@ -137,6 +137,10 @@ Include "Modules\Loom\Settings.bb"
 // LoomEnv_* setters are the non-Strict bridge Composer::writeField uses
 // to mutate Environment.bb's Dim'd calendar tables + Sun fields.
 Include "Modules\Loom\Seasons.bb"
+// InterfaceLayout (Interface/HUD write path) also before Composer -- its
+// LoomIface_* setters are the non-Strict bridge Composer::writeField uses to
+// mutate Interface.bb's InterfaceComponent roster (two are Dim'd arrays).
+Include "Modules\Loom\InterfaceLayout.bb"
 // ImageCache also before Composer -- its globals + Loom_GetItemImage
 // helper are called from renderItem.
 Include "Modules\Loom\ImageCache.bb"
@@ -574,6 +578,13 @@ Loom_LoadSettings()
 Loom_LoadStep("environment", LoadEnvironment(), False)
 LoadSuns()
 WriteLog(LoomLog, "Loaded environment + suns")
+
+// Interface (HUD) layout -- same LoadInterfaceSettings GUE boots with
+// (GUE.bb:168). GUE RuntimeErrors on a missing Interface.dat; Loom tolerates
+// it by creating a default component roster (LoomIface_EnsureLoaded) so the
+// Interface tab renders without Null derefs on half-set-up projects.
+LoomIface_EnsureLoaded()
+WriteLog(LoomLog, "Loaded interface layout")
 
 // 3D mesh preview infrastructure -- creates a hidden camera + light +
 // render-to-texture. Used by the actor composer to show a spinning
