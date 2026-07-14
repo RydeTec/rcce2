@@ -207,7 +207,7 @@ Function BVM_ACTORINTRIGGER%(Param1%, Param2%)
 		; Reject any out-of-range index from the script before indexing.
 		If TriggerID >= 0 And TriggerID <= 149
 			AInstance.AreaInstance = Object.AreaInstance(Actor\ServerArea)
-			If AInstance <> Null
+			If AInstance <> Null And AInstance\Area <> Null
 				If Len(AInstance\Area\TriggerScript$[TriggerID]) > 0
 					Size# = AInstance\Area\TriggerSize#[TriggerID] * AInstance\Area\TriggerSize#[TriggerID]
 					DistX# = Abs(Actor\X# - AInstance\Area\TriggerX#[TriggerID])
@@ -1412,7 +1412,7 @@ Function BVM_ACTOROUTDOORS%(Param1%)
 	Actor.ActorInstance = Object.ActorInstance(Param1%)
 	If Actor <> Null
 		AInstance.AreaInstance = Object.AreaInstance(Actor\ServerArea)
-		If AInstance <> Null Then Result% = AInstance\Area\Outdoors
+		If AInstance <> Null And AInstance\Area <> Null Then Result% = AInstance\Area\Outdoors
 	EndIf
 Return Result%
 End Function

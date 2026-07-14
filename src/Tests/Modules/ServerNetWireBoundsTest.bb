@@ -62,6 +62,18 @@ Function SwapAddPacketLenOk%(PayloadLen%)
 	Return True
 End Function
 
+; --- Replicated nested AreaInstance\Area guard ---------------------------
+
+; Mirrors the P_AttackActor / BVM_ACTORINTRIGGER / BVM_ACTOROUTDOORS gates.
+; A live AreaInstance may briefly lose its backing Area during teardown, so
+; both references must exist before the production code reads PvP, triggers,
+; or Outdoors from the nested Area.
+Function NestedAreaUsable%(InstancePresent%, AreaPresent%)
+	If InstancePresent = False Then Return False
+	If AreaPresent = False Then Return False
+	Return True
+End Function
+
 ; ====================================================================
 ; RuntimeActorFromWire -- rejection: out of range
 ; ====================================================================
@@ -143,4 +155,20 @@ Test testSwapAddBoundaryAtSeven()
 	; 7 accepts. A future refactor that widens a field must update both.
 	Assert(SwapAddPacketLenOk%(6) = False)
 	Assert(SwapAddPacketLenOk%(7) = True)
+End Test
+
+; ====================================================================
+; Nested AreaInstance\Area -- stale-area rejection
+; ====================================================================
+
+Test testMissingAreaRejectsPacketAndBVMPaths()
+	; Outer lookup succeeds but the backing Area has been torn down. The
+	; production paths must return their existing no-op/default instead of
+	; dereferencing AInstance\Area.
+	Assert(NestedAreaUsable%(True, False) = False)
+End Test
+
+Test testLiveNestedAreaRemainsUsable()
+	Assert(NestedAreaUsable%(True, True) = True)
+	Assert(NestedAreaUsable%(False, True) = False)
 End Test

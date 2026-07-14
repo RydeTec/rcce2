@@ -1606,7 +1606,7 @@ Function UpdateNetwork()
 							; area apply.
 							AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea)
 							TInstance.AreaInstance = Object.AreaInstance(A2\ServerArea)
-							If AInstance <> Null And AInstance = TInstance
+							If AInstance <> Null And AInstance\Area <> Null And AInstance = TInstance
 								If A2\RNID < 0 Or AInstance\Area\PvP = True
 									ActorAttack(AI, A2)
 									AI\AITarget = A2
