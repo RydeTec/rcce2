@@ -1,1 +1,1 @@
-{"run_id":"rcce2-hourly-20260714T003729Z-c6913241bdeb","status":"active","started_at":"2026-07-14T00:37:29Z","heartbeat_at":"2026-07-14T00:43:35Z","expires_at":"2026-07-15T00:43:35Z","issue":null,"branch":"codex-automation/move10-standard-update","pr":null,"phase":"issue-contract"}
+{"run_id":"rcce2-hourly-20260714T003729Z-c6913241bdeb","status":"active","started_at":"2026-07-14T00:37:29Z","heartbeat_at":"2026-07-14T00:44:34Z","expires_at":"2026-07-15T00:44:34Z","issue":615,"branch":"codex-automation/move10-standard-update","pr":null,"phase":"reserved"}
