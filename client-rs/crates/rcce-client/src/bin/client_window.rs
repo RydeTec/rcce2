@@ -1532,6 +1532,26 @@ fn initial_menu_mode(eula_present: bool) -> Mode {
     }
 }
 
+/// The character name the `RCCE_AUTOCREATE` headless harness creates. Pure so the
+/// call site can inject the env override and a time source, and so the regression
+/// is unit-testable.
+///
+/// Server-side character names are GLOBALLY unique and validated against a
+/// printable-ASCII charset + a banned-word filter (`characters.rs`
+/// `name_charset_ok` / `name_is_banned`). A FIXED name (the old hardcoded
+/// "Shotbot", which the shipped `Accounts.dat` already owns) is rejected on every
+/// run, so the default is `Shot` + 6 decimal digits derived from `suffix_ms`
+/// (millisecond clock) — digits only, so it can never collide with a filtered
+/// title word and always passes the charset. A non-blank `name_override`
+/// (`RCCE_AUTOCREATE_NAME`) wins, trimmed, for callers that manage uniqueness
+/// themselves.
+fn auto_create_name(name_override: Option<String>, suffix_ms: u64) -> String {
+    if let Some(n) = name_override.map(|s| s.trim().to_string()).filter(|s| !s.is_empty()) {
+        return n;
+    }
+    format!("Shot{:06}", suffix_ms % 1_000_000)
+}
+
 /// Camera zoom bounds (CAM-3). Blitz clamps the mouse-wheel zoom to [5,50] and
 /// the keyboard zoom to [3,50] (`Interface3D.bb:643-657`); we use [5,50] for
 /// both with a 13.0 default (the prior hardcoded boom length).
@@ -6114,17 +6134,12 @@ impl App {
                     // char literally named "Shotbot" — a fixed name is rejected
                     // with 'I' ("name taken") on every run, wedging the harness.
                     // Derive a per-run unique name so the create always lands on a
-                    // fresh account. Digits only (no filtered title words, and the
-                    // charset is the printable-ASCII the server accepts).
+                    // fresh account (see `auto_create_name`).
                     let suffix = std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
                         .map(|d| d.as_millis() as u64)
-                        .unwrap_or(0)
-                        % 1_000_000;
-                    let name = std::env::var("RCCE_AUTOCREATE_NAME")
-                        .ok()
-                        .filter(|s| !s.trim().is_empty())
-                        .unwrap_or_else(|| format!("Shot{suffix:06}"));
+                        .unwrap_or(0);
+                    let name = auto_create_name(std::env::var("RCCE_AUTOCREATE_NAME").ok(), suffix);
                     println!("[autodrive] AUTOCREATE: creating character '{name}'");
                     self.creating = Some(Creating { name, ..Default::default() });
                     self.submit_create();
@@ -11355,6 +11370,24 @@ mod tests {
     fn eula_gate_initial_mode() {
         assert_eq!(initial_menu_mode(true), Mode::Eula);
         assert_eq!(initial_menu_mode(false), Mode::Login);
+    }
+
+    // Headless AUTOCREATE harness: the auto-generated character name must be
+    // per-run unique (never the old fixed "Shotbot" that the shipped Accounts.dat
+    // owns) and stay within the server's name rules (<=32 bytes, printable ASCII,
+    // no filtered title words — digits-only guarantees the last two).
+    #[test]
+    fn auto_create_name_is_unique_and_valid() {
+        let n = auto_create_name(None, 1_234_567);
+        assert_eq!(n, "Shot234567");
+        assert!(n.len() <= 32);
+        assert!(n.starts_with("Shot"));
+        assert!(n["Shot".len()..].bytes().all(|b| b.is_ascii_digit()));
+        // Distinct clock ticks -> distinct names (no fixed collision-prone value).
+        assert_ne!(auto_create_name(None, 1), auto_create_name(None, 2));
+        // A non-blank override wins, trimmed; a blank one falls back to generated.
+        assert_eq!(auto_create_name(Some("  Hero ".to_string()), 0), "Hero");
+        assert_eq!(auto_create_name(Some("   ".to_string()), 42), "Shot000042");
     }
 
     // ESC close-precedence (DELTA blocker #1): ESC dismisses the topmost open
