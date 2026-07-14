@@ -16,10 +16,12 @@
 ; whole viewport rides a mode-dependent offset (VPSceneYOff#): the const
 ; in schematic mode, 0.0 in world mode (markers reload at real coords and
 ; the camera / grid / drag math follow the same variable). Zones without
-; a visual .dat soft-fail back to schematic with a toast. Editing
-; interactions that pick against the ground plane (add / drag-move) are
-; schematic-mode-only for now -- in world mode the pick ray lands on
-; terrain/scenery, which the handlers already treat as a no-op miss.
+; a visual .dat soft-fail back to schematic with a toast. Editing works in
+; BOTH modes: the add / drag-move / delete handlers pick through the shared
+; Loom_PickGround helper, which lands on the flat editor floor (VPGround) in
+; schematic mode and on the zone's REAL terrain / scenery in world mode, so
+; entities can be placed and moved directly against the rendered ground
+; (ADR-004's "editing against real terrain in world mode" follow-up).
 ;
 ; Visual:
 ;   Ground plane           dark stone-900 quad at y=0
@@ -121,6 +123,14 @@ Global VPMarkerDragLastMY = 0    ; per-frame Y delta basis
 ; ground is hidden) used to fire a false success toast and a spurious
 ; dirty flag. (Review finding on #551.)
 Global VPMarkerDragChanged = False
+
+; Result of the last Loom_PickGround call: the world-space point the pick
+; ray landed on (ground plane in schematic mode, real terrain / scenery in
+; world mode). Read by the add / drag handlers instead of PickedX#/Y#/Z#
+; directly so the schematic-vs-world pick-target difference lives in one place.
+Global VPPickX# = 0.0
+Global VPPickY# = 0.0
+Global VPPickZ# = 0.0
 
 ; MMB pan state. Middle-mouse drag translates VPSceneCenterX/Z in
 ; camera-aligned screen-right and screen-forward directions so the
@@ -473,14 +483,10 @@ End Function
 ; =============================================================================
 Function Loom_DeleteMarkerAtClick(zoneHandle, localX, localY)
     If VPInitOK = False Then Return
-    ; World mode is read-only (the hint bar says so). Without this gate a
-    ; Ctrl+LMB on a marker deletes zone data from the "view" mode: the pick
-    ; here is marker-vs-marker, so hiding VPGround doesn't protect this
-    ; path the way it does the add/drag-XZ paths. (Review finding on #551.)
-    If VPWorldMode = True
-        Toast_Show("World view is read-only -- switch to schematic to delete", "warning")
-        Return
-    EndIf
+    ; Editable in both modes now (ADR-004 world-mode editing follow-up). The
+    ; pick here is marker-vs-marker, so it works identically whether the floor
+    ; plane (schematic) or the real terrain (world) sits behind the markers.
+    ; Previously world mode was read-only and short-circuited here (#551).
     Local Ar.Area = Object.Area(zoneHandle)
     If Ar = Null Then Return
 
@@ -533,10 +539,75 @@ End Function
 
 
 ; =============================================================================
-; Loom_AddPortalAtClick -- Shift+click on empty ground creates a new
-; portal at the clicked XZ. Uses CameraPick to convert mouse-local coords
-; to a world position on the ground plane. Fails silently if no portal
-; slot is available or the click missed the ground.
+; Loom_PickGround -- resolve mouse-local widget coords (0..VP_RT_SIZE) to a
+; world-space placement point, unified across both viewport modes:
+;
+;   SCHEMATIC  the pick must land on VPGround (the flat editor floor at
+;              y=VP_SCENE_Y_OFFSET). Anything else (a marker) is a miss.
+;   WORLD      the pick must land on the zone's REAL geometry loaded by
+;              LoadAreaData -- terrain (EntityPickMode 2), scenery
+;              (EntityPickMode 1/2/3) or collision boxes -- so a designer
+;              places / drags entities directly onto the rendered ground.
+;              VPGround is hidden in world mode (so it can't be picked) and
+;              is rejected defensively here regardless.
+;
+; In BOTH modes every sub-entity marker's pick mode is temporarily disabled
+; so the ray passes THROUGH markers to the ground beneath (the same trick the
+; schematic add handlers used inline). On a hit the world point is stored in
+; VPPickX#/Y#/Z# and the function returns True; on a miss it returns False and
+; leaves the globals untouched. This is ADR-004's "editing against real
+; terrain in world mode (pick-target rework)" follow-up.
+; =============================================================================
+Function Loom_PickGround(localX, localY)
+    If VPInitOK = False Then Return False
+
+    ; Disable marker picking so the ray reaches the ground / terrain, not a
+    ; marker cube sitting in front of it. Waypoint markers count too (Kind
+    ; is non-empty); line + water decorations already have pick mode 0.
+    Local m.ZoneViewportMarker
+    For m = Each ZoneViewportMarker
+        If m\Kind <> "" Then EntityPickMode m\EN, 0
+    Next
+    CameraPick VPCam, localX, localY
+    Local hit = PickedEntity()
+    ; Restore marker picking (all markers are created with box-pick mode 1).
+    For m = Each ZoneViewportMarker
+        If m\Kind <> "" Then EntityPickMode m\EN, 1
+    Next
+
+    If hit = 0 Then Return False
+    If VPWorldMode = False
+        ; Schematic: only the editor floor is a valid placement surface.
+        If hit <> VPGround Then Return False
+    Else
+        ; World: any loaded geometry is valid; never our hidden floor plane.
+        If hit = VPGround Then Return False
+    EndIf
+
+    VPPickX# = PickedX#()
+    VPPickY# = PickedY#()
+    VPPickZ# = PickedZ#()
+    Return True
+End Function
+
+
+; =============================================================================
+; Loom_PlaceY# -- the scene-relative Y to STORE for a newly-placed sub-entity.
+; Schematic mode plants everything on the flat floor (Y = 0). World mode uses
+; the terrain height the pick landed on: VPPickY# is a real-world coordinate
+; and VPSceneYOff# is 0 in world mode, so VPPickY# - VPSceneYOff# is the
+; stored (scene-relative) height that lands the entity on the ground surface.
+; =============================================================================
+Function Loom_PlaceY#()
+    If VPWorldMode = False Then Return 0.0
+    Return VPPickY# - VPSceneYOff#
+End Function
+
+
+; =============================================================================
+; Loom_AddPortalAtClick -- Shift+click on the ground creates a new portal at
+; the picked XZ (schematic: flat floor; world: real terrain). Fails silently
+; if no portal slot is available or the click missed the ground.
 ;
 ; After adding: reload markers so the new portal gets a visible cube,
 ; mark the zone dirty, fire toast. Composer's zoneAnchorPortal will
@@ -547,22 +618,11 @@ Function Loom_AddPortalAtClick(zoneHandle, localX, localY)
     Local Ar.Area = Object.Area(zoneHandle)
     If Ar = Null Then Return
 
-    ; Pick against the ground plane only -- if we hit a marker, fall
-    ; through (the marker pick already happened on this click). To
-    ; force ground-only, briefly disable marker pick modes.
-    Local m.ZoneViewportMarker
-    For m = Each ZoneViewportMarker
-        If m\Kind <> "" Then EntityPickMode m\EN, 0
-    Next
-    CameraPick VPCam, localX, localY
-    For m = Each ZoneViewportMarker
-        If m\Kind <> "" Then EntityPickMode m\EN, 1
-    Next
-
-    Local hit = PickedEntity()
-    If hit <> VPGround Then Return
-    Local nx# = PickedX#()
-    Local nz# = PickedZ#()
+    ; Pick a placement point on the ground (schematic floor or, in world
+    ; mode, the real terrain). Miss = no-op.
+    If Loom_PickGround(localX, localY) = False Then Return
+    Local nx# = VPPickX#
+    Local nz# = VPPickZ#
 
     ; Find first empty portal slot
     Local i
@@ -579,12 +639,13 @@ Function Loom_AddPortalAtClick(zoneHandle, localX, localY)
     EndIf
 
     ; Seed defaults (mirrors Composer::zoneAddPortal but with the
-    ; clicked position instead of (0, 0)).
+    ; clicked position instead of (0, 0)). In world mode the Y follows
+    ; the terrain height the click landed on (Loom_PlaceY#).
     Ar\PortalName$[slot]     = "New portal " + Str(slot)
     Ar\PortalLinkArea$[slot] = Ar\Name$
     Ar\PortalLinkName$[slot] = ""
     Ar\PortalX#[slot]        = nx#
-    Ar\PortalY#[slot]        = 0.0
+    Ar\PortalY#[slot]        = Loom_PlaceY#()
     Ar\PortalZ#[slot]        = nz#
     Ar\PortalSize#[slot]     = 5.0
     Ar\PortalYaw#[slot]      = 0.0
@@ -609,20 +670,10 @@ Function Loom_AddTriggerAtClick(zoneHandle, localX, localY)
     Local Ar.Area = Object.Area(zoneHandle)
     If Ar = Null Then Return
 
-    ; Force ground pick (same trick as Loom_AddPortalAtClick).
-    Local m.ZoneViewportMarker
-    For m = Each ZoneViewportMarker
-        If m\Kind <> "" Then EntityPickMode m\EN, 0
-    Next
-    CameraPick VPCam, localX, localY
-    For m = Each ZoneViewportMarker
-        If m\Kind <> "" Then EntityPickMode m\EN, 1
-    Next
-
-    Local hit = PickedEntity()
-    If hit <> VPGround Then Return
-    Local nx# = PickedX#()
-    Local nz# = PickedZ#()
+    ; Pick a placement point on the ground (schematic floor or real terrain).
+    If Loom_PickGround(localX, localY) = False Then Return
+    Local nx# = VPPickX#
+    Local nz# = VPPickZ#
 
     Local i
     Local slot = -1
@@ -640,7 +691,7 @@ Function Loom_AddTriggerAtClick(zoneHandle, localX, localY)
     Ar\TriggerScript$[slot] = "New trigger"
     Ar\TriggerMethod$[slot] = ""
     Ar\TriggerX#[slot]      = nx#
-    Ar\TriggerY#[slot]      = 0.0
+    Ar\TriggerY#[slot]      = Loom_PlaceY#()
     Ar\TriggerZ#[slot]      = nz#
     Ar\TriggerSize#[slot]   = 5.0
 
@@ -665,20 +716,11 @@ Function Loom_AddSpawnAtClick(zoneHandle, localX, localY)
     Local Ar.Area = Object.Area(zoneHandle)
     If Ar = Null Then Return
 
-    ; Force ground pick
-    Local m.ZoneViewportMarker
-    For m = Each ZoneViewportMarker
-        If m\Kind <> "" Then EntityPickMode m\EN, 0
-    Next
-    CameraPick VPCam, localX, localY
-    For m = Each ZoneViewportMarker
-        If m\Kind <> "" Then EntityPickMode m\EN, 1
-    Next
-
-    Local hit = PickedEntity()
-    If hit <> VPGround Then Return
-    Local nx# = PickedX#()
-    Local nz# = PickedZ#()
+    ; Pick a placement point on the ground (schematic floor or real terrain).
+    If Loom_PickGround(localX, localY) = False Then Return
+    Local nx# = VPPickX#
+    Local nz# = VPPickZ#
+    Local ny# = Loom_PlaceY#()
 
     ; Find first defined actor for the spawn ref. If no actors exist,
     ; bail with a toast -- a spawn without a valid actor is useless.
@@ -724,9 +766,10 @@ Function Loom_AddSpawnAtClick(zoneHandle, localX, localY)
         Return
     EndIf
 
-    ; Seed waypoint
+    ; Seed waypoint (spawn's world position IS the waypoint position; in
+    ; world mode ny# is the terrain height the click landed on).
     Ar\WaypointX#[wpSlot] = nx#
-    Ar\WaypointY#[wpSlot] = 0.0
+    Ar\WaypointY#[wpSlot] = ny#
     Ar\WaypointZ#[wpSlot] = nz#
     Ar\NextWaypointA[wpSlot] = -1
     Ar\NextWaypointB[wpSlot] = -1
@@ -1170,11 +1213,16 @@ Function Loom_DrawZoneViewport(zoneHandle, x, y, w, h)
             ; should still be valid since nothing has moved.
             CameraPick VPCam, mx - x, my - y
             Local pickedEN = PickedEntity()
-            ; Marker drag is schematic-only: in world mode the XZ branch
-            ; would no-op (ground hidden) but the shift+RMB Y-mode branch
-            ; uses raw mouse deltas and would mutate zone data from the
-            ; read-only view. Gate the drag START. (Review finding on #551.)
-            If pickedEN <> 0 And pickedEN <> VPGround And VPWorldMode = False
+            ; Marker drag works in both modes now (ADR-004 world-mode editing
+            ; follow-up): the XZ branch re-picks via Loom_PickGround (real
+            ; terrain in world mode), and the shift+RMB Y-mode branch uses
+            ; raw mouse deltas that are mode-independent. Resolve the pick to
+            ; an actual draggable marker FIRST -- in world mode an empty-ground
+            ; click returns the terrain entity (nonzero, not VPGround), which
+            ; must NOT be mistaken for "grabbed a marker" or the shift+RMB
+            ; add-trigger fallback below never fires (dead in world mode).
+            Local grabbedMarker = False
+            If pickedEN <> 0 And pickedEN <> VPGround
                 Local pm.ZoneViewportMarker
                 For pm = Each ZoneViewportMarker
                     If pm\EN = pickedEN And (pm\Kind = "portal" Or pm\Kind = "trigger" Or pm\Kind = "spawn")
@@ -1188,11 +1236,16 @@ Function Loom_DrawZoneViewport(zoneHandle, x, y, w, h)
                         ; shift mid-drag and Y mode persists).
                         VPMarkerDragYMode = (KeyDown(42) = True Or KeyDown(54) = True)
                         VPMarkerDragLastMY = my
+                        grabbedMarker = True
                         Exit
                     EndIf
                 Next
-            Else If rmbJustPressed = True And (KeyDown(42) = True Or KeyDown(54) = True)
-                ; Press edge + shift held + click on ground = add trigger.
+            EndIf
+            If grabbedMarker = False And rmbJustPressed = True And (KeyDown(42) = True Or KeyDown(54) = True)
+                ; Press edge + shift held + no draggable marker grabbed =
+                ; add trigger on the ground beneath (Loom_AddTriggerAtClick
+                ; picks through Loom_PickGround, so it lands on the flat floor
+                ; in schematic mode and the real terrain in world mode).
                 ; Edge-detect so we don't add many triggers per held frame.
                 Loom_AddTriggerAtClick(zoneHandle, mx - x, my - y)
             EndIf
@@ -1217,17 +1270,16 @@ Function Loom_DrawZoneViewport(zoneHandle, x, y, w, h)
                     VPDirty = True
                 EndIf
             Else
-                ; XZ-mode drag (default): re-pick against the ground,
-                ; hide the dragged marker first so the ray passes
-                ; through it.
-                HideEntity VPMarkerDragEN
-                CameraPick VPCam, mx - x, my - y
-                ShowEntity VPMarkerDragEN
-                Local groundEN = PickedEntity()
-                If groundEN = VPGround
-                    Local newX# = PickedX#()
-                    Local newZ# = PickedZ#()
-                    ; Update marker position
+                ; XZ-mode drag (default): re-pick against the ground.
+                ; Loom_PickGround disables every marker's pick mode (so the
+                ; ray passes through the dragged marker AND its neighbours)
+                ; and lands on VPGround in schematic mode or the real terrain
+                ; in world mode. Horizontal move only -- Y is preserved (use
+                ; shift+RMB Y-mode to change height), identical in both modes.
+                If Loom_PickGround(mx - x, my - y) = True
+                    Local newX# = VPPickX#
+                    Local newZ# = VPPickZ#
+                    ; Update marker position (keep current Y)
                     PositionEntity VPMarkerDragEN, newX#, EntityY#(VPMarkerDragEN), newZ#
                     ; Update the underlying Area field via the existing zone
                     ; setter dispatch (handles Strict-mode dim-write trap).
@@ -1552,7 +1604,7 @@ Function Loom_DrawZoneViewport(zoneHandle, x, y, w, h)
 
     If inside = True
         If VPWorldMode = True
-            LoomText x + 8, y + h - 18, "WORLD VIEW (read-only)  |  LMB: orbit / pick marker  |  MMB: pan  |  wheel: zoom  |  hold RMB + WASD fly / QE up-down  |  switch to schematic to add/move", LOOM_STONE_300_R, LOOM_STONE_300_G, LOOM_STONE_300_B
+            LoomText x + 8, y + h - 18, "WORLD VIEW (editable)  |  LMB: orbit  |  MMB: pan  |  wheel: zoom  |  hold RMB + WASD fly  |  RMB drag marker: move on terrain  |  Shift+LMB: add portal on terrain  |  Ctrl+LMB: delete", LOOM_STONE_300_R, LOOM_STONE_300_G, LOOM_STONE_300_B
         Else
             LoomText x + 8, y + h - 18, "LMB: orbit  |  MMB: pan  |  wheel: zoom  |  hold RMB + WASD fly / QE up-down  |  RMB drag a marker: move  |  Shift+LMB: add portal  |  Ctrl+LMB: delete", LOOM_STONE_300_R, LOOM_STONE_300_G, LOOM_STONE_300_B
         EndIf
