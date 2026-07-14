@@ -1,27 +1,16 @@
 {
-  "run_id": "rcce2-hourly-replacement-20260714T220800Z-e43743290938",
-  "status": "released",
-  "started_at": "2026-07-14T22:57:46Z",
-  "heartbeat_at": "2026-07-14T22:59:26Z",
-  "expires_at": "2026-07-14T22:59:26Z",
-  "issue": 622,
-  "branch": "codex-automation/622-stale-area-guards",
-  "pr": 623,
-  "phase": "released-after-pr-623-merge",
+  "run_id": "rcce2-hourly-replacement-20260714T230800Z-1e79386d3b3b",
+  "status": "active",
+  "started_at": "2026-07-14T23:07:38Z",
+  "heartbeat_at": "2026-07-14T23:07:38Z",
+  "expires_at": "2026-07-14T23:18:00Z",
+  "issue": null,
+  "branch": null,
+  "pr": null,
+  "phase": "selecting-clientareas-fe-atomic-save",
   "scope": {
-    "subsystems": [
-      "Blitz server packet and script area safety"
-    ],
-    "paths": [
-      "src/Modules/ServerNet.bb",
-      "src/Modules/ScriptingCommands.bb",
-      "src/Tests/Modules/",
-      "docs/protocol/index.md"
-    ],
-    "interfaces": [
-      "P_AttackActor same-area/PvP gate",
-      "BVM_ACTORINTRIGGER",
-      "BVM_ACTOROUTDOORS"
-    ]
+    "subsystems": ["GUE legacy area persistence"],
+    "paths": ["src/Modules/ClientAreas_FE.bb", "src/Tests/Modules/"],
+    "interfaces": ["SaveArea(Name$)", "area .dat atomic save contract"]
   }
 }
