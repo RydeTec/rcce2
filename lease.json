@@ -1,1 +1,1 @@
-{"run_id":"rcce2-hourly-20260713T233808Z-fcf4e732-4c3","status":"released","started_at":"2026-07-13T23:38:08Z","heartbeat_at":"2026-07-14T00:11:13Z","expires_at":"2026-07-14T00:11:13Z","issue":611,"branch":"codex-automation/611-equipment-placement-validation-resume","pr":614,"phase":"merged"}
+{"run_id":"rcce2-hourly-20260714T003729Z-c6913241bdeb","status":"active","started_at":"2026-07-14T00:37:29Z","heartbeat_at":"2026-07-14T00:37:29Z","expires_at":"2026-07-15T00:37:29Z","issue":null,"branch":null,"pr":null,"phase":"preflight"}
