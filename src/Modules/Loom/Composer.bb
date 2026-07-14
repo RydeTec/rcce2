@@ -209,10 +209,16 @@ Type Composer
     // to advance the active edit on Tab / Shift+Tab. 512 is enough for
     // even the densest entity composer (Actor with all 96 attribute
     // cells + appearance arrays comes in at ~250).
-    Field rowFieldKinds$[512]
-    Field rowFieldRefIDs%[512]
-    Field rowFieldIds$[512]
-    Field rowFieldValues$[512]   // cached storedValue for Tab-seed
+    Field rowFieldKinds$[1024]
+    Field rowFieldRefIDs%[1024]
+    Field rowFieldIds$[1024]
+    Field rowFieldValues$[1024]  // cached storedValue for Tab-seed
+    // Cap raised from 512 -> 1024: the Interface singleton records the full
+    // HUD roster in one frame (up to 40 attribute bars + 46 inventory slots,
+    // ~760 fields) which overflowed 512 and left the last-rendered rows
+    // (high backpack slots) unreachable by Tab. recordField is called for
+    // every editable row, on-screen or not, so the cap must exceed the
+    // largest single-kind field count.
     Field rowFieldCount%
 
     // Palette reference -- set by setPalette from Loom.bb at construction.
@@ -1311,7 +1317,7 @@ Type Composer
     // visible row by mouse or scrolling).
     // -------------------------------------------------------------------------
     Method recordField(kind$, refID%, fieldId$, storedValue$)
-        If self\rowFieldCount >= 512 Then Return
+        If self\rowFieldCount >= 1024 Then Return
         self\rowFieldKinds$[self\rowFieldCount] = kind
         self\rowFieldRefIDs[self\rowFieldCount] = refID
         self\rowFieldIds$[self\rowFieldCount] = fieldId
