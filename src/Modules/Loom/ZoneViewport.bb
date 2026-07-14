@@ -1216,8 +1216,12 @@ Function Loom_DrawZoneViewport(zoneHandle, x, y, w, h)
             ; Marker drag works in both modes now (ADR-004 world-mode editing
             ; follow-up): the XZ branch re-picks via Loom_PickGround (real
             ; terrain in world mode), and the shift+RMB Y-mode branch uses
-            ; raw mouse deltas that are mode-independent. The press hit-test
-            ; is marker-vs-marker so it never depends on VPGround.
+            ; raw mouse deltas that are mode-independent. Resolve the pick to
+            ; an actual draggable marker FIRST -- in world mode an empty-ground
+            ; click returns the terrain entity (nonzero, not VPGround), which
+            ; must NOT be mistaken for "grabbed a marker" or the shift+RMB
+            ; add-trigger fallback below never fires (dead in world mode).
+            Local grabbedMarker = False
             If pickedEN <> 0 And pickedEN <> VPGround
                 Local pm.ZoneViewportMarker
                 For pm = Each ZoneViewportMarker
@@ -1232,11 +1236,16 @@ Function Loom_DrawZoneViewport(zoneHandle, x, y, w, h)
                         ; shift mid-drag and Y mode persists).
                         VPMarkerDragYMode = (KeyDown(42) = True Or KeyDown(54) = True)
                         VPMarkerDragLastMY = my
+                        grabbedMarker = True
                         Exit
                     EndIf
                 Next
-            Else If rmbJustPressed = True And (KeyDown(42) = True Or KeyDown(54) = True)
-                ; Press edge + shift held + click on ground = add trigger.
+            EndIf
+            If grabbedMarker = False And rmbJustPressed = True And (KeyDown(42) = True Or KeyDown(54) = True)
+                ; Press edge + shift held + no draggable marker grabbed =
+                ; add trigger on the ground beneath (Loom_AddTriggerAtClick
+                ; picks through Loom_PickGround, so it lands on the flat floor
+                ; in schematic mode and the real terrain in world mode).
                 ; Edge-detect so we don't add many triggers per held frame.
                 Loom_AddTriggerAtClick(zoneHandle, mx - x, my - y)
             EndIf
