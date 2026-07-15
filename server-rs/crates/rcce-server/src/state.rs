@@ -2400,6 +2400,16 @@ impl ServerState {
         }
     }
 
+    /// Test-only observation of the race window between `SetWaitSpeak` and a
+    /// parked `GetWaitResult`. This lets the regression inject chat at the
+    /// real event-loop boundary without timing guesses.
+    #[cfg(test)]
+    pub fn waitspeak_is_armed_before_park(&self, speaker_rid: u16) -> bool {
+        self.running_scripts.iter().any(|rs| {
+            rs.wait_speak == speaker_rid && rs.waiting_reply.is_none()
+        })
+    }
+
     /// Drive all running scripts: execute their pending `BVM_*` calls against
     /// the live world, returning the packets they produced. A script that hits a
     /// blocking `GetWaitResult` is parked (its reply held) until
@@ -4230,12 +4240,17 @@ impl ServerState {
     /// Resume any script parked on `WaitSpeak` for `speaker_rid` (it spoke).
     fn resume_speak_waits(&mut self, speaker_rid: u16) {
         for rs in self.running_scripts.iter_mut() {
-            if rs.wait_speak == speaker_rid && speaker_rid != 0 && rs.waiting_reply.is_some() {
+            if rs.wait_speak == speaker_rid && speaker_rid != 0 {
                 if let Some(reply) = rs.waiting_reply.take() {
                     rs.wait_result = "1".to_string();
                     let _ = reply.send(rcce_script::Value::Str("1".to_string()));
-                    rs.wait_speak = 0;
+                } else {
+                    // A matching chat event can arrive after SetWaitSpeak but
+                    // before the script reaches GetWaitResult. Preserve it
+                    // across SetWaiting, matching the dialog-response path.
+                    rs.pending_response = Some("1".to_string());
                 }
+                rs.wait_speak = 0;
             }
         }
     }
