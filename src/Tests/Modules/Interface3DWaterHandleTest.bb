@@ -8,19 +8,19 @@ EnableGC
 Function HasSafeSwimmingClamp%(Path$)
 	Local F.BBStream = ReadFile(Path$)
 	Local Line$
-	Local Step = 0
+	Local MatchStep = 0
 	If F = Null Then F = ReadFile("..\" + Path$)
 	If F = Null Then F = ReadFile("..\..\" + Path$)
 	If F = Null Then Return False
 	While Not Eof(F)
 		Line$ = ReadLine$(F)
-		Select Step
+		Select MatchStep
 			Case 0
-				If Instr(Line$, "W.Water = Object.Water(Me\Underwater)") > 0 Then Step = 1
+				If Instr(Line$, "W.Water = Object.Water(Me\Underwater)") > 0 Then MatchStep = 1
 			Case 1
-				If Instr(Line$, "If W <> Null") > 0 Then Step = 2
+				If Instr(Line$, "If W <> Null") > 0 Then MatchStep = 2
 			Case 2
-				If Instr(Line$, "If EntityY#(Me\CollisionEN) > EntityY#(W\EN) - 0.5") > 0 Then Step = 3
+				If Instr(Line$, "If EntityY#(Me\CollisionEN) > EntityY#(W\EN) - 0.5") > 0 Then MatchStep = 3
 			Case 3
 				If Instr(Line$, "PositionEntity(Me\CollisionEN, EntityX#(Me\CollisionEN), EntityY#(W\EN) - 0.505, EntityZ#(Me\CollisionEN))") > 0
 					CloseFile F
