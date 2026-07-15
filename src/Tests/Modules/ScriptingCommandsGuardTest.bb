@@ -26,9 +26,20 @@ Function SectionContains%(Path$, StartMarker$, EndMarker$, Needle$)
 	Return False
 End Function
 
+Function LeadingTabs%(Line$)
+	Local Count%, Pos% = 1
+	While Pos <= Len(Line$)
+		If Mid$(Line$, Pos, 1) <> Chr$(9) Then Exit
+		Count = Count + 1
+		Pos = Pos + 1
+	Wend
+	Return Count
+End Function
+
 Function SectionHasOrderedPatrolGuard%(Path$)
 	Local F.BBStream = ReadFile(Path$)
-	Local Stage%
+	Local Stage%, InstanceIndent%, AreaIndent%
+	Local SawPrev%, SawX%, SawZ%
 	Local Line$
 	If F = Null Then F = ReadFile("..\" + Path$)
 	If F = Null Then Return False
@@ -37,15 +48,32 @@ Function SectionHasOrderedPatrolGuard%(Path$)
 		; Anchor after the no-leader branch initializes Found. An earlier
 		; AreaInstance guard in the set-pet branch must not satisfy this test.
 		If Instr(Line$, "Found = False") > 0 Then Stage = 1
-		If Stage = 1 And Instr(Line$, "If AInstance <> Null") > 0 Then Stage = 2
-		If Stage = 2 And Instr(Line$, "If AInstance\Area <> Null") > 0 Then Stage = 3
-		If Stage = 3 And Instr(Line$, "For i = 0 To 249") > 0 Then Stage = 4
-		If Stage = 4 And Instr(Line$, "AInstance\Area\PrevWaypoint") > 0 Then Stage = 5
-		If Stage = 5 And Instr(Line$, "AInstance\Area\WaypointX#") > 0 Then Stage = 6
-		If Stage = 6 And Instr(Line$, "AInstance\Area\WaypointZ#") > 0
+		If Stage = 1 And Instr(Line$, "If AInstance <> Null") > 0
+			InstanceIndent = LeadingTabs(Line$)
+			Stage = 2
+		EndIf
+		If Stage = 2 And Instr(Line$, "If AInstance\Area <> Null") > 0
+			AreaIndent = LeadingTabs(Line$)
+			If AreaIndent <= InstanceIndent Then Return False
+			Stage = 3
+		EndIf
+		If Stage = 3 And Instr(Line$, "AInstance\Area\PrevWaypoint") > 0
+			If LeadingTabs(Line$) <= AreaIndent Then Return False
+			SawPrev = True
+		EndIf
+		If Stage = 3 And Instr(Line$, "AInstance\Area\WaypointX#") > 0
+			If LeadingTabs(Line$) <= AreaIndent Then Return False
+			SawX = True
+		EndIf
+		If Stage = 3 And Instr(Line$, "AInstance\Area\WaypointZ#") > 0
+			If LeadingTabs(Line$) <= AreaIndent Then Return False
+			SawZ = True
+		EndIf
+		If SawPrev = True And SawX = True And SawZ = True
 			CloseFile F
 			Return True
 		EndIf
+		If Stage = 3 And Instr(Line$, "EndIf") > 0 And LeadingTabs(Line$) <= AreaIndent Then Return False
 		If Stage > 0 And Instr(Line$, "; Die if no waypoint available") > 0 Then Exit
 	Wend
 	CloseFile F
