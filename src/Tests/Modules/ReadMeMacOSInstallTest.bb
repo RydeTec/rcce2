@@ -8,8 +8,8 @@ EnableGC
 Function FileContains%(Path$, Needle$)
 	Local F.BBStream = ReadFile(Path$)
 	Local Line$
-	If F = Null Then F = ReadFile("..\\" + Path$)
-	If F = Null Then F = ReadFile("..\\..\\" + Path$)
+	If F = Null Then F = ReadFile("..\" + Path$)
+	If F = Null Then F = ReadFile("..\..\" + Path$)
 	If F = Null Then Return False
 	While Not Eof(F)
 		Line$ = ReadLine$(F)
