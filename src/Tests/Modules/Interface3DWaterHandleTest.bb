@@ -18,14 +18,32 @@ Function HasSafeSwimmingClamp%(Path$)
 			Case 0
 				If Instr(Line$, "W.Water = Object.Water(Me\Underwater)") > 0 Then MatchStep = 1
 			Case 1
-				If Instr(Line$, "If W <> Null") > 0 Then MatchStep = 2
-			Case 2
-				If Instr(Line$, "If EntityY#(Me\CollisionEN) > EntityY#(W\EN) - 0.5") > 0 Then MatchStep = 3
-			Case 3
-				If Instr(Line$, "PositionEntity(Me\CollisionEN, EntityX#(Me\CollisionEN), EntityY#(W\EN) - 0.505, EntityZ#(Me\CollisionEN))") > 0
+				If Instr(Line$, "If W <> Null") = 0
 					CloseFile F
-					Return True
+					Return False
 				EndIf
+				MatchStep = 2
+			Case 2
+				If Instr(Line$, "If EntityY#(Me\CollisionEN) > EntityY#(W\EN) - 0.5") = 0
+					CloseFile F
+					Return False
+				EndIf
+				MatchStep = 3
+			Case 3
+				If Instr(Line$, "PositionEntity(Me\CollisionEN, EntityX#(Me\CollisionEN), EntityY#(W\EN) - 0.505, EntityZ#(Me\CollisionEN))") = 0
+					CloseFile F
+					Return False
+				EndIf
+				MatchStep = 4
+			Case 4
+				If Instr(Line$, "EndIf") = 0
+					CloseFile F
+					Return False
+				EndIf
+				MatchStep = 5
+			Case 5
+				CloseFile F
+				Return Instr(Line$, "EndIf") > 0
 		End Select
 	Wend
 	CloseFile F
