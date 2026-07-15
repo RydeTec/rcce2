@@ -2,12 +2,12 @@
   "run_id": "rcce2-hourly-replacement-20260715T000808Z-3c5fdae09684",
   "status": "active",
   "started_at": "2026-07-15T00:09:24Z",
-  "heartbeat_at": "2026-07-15T00:16:43Z",
-  "expires_at": "2026-07-16T00:16:43Z",
+  "heartbeat_at": "2026-07-15T00:18:09Z",
+  "expires_at": "2026-07-16T00:18:09Z",
   "issue": 627,
   "branch": "codex-automation/627-item-script-restrictions",
   "pr": null,
-  "phase": "implementation-verified-before-commit",
+  "phase": "pushing-commit-82b50e4f",
   "scope": {
     "subsystems": [
       "Rust server item-script authorization",
