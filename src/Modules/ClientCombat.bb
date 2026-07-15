@@ -25,7 +25,15 @@ Function UpdateCombat()
 		; pathway, or simply a missed cleanup site). Treat a Null
 		; lookup the same as a dead target so the next deref doesn't
 		; crash UpdateCombat -- this runs every frame.
-		If A = Null Or A\Attributes\Value[HealthStat] < 1
+		If A = Null
+			PlayerTarget = 0
+			HideEntity(ActorSelectEN)			; Replace through clean function
+			DestroyCharInteractionWindow()
+			If useClickMovement then ShowEntity(ClickMarkerEN)			; Replace through clean function
+			Return
+		EndIf
+
+		If A\Attributes\Value[HealthStat] < 1
 			PlayerTarget = 0
 			HideEntity(ActorSelectEN)			; Replace through clean function
 			DestroyCharInteractionWindow()
