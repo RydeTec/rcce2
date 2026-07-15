@@ -2196,7 +2196,8 @@ Function BVM_NEWQUEST(Param1%, Param2$, Param3$, Param4%=255, Param5%=255, Param
 			; QuestLog is Field[9]; either condition would crash the
 			; server with a Blitz Field OOB or Null deref during a
 			; script-triggered quest mutation.
-			If A = Null Or A\LoggedOn < 0 Or A\LoggedOn > 9 Then Return
+			If A = Null Then Return
+			If A\LoggedOn < 0 Or A\LoggedOn > 9 Then Return
 			Name$ = Param2$
 			; Check it doesn't already exist
 			FreeSpace = -1
@@ -2229,7 +2230,8 @@ Function BVM_UPDATEQUEST(Param1%, Param2$, Param3$, Param4%=255, Param5%=255, Pa
 	If Actor <> Null
 		If Actor\RNID > 0
 			A.Account = Object.Account(Actor\Account)
-			If A = Null Or A\LoggedOn < 0 Or A\LoggedOn > 9 Then Return
+			If A = Null Then Return
+			If A\LoggedOn < 0 Or A\LoggedOn > 9 Then Return
 			Name$ = Upper$(Param2$)
 			Status$ = RCE_StrFromInt$(Param4%, 1)
 			Status$ = Status$ + RCE_StrFromInt$(Param5%, 1)
@@ -2254,7 +2256,8 @@ Function BVM_COMPLETEQUEST(Param1%, Param2$)
 	If Actor <> Null
 		If Actor\RNID > 0
 			A.Account = Object.Account(Actor\Account)
-			If A = Null Or A\LoggedOn < 0 Or A\LoggedOn > 9 Then Return
+			If A = Null Then Return
+			If A\LoggedOn < 0 Or A\LoggedOn > 9 Then Return
 			Name$ = Upper$(Param2$)
 			Status$ = Chr$(255) + Chr$(225) + Chr$(100) + Chr$(254)
 			For i = 0 To 499
@@ -2284,7 +2287,8 @@ Function BVM_DELETEQUEST(Param1%, Param2$)
 	If Actor <> Null
 		If Actor\RNID > 0
 			A.Account = Object.Account(Actor\Account)
-			If A = Null Or A\LoggedOn < 0 Or A\LoggedOn > 9 Then Return
+			If A = Null Then Return
+			If A\LoggedOn < 0 Or A\LoggedOn > 9 Then Return
 			Name$ = Upper$(Param2$)
 			For i = 0 To 499
 				If Upper$(A\QuestLog[A\LoggedOn]\EntryName$[i]) = Name$
@@ -2303,7 +2307,8 @@ Function BVM_QUESTSTATUS$(Param1%, Param2$)
 	If Actor <> Null
 		If Actor\RNID > 0
 			A.Account = Object.Account(Actor\Account)
-			If A = Null Or A\LoggedOn < 0 Or A\LoggedOn > 9 Then Return ""
+			If A = Null Then Return ""
+			If A\LoggedOn < 0 Or A\LoggedOn > 9 Then Return ""
 			Name$ = Upper$(Param2$)
 			For i = 0 To 499
 				If Upper$(A\QuestLog[A\LoggedOn]\EntryName$[i]) = Name$
@@ -2321,7 +2326,8 @@ Function BVM_QUESTCOMPLETE%(Param1%, Param2$)
 	If Actor <> Null
 		If Actor\RNID > 0
 			A.Account = Object.Account(Actor\Account)
-			If A = Null Or A\LoggedOn < 0 Or A\LoggedOn > 9 Then Return 0
+			If A = Null Then Return 0
+			If A\LoggedOn < 0 Or A\LoggedOn > 9 Then Return 0
 			Name$ = Upper$(Param2$)
 			For i = 0 To 499
 				If Upper$(A\QuestLog[A\LoggedOn]\EntryName$[i]) = Name$
