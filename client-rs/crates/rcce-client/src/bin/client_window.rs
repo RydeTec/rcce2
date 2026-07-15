@@ -418,7 +418,8 @@ struct App {
     last_dyn_hash: u64,
     /// Movement input: W/A/S/D held + Shift (run). Camera yaw (radians) rotated
     /// by Left/Right arrows; WASD move relative to it. `last_move` throttles the
-    /// P_StandardUpdate send; `was_moving` lets us send one stop packet on idle.
+    /// P_StandardUpdate send; `last_sent_move_pos` implements Blitz's changed-
+    /// position gate; `was_moving` lets us send one stop packet on idle.
     keys_wasd: [bool; 4],
     run: bool,
     cam_yaw: f32,
@@ -433,6 +434,7 @@ struct App {
     /// arrow/Q-E discrete turn keep working unchanged.
     mouse_look: bool,
     last_move: Instant,
+    last_sent_move_pos: Option<(f32, f32, f32)>,
     was_moving: bool,
     /// Click-to-move destination in world XZ. `Some` while walking toward a
     /// left-clicked ground point; the per-frame movement steers `dir` toward it
@@ -710,6 +712,7 @@ impl App {
             cam_dist: CAM_DIST_DEFAULT,
             mouse_look: false,
             last_move: now,
+            last_sent_move_pos: None,
             was_moving: false,
             chat_input: None,
             chat_caret: 0,
@@ -1573,11 +1576,6 @@ const CAM_DIST_DEFAULT: f32 = 13.0;
 /// look down (top-down at +85°) than up from below (−70°) — same as Blitz.
 const CAM_PITCH_MIN: f32 = -70.0 * std::f32::consts::PI / 180.0;
 const CAM_PITCH_MAX: f32 = 85.0 * std::f32::consts::PI / 180.0;
-/// MOVE-10: the outbound `P_StandardUpdate` send cadence, matching Blitz's
-/// `NetworkMS = 1000 / 5 = 200`ms (`Client.bb:99`, gated at `ClientNet.bb:1804`).
-/// The local body still advances every frame via `tick_movement`; this only
-/// throttles the network propagation, exactly like Blitz.
-const NETWORK_MS: u128 = 200;
 /// Minimum clearance (world units) the camera eye keeps above the terrain at its
 /// own X/Z, so the boom doesn't sink into a hill behind the player.
 const CAM_GROUND_CLEARANCE: f32 = 1.5;
@@ -1815,6 +1813,24 @@ fn is_double_click(dt_ms: u128, dist_px: f32) -> bool {
 /// Pure — unit-tested.
 fn move_run(shift_run: bool, has_move_target: bool, dbl_running: bool) -> bool {
     shift_run || (has_move_target && dbl_running)
+}
+
+/// Blitz's `NetworkMS = 1000 / 5`: routine position updates send only after
+/// more than 200 ms and only when the collision position changed.
+const STANDARD_UPDATE_INTERVAL_MS: u128 = 200;
+
+fn standard_update_due(
+    elapsed_ms: u128,
+    last_sent_position: Option<(f32, f32, f32)>,
+    position: (f32, f32, f32),
+) -> bool {
+    elapsed_ms > STANDARD_UPDATE_INTERVAL_MS && last_sent_position != Some(position)
+}
+
+/// `WalkingBackward` is a distinct back-only state; a forward, strafe, or
+/// automated-forward component makes the combined intent ordinary movement.
+fn back_only_intent(keys_wasd: [bool; 4], auto_forward: bool) -> bool {
+    keys_wasd[2] && !keys_wasd[0] && !keys_wasd[1] && !keys_wasd[3] && !auto_forward
 }
 
 /// Eye height (world units) of the first-person camera above the player's feet
@@ -6964,6 +6980,7 @@ impl App {
         // body should turn to face world-right while the camera still looks
         // forward, so its profile is visible — proving facing follows movement.
         let strafe = std::env::var_os("RCCE_STRAFE").is_some();
+        let walking_backward = back_only_intent(self.keys_wasd, auto);
         if self.keys_wasd[0] || auto { dir[0] += fwd[0]; dir[1] += fwd[1]; }
         if self.keys_wasd[2] { dir[0] -= fwd[0]; dir[1] -= fwd[1]; }
         if self.keys_wasd[3] || strafe { dir[0] += right[0]; dir[1] += right[1]; }
@@ -7020,11 +7037,11 @@ impl App {
         }
         let mag = (dir[0] * dir[0] + dir[1] * dir[1]).sqrt();
         let moving = mag > 0.01;
-        let want_send = self.last_move.elapsed().as_millis() >= NETWORK_MS;
         // MOVE-6: a double-click move runs; Shift-run always wins.
         // RCCE_RUN forces running for headless diagnosis of the run-speed path.
-        let run = move_run(self.run, self.move_target.is_some(), self.move_running)
-            || std::env::var_os("RCCE_RUN").is_some();
+        let run = !walking_backward
+            && (move_run(self.run, self.move_target.is_some(), self.move_running)
+                || std::env::var_os("RCCE_RUN").is_some());
 
         // Pump the network, send movement, and rebuild animated actors.
         let mut cam_target = self.center;
@@ -7371,6 +7388,11 @@ impl App {
             // (height) still comes from the server echo. (RCCE_SERVERMOVE keeps the
             // old behaviour: me_render reconciles to me_x, so this ≈ the echo.)
             let (mx, my, mz) = (net.world.me_render_x, net.world.me_y, net.world.me_render_z);
+            let want_send = standard_update_due(
+                self.last_move.elapsed().as_millis(),
+                self.last_sent_move_pos,
+                (mx, my, mz),
+            );
             // Blocker #4 (MOVE-1/3): the local body faces its steering direction.
             // The P_StandardUpdate wire carries no yaw — the server faces the actor
             // toward Dest (PointEntity) and the echo never updates me_yaw — so
@@ -7380,8 +7402,17 @@ impl App {
             // actors, so the turn glides instead of snapping. Idle keeps the facing.
             if moving && want_send {
                 let (nx, nz) = (dir[0] / mag, dir[1] / mag);
-                let p = movement_packet(mx + nx * 16.0, mz + nz * 16.0, my, mx, mz, run, false);
+                let p = movement_packet(
+                    mx + nx * 16.0,
+                    mz + nz * 16.0,
+                    my,
+                    mx,
+                    mz,
+                    run,
+                    walking_backward,
+                );
                 net.transport.send(net.peer, rcce_net::packet_id::STANDARD_UPDATE, &p, false);
+                self.last_sent_move_pos = Some((mx, my, mz));
                 did_send = true;
                 // MOVE-6 trace: confirm a double-click move sends the run flag.
                 if self.move_running && run && std::env::var("RCCE_DBLRUN").is_ok() {
@@ -11530,6 +11561,29 @@ mod tests {
         assert!(!move_run(false, false, true)); // dbl flag but no active target
         assert!(!move_run(false, true, false)); // walking click (single)
         assert!(!move_run(false, false, false));
+    }
+
+    #[test]
+    fn move10_send_decision_requires_change_after_blitz_cadence() {
+        let pos = (10.0, 3.0, -4.0);
+        assert!(standard_update_due(201, None, pos), "the first changed position may send");
+        assert!(!standard_update_due(200, Some(pos), (11.0, 3.0, -4.0)), "Blitz requires > 200 ms");
+        assert!(!standard_update_due(201, Some(pos), pos), "unchanged position stays quiet");
+        assert!(standard_update_due(201, Some(pos), (10.0, 4.0, -4.0)), "a Y-only collision change sends after cadence");
+        assert!(standard_update_due(201, Some(pos), (11.0, 3.0, -4.0)), "an X change sends after cadence");
+    }
+
+    #[test]
+    fn move10_backward_intent_is_back_only_and_cannot_run() {
+        assert!(back_only_intent([false, false, true, false], false));
+        assert!(!back_only_intent([true, false, true, false], false), "forward+back is not backward-only");
+        assert!(!back_only_intent([false, true, true, false], false), "diagonal is not backward-only");
+        assert!(!back_only_intent([false, false, true, false], true), "auto-forward is not backward-only");
+
+        let packet = movement_packet(16.0, 2.0, 3.0, 4.0, 5.0, false, true);
+        assert_eq!(packet.len(), 22, "MOVE-10 keeps the five-float wire layout");
+        assert_eq!(packet[20], 0, "backward movement never runs");
+        assert_eq!(packet[21], 1, "the final byte preserves WalkingBackward");
     }
 
     // First-person camera (CAM-4): eye at head height, looking along facing.
