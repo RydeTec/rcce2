@@ -18,7 +18,7 @@ Function HasSafeSwimmingClamp%(Path$)
 			Case 0
 				If Instr(Line$, "W.Water = Object.Water(Me\Underwater)") > 0 Then MatchStep = 1
 			Case 1
-				If Instr(Line$, "If W <> Null") = 0
+				If Trim$(Line$) <> "If W <> Null"
 					CloseFile F
 					Return False
 				EndIf
