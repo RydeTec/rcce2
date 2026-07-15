@@ -1,16 +1,16 @@
 {
-  "run_id": "selector-repair-20260715T010744Z-fdad",
-  "status": "released",
+  "run_id": "rcce2-hourly-replacement-20260715T010744Z-fdad",
+  "status": "active",
   "started_at": "2026-07-15T01:07:44Z",
   "heartbeat_at": "2026-07-15T01:07:44Z",
-  "expires_at": "2026-07-15T01:07:44Z",
+  "expires_at": "2026-07-15T01:17:44Z",
   "issue": null,
   "branch": null,
   "pr": null,
-  "phase": "repair-malformed-released-selector",
+  "phase": "reserve-weather-stale-area-guard",
   "scope": {
-    "subsystems": [],
-    "paths": [],
-    "interfaces": []
+    "subsystems": ["Blitz server GM weather command safety"],
+    "paths": ["src/Modules/ServerNet.bb", "src/Tests/Modules/ServerNetWireBoundsTest.bb"],
+    "interfaces": ["P_ChatMessage /weather", "AreaInstance lookup"]
   }
 }
