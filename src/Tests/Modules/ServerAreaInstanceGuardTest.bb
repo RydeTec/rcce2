@@ -42,9 +42,14 @@ Function SectionUsesNestedAreaGuard%(Path$, StartMarker$, EndMarker$, AreaNeedle
 		If InSection = True And Instr(Line$, EndMarker$) > 0 Then Exit
 		If InSection = True
 			If Instr(Line$, "If AInstance <> Null") > 0 Then SawInstanceGuard = True
-			If SawInstanceGuard = True And Instr(Line$, AreaNeedle$) > 0
-				CloseFile F
-				Return True
+			If SawInstanceGuard = True
+				If Instr(Line$, AreaNeedle$) > 0
+					CloseFile F
+					Return True
+				EndIf
+				; The outer branch ended before the Area read, so a following
+				; comparison would be an unsafe standalone dereference.
+				If Instr(Line$, "EndIf") > 0 Then Exit
 			EndIf
 		EndIf
 	Wend
