@@ -119,12 +119,12 @@ Three shape-specific setters (`RP_ConfigShapeSphere`, `RP_ConfigShapeCylinder`, 
 - [`Media.bb`](media.md) — provides the underlying `Texture` handles consumed by `RP_ConfigTexture`. `RP_FreeEmitterConfig` calls Blitz `FreeTexture` directly, not `UnloadTexture` — so freeing an emitter's texture does **not** clear `Media.bb`'s `LoadedTextures(ID)` cache slot. This is a known asymmetry; consumers who want full media-cache invalidation must call `UnloadTexture` themselves afterward.
 - [`Client.bb`](../../src/Client.bb) — calls `RP_Update(Delta)` once per main-loop frame.
 - [`Server.bb`](../../src/Server.bb) — also calls `RP_Update` for any server-side emitters (rare; mostly client-only feature).
-- [`Logging.bb`](logging.md) — provides `SafeWriteOpen` / `SafeWriteCommit` (not yet adopted here — see migration candidate above).
+- [`Logging.bb`](logging.md) — provides the `SafeWriteOpen` / `SafeWriteCommit` recovery-safe save path used by `RP_SaveEmitterConfig`.
 
 ## See also
 
 - CLAUDE.md → "Iterator-during-iteration hazards" — `RP_Update` and `RP_Clear` are canonical after-cursor examples.
-- CLAUDE.md → "Atomic writes" — `RP_SaveEmitterConfig` is a candidate migration site.
+- CLAUDE.md → "Atomic writes" — `RP_SaveEmitterConfig` follows the established SafeWrite persistence contract.
 - CLAUDE.md → "Float sanitisation at the BVM / wire boundary" — `RP_SetParticleFrame`'s `/0` guard is the same family of defenses.
 - [`projectiles3d.md`](projectiles3d.md) — the canonical consumer.
 
