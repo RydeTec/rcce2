@@ -17,6 +17,7 @@ Function ChatTextureReadIsNested%(Path$)
 	Local F.BBStream = ReadFile(Path$)
 	Local Line$
 	Local Stage%, NullIndent%, TextureIndent%
+	Local SawChatBar%, SawTextureCopy%
 	If F = Null Then F = ReadFile("..\" + Path$)
 	If F = Null Then Return False
 
@@ -48,8 +49,37 @@ Function ChatTextureReadIsNested%(Path$)
 				CloseFile F
 				Return False
 			EndIf
+			SawChatBar = True
+		EndIf
+		If Stage = 3 And Instr(Line$, "ChatBar\") > 0
+			If LeadingTabs(Line$) <> TextureIndent + 1
+				CloseFile F
+				Return False
+			EndIf
+		EndIf
+		If Stage = 3 And Instr(Line$, "Chat\Texture") > 0 And Instr(Line$, "If Chat\Texture <> 65535") = 0
+			If LeadingTabs(Line$) <> TextureIndent + 1
+				CloseFile F
+				Return False
+			EndIf
+			SawTextureCopy = True
+		EndIf
+		If Stage = 3 And LeadingTabs(Line$) = TextureIndent
+			If Instr(Line$, "EndIf") > 0 Or Instr(Line$, "End If") > 0 Then Stage = 4
+		EndIf
+		If Stage = 4 And Instr(Line$, "Chat\Texture") > 0
 			CloseFile F
-			Return True
+			Return False
+		EndIf
+		If Stage = 4 And Instr(Line$, "ChatBar") > 0
+			CloseFile F
+			Return False
+		EndIf
+		If Stage = 4 And LeadingTabs(Line$) = NullIndent
+			If Instr(Line$, "EndIf") > 0 Or Instr(Line$, "End If") > 0
+				CloseFile F
+				Return SawChatBar And SawTextureCopy
+			EndIf
 		EndIf
 		If Stage > 0 And Instr(Line$, "CreateInterface()") > 0 Then Exit
 	Wend
