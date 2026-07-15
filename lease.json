@@ -2,15 +2,25 @@
   "run_id": "rcce2-hourly-replacement-20260715T010744Z-fdad",
   "status": "active",
   "started_at": "2026-07-15T01:10:00Z",
-  "heartbeat_at": "2026-07-15T01:10:00Z",
-  "expires_at": "2026-07-16T01:10:00Z",
+  "heartbeat_at": "2026-07-15T01:17:16Z",
+  "expires_at": "2026-07-16T01:17:16Z",
   "issue": 629,
   "branch": "codex-automation/629-weather-stale-area-guard",
   "pr": null,
-  "phase": "reserved",
+  "phase": "green-verification",
   "scope": {
-    "subsystems": ["Blitz server GM weather command safety"],
-    "paths": ["src/Modules/ServerNet.bb", "src/Tests/Modules/ServerNetWireBoundsTest.bb", "docs/protocol/index.md"],
-    "interfaces": ["P_ChatMessage /weather", "AreaInstance lookup", "generated packet source index"]
+    "subsystems": [
+      "Blitz server GM weather command safety"
+    ],
+    "paths": [
+      "src/Modules/ServerNet.bb",
+      "src/Tests/Modules/ServerNetWireBoundsTest.bb",
+      "docs/protocol/index.md"
+    ],
+    "interfaces": [
+      "P_ChatMessage /weather",
+      "AreaInstance lookup",
+      "generated packet source index"
+    ]
   }
 }
