@@ -25,41 +25,52 @@ Function SpellMemorisationCompletionIsSafe%(Path$)
 
 	While Not Eof(F)
 		Line$ = ReadLine$(F)
-		If Instr(Line$, "; Update spell memorisation progress.") > 0 Then Stage = 1
+		If Stage = 0 And Instr(Line$, "; Update spell memorisation progress.") > 0 Then Stage = 1
 		If Stage = 1 And Instr(Line$, "For MS.MemorisingSpell = Each MemorisingSpell") > 0
 			CloseFile F
 			Return False
 		EndIf
-		If Stage = 1 And Instr(Line$, "Local MS.MemorisingSpell = First MemorisingSpell") > 0 Then Stage = 2
-		If Stage = 2 And Instr(Line$, "Local MSNext.MemorisingSpell = Null") > 0 Then Stage = 3
-		If Stage = 3 And Instr(Line$, "While MS <> Null") > 0 Then Stage = 4
-		If Stage = 4 And Instr(Line$, "MSNext = After MS") > 0 Then Stage = 5
-	If Stage = 5 And Instr(Line$, "If MilliSecs() - MS\CreatedTime > 6000") > 0 Then Stage = 6
-	If Stage = 6
-		If Trim$(Line$) <> "If MS\AI <> Null"
-				CloseFile F
-				Return False
-			EndIf
-			GuardIndent = LeadingTabs(Line$)
-			Stage = 7
-		EndIf
-	If Stage = 7 And Instr(Line$, "If MS\KnownNum >= 0 And MS\KnownNum <= 999") > 0
-			If LeadingTabs(Line$) <> GuardIndent + 1 Then Return False
-			Stage = 8
-		EndIf
-	If Stage = 8 And Instr(Line$, "If MS\AI\SpellLevels[MS\KnownNum] > 0") > 0
-			If LeadingTabs(Line$) <= GuardIndent Then Return False
-			Stage = 9
-		EndIf
-		If Stage = 9 And Instr(Line$, "EndIf") > 0 And LeadingTabs(Line$) = GuardIndent Then Stage = 10
-		If Stage = 10 And Instr(Line$, "Delete MS") > 0
-			If LeadingTabs(Line$) <> GuardIndent Then Return False
-			Stage = 11
-		EndIf
-		If Stage = 11 And Instr(Line$, "MS = MSNext") > 0
-			CloseFile F
-			Return LeadingTabs(Line$) = GuardIndent - 1
-		EndIf
+		Select Stage
+			Case 1
+				If Instr(Line$, "Local MS.MemorisingSpell = First MemorisingSpell") > 0 Then Stage = 2
+			Case 2
+				If Instr(Line$, "Local MSNext.MemorisingSpell = Null") > 0 Then Stage = 3
+			Case 3
+				If Instr(Line$, "While MS <> Null") > 0 Then Stage = 4
+			Case 4
+				If Instr(Line$, "MSNext = After MS") > 0 Then Stage = 5
+			Case 5
+				If Instr(Line$, "If MilliSecs() - MS\CreatedTime > 6000") > 0 Then Stage = 6
+			Case 6
+				If Trim$(Line$) <> "If MS\AI <> Null"
+					CloseFile F
+					Return False
+				EndIf
+				GuardIndent = LeadingTabs(Line$)
+				Stage = 7
+			Case 7
+				If Instr(Line$, "If MS\KnownNum >= 0 And MS\KnownNum <= 999") > 0
+					If LeadingTabs(Line$) <> GuardIndent + 1 Then Return False
+					Stage = 8
+				EndIf
+			Case 8
+				If Instr(Line$, "If MS\AI\SpellLevels[MS\KnownNum] > 0") > 0
+					If LeadingTabs(Line$) <= GuardIndent Then Return False
+					Stage = 9
+				EndIf
+			Case 9
+				If Instr(Line$, "EndIf") > 0 And LeadingTabs(Line$) = GuardIndent Then Stage = 10
+			Case 10
+				If Instr(Line$, "Delete MS") > 0
+					If LeadingTabs(Line$) <> GuardIndent Then Return False
+					Stage = 11
+				EndIf
+			Case 11
+				If Instr(Line$, "MS = MSNext") > 0
+					CloseFile F
+					Return LeadingTabs(Line$) = GuardIndent - 1
+				EndIf
+		End Select
 		If Stage > 0 And Instr(Line$, "; Scripts") > 0 Then Exit
 	Wend
 
