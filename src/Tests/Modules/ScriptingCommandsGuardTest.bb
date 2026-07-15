@@ -118,6 +118,6 @@ Test testQuestBVMsGuardStaleAccountBeforeQuestLogAccess()
 	Assert(QuestGuardSectionIsSafe%("Modules\ScriptingCommands.bb", "BVM_UPDATEQUEST", "") = True)
 	Assert(QuestGuardSectionIsSafe%("Modules\ScriptingCommands.bb", "BVM_COMPLETEQUEST", "") = True)
 	Assert(QuestGuardSectionIsSafe%("Modules\ScriptingCommands.bb", "BVM_DELETEQUEST", "") = True)
-	Assert(QuestGuardSectionIsSafe%("Modules\ScriptingCommands.bb", "BVM_QUESTSTATUS$", " \"\"") = True)
+	Assert(QuestGuardSectionIsSafe%("Modules\ScriptingCommands.bb", "BVM_QUESTSTATUS$", " " + Chr$(34) + Chr$(34)) = True)
 	Assert(QuestGuardSectionIsSafe%("Modules\ScriptingCommands.bb", "BVM_QUESTCOMPLETE%", " 0") = True)
 End Test
