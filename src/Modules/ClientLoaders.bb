@@ -202,17 +202,19 @@ Function LoadGame()
 
 	; User interface
 	If Not LoadInterfaceSettings("Data\Game Data\Interface.dat") Then RuntimeError("Could not load interface!")
-	If Chat <> Null And Chat\Texture <> 65535
-		ChatBar = New InterfaceComponent
-		ChatBar\Texture = Chat\Texture
-		ChatBar\X# = Chat\X#
-		ChatBar\Y# = Chat\Y#
-		ChatBar\Width# = Chat\Width#
-		ChatBar\Height# = Chat\Height#
-		ChatBar\Alpha# = Chat\Alpha#
-		ChatBar\R = Chat\R
-		ChatBar\G = Chat\G
-		ChatBar\B = Chat\B
+	If Chat <> Null
+		If Chat\Texture <> 65535
+			ChatBar = New InterfaceComponent
+			ChatBar\Texture = Chat\Texture
+			ChatBar\X# = Chat\X#
+			ChatBar\Y# = Chat\Y#
+			ChatBar\Width# = Chat\Width#
+			ChatBar\Height# = Chat\Height#
+			ChatBar\Alpha# = Chat\Alpha#
+			ChatBar\R = Chat\R
+			ChatBar\G = Chat\G
+			ChatBar\B = Chat\B
+		EndIf
 	End If
 	
 	CreateInterface()
