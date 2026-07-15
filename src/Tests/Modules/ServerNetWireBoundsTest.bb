@@ -75,6 +75,16 @@ Function NestedAreaUsable%(InstancePresent%, AreaPresent%)
 	Return True
 End Function
 
+; --- GM /weather stale AreaInstance guard ---------------------------------
+
+; Mirrors the `/weather` command's outer area-instance lookup. A GM can issue
+; the command while their actor is moving through teardown, so the command
+; must do nothing when Object.AreaInstance(AI\ServerArea) is Null.
+Function WeatherAreaUsable%(InstancePresent%)
+	If InstancePresent = False Then Return False
+	Return True
+End Function
+
 ; The network/world graph cannot be Included into this standalone harness, so
 ; also pin the source-level safety contract. This catches a future regression
 ; that removes the production nested guard while leaving this model unchanged.
@@ -95,6 +105,29 @@ Function FunctionBodyContains%(Path$, FunctionMarker$, Needle$)
 			Return True
 		EndIf
 		If InFunction = True And Instr(Line$, "End Function") > 0 Then Exit
+	Wend
+	CloseFile F
+	Return False
+End Function
+
+; Checks a bounded dispatch section rather than the rest of the containing
+; packet-handler function. This keeps a guard in a later Case from masking a
+; missing guard in the Case under test.
+Function SectionContains%(Path$, StartMarker$, EndMarker$, Needle$)
+	Local F.BBStream = ReadFile(Path$)
+	Local InSection%
+	Local Line$
+	If F = Null Then F = ReadFile("..\" + Path$)
+	If F = Null Then Return False
+	InSection = False
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		If Instr(Line$, StartMarker$) > 0 Then InSection = True
+		If InSection = True And Instr(Line$, EndMarker$) > 0 Then Exit
+		If InSection = True And Instr(Line$, Needle$) > 0
+			CloseFile F
+			Return True
+		EndIf
 	Wend
 	CloseFile F
 	Return False
@@ -206,4 +239,21 @@ Test testProductionGuardsUseSafeNestedIfBranches()
 	Assert(FunctionBodyContains%("Modules\ScriptingCommands.bb", "Function BVM_ACTORINTRIGGER", "AInstance <> Null And AInstance\Area <> Null") = False)
 	Assert(FunctionBodyContains%("Modules\ScriptingCommands.bb", "Function BVM_ACTOROUTDOORS", "If AInstance\Area <> Null") = True)
 	Assert(FunctionBodyContains%("Modules\ScriptingCommands.bb", "Function BVM_ACTOROUTDOORS", "AInstance <> Null And AInstance\Area <> Null") = False)
+End Test
+
+; ====================================================================
+; GM /weather -- stale AreaInstance rejection
+; ====================================================================
+
+Test testMissingWeatherAreaRejectsCommand()
+	Assert(WeatherAreaUsable%(False) = False)
+End Test
+
+Test testLiveWeatherAreaRemainsUsable()
+	Assert(WeatherAreaUsable%(True) = True)
+End Test
+
+Test testWeatherCommandUsesExplicitAreaInstanceGuard()
+	Assert(SectionContains%("Modules\ServerNet.bb", "Case LanguageString$(LS_SCWeather)", "Case LanguageString$(LS_SCTime)", "If AInstance <> Null") = True)
+	Assert(SectionContains%("Modules\ServerNet.bb", "Case LanguageString$(LS_SCWeather)", "Case LanguageString$(LS_SCTime)", "AInstance <> Null And") = False)
 End Test

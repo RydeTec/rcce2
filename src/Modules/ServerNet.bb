@@ -618,42 +618,44 @@ Function UpdateNetwork()
 								A.Account = Object.Account(AI\Account)
 								If A <> Null And A\IsDM = True
 									AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea)
-									; Choose new weather
-									Select Params$
-										Case "SUN", "SUNNY", "NORMAL"
-											AInstance\CurrentWeather = W_Sun
-										Case "RAIN", "RAINY"
-											AInstance\CurrentWeather = W_Rain
-										Case "SNOW", "SNOWY"
-											AInstance\CurrentWeather = W_Snow
-										Case "FOG", "FOGGY"
-											AInstance\CurrentWeather = W_Fog
-										Case "WIND", "WINDY"
-											AInstance\CurrentWeather = W_Wind
-										Case "STORM", "STORMY", "THUNDER", "LIGHTNING"
-											AInstance\CurrentWeather = W_Storm
-									End Select
-									AInstance\CurrentWeatherTime = Rand(2500, 10000)
+									If AInstance <> Null
+										; Choose new weather
+										Select Params$
+											Case "SUN", "SUNNY", "NORMAL"
+												AInstance\CurrentWeather = W_Sun
+											Case "RAIN", "RAINY"
+												AInstance\CurrentWeather = W_Rain
+											Case "SNOW", "SNOWY"
+												AInstance\CurrentWeather = W_Snow
+											Case "FOG", "FOGGY"
+												AInstance\CurrentWeather = W_Fog
+											Case "WIND", "WINDY"
+												AInstance\CurrentWeather = W_Wind
+											Case "STORM", "STORMY", "THUNDER", "LIGHTNING"
+												AInstance\CurrentWeather = W_Storm
+										End Select
+										AInstance\CurrentWeatherTime = Rand(2500, 10000)
 
-									; Tell players in this area
-									Pa$ = RCE_StrFromInt$(Handle(AInstance), 4) + RCE_StrFromInt$(AInstance\CurrentWeather, 1)
-									AI.ActorInstance = AInstance\FirstInZone
-									While AI <> Null
-										If AI\RNID > 0 Then RCE_Send(Host, AI\RNID, P_WeatherChange, Pa$, True)
-										AI = AI\NextInZone
-									Wend
+										; Tell players in this area
+										Pa$ = RCE_StrFromInt$(Handle(AInstance), 4) + RCE_StrFromInt$(AInstance\CurrentWeather, 1)
+										AI.ActorInstance = AInstance\FirstInZone
+										While AI <> Null
+											If AI\RNID > 0 Then RCE_Send(Host, AI\RNID, P_WeatherChange, Pa$, True)
+											AI = AI\NextInZone
+										Wend
 
-									; Force an update for all areas with weather linked to this area
-									If AInstance\ID = 0
-										For Ar.Area = Each Area
-											If Ar\WeatherLinkArea = AInstance\Area
-												For i = 0 To 99
-													If Ar\Instances[i] <> Null
-														Ar\Instances[i]\CurrentWeatherTime = 0
-													EndIf
-												Next
-											EndIf
-										Next
+										; Force an update for all areas with weather linked to this area
+										If AInstance\ID = 0
+											For Ar.Area = Each Area
+												If Ar\WeatherLinkArea = AInstance\Area
+													For i = 0 To 99
+														If Ar\Instances[i] <> Null
+															Ar\Instances[i]\CurrentWeatherTime = 0
+														EndIf
+													Next
+												EndIf
+											Next
+										EndIf
 									EndIf
 								EndIf
 							Case LanguageString$(LS_SCTime)
