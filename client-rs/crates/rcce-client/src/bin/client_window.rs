@@ -434,7 +434,7 @@ struct App {
     /// arrow/Q-E discrete turn keep working unchanged.
     mouse_look: bool,
     last_move: Instant,
-    last_sent_move_pos: Option<(f32, f32)>,
+    last_sent_move_pos: Option<(f32, f32, f32)>,
     was_moving: bool,
     /// Click-to-move destination in world XZ. `Some` while walking toward a
     /// left-clicked ground point; the per-frame movement steers `dir` toward it
@@ -1821,8 +1821,8 @@ const STANDARD_UPDATE_INTERVAL_MS: u128 = 200;
 
 fn standard_update_due(
     elapsed_ms: u128,
-    last_sent_position: Option<(f32, f32)>,
-    position: (f32, f32),
+    last_sent_position: Option<(f32, f32, f32)>,
+    position: (f32, f32, f32),
 ) -> bool {
     elapsed_ms > STANDARD_UPDATE_INTERVAL_MS && last_sent_position != Some(position)
 }
@@ -7391,7 +7391,7 @@ impl App {
             let want_send = standard_update_due(
                 self.last_move.elapsed().as_millis(),
                 self.last_sent_move_pos,
-                (mx, mz),
+                (mx, my, mz),
             );
             // Blocker #4 (MOVE-1/3): the local body faces its steering direction.
             // The P_StandardUpdate wire carries no yaw — the server faces the actor
@@ -7412,7 +7412,7 @@ impl App {
                     walking_backward,
                 );
                 net.transport.send(net.peer, rcce_net::packet_id::STANDARD_UPDATE, &p, false);
-                self.last_sent_move_pos = Some((mx, mz));
+                self.last_sent_move_pos = Some((mx, my, mz));
                 did_send = true;
                 // MOVE-6 trace: confirm a double-click move sends the run flag.
                 if self.move_running && run && std::env::var("RCCE_DBLRUN").is_ok() {
@@ -11565,11 +11565,12 @@ mod tests {
 
     #[test]
     fn move10_send_decision_requires_change_after_blitz_cadence() {
-        let pos = (10.0, -4.0);
+        let pos = (10.0, 3.0, -4.0);
         assert!(standard_update_due(201, None, pos), "the first changed position may send");
-        assert!(!standard_update_due(200, Some(pos), (11.0, -4.0)), "Blitz requires > 200 ms");
+        assert!(!standard_update_due(200, Some(pos), (11.0, 3.0, -4.0)), "Blitz requires > 200 ms");
         assert!(!standard_update_due(201, Some(pos), pos), "unchanged position stays quiet");
-        assert!(standard_update_due(201, Some(pos), (11.0, -4.0)), "changed position sends after cadence");
+        assert!(standard_update_due(201, Some(pos), (10.0, 4.0, -4.0)), "a Y-only collision change sends after cadence");
+        assert!(standard_update_due(201, Some(pos), (11.0, 3.0, -4.0)), "an X change sends after cadence");
     }
 
     #[test]
