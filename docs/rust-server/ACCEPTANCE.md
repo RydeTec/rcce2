@@ -74,8 +74,8 @@ Status: **DONE**.
 **ACC-5 — Create character.**
 Input: `P_CreateCharacter` (name, ActorID, appearance, attribute points).
 Observable: catalog ActorID validation, `new_character` from template, StartArea/StartPortal → position, name charset/length/banned-filter/uniqueness, attribute-point cheat check, gold/rep from config; reply `Y`/`I`/`N`; persisted + reloadable.
-Verify: `executed` — validated end-to-end against real `Actors.dat` (`characters.rs`, Cycle 8).
-Status: **DONE**. *Divergence: name-uniqueness scans all stored chars vs Blitz's in-world-only scan (PARITY: no-live-sessions divergence).*
+Verify: `executed` — validated end-to-end against real `Actors.dat` (`characters.rs`, Cycle 8); the **attribute-point spend** leg was inert until Cycle 110 (#621): the apply block was byte-correct but gated on `config.attribute_assignment`, which was never loaded (always 0), so the spend silently no-op'd. Cycle 110 loads `AttributeAssignment` from `Attributes.dat` byte 0 (shipped=10) and adds tests that the spend applies (`base+byte`) and that overspend/flood is rejected wholesale.
+Status: **DONE** (attribute-spend leg live as of Cycle 110). *Divergence: name-uniqueness scans all stored chars vs Blitz's in-world-only scan (PARITY: no-live-sessions divergence).*
 
 **ACC-6 — Fetch character detail.**
 Input: `P_FetchCharacter`.

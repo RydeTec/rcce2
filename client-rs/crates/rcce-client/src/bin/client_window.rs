@@ -59,57 +59,144 @@ enum Mode {
 type LoginResult = Result<(EnetTransport, i32, Vec<CharInfo>), String>;
 
 /// Create-character sub-screen state (`Mode::CharSelect`, creating). A cursor
-/// (`field`) selects Race / Gender / Face / Hair / Beard / Body; Up/Down move the
-/// cursor, Left/Right cycle the selected field's value.
-#[derive(Debug, Clone, Default)]
+/// (`field`) selects Race / Class / Gender / Face / Hair / Beard / Body, then the
+/// assignable attribute rows; Up/Down move the cursor, Left/Right cycle the
+/// selected field's value (or spend/refund an attribute point). Mirrors
+/// `MainMenu.bb:2144-2662` (`CreateChar`).
+#[derive(Debug, Clone)]
 struct Creating {
     name: String,
-    /// Playable-template index (the Race field).
+    /// Index into `App::create_templates` — the chosen race+class combo (each is
+    /// a distinct `Actor` record, so this alone determines the wire `actorID`).
     tpl: usize,
     appear: CharAppearance,
-    /// Active field: 0=Race 1=Gender 2=Face 3=Hair 4=Beard 5=Body.
+    /// Active cursor row: 0..7 selectors (see `SELECTORS`), then `7 + k` for the
+    /// k-th assignable attribute row.
     field: usize,
+    /// Attribute points spent per slot (0..39), parity with Blitz `PointSpends`.
+    /// Non-assignable slots stay 0. Sent as the 40 attribute bytes.
+    points: [u8; 40],
+}
+
+impl Default for Creating {
+    fn default() -> Self {
+        // Manual (not derived): `[u8; 40]` has no `Default` impl for N > 32.
+        Creating {
+            name: String::new(),
+            tpl: 0,
+            appear: CharAppearance::default(),
+            field: 0,
+            points: [0u8; 40],
+        }
+    }
 }
 
 impl Creating {
-    /// Field labels for the selector rows (index-aligned with `field`).
-    const FIELDS: [&'static str; 6] = ["Race", "Gender", "Face", "Hair", "Beard", "Body"];
+    /// Selector-row labels (index-aligned with the first `field` values). The
+    /// attribute rows follow these, one per assignable attribute slot.
+    const SELECTORS: [&'static str; 7] =
+        ["Race", "Class", "Gender", "Face", "Hair", "Beard", "Body"];
 
-    /// Move the active-field cursor by `dir` (+1 down / -1 up), wrapping.
-    fn move_field(&mut self, dir: i32) {
-        let n = Self::FIELDS.len() as i32;
-        self.field = (self.field as i32 + dir).rem_euclid(n) as usize;
+    /// Move the active-field cursor by `dir` (+1 down / -1 up), wrapping over the
+    /// 7 selectors plus `n_attr` attribute rows.
+    fn move_field(&mut self, dir: i32, n_attr: usize) {
+        let n = (Self::SELECTORS.len() + n_attr) as i32;
+        self.field = (self.field as i32 + dir).rem_euclid(n.max(1)) as usize;
     }
 
-    /// Cycle the active field's value by `dir`, wrapping within its range. `races`
-    /// is the number of playable templates (the Race field's range); Gender is
-    /// 0..=1; the appearance slots are 0..=4 (`MainMenu.bb` cycles 0..4 per slot).
-    fn cycle_value(&mut self, dir: i32, races: usize) {
+    /// Cycle a pure *appearance* selector (Gender/Face/Hair/Beard/Body) by `dir`,
+    /// wrapping. Gender is 0..=1; the appearance slots are 0..=4 (`MainMenu.bb`
+    /// cycles 0..4 per slot). Race/Class need the template list (handled by the
+    /// caller); attribute rows go through [`Creating::adjust_attr`].
+    fn cycle_appearance(&mut self, dir: i32) {
         let cyc = |v: u8, n: i32| ((v as i32 + dir).rem_euclid(n)) as u8;
         match self.field {
-            0 if races > 0 => self.tpl = (self.tpl as i32 + dir).rem_euclid(races as i32) as usize,
-            1 => self.appear.gender = cyc(self.appear.gender, 2),
-            2 => self.appear.face = cyc(self.appear.face, 5),
-            3 => self.appear.hair = cyc(self.appear.hair, 5),
-            4 => self.appear.beard = cyc(self.appear.beard, 5),
-            5 => self.appear.body = cyc(self.appear.body, 5),
+            2 => self.appear.gender = cyc(self.appear.gender, 2),
+            3 => self.appear.face = cyc(self.appear.face, 5),
+            4 => self.appear.hair = cyc(self.appear.hair, 5),
+            5 => self.appear.beard = cyc(self.appear.beard, 5),
+            6 => self.appear.body = cyc(self.appear.body, 5),
             _ => {}
         }
     }
 
-    /// The current value of field `i` for the selector display (`race_name` is the
-    /// resolved Race value).
-    fn field_value(&self, i: usize, race_name: &str) -> String {
-        match i {
-            0 => race_name.to_string(),
-            1 => if self.appear.gender == 1 { "Female".into() } else { "Male".into() },
-            2 => self.appear.face.to_string(),
-            3 => self.appear.hair.to_string(),
-            4 => self.appear.beard.to_string(),
-            5 => self.appear.body.to_string(),
-            _ => String::new(),
+    /// Points still unspent in the pool (`AttributeAssignment - Σ points`).
+    fn attr_remaining(&self, total: u32) -> u32 {
+        total.saturating_sub(self.points.iter().map(|&p| p as u32).sum())
+    }
+
+    /// Spend (`dir > 0`) or refund (`dir < 0`) one point on attribute `slot`.
+    /// `value`/`max` are the template's base value & maximum for the slot. Blitz
+    /// clamps (MainMenu.bb:2491/2499): refund only when a point is already spent
+    /// there; spend only when the pool has a point left AND `value + spent < max`.
+    /// Returns whether the spend/refund happened.
+    fn adjust_attr(&mut self, slot: usize, dir: i32, total: u32, value: i32, max: i32) -> bool {
+        if slot >= 40 {
+            return false;
+        }
+        if dir > 0 {
+            if self.attr_remaining(total) > 0 && value + (self.points[slot] as i32) < max {
+                self.points[slot] += 1;
+                return true;
+            }
+        } else if dir < 0 && self.points[slot] > 0 {
+            self.points[slot] -= 1;
+            return true;
+        }
+        false
+    }
+
+    /// Zero all point spends — used when the race/class (and thus the base
+    /// stats/maxes) changes, matching Blitz `PointsToSpend = AttributeAssignment
+    /// : For i … PointSpends(i) = 0` (MainMenu.bb:2606-2607).
+    fn reset_points(&mut self) {
+        self.points = [0u8; 40];
+    }
+}
+
+/// Index of the first template of the previous/next **distinct race** relative to
+/// `templates[cur]`'s race — the Blitz race combobox, which dedups by `Race$` and
+/// lands on that race's first `Actor` (MainMenu.bb:2174-2187). Case-insensitive
+/// race match. Returns `cur` when `templates` is empty.
+fn cycle_race(templates: &[(u16, String, String)], cur: usize, dir: i32) -> usize {
+    if templates.is_empty() {
+        return cur;
+    }
+    let mut races: Vec<&str> = Vec::new();
+    for (_, r, _) in templates {
+        if !races.iter().any(|x| x.eq_ignore_ascii_case(r)) {
+            races.push(r);
         }
     }
+    let cur_race = templates.get(cur).map(|(_, r, _)| r.as_str()).unwrap_or("");
+    let pos = races.iter().position(|r| r.eq_ignore_ascii_case(cur_race)).unwrap_or(0);
+    let next = ((pos as i32 + dir).rem_euclid(races.len() as i32)) as usize;
+    let target = races[next];
+    templates
+        .iter()
+        .position(|(_, r, _)| r.eq_ignore_ascii_case(target))
+        .unwrap_or(cur)
+}
+
+/// Index after cycling to the previous/next **class within the current race**
+/// (Blitz `BNextClass`/`BPrevClass` walk the Actor list for same-`Race$`
+/// playables, MainMenu.bb:2565-2620). Returns `cur` when the race has one class.
+fn cycle_class(templates: &[(u16, String, String)], cur: usize, dir: i32) -> usize {
+    let Some((_, cur_race, _)) = templates.get(cur) else {
+        return cur;
+    };
+    let group: Vec<usize> = templates
+        .iter()
+        .enumerate()
+        .filter(|(_, (_, r, _))| r.eq_ignore_ascii_case(cur_race))
+        .map(|(i, _)| i)
+        .collect();
+    if group.is_empty() {
+        return cur;
+    }
+    let pos = group.iter().position(|&i| i == cur).unwrap_or(0);
+    let next = ((pos as i32 + dir).rem_euclid(group.len() as i32)) as usize;
+    group[next]
 }
 
 /// The in-world key bindings, shown on the `Mode::Controls` reference screen
@@ -540,9 +627,12 @@ struct App {
     login_rx: Option<std::sync::mpsc::Receiver<LoginResult>>,
     /// Open menu-connection peer handle (valid in CharSelect).
     login_peer: i32,
-    /// Editable credential fields + which one has focus (0 = user, 1 = pass).
+    /// Editable credential fields + which one has focus (0 = user, 1 = pass,
+    /// 2 = email — MENU-2, the three fields Tab cycles through like
+    /// `MainMenu.bb:771-783`; email is display-only, unused by login auth).
     login_user: String,
     login_pass: String,
+    login_email: String,
     login_focus: u8,
     /// MD5 of the password, cached after a successful login for create/delete.
     login_md5: String,
@@ -555,6 +645,19 @@ struct App {
     creating: Option<Creating>,
     /// Playable templates (actor id, race name) for the create race picker.
     playable: Vec<(u16, String)>,
+    /// Playable create templates `(actor id, race, class)` — the create screen's
+    /// Race + Class pickers index this (`c.tpl`). Same set/order as `playable`.
+    create_templates: Vec<(u16, String, String)>,
+    /// Attribute slots (0..39) that are assignable in create (named, non-skill,
+    /// non-hidden). One create-screen attribute row per entry.
+    assignable_attrs: Vec<usize>,
+    /// The project's attribute-point pool (`AttributeAssignment`). 0 = no spend UI.
+    attr_pool: u8,
+    /// Headless `RCCE_AUTOCREATE` one-shot latch. The auto-driver creates at most
+    /// ONE character; without this, a rejected create (e.g. a name collision)
+    /// would loop every frame, spamming the server. Set the first time the
+    /// auto-create branch runs, regardless of success.
+    auto_create_tried: bool,
 }
 
 impl App {
@@ -683,13 +786,22 @@ impl App {
                     String::new()
                 }
             }),
-            login_focus: 0,
+            login_email: std::env::var("RCCE_EMAIL").unwrap_or_default(),
+            // MENU-2: start focus on the password field like Blitz, which
+            // `GY_ActivateTextField(TPass)` before the login loop (MainMenu.bb:772)
+            // — the account name is pre-filled from `Last Username.dat`, so the
+            // user just types their password.
+            login_focus: 1,
             login_md5: String::new(),
             login_msg: String::new(),
             chars: Vec::new(),
             char_sel: 0,
             creating: None,
             playable: Vec::new(),
+            create_templates: Vec::new(),
+            assignable_attrs: Vec::new(),
+            attr_pool: 0,
+            auto_create_tried: false,
             data_root: String::new(),
             loaded_zone: String::new(),
             // GPU skinning is the default; RCCE_CPUSKIN forces the legacy CPU
@@ -1423,12 +1535,47 @@ fn initial_menu_mode(eula_present: bool) -> Mode {
     }
 }
 
+/// The character name the `RCCE_AUTOCREATE` headless harness creates. Pure so the
+/// call site can inject the env override and a time source, and so the regression
+/// is unit-testable.
+///
+/// Server-side character names are GLOBALLY unique and validated against a
+/// printable-ASCII charset + a banned-word filter (`characters.rs`
+/// `name_charset_ok` / `name_is_banned`). A FIXED name (the old hardcoded
+/// "Shotbot") collides as soon as the server's `Accounts.dat` already holds it —
+/// and that file is a persistent, gitignored save that accumulates every
+/// character created against a data dir, so any re-run against the same server
+/// data hits the collision (in the environment this was diagnosed in, a prior
+/// harness run had already left a "Shotbot" behind). A rejected create wedges the
+/// AUTOENTER path, so the default name is `Shot` + 6 decimal digits from
+/// `suffix_ms` (millisecond clock) — digits only, so it can never collide with a
+/// filtered title word and always passes the charset. The `% 1_000_000` wraps
+/// every ~1000 s, so this is "time-varying" rather than provably globally unique,
+/// but the one-shot latch at the call site means only ONE name is ever generated
+/// per process (no within-run collision), and against a fresh data copy there is
+/// no pre-existing `Shot*` to collide with. A non-blank `name_override`
+/// (`RCCE_AUTOCREATE_NAME`) wins, trimmed, for callers that manage naming
+/// themselves.
+fn auto_create_name(name_override: Option<String>, suffix_ms: u64) -> String {
+    if let Some(n) = name_override.map(|s| s.trim().to_string()).filter(|s| !s.is_empty()) {
+        return n;
+    }
+    format!("Shot{:06}", suffix_ms % 1_000_000)
+}
+
 /// Camera zoom bounds (CAM-3). Blitz clamps the mouse-wheel zoom to [5,50] and
 /// the keyboard zoom to [3,50] (`Interface3D.bb:643-657`); we use [5,50] for
 /// both with a 13.0 default (the prior hardcoded boom length).
 const CAM_DIST_MIN: f32 = 5.0;
 const CAM_DIST_MAX: f32 = 50.0;
 const CAM_DIST_DEFAULT: f32 = 13.0;
+/// MOVE-9: third-person mouse-look pitch clamp, matching Blitz's
+/// `CamPitch#` limits [−70°, +85°] (`Interface3D.bb:637-641`). `cam_pitch` is
+/// stored in radians (fed straight into `pitch.sin_cos()` for the boom), so the
+/// Blitz degree limits convert once here. The range is asymmetric — more room to
+/// look down (top-down at +85°) than up from below (−70°) — same as Blitz.
+const CAM_PITCH_MIN: f32 = -70.0 * std::f32::consts::PI / 180.0;
+const CAM_PITCH_MAX: f32 = 85.0 * std::f32::consts::PI / 180.0;
 /// Minimum clearance (world units) the camera eye keeps above the terrain at its
 /// own X/Z, so the boom doesn't sink into a hill behind the player.
 const CAM_GROUND_CLEARANCE: f32 = 1.5;
@@ -1534,6 +1681,20 @@ fn zoom_step(dist: f32, delta: f32) -> f32 {
 /// Apply a volume delta and clamp to [0,1] for the Sound options screen. Pure.
 fn volume_step(vol: f32, delta: f32) -> f32 {
     (vol + delta).clamp(0.0, 1.0)
+}
+
+/// MOVE-9: clamp the third-person mouse-look pitch to Blitz's [−70°, +85°]
+/// (in radians). Pure.
+fn pitch_clamp(pitch: f32) -> f32 {
+    pitch.clamp(CAM_PITCH_MIN, CAM_PITCH_MAX)
+}
+
+/// MENU-2: advance the login-field focus among the three fields (0 = Name,
+/// 1 = Pass, 2 = Email), wrapping — `delta = +1` for Tab / Down, `-1` for Up.
+/// Mirrors Blitz's Name→Pass→Email→Name Tab cycle (`MainMenu.bb:771-783`). Pure.
+fn cycle_login_focus(focus: u8, delta: i8) -> u8 {
+    // rem_euclid(3) already yields 0..2 for any input.
+    (focus as i8 + delta).rem_euclid(3) as u8
 }
 
 /// Compose a chat-line for one combat event under DamageInfoStyle 2 (CBT-5),
@@ -3373,6 +3534,10 @@ impl ApplicationHandler for App {
         self.footstep_paths = store.footstep_sounds();
         // Playable races for the character-create screen.
         self.playable = store.playable_templates();
+        // Create-screen race/class picker + attribute-spend data (MENU-6).
+        self.create_templates = store.playable_create_templates();
+        self.assignable_attrs = store.assignable_attribute_slots();
+        self.attr_pool = store.attribute_assignment();
 
         // RCCE_AUTOLOGIN=1 keeps the old straight-to-world path. The headless
         // world harnesses (RCCE_BENCH / RCCE_AUTOWALK) are meaningless at the
@@ -4056,8 +4221,8 @@ impl ApplicationHandler for App {
         if let DeviceEvent::MouseMotion { delta: (dx, dy) } = event {
             const SENS: f32 = 0.0032;
             self.cam_yaw += dx as f32 * SENS;
-            // Up-drag looks up; clamp so the camera can't flip past the poles.
-            self.cam_pitch = (self.cam_pitch - dy as f32 * SENS).clamp(-0.35, 1.30);
+            // Up-drag looks up; clamp to Blitz's [−70°, +85°] pitch limits (MOVE-9).
+            self.cam_pitch = pitch_clamp(self.cam_pitch - dy as f32 * SENS);
         }
     }
 }
@@ -4393,11 +4558,11 @@ impl App {
             self.login_msg = "Name required".to_string();
             return;
         }
-        let Some(&(actor_id, _)) = self.playable.get(c.tpl) else { return };
+        let Some(&(actor_id, _, _)) = self.create_templates.get(c.tpl) else { return };
         let user = self.login_user.trim().to_string();
         let md5 = self.login_md5.clone();
         let Some(mut t) = self.login_transport.take() else { return };
-        match create_char(&mut t, self.login_peer, &user, &md5, actor_id, c.appear, &name) {
+        match create_char(&mut t, self.login_peer, &user, &md5, actor_id, c.appear, &c.points, &name) {
             Ok(chars) => {
                 self.chars = chars;
                 self.creating = None;
@@ -4407,6 +4572,63 @@ impl App {
             Err(e) => self.login_msg = e,
         }
         self.login_transport = Some(t);
+    }
+
+    /// Number of attribute rows shown on the create screen (0 when the project
+    /// grants no assignment pool — the `+/-` UI is then hidden entirely, matching
+    /// Blitz `If AttributeAssignment > 0`).
+    fn create_attr_rows(&self) -> usize {
+        if self.attr_pool > 0 {
+            self.assignable_attrs.len()
+        } else {
+            0
+        }
+    }
+
+    /// Up/Down cursor move on the create screen.
+    fn create_move(&mut self, dir: i32) {
+        let rows = self.create_attr_rows();
+        if let Some(c) = self.creating.as_mut() {
+            c.move_field(dir, rows);
+        }
+    }
+
+    /// Left/Right on the create screen: cycle the active selector (Race/Class via
+    /// the template list, Gender/Face/Hair/Beard/Body in place) or spend/refund an
+    /// attribute point on an attribute row. Changing race or class re-bases the
+    /// stats, so the spent points reset (Blitz MainMenu.bb:2512-2513/2606-2607).
+    fn create_cycle(&mut self, dir: i32) {
+        let templates = &self.create_templates;
+        let pool = self.attr_pool as u32;
+        let Some(c) = self.creating.as_mut() else { return };
+        match c.field {
+            0 => {
+                let new_tpl = cycle_race(templates, c.tpl, dir);
+                if new_tpl != c.tpl {
+                    c.tpl = new_tpl;
+                    c.reset_points();
+                }
+            }
+            1 => {
+                let new_tpl = cycle_class(templates, c.tpl, dir);
+                if new_tpl != c.tpl {
+                    c.tpl = new_tpl;
+                    c.reset_points();
+                }
+            }
+            2..=6 => c.cycle_appearance(dir),
+            f => {
+                // Attribute row: field 7 → assignable_attrs[0], etc.
+                let row = f - Creating::SELECTORS.len();
+                if let Some(&slot) = self.assignable_attrs.get(row) {
+                    let actor_id = self.create_templates.get(c.tpl).map(|&(id, _, _)| id);
+                    let (value, max) = actor_id
+                        .and_then(|id| self.store.as_ref().and_then(|s| s.template_attribute(id, slot)))
+                        .unwrap_or((0, 0));
+                    c.adjust_attr(slot, dir, pool, value as i32, max as i32);
+                }
+            }
+        }
     }
 
     /// Delete the highlighted character (best-effort; the server may reject it
@@ -4525,14 +4747,24 @@ impl App {
                 _ => {}
             },
             Mode::Login => match code {
+                // Enter logs in (Blitz `GY_TextFieldHit(TPass)` → Goto Login);
+                // we accept it in any field, a harmless superset.
                 KeyCode::Enter | KeyCode::NumpadEnter => self.submit_login(),
                 KeyCode::F1 => self.mode = Mode::Options,
-                KeyCode::Tab | KeyCode::ArrowDown | KeyCode::ArrowUp => {
-                    self.login_focus ^= 1;
+                // MENU-2: Tab cycles Name→Pass→Email→Name (MainMenu.bb:771-783);
+                // Up/Down step the same three-field focus.
+                KeyCode::Tab | KeyCode::ArrowDown => {
+                    self.login_focus = cycle_login_focus(self.login_focus, 1);
+                }
+                KeyCode::ArrowUp => {
+                    self.login_focus = cycle_login_focus(self.login_focus, -1);
                 }
                 KeyCode::Backspace => {
-                    let f = if self.login_focus == 0 { &mut self.login_user } else { &mut self.login_pass };
-                    f.pop();
+                    match self.login_focus {
+                        0 => self.login_user.pop(),
+                        1 => self.login_pass.pop(),
+                        _ => self.login_email.pop(),
+                    };
                 }
                 KeyCode::Escape => {
                     self.shutdown_net();
@@ -4540,9 +4772,16 @@ impl App {
                 }
                 _ => {
                     if let Some(t) = text {
-                        let f = if self.login_focus == 0 { &mut self.login_user } else { &mut self.login_pass };
+                        // Email caps at 30 like Blitz's `TEmail` MaxLength
+                        // (MainMenu.bb:466); name/pass keep their pre-existing
+                        // 24-cap. No spaces (matching the old filter).
+                        let (f, cap) = match self.login_focus {
+                            0 => (&mut self.login_user, 24),
+                            1 => (&mut self.login_pass, 24),
+                            _ => (&mut self.login_email, 30),
+                        };
                         for ch in t.chars().filter(|c| !c.is_control() && *c != ' ') {
-                            if f.chars().count() < 24 {
+                            if f.chars().count() < cap {
                                 f.push(ch);
                             }
                         }
@@ -4560,10 +4799,10 @@ impl App {
                         KeyCode::Backspace => {
                             c.name.pop();
                         }
-                        KeyCode::ArrowUp => c.move_field(-1),
-                        KeyCode::ArrowDown => c.move_field(1),
-                        KeyCode::ArrowLeft => c.cycle_value(-1, self.playable.len()),
-                        KeyCode::ArrowRight => c.cycle_value(1, self.playable.len()),
+                        KeyCode::ArrowUp => self.create_move(-1),
+                        KeyCode::ArrowDown => self.create_move(1),
+                        KeyCode::ArrowLeft => self.create_cycle(-1),
+                        KeyCode::ArrowRight => self.create_cycle(1),
                         _ => {
                             if let Some(t) = text {
                                 for ch in t.chars().filter(|ch| ch.is_alphanumeric()) {
@@ -5906,9 +6145,41 @@ impl App {
             && self.login_rx.is_none()
         {
             if self.chars.is_empty() {
-                if std::env::var_os("RCCE_AUTOCREATE").is_some() && !self.playable.is_empty() {
-                    self.creating = Some(Creating { name: "Shotbot".to_string(), ..Default::default() });
+                if std::env::var_os("RCCE_AUTOCREATE").is_some()
+                    && !self.playable.is_empty()
+                    && !self.auto_create_tried
+                {
+                    // Latch BEFORE the attempt: a rejected create (name taken,
+                    // throttle, misconfig) must not loop every frame spamming the
+                    // server. One shot only.
+                    self.auto_create_tried = true;
+                    // Character names are GLOBALLY unique server-side. A fixed name
+                    // is rejected with 'I' ("name taken") as soon as the server's
+                    // persistent (gitignored) `Accounts.dat` already holds it —
+                    // which any re-run against the same data dir hits — wedging the
+                    // harness. Derive a time-varying name so the create lands on a
+                    // fresh account against a fresh data copy (see `auto_create_name`).
+                    let suffix = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| d.as_millis() as u64)
+                        .unwrap_or(0);
+                    let name = auto_create_name(std::env::var("RCCE_AUTOCREATE_NAME").ok(), suffix);
+                    println!("[autodrive] AUTOCREATE: creating character '{name}'");
+                    self.creating = Some(Creating { name, ..Default::default() });
                     self.submit_create();
+                    // On success `submit_create` populates `chars` and clears
+                    // `creating`; the next frame's else-branch enters the world.
+                    // On failure `creating` is left `Some`, which would freeze the
+                    // `creating.is_none()` guard forever — clear it so the harness
+                    // fails visibly (a menu screenshot) instead of hanging, and
+                    // surface why.
+                    if self.chars.is_empty() {
+                        println!(
+                            "[autodrive] AUTOCREATE failed: {} (no character to enter)",
+                            self.login_msg
+                        );
+                        self.creating = None;
+                    }
                 }
             } else {
                 self.enter_selected();
@@ -5918,8 +6189,9 @@ impl App {
             }
         }
         // RCCE_SHOTCREATE: open (and HOLD, without submitting) the create-character
-        // sub-screen with visible non-default appearance selections, so RCCE_SHOT can
-        // capture the appearance selectors (C1 visual verification).
+        // sub-screen with visible non-default appearance selections + a couple of
+        // attribute points spent, so RCCE_SHOT can capture the class picker and the
+        // attribute-spend UI (MENU-6 visual verification).
         if std::env::var_os("RCCE_SHOTCREATE").is_some()
             && self.mode == Mode::CharSelect
             && self.creating.is_none()
@@ -5929,8 +6201,32 @@ impl App {
             self.begin_create();
             if let Some(c) = self.creating.as_mut() {
                 c.name = "Shotbot".to_string();
-                c.field = 2; // cursor on Face
                 c.appear = CharAppearance { gender: 1, face: 2, hair: 1, beard: 0, body: 3 };
+            }
+            // Park the cursor on the first attribute row that can actually take a
+            // point (skip maxed stats like Health) and spend three, exercising the
+            // `+` clamp and showing the active `[ - N + ]` control in the capture.
+            if self.attr_pool > 0 {
+                let n_sel = Creating::SELECTORS.len();
+                let actor_id = self
+                    .creating
+                    .as_ref()
+                    .and_then(|c| self.create_templates.get(c.tpl))
+                    .map(|&(id, _, _)| id);
+                let row = self.assignable_attrs.iter().position(|&slot| {
+                    actor_id
+                        .and_then(|id| self.store.as_ref().and_then(|s| s.template_attribute(id, slot)))
+                        .map(|(v, m)| (v as i32) < (m as i32))
+                        .unwrap_or(false)
+                });
+                if let Some(r) = row {
+                    if let Some(c) = self.creating.as_mut() {
+                        c.field = n_sel + r;
+                    }
+                    self.create_cycle(1);
+                    self.create_cycle(1);
+                    self.create_cycle(1);
+                }
             }
         }
         let (w, h) = match self.gfx.as_ref() {
@@ -6413,6 +6709,15 @@ impl App {
             if self.login_focus == 1 && (elapsed * 2.0) as i32 % 2 == 0 {
                 overlay.text(fx + 8.0 + masked.chars().count() as f32 * 9.0 * fs, y + 7.0, fs, "_", [1.0, 1.0, 1.0, 1.0]);
             }
+            // MENU-2: the Email field (third Tab stop; display-only, MainMenu.bb:466).
+            y += 52.0;
+            overlay.text(fx, y, 1.1, "EMAIL", lbl);
+            y += 18.0;
+            field_bg(overlay, fx, y, fw, self.login_focus == 2);
+            overlay.text(fx + 8.0, y + 7.0, fs, &self.login_email, [1.0, 1.0, 1.0, 1.0]);
+            if self.login_focus == 2 && (elapsed * 2.0) as i32 % 2 == 0 {
+                overlay.text(fx + 8.0 + self.login_email.chars().count() as f32 * 9.0 * fs, y + 7.0, fs, "_", [1.0, 1.0, 1.0, 1.0]);
+            }
             y += 50.0;
             if !self.login_msg.is_empty() {
                 overlay.text(fx, y, 1.05, &self.login_msg, [1.0, 0.7, 0.5, 1.0]);
@@ -6481,20 +6786,71 @@ impl App {
                 }
 
                 if let Some(c) = &self.creating {
-                    let rows = Creating::FIELDS.len() as f32;
-                    let panel_h = 70.0 + rows * 20.0;
+                    let n_sel = Creating::SELECTORS.len();
+                    // Inline (not `self.create_attr_rows()`): `overlay` holds a
+                    // `&mut self.overlay` borrow across this block, so a whole-`self`
+                    // method call would conflict — direct field reads are disjoint.
+                    let attr_rows = if self.attr_pool > 0 { self.assignable_attrs.len() } else { 0 };
+                    // Header = title + name + (optional) points line; then one row
+                    // per selector and one per assignable attribute.
+                    let points_line = if self.attr_pool > 0 { 20.0 } else { 0.0 };
+                    let panel_h =
+                        70.0 + points_line + (n_sel + attr_rows) as f32 * 18.0 + 10.0;
                     let by = py + ph - 40.0 - panel_h;
                     overlay.rect(fx - 6.0, by - 8.0, pw - pad * 2.0 + 12.0, panel_h, [0.08, 0.10, 0.16, 0.96]);
                     overlay.text(fx, by, 1.2, "NEW CHARACTER", [0.85, 0.9, 1.0, 1.0]);
                     overlay.text(fx, by + 22.0, 1.5, &format!("{}_", c.name), [1.0, 1.0, 0.9, 1.0]);
-                    let race = self.playable.get(c.tpl).map(|(_, r)| r.as_str()).unwrap_or("?");
-                    for (i, label) in Creating::FIELDS.iter().enumerate() {
-                        let ry = by + 46.0 + i as f32 * 20.0;
+                    let (race, class) = self
+                        .create_templates
+                        .get(c.tpl)
+                        .map(|(_, r, cl)| (r.as_str(), cl.as_str()))
+                        .unwrap_or(("?", "?"));
+                    let mut ry = by + 46.0;
+                    if self.attr_pool > 0 {
+                        overlay.text(
+                            fx,
+                            ry,
+                            1.05,
+                            &format!("Points left: {}", c.attr_remaining(self.attr_pool as u32)),
+                            [1.0, 0.55, 0.55, 1.0],
+                        );
+                        ry += 20.0;
+                    }
+                    // Selector rows (Race/Class/Gender/Face/Hair/Beard/Body).
+                    for (i, label) in Creating::SELECTORS.iter().enumerate() {
                         let active = i == c.field;
                         let col = if active { [1.0, 0.9, 0.5, 1.0] } else { [0.7, 0.78, 0.9, 0.9] };
-                        let val = c.field_value(i, race);
+                        let val = match i {
+                            0 => race.to_string(),
+                            1 => class.to_string(),
+                            2 => if c.appear.gender == 1 { "Female".into() } else { "Male".into() },
+                            3 => c.appear.face.to_string(),
+                            4 => c.appear.hair.to_string(),
+                            5 => c.appear.beard.to_string(),
+                            _ => c.appear.body.to_string(),
+                        };
                         let sel = if active { format!("<  {val}  >") } else { format!("   {val}   ") };
-                        overlay.text(fx, ry, 1.1, &format!("{label:>6}  {sel}"), col);
+                        overlay.text(fx, ry, 1.05, &format!("{label:>7}  {sel}"), col);
+                        ry += 18.0;
+                    }
+                    // Attribute-spend rows (only when the project grants a pool).
+                    let actor_id = self.create_templates.get(c.tpl).map(|&(id, _, _)| id);
+                    for (k, &slot) in self.assignable_attrs.iter().enumerate().take(attr_rows) {
+                        let active = n_sel + k == c.field;
+                        let col = if active { [1.0, 0.9, 0.5, 1.0] } else { [0.7, 0.78, 0.9, 0.9] };
+                        let name = self
+                            .store
+                            .as_ref()
+                            .and_then(|s| s.attribute_name(slot))
+                            .unwrap_or("");
+                        let base = actor_id
+                            .and_then(|id| self.store.as_ref().and_then(|s| s.template_attribute(id, slot)))
+                            .map(|(v, _)| v as i32)
+                            .unwrap_or(0);
+                        let shown = base + c.points[slot] as i32;
+                        let sel = if active { format!("[ - {shown} + ]") } else { format!("   {shown}   ") };
+                        overlay.text(fx, ry, 1.05, &format!("{name:>10}  {sel}"), col);
+                        ry += 18.0;
                     }
                 }
 
@@ -10459,41 +10815,97 @@ mod tests {
         assert_eq!(speech_actor_template(&world, 99, 1), None);
     }
 
-    // The create-character cursor: Up/Down move the active field (wrap over 6),
-    // Left/Right cycle the field's value (Race over playable, Gender 0..=1, the
-    // appearance slots 0..=4), with a 0-races guard.
+    // The create-character cursor: Up/Down move the active field (7 selectors +
+    // the attribute rows), Left/Right cycle the appearance selectors (Gender
+    // 0..=1, Face/Hair/Beard/Body 0..=4). Race/Class use `cycle_race`/`cycle_class`
+    // and the attribute rows use `adjust_attr` (tested separately).
     #[test]
-    fn creating_cursor_cycles_fields_and_values() {
+    fn creating_cursor_moves_and_cycles_appearance() {
         let mut c = Creating::default();
-        c.move_field(1);
-        assert_eq!(c.field, 1, "Down moves to the next field");
-        c.move_field(-1);
-        c.move_field(-1);
-        assert_eq!(c.field, 5, "Up from Race wraps to Body");
-        // Field 2 = Face cycles 0..=4 with wrap.
-        c.field = 2;
-        c.cycle_value(1, 3);
-        assert_eq!(c.appear.face, 1);
-        c.cycle_value(-1, 3);
-        c.cycle_value(-1, 3);
-        assert_eq!(c.appear.face, 4, "Face wraps 0 -> 4 going down");
-        // Field 1 = Gender toggles within 0..=1.
-        c.field = 1;
-        c.cycle_value(1, 3);
-        assert_eq!(c.appear.gender, 1);
-        c.cycle_value(1, 3);
-        assert_eq!(c.appear.gender, 0, "gender wraps within 0..=1");
-        // Field 0 = Race cycles the playable index (races = 3).
+        c.move_field(1, 0);
+        assert_eq!(c.field, 1, "Down moves Race -> Class");
+        c.move_field(-1, 0);
+        c.move_field(-1, 0);
+        assert_eq!(c.field, 6, "Up from Race wraps to Body (7 selectors, 0 attr rows)");
+        // Two attribute rows extend the wrap range to 9.
         c.field = 0;
-        c.cycle_value(1, 3);
-        assert_eq!(c.tpl, 1);
-        c.cycle_value(-1, 3);
-        c.cycle_value(-1, 3);
-        assert_eq!(c.tpl, 2, "race wraps 0 -> races-1 going down");
-        // With 0 races the Race field is a no-op (guarded).
+        c.move_field(-1, 2);
+        assert_eq!(c.field, 8, "Up from Race wraps past the 2 attribute rows");
+        // Field 3 = Face cycles 0..=4 with wrap.
+        c.field = 3;
+        c.cycle_appearance(1);
+        assert_eq!(c.appear.face, 1);
+        c.cycle_appearance(-1);
+        c.cycle_appearance(-1);
+        assert_eq!(c.appear.face, 4, "Face wraps 0 -> 4 going down");
+        // Field 2 = Gender toggles within 0..=1.
+        c.field = 2;
+        c.cycle_appearance(1);
+        assert_eq!(c.appear.gender, 1);
+        c.cycle_appearance(1);
+        assert_eq!(c.appear.gender, 0, "gender wraps within 0..=1");
+    }
+
+    // Class picker cycles the classes within the current race; race picker jumps
+    // between distinct races landing on each race's first class. Mirrors Blitz's
+    // race-combobox (dedup by Race$) + BNextClass/BPrevClass (same-Race$ walk).
+    #[test]
+    fn create_race_and_class_pickers_cycle() {
+        // Human has two classes; Elf has one. Sorted by id: 0,1 Human; 2 Elf.
+        let t = vec![
+            (0u16, "Human".to_string(), "Fighter".to_string()),
+            (1u16, "Human".to_string(), "Mage".to_string()),
+            (2u16, "Elf".to_string(), "Ranger".to_string()),
+        ];
+        // Class picker walks within the race (Human: 0 <-> 1, wrapping).
+        assert_eq!(cycle_class(&t, 0, 1), 1, "next class within Human");
+        assert_eq!(cycle_class(&t, 1, 1), 0, "next class wraps within Human");
+        assert_eq!(cycle_class(&t, 0, -1), 1, "prev class wraps within Human");
+        // Elf has a single class — cycling stays put.
+        assert_eq!(cycle_class(&t, 2, 1), 2, "single-class race is a no-op");
+        // Race picker jumps to the FIRST class of the next/prev distinct race.
+        assert_eq!(cycle_race(&t, 0, 1), 2, "Human -> Elf lands on Elf's first (id 2)");
+        assert_eq!(cycle_race(&t, 2, 1), 0, "Elf -> Human wraps to Human's first (id 0)");
+        assert_eq!(cycle_race(&t, 1, -1), 2, "prev race from Human(class 2) -> Elf");
+        // Empty list guards.
+        assert_eq!(cycle_race(&[], 0, 1), 0);
+        assert_eq!(cycle_class(&[], 0, 1), 0);
+    }
+
+    // Attribute point spend clamps: refund only when a point is spent there,
+    // spend only when the pool has a point AND base+spent < max, and the pool is
+    // shared across attributes (MainMenu.bb:2491/2499).
+    #[test]
+    fn create_attribute_spend_clamps_to_pool_and_max() {
+        let total = 10u32;
+        let mut c = Creating::default();
+        // Slot 2: base 20, max 100 — spend up to 3, pool tracks.
+        assert!(c.adjust_attr(2, 1, total, 20, 100));
+        assert!(c.adjust_attr(2, 1, total, 20, 100));
+        assert!(c.adjust_attr(2, 1, total, 20, 100));
+        assert_eq!(c.points[2], 3);
+        assert_eq!(c.attr_remaining(total), 7, "3 of 10 spent");
+        // Refund one; can't refund below zero.
+        assert!(c.adjust_attr(2, -1, total, 20, 100));
+        assert_eq!(c.points[2], 2);
         let mut d = Creating::default();
-        d.cycle_value(1, 0);
-        assert_eq!(d.tpl, 0);
+        assert!(!d.adjust_attr(2, -1, total, 20, 100), "no refund when nothing spent");
+        // Max clamp: base 99, max 100 — one spend allowed, the second blocked.
+        let mut e = Creating::default();
+        assert!(e.adjust_attr(4, 1, total, 99, 100));
+        assert!(!e.adjust_attr(4, 1, total, 99, 100), "base+spent reaches max, no more");
+        assert_eq!(e.points[4], 1);
+        // Maxed stat (base == max) can never be increased (e.g. Health 1000/1000).
+        let mut f = Creating::default();
+        assert!(!f.adjust_attr(0, 1, total, 1000, 1000));
+        // Pool exhaustion: spend all 10 across a wide-range stat, then blocked.
+        let mut g = Creating::default();
+        for _ in 0..10 {
+            assert!(g.adjust_attr(3, 1, total, 0, 1000));
+        }
+        assert_eq!(g.attr_remaining(total), 0);
+        assert!(!g.adjust_attr(3, 1, total, 0, 1000), "pool empty, no more spend");
+        assert_eq!(g.points[3], 10);
     }
 
     // The weapon tooltip appends the project's damage-type name when present
@@ -10999,6 +11411,24 @@ mod tests {
         assert_eq!(initial_menu_mode(false), Mode::Login);
     }
 
+    // Headless AUTOCREATE harness: the auto-generated character name must be
+    // time-varying (never the old fixed "Shotbot" that collides with a persistent
+    // Accounts.dat) and stay within the server's name rules (<=32 bytes, printable
+    // ASCII, no filtered title words — digits-only guarantees the last two).
+    #[test]
+    fn auto_create_name_is_unique_and_valid() {
+        let n = auto_create_name(None, 1_234_567);
+        assert_eq!(n, "Shot234567");
+        assert!(n.len() <= 32);
+        assert!(n.starts_with("Shot"));
+        assert!(n["Shot".len()..].bytes().all(|b| b.is_ascii_digit()));
+        // Distinct clock ticks -> distinct names (no fixed collision-prone value).
+        assert_ne!(auto_create_name(None, 1), auto_create_name(None, 2));
+        // A non-blank override wins, trimmed; a blank one falls back to generated.
+        assert_eq!(auto_create_name(Some("  Hero ".to_string()), 0), "Hero");
+        assert_eq!(auto_create_name(Some("   ".to_string()), 42), "Shot000042");
+    }
+
     // ESC close-precedence (DELTA blocker #1): ESC dismisses the topmost open
     // layer and only exits when the field is clear.
     #[test]
@@ -11392,6 +11822,27 @@ mod tests {
     }
 
     // Sound options master-volume step clamps to [0,1].
+    #[test]
+    fn pitch_clamp_matches_blitz_limits() {
+        // MOVE-9: [−70°, +85°] in radians (Interface3D.bb:637-641).
+        assert!((pitch_clamp(10.0) - 85f32.to_radians()).abs() < 1e-6); // clamp high → +85°
+        assert!((pitch_clamp(-10.0) - (-70f32).to_radians()).abs() < 1e-6); // clamp low → −70°
+        // A mid value passes through unchanged.
+        let mid = 0.25;
+        assert_eq!(pitch_clamp(mid), mid);
+    }
+
+    #[test]
+    fn login_focus_cycles_three_fields() {
+        // MENU-2: Tab/Down (+1) → Name→Pass→Email→Name; Up (-1) reverses.
+        assert_eq!(cycle_login_focus(0, 1), 1);
+        assert_eq!(cycle_login_focus(1, 1), 2);
+        assert_eq!(cycle_login_focus(2, 1), 0); // wraps back to Name
+        assert_eq!(cycle_login_focus(0, -1), 2); // Up from Name wraps to Email
+        assert_eq!(cycle_login_focus(2, -1), 1);
+        assert_eq!(cycle_login_focus(1, -1), 0);
+    }
+
     #[test]
     fn volume_step_clamps() {
         assert_eq!(volume_step(0.5, 0.05), 0.55);

@@ -618,42 +618,44 @@ Function UpdateNetwork()
 								A.Account = Object.Account(AI\Account)
 								If A <> Null And A\IsDM = True
 									AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea)
-									; Choose new weather
-									Select Params$
-										Case "SUN", "SUNNY", "NORMAL"
-											AInstance\CurrentWeather = W_Sun
-										Case "RAIN", "RAINY"
-											AInstance\CurrentWeather = W_Rain
-										Case "SNOW", "SNOWY"
-											AInstance\CurrentWeather = W_Snow
-										Case "FOG", "FOGGY"
-											AInstance\CurrentWeather = W_Fog
-										Case "WIND", "WINDY"
-											AInstance\CurrentWeather = W_Wind
-										Case "STORM", "STORMY", "THUNDER", "LIGHTNING"
-											AInstance\CurrentWeather = W_Storm
-									End Select
-									AInstance\CurrentWeatherTime = Rand(2500, 10000)
+									If AInstance <> Null
+										; Choose new weather
+										Select Params$
+											Case "SUN", "SUNNY", "NORMAL"
+												AInstance\CurrentWeather = W_Sun
+											Case "RAIN", "RAINY"
+												AInstance\CurrentWeather = W_Rain
+											Case "SNOW", "SNOWY"
+												AInstance\CurrentWeather = W_Snow
+											Case "FOG", "FOGGY"
+												AInstance\CurrentWeather = W_Fog
+											Case "WIND", "WINDY"
+												AInstance\CurrentWeather = W_Wind
+											Case "STORM", "STORMY", "THUNDER", "LIGHTNING"
+												AInstance\CurrentWeather = W_Storm
+										End Select
+										AInstance\CurrentWeatherTime = Rand(2500, 10000)
 
-									; Tell players in this area
-									Pa$ = RCE_StrFromInt$(Handle(AInstance), 4) + RCE_StrFromInt$(AInstance\CurrentWeather, 1)
-									AI.ActorInstance = AInstance\FirstInZone
-									While AI <> Null
-										If AI\RNID > 0 Then RCE_Send(Host, AI\RNID, P_WeatherChange, Pa$, True)
-										AI = AI\NextInZone
-									Wend
+										; Tell players in this area
+										Pa$ = RCE_StrFromInt$(Handle(AInstance), 4) + RCE_StrFromInt$(AInstance\CurrentWeather, 1)
+										AI.ActorInstance = AInstance\FirstInZone
+										While AI <> Null
+											If AI\RNID > 0 Then RCE_Send(Host, AI\RNID, P_WeatherChange, Pa$, True)
+											AI = AI\NextInZone
+										Wend
 
-									; Force an update for all areas with weather linked to this area
-									If AInstance\ID = 0
-										For Ar.Area = Each Area
-											If Ar\WeatherLinkArea = AInstance\Area
-												For i = 0 To 99
-													If Ar\Instances[i] <> Null
-														Ar\Instances[i]\CurrentWeatherTime = 0
-													EndIf
-												Next
-											EndIf
-										Next
+										; Force an update for all areas with weather linked to this area
+										If AInstance\ID = 0
+											For Ar.Area = Each Area
+												If Ar\WeatherLinkArea = AInstance\Area
+													For i = 0 To 99
+														If Ar\Instances[i] <> Null
+															Ar\Instances[i]\CurrentWeatherTime = 0
+														EndIf
+													Next
+												EndIf
+											Next
+										EndIf
 									EndIf
 								EndIf
 							Case LanguageString$(LS_SCTime)
@@ -713,10 +715,12 @@ Function UpdateNetwork()
 								If A2\RNID > 0 Then RCE_Send(Host, A2\RNID, P_ChatMessage, Pa$, True)
 								A2 = A2\NextInZone
 							Wend
-						EndIf
-						If AInstance <> Null And AInstance\Area = GameArea
-							AddListBoxItem(Game\ChatText, Pa$ + Chr$(13))
-							If ChatLoggingMode > 0 Then WriteLog(ChatLog, Pa$, True, True)
+							If AInstance\Area = GameArea
+								AddListBoxItem(Game\ChatText, Pa$ + Chr$(13))
+								If ChatLoggingMode > 0 Then WriteLog(ChatLog, Pa$, True, True)
+							ElseIf ChatLoggingMode = 2
+								WriteLog(ChatLog, Pa$, True, True)
+							EndIf
 						ElseIf ChatLoggingMode = 2
 							WriteLog(ChatLog, Pa$, True, True)
 						EndIf
@@ -1606,10 +1610,16 @@ Function UpdateNetwork()
 							; area apply.
 							AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea)
 							TInstance.AreaInstance = Object.AreaInstance(A2\ServerArea)
-							If AInstance <> Null And AInstance = TInstance
-								If A2\RNID < 0 Or AInstance\Area\PvP = True
-									ActorAttack(AI, A2)
-									AI\AITarget = A2
+							If AInstance <> Null
+								; BlitzForge And is non-short-circuit, so guard the
+								; nested Area separately before dereferencing it.
+								If AInstance\Area <> Null
+									If AInstance = TInstance
+										If A2\RNID < 0 Or AInstance\Area\PvP = True
+											ActorAttack(AI, A2)
+											AI\AITarget = A2
+										EndIf
+									EndIf
 								EndIf
 							EndIf
 						EndIf

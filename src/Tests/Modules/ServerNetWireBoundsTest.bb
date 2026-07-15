@@ -62,6 +62,108 @@ Function SwapAddPacketLenOk%(PayloadLen%)
 	Return True
 End Function
 
+; --- Replicated nested AreaInstance\Area guard ---------------------------
+
+; Mirrors the P_AttackActor / BVM_ACTORINTRIGGER / BVM_ACTOROUTDOORS gates.
+; A live AreaInstance may briefly lose its backing Area during teardown, so
+; both references must exist before the production code reads PvP, triggers,
+; or Outdoors from the nested Area. The production implementation must use
+; nested If branches: BlitzForge And is non-short-circuit.
+Function NestedAreaUsable%(InstancePresent%, AreaPresent%)
+	If InstancePresent = False Then Return False
+	If AreaPresent = False Then Return False
+	Return True
+End Function
+
+; --- GM /weather stale AreaInstance guard ---------------------------------
+
+; Mirrors the `/weather` command's outer area-instance lookup. A GM can issue
+; the command while their actor is moving through teardown, so the command
+; must do nothing when Object.AreaInstance(AI\ServerArea) is Null.
+Function WeatherAreaUsable%(InstancePresent%)
+	If InstancePresent = False Then Return False
+	Return True
+End Function
+
+; The network/world graph cannot be Included into this standalone harness, so
+; also pin the source-level safety contract. This catches a future regression
+; that removes the production nested guard while leaving this model unchanged.
+Function FunctionBodyContains%(Path$, FunctionMarker$, Needle$)
+	Local F.BBStream = ReadFile(Path$)
+	Local InFunction%
+	Local Line$
+	; test.sh runs each test from src\Tests, whereas an IDE may run it from
+	; src. Support both working directories without touching production paths.
+	If F = Null Then F = ReadFile("..\" + Path$)
+	If F = Null Then Return False
+	InFunction = False
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		If Instr(Line$, FunctionMarker$) > 0 Then InFunction = True
+		If InFunction = True And Instr(Line$, Needle$) > 0
+			CloseFile F
+			Return True
+		EndIf
+		If InFunction = True And Instr(Line$, "End Function") > 0 Then Exit
+	Wend
+	CloseFile F
+	Return False
+End Function
+
+; Checks a bounded dispatch section rather than the rest of the containing
+; packet-handler function. This keeps a guard in a later Case from masking a
+; missing guard in the Case under test.
+Function SectionContains%(Path$, StartMarker$, EndMarker$, Needle$)
+	Local F.BBStream = ReadFile(Path$)
+	Local InSection%
+	Local Line$
+	If F = Null Then F = ReadFile("..\" + Path$)
+	If F = Null Then Return False
+	InSection = False
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		If Instr(Line$, StartMarker$) > 0 Then InSection = True
+		If InSection = True And Instr(Line$, EndMarker$) > 0 Then Exit
+		If InSection = True And Instr(Line$, Needle$) > 0
+			CloseFile F
+			Return True
+		EndIf
+	Wend
+	CloseFile F
+	Return False
+End Function
+
+; Verifies that a bounded handler section reads AInstance\Area only while the
+; immediately preceding AInstance null guard is still open. BlitzForge `And`
+; evaluates both operands, so a combined `AInstance <> Null And
+; AInstance\Area = ...` condition is not a safe substitute.
+Function SectionUsesNestedAreaGuard%(Path$, StartMarker$, EndMarker$, AreaNeedle$)
+	Local F.BBStream = ReadFile(Path$)
+	Local InSection%, SawInstanceGuard%
+	Local Line$
+	If F = Null Then F = ReadFile("..\" + Path$)
+	If F = Null Then Return False
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		If Instr(Line$, StartMarker$) > 0 Then InSection = True
+		If InSection = True And Instr(Line$, EndMarker$) > 0 Then Exit
+		If InSection = True
+			If Instr(Line$, "If AInstance <> Null") > 0 Then SawInstanceGuard = True
+			If SawInstanceGuard = True
+				If Instr(Line$, AreaNeedle$) > 0
+					CloseFile F
+					Return True
+				EndIf
+				; The preceding guard ended before the Area read, so a later
+				; condition would dereference a stale instance.
+				If Instr(Line$, "EndIf") > 0 Then Exit
+			EndIf
+		EndIf
+	Wend
+	CloseFile F
+	Return False
+End Function
+
 ; ====================================================================
 ; RuntimeActorFromWire -- rejection: out of range
 ; ====================================================================
@@ -143,4 +245,55 @@ Test testSwapAddBoundaryAtSeven()
 	; 7 accepts. A future refactor that widens a field must update both.
 	Assert(SwapAddPacketLenOk%(6) = False)
 	Assert(SwapAddPacketLenOk%(7) = True)
+End Test
+
+; ====================================================================
+; Nested AreaInstance\Area -- stale-area rejection
+; ====================================================================
+
+Test testMissingAreaRejectsPacketAndBVMPaths()
+	; Outer lookup succeeds but the backing Area has been torn down. The
+	; production paths must return their existing no-op/default instead of
+	; dereferencing AInstance\Area.
+	Assert(NestedAreaUsable%(True, False) = False)
+End Test
+
+Test testLiveNestedAreaRemainsUsable()
+	Assert(NestedAreaUsable%(True, True) = True)
+	Assert(NestedAreaUsable%(False, True) = False)
+End Test
+
+Test testProductionGuardsUseSafeNestedIfBranches()
+	Assert(FunctionBodyContains%("Modules\ServerNet.bb", "Case P_AttackActor", "If AInstance\Area <> Null") = True)
+	Assert(FunctionBodyContains%("Modules\ServerNet.bb", "Case P_AttackActor", "AInstance <> Null And AInstance\Area <> Null") = False)
+	Assert(FunctionBodyContains%("Modules\ScriptingCommands.bb", "Function BVM_ACTORINTRIGGER", "If AInstance\Area <> Null") = True)
+	Assert(FunctionBodyContains%("Modules\ScriptingCommands.bb", "Function BVM_ACTORINTRIGGER", "AInstance <> Null And AInstance\Area <> Null") = False)
+	Assert(FunctionBodyContains%("Modules\ScriptingCommands.bb", "Function BVM_ACTOROUTDOORS", "If AInstance\Area <> Null") = True)
+	Assert(FunctionBodyContains%("Modules\ScriptingCommands.bb", "Function BVM_ACTOROUTDOORS", "AInstance <> Null And AInstance\Area <> Null") = False)
+End Test
+
+; ====================================================================
+; GM /weather -- stale AreaInstance rejection
+; ====================================================================
+
+Test testMissingWeatherAreaRejectsCommand()
+	Assert(WeatherAreaUsable%(False) = False)
+End Test
+
+Test testLiveWeatherAreaRemainsUsable()
+	Assert(WeatherAreaUsable%(True) = True)
+End Test
+
+Test testWeatherCommandUsesExplicitAreaInstanceGuard()
+	Assert(SectionContains%("Modules\ServerNet.bb", "Case LanguageString$(LS_SCWeather)", "Case LanguageString$(LS_SCTime)", "If AInstance <> Null") = True)
+	Assert(SectionContains%("Modules\ServerNet.bb", "Case LanguageString$(LS_SCWeather)", "Case LanguageString$(LS_SCTime)", "AInstance <> Null And") = False)
+End Test
+
+; ====================================================================
+; General chat -- stale AreaInstance rejection
+; ====================================================================
+
+Test testGeneralChatKeepsAreaReadInsideNullGuard()
+	Assert(SectionUsesNestedAreaGuard%("Modules\ServerNet.bb", "; General chat - forward to other people in same area", "; Repositioning an actor (client has completed)", "If AInstance\Area = GameArea") = True)
+	Assert(SectionContains%("Modules\ServerNet.bb", "; General chat - forward to other people in same area", "; Repositioning an actor (client has completed)", "AInstance <> Null And AInstance\Area = GameArea") = False)
 End Test

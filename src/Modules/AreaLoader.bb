@@ -1097,3 +1097,175 @@ Function RemoveSurface(Ent)
 	Return newmesh
 
 End Function
+
+; =============================================================================
+; SaveArea -- RELOCATED from ClientAreas.bb (ADR-004 Phase D). The whole-
+; visual-area serializer: writes environment + Scenery / Water / ColBox /
+; Emitter / Terrain / SoundZone sections back to Data\Areas\<Name>.dat from
+; the live entity lists. Lives here (the shared data-only module) so both GUE
+; and Loom can persist a loaded area without the ClientAreas.bb Gooey/F-UI
+; coupling. Verbatim move -- no behavior change. CALLER CONTRACT: only call
+; this when the area is FULLY loaded in memory (all six lists populated by
+; LoadAreaData); it rewrites every section from `Each <Type>`, so calling it
+; with a partially/never-loaded world zeroes the on-disk sections.
+; =============================================================================
+; Saves the current area back to file. Atomic rewrite via SafeWrite:
+; a crash mid-flush previously truncated the area file and broke load
+; on the next area entry.
+Function SaveArea(Name$)
+
+	Local FinalPath$ = "Data\Areas\" + Name$ + ".dat"
+	Local TempPath$ = SafeWriteOpen(FinalPath$)
+	F = WriteFile(TempPath$)
+	If F = 0 Then Return False
+
+		; Loading screen
+		WriteShort F, LoadingTexID
+		WriteShort F, LoadingMusicID
+
+		; Environment
+		WriteShort F, SkyTexID
+		WriteShort F, CloudTexID
+		WriteShort F, StormCloudTexID
+		WriteShort F, StarsTexID
+
+		WriteByte F, FogR
+		WriteByte F, FogG
+		WriteByte F, FogB
+		WriteFloat F, FogNear#
+		WriteFloat F, FogFar#
+
+		WriteShort F, MapTexID
+		WriteByte F, Outdoors
+		WriteByte F, AmbientR
+		WriteByte F, AmbientG
+		WriteByte F, AmbientB
+		WriteFloat F, DefaultLightPitch#
+		WriteFloat F, DefaultLightYaw#
+		WriteFloat F, SlopeRestrict#
+
+		; Scenery
+		Count = 0
+		For S.Scenery = Each Scenery : Count = Count + 1 : Next
+		WriteShort F, Count
+		For S.Scenery = Each Scenery
+			WriteShort F, S\MeshID
+			WriteFloat F, EntityX#(S\EN, True)
+			WriteFloat F, EntityY#(S\EN, True)
+			WriteFloat F, EntityZ#(S\EN, True)
+			WriteFloat F, EntityPitch#(S\EN, True)
+			WriteFloat F, EntityYaw#(S\EN, True)
+			WriteFloat F, EntityRoll#(S\EN, True)
+			WriteFloat F, S\ScaleX#
+			WriteFloat F, S\ScaleY#
+			WriteFloat F, S\ScaleZ#
+			WriteByte F, S\AnimationMode
+			WriteByte F, S\SceneryID
+			WriteShort F, S\TextureID
+			WriteByte F, S\CatchRain
+						
+			WriteByte F, GetEntityType(S\EN)
+			WriteString F, S\Lightmap$
+			WriteString F, S\RCTE$ ; Extra data for RTCE
+			
+			WriteByte F, S\CastShadow ;[010]
+			WriteByte F, S\ReceiveShadow
+			WriteByte F, S\RenderRange ;[011]
+			
+		Next
+
+		; Water
+		Count = 0
+		For W.Water = Each Water : Count = Count + 1 : Next
+		WriteShort F, Count
+		For W.Water = Each Water
+			WriteShort F, W\TexID
+			WriteFloat F, W\TexScale#
+			WriteFloat F, EntityX#(W\EN, True)
+			WriteFloat F, EntityY#(W\EN, True)
+			WriteFloat F, EntityZ#(W\EN, True)
+			WriteFloat F, W\ScaleX#
+			WriteFloat F, W\ScaleZ#
+			WriteByte F, W\Red
+			WriteByte F, W\Green
+			WriteByte F, W\Blue
+			WriteByte F, W\Opacity
+		Next
+
+		; Collision boxes
+		Count = 0
+		For C.ColBox = Each ColBox : Count = Count + 1 : Next
+		WriteShort F, Count
+		For C.ColBox = Each ColBox
+			WriteFloat F, EntityX#(C\EN, True)
+			WriteFloat F, EntityY#(C\EN, True)
+			WriteFloat F, EntityZ#(C\EN, True)
+			WriteFloat F, EntityPitch#(C\EN, True)
+			WriteFloat F, EntityYaw#(C\EN, True)
+			WriteFloat F, EntityRoll#(C\EN, True)
+			WriteFloat F, C\ScaleX#
+			WriteFloat F, C\ScaleY#
+			WriteFloat F, C\ScaleZ#
+		Next
+
+		; Emitters
+		Count = 0
+		For E.Emitter = Each Emitter : Count = Count + 1 : Next
+		WriteShort F, Count
+		For E.Emitter = Each Emitter
+			WriteString F, E\ConfigName$
+			WriteShort F, E\TexID
+			WriteFloat F, EntityX#(E\EN, True)
+			WriteFloat F, EntityY#(E\EN, True)
+			WriteFloat F, EntityZ#(E\EN, True)
+			WriteFloat F, EntityPitch#(E\EN, True)
+			WriteFloat F, EntityYaw#(E\EN, True)
+			WriteFloat F, EntityRoll#(E\EN, True)
+		Next
+
+		; Terrains
+		Count = 0
+		For T.Terrain = Each Terrain :  Count = Count + 1 : Next
+		WriteShort F, Count
+		For T.Terrain = Each Terrain
+			WriteShort F, T\BaseTexID
+			WriteShort F, T\DetailTexID
+			WriteInt F, TerrainSize(T\EN)
+			For X = 0 To TerrainSize(T\EN)
+				For Z = 0 To TerrainSize(T\EN)
+					WriteFloat F, TerrainHeight#(T\EN, X, Z)
+				Next
+			Next
+			WriteFloat F, EntityX#(T\EN, True)
+			WriteFloat F, EntityY#(T\EN, True)
+			WriteFloat F, EntityZ#(T\EN, True)
+			WriteFloat F, EntityPitch#(T\EN, True)
+			WriteFloat F, EntityYaw#(T\EN, True)
+			WriteFloat F, EntityRoll#(T\EN, True)
+			WriteFloat F, T\ScaleX#
+			WriteFloat F, T\ScaleY#
+			WriteFloat F, T\ScaleZ#
+			WriteFloat F, T\DetailTexScale#
+			WriteInt   F, T\Detail
+			WriteByte  F, T\Morph
+			WriteByte  F, T\Shading
+		Next
+
+		; Sound zones
+		Count = 0
+		For SZ.SoundZone = Each SoundZone : Count = Count + 1 : Next
+		WriteShort F, Count
+		For SZ.SoundZone = Each SoundZone
+			WriteFloat F, EntityX#(SZ\EN, True)
+			WriteFloat F, EntityY#(SZ\EN, True)
+			WriteFloat F, EntityZ#(SZ\EN, True)
+			WriteFloat F, SZ\Radius#
+			WriteShort F, SZ\SoundID
+			WriteShort F, SZ\MusicID
+			WriteInt F, SZ\RepeatTime
+			WriteByte F, SZ\Volume
+		Next
+
+	Return SafeWriteCommit(TempPath$, FinalPath$, F)
+
+End Function

@@ -227,6 +227,11 @@ Type Threads
             Return "Days & Seasons"
         EndIf
 
+        If kind = "interface"
+            // Singleton Interface (HUD) layout "entity". refID is ignored.
+            Return "Interface"
+        EndIf
+
         If kind = "script"
             // refID is the ScriptFile\Index from Scripts_Init.
             Local sf.ScriptFile = Scripts_GetByIndex(refID)

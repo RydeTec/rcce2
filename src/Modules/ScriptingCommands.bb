@@ -208,13 +208,17 @@ Function BVM_ACTORINTRIGGER%(Param1%, Param2%)
 		If TriggerID >= 0 And TriggerID <= 149
 			AInstance.AreaInstance = Object.AreaInstance(Actor\ServerArea)
 			If AInstance <> Null
-				If Len(AInstance\Area\TriggerScript$[TriggerID]) > 0
-					Size# = AInstance\Area\TriggerSize#[TriggerID] * AInstance\Area\TriggerSize#[TriggerID]
-					DistX# = Abs(Actor\X# - AInstance\Area\TriggerX#[TriggerID])
-					DistY# = Abs(Actor\Y# - AInstance\Area\TriggerY#[TriggerID])
-					DistZ# = Abs(Actor\Z# - AInstance\Area\TriggerZ#[TriggerID])
-					Dist# = (DistX# * DistX#) + (DistY# * DistY#) + (DistZ# * DistZ#)
-					If Dist# < Size# Then Result% = 1
+				; BlitzForge And is non-short-circuit, so the nested
+				; Area must be guarded in its own branch.
+				If AInstance\Area <> Null
+					If Len(AInstance\Area\TriggerScript$[TriggerID]) > 0
+						Size# = AInstance\Area\TriggerSize#[TriggerID] * AInstance\Area\TriggerSize#[TriggerID]
+						DistX# = Abs(Actor\X# - AInstance\Area\TriggerX#[TriggerID])
+						DistY# = Abs(Actor\Y# - AInstance\Area\TriggerY#[TriggerID])
+						DistZ# = Abs(Actor\Z# - AInstance\Area\TriggerZ#[TriggerID])
+						Dist# = (DistX# * DistX#) + (DistY# * DistY#) + (DistZ# * DistZ#)
+						If Dist# < Size# Then Result% = 1
+					EndIf
 				EndIf
 			EndIf
 		EndIf
@@ -1035,19 +1039,21 @@ Function BVM_SETLEADER(Param1%, Param2%)
 				; no zone to patrol in.
 				AInstance.AreaInstance = Object.AreaInstance(Actor\ServerArea)
 				Found = False
-				If AInstance <> Null And AInstance\Area <> Null
-					For i = 0 To 249
-						If AInstance\Area\PrevWaypoint[i] <> 255
-							Actor\OldX# = Actor\X#
-							Actor\OldZ# = Actor\Z#
-							Actor\AIMode = AI_Patrol
-							Actor\DestX# = AInstance\Area\WaypointX#[i] + Rnd#(-5.0, 5.0)
-							Actor\DestZ# = AInstance\Area\WaypointZ#[i] + Rnd#(-5.0, 5.0)
-							Actor\CurrentWaypoint = i
-							Found = True
-							Exit
-						EndIf
-					Next
+				If AInstance <> Null
+					If AInstance\Area <> Null
+						For i = 0 To 249
+							If AInstance\Area\PrevWaypoint[i] <> 255
+								Actor\OldX# = Actor\X#
+								Actor\OldZ# = Actor\Z#
+								Actor\AIMode = AI_Patrol
+								Actor\DestX# = AInstance\Area\WaypointX#[i] + Rnd#(-5.0, 5.0)
+								Actor\DestZ# = AInstance\Area\WaypointZ#[i] + Rnd#(-5.0, 5.0)
+								Actor\CurrentWaypoint = i
+								Found = True
+								Exit
+							EndIf
+						Next
+					EndIf
 				EndIf
 				; Die if no waypoint available (or area is gone)
 				If Found = False Then KillActor(Actor, Null)
@@ -1412,7 +1418,9 @@ Function BVM_ACTOROUTDOORS%(Param1%)
 	Actor.ActorInstance = Object.ActorInstance(Param1%)
 	If Actor <> Null
 		AInstance.AreaInstance = Object.AreaInstance(Actor\ServerArea)
-		If AInstance <> Null Then Result% = AInstance\Area\Outdoors
+		If AInstance <> Null
+			If AInstance\Area <> Null Then Result% = AInstance\Area\Outdoors
+		EndIf
 	EndIf
 Return Result%
 End Function

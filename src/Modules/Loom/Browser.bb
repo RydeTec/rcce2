@@ -219,6 +219,10 @@ Type Browser
         // Suns.dat), GUE's "Days & seasons" tab parity. Same singleton-card
         // shape as Settings.
         Browser::addCategory(self, "environment", "Days & Seasons")
+        // Interface tab: HUD/interface layout singleton (Interface.dat),
+        // GUE's "Interface" tab parity. Same singleton-card shape as Days &
+        // Seasons -- one card that focuses the interface composer view.
+        Browser::addCategory(self, "interface", "Interface")
         // Settings tab: project-level configuration singleton (Misc.dat /
         // Other.dat / Money.dat / Hosts.dat). Clicking the tab focuses
         // the singleton composer view directly -- no card grid since
@@ -485,7 +489,7 @@ Type Browser
         Local nbW% = 96
         Local nbH% = 22
         Local nbHover% = False
-        If self\category <> "tools" And self\category <> "script" And self\category <> "texture" And self\category <> "mesh" And self\category <> "sound" And self\category <> "music" And self\category <> "stats"
+        If self\category <> "tools" And self\category <> "script" And self\category <> "texture" And self\category <> "mesh" And self\category <> "sound" And self\category <> "music" And self\category <> "stats" And self\category <> "interface"
             nbHover = (mx >= nbX And mx < nbX + nbW And my >= nbY And my < nbY + nbH)
 
             If nbHover = True
@@ -841,6 +845,9 @@ Type Browser
         If cat = "environment"
             count = Browser::drawEnvironmentCard(self, sw, sh, mx, my, clicked, gridX, gridY)
         EndIf
+        If cat = "interface"
+            count = Browser::drawInterfaceCard(self, sw, sh, mx, my, clicked, gridX, gridY)
+        EndIf
 
         // Done drawing cards -- restore the full-buffer 2D viewport so the
         // empty-state text, composer, ribbon, and modals aren't clipped.
@@ -1148,6 +1155,42 @@ Type Browser
         If hovered = True And clicked = True
             Threads::focus(self\threads, "environment", 0)
             WriteLog(LoomLog, "Browser: opened Days & Seasons singleton")
+        EndIf
+
+        Return 1
+    End Method
+
+
+    // -------------------------------------------------------------------------
+    // drawInterfaceCard -- the Interface tab body. Single card that focuses
+    // the "interface" composer singleton (HUD component layout) on click.
+    // Mirrors drawEnvironmentCard's shape.
+    // -------------------------------------------------------------------------
+    Method drawInterfaceCard%(sw%, sh%, mx%, my%, clicked%, gridX%, gridY%)
+        Local cx% = gridX
+        Local cy% = gridY
+        Local cw% = BR_CARD_W * 2 + BR_CARD_GAP   ; wider since it's a single card
+        Local ch% = BR_CARD_H
+        Local hovered% = (mx >= cx And mx < cx + cw And my >= cy And my < cy + ch)
+
+        LoomShadowCard(cx, cy, cw, ch)
+        If hovered = True
+            LoomFill(cx, cy, cw, ch, LOOM_STONE_700_R, LOOM_STONE_700_G, LOOM_STONE_700_B)
+        Else
+            LoomFill(cx, cy, cw, ch, LOOM_STONE_800_R, LOOM_STONE_800_G, LOOM_STONE_800_B)
+        EndIf
+        LoomBorder(cx, cy, cw, ch, LOOM_BRASS_500_R, LOOM_BRASS_500_G, LOOM_BRASS_500_B)
+        LoomFill(cx, cy, cw, 3, LOOM_BRASS_500_R, LOOM_BRASS_500_G, LOOM_BRASS_500_B)
+
+        LoomTheme_UseDisplay()
+        LoomText(cx + 16, cy + 16, "INTERFACE", LOOM_BRASS_500_R, LOOM_BRASS_500_G, LOOM_BRASS_500_B)
+        LoomTheme_UseBody()
+        LoomText(cx + 16, cy + 44, "HUD layout | chat & inventory | attribute bars | position, size, colour", LOOM_STONE_200_R, LOOM_STONE_200_G, LOOM_STONE_200_B)
+        LoomText(cx + 16, cy + ch - 24, "Click to open >>", LOOM_BRASS_500_R, LOOM_BRASS_500_G, LOOM_BRASS_500_B)
+
+        If hovered = True And clicked = True
+            Threads::focus(self\threads, "interface", 0)
+            WriteLog(LoomLog, "Browser: opened Interface singleton")
         EndIf
 
         Return 1

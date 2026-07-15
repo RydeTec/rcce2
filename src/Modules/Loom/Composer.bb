@@ -209,10 +209,16 @@ Type Composer
     // to advance the active edit on Tab / Shift+Tab. 512 is enough for
     // even the densest entity composer (Actor with all 96 attribute
     // cells + appearance arrays comes in at ~250).
-    Field rowFieldKinds$[512]
-    Field rowFieldRefIDs%[512]
-    Field rowFieldIds$[512]
-    Field rowFieldValues$[512]   // cached storedValue for Tab-seed
+    Field rowFieldKinds$[1024]
+    Field rowFieldRefIDs%[1024]
+    Field rowFieldIds$[1024]
+    Field rowFieldValues$[1024]  // cached storedValue for Tab-seed
+    // Cap raised from 512 -> 1024: the Interface singleton records the full
+    // HUD roster in one frame (up to 40 attribute bars + 46 inventory slots,
+    // ~760 fields) which overflowed 512 and left the last-rendered rows
+    // (high backpack slots) unreachable by Tab. recordField is called for
+    // every editable row, on-screen or not, so the cap must exceed the
+    // largest single-kind field count.
     Field rowFieldCount%
 
     // Palette reference -- set by setPalette from Loom.bb at construction.
@@ -535,6 +541,8 @@ Type Composer
             Composer::renderSettings(self, x, scrolledBodyY, w, bodyH, mx, my, clicked)
         Else If kind = "environment"
             Composer::renderEnvironment(self, x, scrolledBodyY, w, bodyH, mx, my, clicked, rightClicked)
+        Else If kind = "interface"
+            Composer::renderInterface(self, x, scrolledBodyY, w, bodyH, mx, my, clicked, rightClicked)
         Else If kind = "script"
             Composer::renderScript(self, x, scrolledBodyY, w, bodyH, mx, my, clicked, rightClicked)
         Else If kind = "texture"
@@ -1309,7 +1317,7 @@ Type Composer
     // visible row by mouse or scrolling).
     // -------------------------------------------------------------------------
     Method recordField(kind$, refID%, fieldId$, storedValue$)
-        If self\rowFieldCount >= 512 Then Return
+        If self\rowFieldCount >= 1024 Then Return
         self\rowFieldKinds$[self\rowFieldCount] = kind
         self\rowFieldRefIDs[self\rowFieldCount] = refID
         self\rowFieldIds$[self\rowFieldCount] = fieldId
@@ -1904,6 +1912,17 @@ Type Composer
             Return
         EndIf
 
+        // ---- INTERFACE (HUD layout singleton) --------------------------------
+        // Two component rosters are Dim'd global arrays (AttributeDisplays /
+        // InventoryButtons) which Strict Methods can't index-write; the whole
+        // dispatch lives in the non-Strict Loom/InterfaceLayout.bb module
+        // (same shape as the Seasons / Settings setters). Clamps mirror GUE's
+        // spinner/slider ranges (percent for x/y/w/h, 0..255 for r/g/b/a).
+        If kind = "interface"
+            LoomIface_WriteField(fieldId, value)
+            Return
+        EndIf
+
         // ---- ANIMSET --------------------------------------------------------
         If kind = "animset"
             // AnimSet is iterated, not array-indexed; walk to the matching ID.
@@ -1987,6 +2006,7 @@ Type Composer
         If kind = "projectile" Then Return Not ProjectilesSaved
         If kind = "particle" Then Return Not ParticlesSaved
         If kind = "environment" Then Return Not EnvironmentSaved
+        If kind = "interface" Then Return Not InterfaceSaved
         Return False
     End Method
 
@@ -2006,6 +2026,7 @@ Type Composer
         If kind = "particle" Then ParticlesSaved = False
         If kind = "settings" Then SettingsSaved = False
         If kind = "environment" Then EnvironmentSaved = False
+        If kind = "interface" Then InterfaceSaved = False
     End Method
 
 
@@ -2194,6 +2215,23 @@ Type Composer
             EnvironmentSaved = True
             WriteLog(LoomLog, "Composer: saved Environment.dat + Suns.dat")
             Toast_Show("Saved Environment.dat + Suns.dat", "success")
+            Return
+        EndIf
+
+        If kind = "interface"
+            // Same serializer GUE's "Save interface layout" button fires
+            // (GUE.bb:4042) and menuSaveAll runs (GUE.bb:10713): atomic
+            // Interface.dat rewrite via SafeWriteOpen/Commit. The client
+            // reads this same file for its live HUD.
+            Local okIface% = SaveInterfaceSettings("Data\Game Data\Interface.dat")
+            If okIface = False
+                WriteLog(LoomLog, "Composer: SaveInterfaceSettings FAILED")
+                Toast_Show("Save Interface FAILED", "danger")
+                Return
+            EndIf
+            InterfaceSaved = True
+            WriteLog(LoomLog, "Composer: saved Interface.dat")
+            Toast_Show("Saved Interface.dat", "success")
             Return
         EndIf
 
@@ -2954,6 +2992,15 @@ Type Composer
             Composer::reFocusOrClose(self, kind)
             Return
         EndIf
+        If kind = "interface"
+            // Frees every InterfaceComponent + re-runs the same
+            // LoadInterfaceSettings GUE boots with. Sets InterfaceSaved = True
+            // itself.
+            LoomIface_DiscardReload()
+            WriteLog(LoomLog, "Composer: discarded -- reloaded Interface.dat")
+            Composer::reFocusOrClose(self, kind)
+            Return
+        EndIf
         WriteLog(LoomLog, "Composer: discardKind -- no handler for " + kind)
     End Method
 
@@ -3160,6 +3207,7 @@ Type Composer
         If kind = "projectile" Then Return "PROJECTILE"
         If kind = "particle" Then Return "PARTICLE EMITTER"
         If kind = "environment" Then Return "DAYS & SEASONS"
+        If kind = "interface" Then Return "INTERFACE"
         Return Upper$(kind)
     End Method
 
@@ -4696,6 +4744,129 @@ Type Composer
         Next
 
         Composer::recordContentBottom(self, y)
+    End Method
+
+
+    // -------------------------------------------------------------------------
+    // renderInterface -- the "Interface" singleton (GUE's TInterface tab
+    // parity). GUE groups the HUD components under two radio buttons ("Game
+    // screen" / "Inventory"); the underlying data is one flat InterfaceComponent
+    // roster (Interface.bb) saved to Data\Game Data\Interface.dat. Loom renders
+    // both groups as two sections in the same scroll, each component a
+    // sub-header + its editable rows.
+    //
+    // Per component, GUE exposes: X / Y / Width / Height (a 0..100% spinner
+    // backed by a 0..1 fraction), Red / Green / Blue (0..255 sliders) and
+    // Alpha (a 0..255 slider backed by a 0..1 fraction). Chat additionally
+    // has a background Texture (chooser -> texture ID; 65535 = none). All
+    // writes route through LoomIface_WriteField (non-Strict InterfaceLayout.bb)
+    // since two rosters are Dim'd arrays Strict can't index-write. Saves go
+    // through GUE's own SaveInterfaceSettings; loads through
+    // LoadInterfaceSettings at boot.
+    //
+    // Attribute-bar rows are shown only for defined attribute slots
+    // (AttributeNames$(i) <> "") -- the same filter GUE's list uses
+    // (GUE.bb:7022). Inventory buttons carry GUE's slot labels
+    // (GUE.bb:7063-7078): 14 named equipment slots then "Backpack slot N".
+    // -------------------------------------------------------------------------
+    Method renderInterface(panelX%, bodyY%, panelW%, bodyH%, mx%, my%, clicked%, rightClicked%)
+        Local y% = bodyY
+
+        // ---- Game screen group (GUE's RInterfaceMain radio) ------------------
+        y = Composer::sectionHeader(self, panelX, panelW, y, "Game screen")
+        y = Composer::renderIfaceComp(self, panelX, panelW, y, "Chat text area", "chat",      True,  mx, my, clicked, rightClicked)
+        y = Composer::renderIfaceComp(self, panelX, panelW, y, "Chat entry box", "chatentry", False, mx, my, clicked, rightClicked)
+        y = Composer::renderIfaceComp(self, panelX, panelW, y, "Radar map",      "radar",     False, mx, my, clicked, rightClicked)
+        y = Composer::renderIfaceComp(self, panelX, panelW, y, "Compass",        "compass",   False, mx, my, clicked, rightClicked)
+        y = Composer::renderIfaceComp(self, panelX, panelW, y, "Buff icons area","buffs",     False, mx, my, clicked, rightClicked)
+
+        y = Composer::sectionHeader(self, panelX, panelW, y, "Attribute bars")
+        Local ai%
+        For ai = 0 To 39
+            // Only defined attribute slots get a bar (GUE.bb:7022 filter).
+            If AttributeNames$(ai) <> ""
+                y = Composer::renderIfaceComp(self, panelX, panelW, y, AttributeNames$(ai) + " bar", "attr_" + Str(ai), False, mx, my, clicked, rightClicked)
+            EndIf
+        Next
+
+        // ---- Inventory group (GUE's RInterfaceInventory radio) ---------------
+        y = Composer::sectionHeader(self, panelX, panelW, y, "Inventory")
+        y = Composer::renderIfaceComp(self, panelX, panelW, y, "Window",        "invwindow", False, mx, my, clicked, rightClicked)
+        y = Composer::renderIfaceComp(self, panelX, panelW, y, "Drop button",   "invdrop",   False, mx, my, clicked, rightClicked)
+        y = Composer::renderIfaceComp(self, panelX, panelW, y, "Use button",    "inveat",    False, mx, my, clicked, rightClicked)
+        y = Composer::renderIfaceComp(self, panelX, panelW, y, "Money display", "invgold",   False, mx, my, clicked, rightClicked)
+
+        Local bi%
+        For bi = 0 To Slots_Inventory
+            y = Composer::renderIfaceComp(self, panelX, panelW, y, Composer::ifaceSlotLabel(self, bi), "invbtn_" + Str(bi), False, mx, my, clicked, rightClicked)
+        Next
+
+        Composer::recordContentBottom(self, y)
+    End Method
+
+
+    // -------------------------------------------------------------------------
+    // ifaceSlotLabel -- GUE's inventory-button labels (GUE.bb:7063-7078). The
+    // first 14 slots are named equipment; the rest are "Backpack slot N"
+    // (1-based, so slot index 14 -> "Backpack slot 1").
+    // -------------------------------------------------------------------------
+    Method ifaceSlotLabel$(idx%)
+        If idx = 0  Then Return "Weapon slot"
+        If idx = 1  Then Return "Shield slot"
+        If idx = 2  Then Return "Head slot"
+        If idx = 3  Then Return "Chest slot"
+        If idx = 4  Then Return "Hands slot"
+        If idx = 5  Then Return "Belt slot"
+        If idx = 6  Then Return "Legs slot"
+        If idx = 7  Then Return "Feet slot"
+        If idx = 8  Then Return "Ring slot 1"
+        If idx = 9  Then Return "Ring slot 2"
+        If idx = 10 Then Return "Ring slot 3"
+        If idx = 11 Then Return "Ring slot 4"
+        If idx = 12 Then Return "Amulet slot 1"
+        If idx = 13 Then Return "Amulet slot 2"
+        Return "Backpack slot " + Str(idx - 13)
+    End Method
+
+
+    // -------------------------------------------------------------------------
+    // renderIfaceComp -- one InterfaceComponent's editable rows: a sub-header
+    // label then X% / Y% / Width% / Height% (float percentages), Red / Green /
+    // Blue / Alpha (0..255 ints) and, for Chat, a background texture row.
+    //
+    // The component is resolved via the non-Strict LoomIface_Resolve so the
+    // field READS come off a Local .InterfaceComponent pointer rather than a
+    // direct Dim'd-array-of-pointers access from Strict. A missing component
+    // (Null) skips its rows (defensive -- the boot loader guarantees a full
+    // roster). Percent display mirrors GUE (IC\X# * 100.0); Alpha display
+    // mirrors GUE's 0..255 slider (IC\Alpha# * 255.0).
+    // -------------------------------------------------------------------------
+    Method renderIfaceComp%(panelX%, panelW%, y%, label$, compKey$, hasTex%, mx%, my%, clicked%, rightClicked%)
+        Local IC.InterfaceComponent = LoomIface_Resolve(compKey)
+        If IC = Null Then Return y
+
+        If Composer::canPaintRow(self, y, CMP_ROW_H) = True
+            LoomText(panelX + CMP_PAD, y + 4, label, LOOM_ARCANE_500_R, LOOM_ARCANE_500_G, LOOM_ARCANE_500_B)
+        EndIf
+        y = y + CMP_ROW_H
+
+        y = Composer::editableFloatRow(self, panelX, panelW, y, "X %",      "interface", 0, "x_" + compKey, IC\X# * 100.0,      mx, my, clicked)
+        y = Composer::editableFloatRow(self, panelX, panelW, y, "Y %",      "interface", 0, "y_" + compKey, IC\Y# * 100.0,      mx, my, clicked)
+        y = Composer::editableFloatRow(self, panelX, panelW, y, "Width %",  "interface", 0, "w_" + compKey, IC\Width# * 100.0,  mx, my, clicked)
+        y = Composer::editableFloatRow(self, panelX, panelW, y, "Height %", "interface", 0, "h_" + compKey, IC\Height# * 100.0, mx, my, clicked)
+        y = Composer::editableIntRow(self, panelX, panelW, y, "Red",   "interface", 0, "r_" + compKey, IC\R, mx, my, clicked)
+        y = Composer::editableIntRow(self, panelX, panelW, y, "Green", "interface", 0, "g_" + compKey, IC\G, mx, my, clicked)
+        y = Composer::editableIntRow(self, panelX, panelW, y, "Blue",  "interface", 0, "b_" + compKey, IC\B, mx, my, clicked)
+        y = Composer::editableIntRow(self, panelX, panelW, y, "Alpha (0-255)", "interface", 0, "a_" + compKey, Int(IC\Alpha# * 255.0 + 0.5), mx, my, clicked)
+
+        If hasTex = True
+            // Chat background texture. 65535 = none (type 65535 to clear, as
+            // GUE's "None" button does). Right-click the thumbnail to pick.
+            y = Composer::renderActorTextureRow(self, panelX, panelW, y, "Background tex", "interface", 0, "tex_" + compKey, IC\Texture, mx, my, clicked, rightClicked)
+        EndIf
+
+        y = y + 4
+        Return y
     End Method
 
 

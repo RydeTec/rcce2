@@ -56,6 +56,14 @@ src/
         │                            seasons composer (Environment.bb's Dim'd
         │                            calendar tables + Sun fields; GUE tab
         │                            parity semantics + clamps)
+        ├── InterfaceLayout.bb       non-Strict write path for the Interface
+        │                            (HUD) composer (Interface.bb's
+        │                            InterfaceComponent roster — AttributeDisplays
+        │                            + InventoryButtons are Dim'd arrays; GUE
+        │                            tab parity + clamps; boot-load, discard-
+        │                            reload + save through GUE's own
+        │                            Load/SaveInterfaceSettings; deferred
+        │                            InterfaceSaved dirty flag)
         └── EntityFactory.bb         create / delete dispatch wrapping
                                      GUE's Create* + (new) DeleteXTemplate
 ```
@@ -191,7 +199,7 @@ The facade is defensive about Null (early-boot calls before wiring don't crash).
             paint to screen via Theme.bb primitives
 ```
 
-**Key invariant:** Loom reads through the exact same `LoadX` functions GUE uses, so the two editors cannot drift in how they parse the file format. Writes go through the same `SaveX` functions for the bulk-serialized kinds (Spells / Items / Actors / Factions / AnimSets); zones use the per-file `ServerSaveArea(Area)` since each zone is its own `.dat`.
+**Key invariant:** Loom reads through the exact same `LoadX` functions GUE uses, so the two editors cannot drift in how they parse the file format. Writes go through the same `SaveX` functions for the bulk-serialized kinds (Spells / Items / Actors / Factions / AnimSets); zone **gameplay** data uses the per-file `ServerSaveArea(Area)` since each zone is its own `.dat`. Zone **visual** data (terrain / scenery / water / emitters / colboxes / sound zones) uses `SaveArea(Name$)` — the whole-visual-area serializer that, as of the scenery-editing work (ADR 007), was relocated verbatim from `ClientAreas.bb` into the shared data-only `Modules/AreaLoader.bb` so Loom can call it without the Gooey/F-UI coupling. It is a *whole-file rewrite from live entities*, so Loom only ever calls it when a world is fully loaded (`VPWorldLoaded`) — see the scenery data-loss guard in `Modules/Loom/ZoneViewport.bb`.
 
 The few mutating helpers Loom needed that don't exist in GUE — `SetFactionName`, `DeleteActorTemplate`, `DeleteItemTemplate`, `DeleteSpellTemplate`, `DeleteAnimSetTemplate` — were added to the respective data modules as **non-Strict** functions. They live in non-Strict modules so they can write to `Dim`'d global arrays (the Strict-mode trap; see Gotchas below).
 
@@ -223,7 +231,7 @@ The zone-handle instability is why `Recents` persists zones by `Ar\Name$` instea
 
 ## Edit / save / dirty-flag plumbing
 
-The per-kind `*Saved` globals (`ItemsSaved`, `ActorsSaved`, `SpellsSaved`, `FactionsSaved`, `ZoneSaved`, `AnimsSaved`, `ProjectilesSaved`, `ParticlesSaved`, `EnvironmentSaved`) are **shared with GUE** — `Loom.bb` redeclares the same set at lines 58-69 so writes from Loom's Composer / EntityFactory flip the same flags GUE inspects. `False` = unsaved changes pending; `True` = on-disk == in-memory.
+The per-kind `*Saved` globals (`ItemsSaved`, `ActorsSaved`, `SpellsSaved`, `FactionsSaved`, `ZoneSaved`, `AnimsSaved`, `ProjectilesSaved`, `ParticlesSaved`, `EnvironmentSaved`, `InterfaceSaved`) are **shared with GUE** — `Loom.bb` redeclares the same set at lines 58-69 so writes from Loom's Composer / EntityFactory flip the same flags GUE inspects. `False` = unsaved changes pending; `True` = on-disk == in-memory. Each singleton kind (`environment` → `EnvironmentSaved`, `interface` → `InterfaceSaved`) plugs into the same `SaveAll` (Ctrl+S) + `ExitPrompt` + Conscience-Ribbon-badge fleet as the entity kinds.
 
 The edit lifecycle:
 
@@ -244,6 +252,8 @@ See [decisions/001-custom-draw-not-fui.md](decisions/001-custom-draw-not-fui.md)
 ## Why no `ClientAreas.bb` Include
 
 `ClientAreas.bb`'s `LoadArea` is the canonical 3D zone-mesh loader. It's transitively coupled to GUE's UI substrate: `GY_Cam` (Gooey's 3D camera), `GY_CreateProgressBar`, `ResolutionType`, `RandomImages`, `GetMusicName$`, `GetTexture`, `GetFilename$` (which is defined inside `GUE.bb` itself, not in a shared module). Pulling it in would lock Loom to GUE's UI substrate — exactly what Loom is supposed to decouple.
+
+The *data-only* halves of the area I/O were carved out of `ClientAreas.bb` into the shared `Modules/AreaLoader.bb` precisely so Loom can use them without that coupling: `LoadAreaData` (the reader, ADR-004 Phase B) and now `SaveArea` (the whole-visual-area writer, ADR-007 "Phase D"). GUE `Include`s `AreaLoader.bb` before `ClientAreas.bb`, so its own `LoadAreaData`/`SaveArea` calls resolve to the shared definitions unchanged.
 
 Concrete consequence: **Loom cannot render the 3D zone mesh.** Zone composer shows zone metadata as text + portal-target chips; the Atlas surface gives a 2D spatial view from the portal graph topology. See [decisions/004-deferred-3d-viewport.md](decisions/004-deferred-3d-viewport.md) for the path to fixing this (extract `GetFilename$` to a shared helper; either rewrite `LoadArea`'s data path with the GUI side ripped out, or build a Loom-side mesh loader).
 

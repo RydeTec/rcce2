@@ -15,6 +15,11 @@ use crate::reader::{BlitzReader, ReadError};
 pub struct ActorTemplate {
     pub id: u16,
     pub race: String,
+    /// Character-create "class" name (`Actors.dat` Class field). Multiple
+    /// playable templates can share a `race` and differ only by `class` — the
+    /// create screen's class picker cycles those (Blitz `BNextClass`/`BPrevClass`
+    /// walk the Actor list for entries with the same `Race$`, MainMenu.bb:2565).
+    pub class: String,
     pub scale: f32,
     pub radius: f32,
     /// 0 = male base, 1 = female base, 2..8 = gubbins/equipment meshes.
@@ -54,6 +59,14 @@ pub struct ActorTemplate {
     /// `Blood.rpc` particle emitter (textured with this id) at the actor on a
     /// connecting combat hit (ClientNet.bb:1136/1168). 0 = no blood for this race.
     pub blood_tex: i16,
+    /// Per-attribute starting Value / Maximum for a fresh character of this
+    /// template (`Actors.dat` `Attributes[40]` × (Value, Maximum), Actors.bb:480).
+    /// Indexed by attribute slot 0..39. The create screen shows `attr_value[i]`
+    /// as the base and clamps a point-spend increase at `attr_max[i]`
+    /// (MainMenu.bb:2499 `(Value + PointSpends) < Maximum`). Both hold 40 entries
+    /// after a successful parse (empty on a `Default` template).
+    pub attr_value: Vec<i16>,
+    pub attr_max: Vec<i16>,
     /// Locomotion environment (`Actors.dat` Environment, Actors.bb:26-29):
     /// [`environment::AMPHIBIOUS`] (0, can walk on land and swim underwater),
     /// [`environment::SWIM`] (1), [`environment::FLY`] (2), or
@@ -142,7 +155,7 @@ pub mod speech {
 fn parse_record(r: &mut BlitzReader) -> Result<ActorTemplate, ReadError> {
     let id = r.read_short_u()?;
     let race = r.read_string(256)?;
-    let _class = r.read_string(256)?;
+    let class = r.read_string(256)?;
     let _description = r.read_string(4096)?;
     let _start_area = r.read_string(256)?;
     let _start_portal = r.read_string(256)?;
@@ -182,9 +195,14 @@ fn parse_record(r: &mut BlitzReader) -> Result<ActorTemplate, ReadError> {
         *slot = r.read_short_u()?;
     }
     let blood_tex = r.read_short()?;
-    // Attributes[40] × (Value + Maximum) = 80 shorts.
-    for _ in 0..80 {
-        r.read_short()?;
+    // Attributes[40] × (Value + Maximum) = 80 shorts (Value, then Maximum, per
+    // slot — Actors.bb:344-345 write order). Kept for the create-screen
+    // attribute-point spend (base value shown, increase clamped at Maximum).
+    let mut attr_value = Vec::with_capacity(40);
+    let mut attr_max = Vec::with_capacity(40);
+    for _ in 0..40 {
+        attr_value.push(r.read_short()?);
+        attr_max.push(r.read_short()?);
     }
     // Resistances[20].
     for _ in 0..20 {
@@ -206,6 +224,9 @@ fn parse_record(r: &mut BlitzReader) -> Result<ActorTemplate, ReadError> {
     Ok(ActorTemplate {
         id,
         race,
+        class,
+        attr_value,
+        attr_max,
         scale,
         radius,
         mesh_ids,
