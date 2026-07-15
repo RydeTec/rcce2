@@ -130,12 +130,12 @@ if errorlevel 1 (
 )
 rem Rust client (client-rs) -> bin\ClientRS.exe
 cd /d "%ROOTDIR%\client-rs"
-cargo build --release -p rcce-client --bin client-window || (cd /d "%ROOTDIR%" & endlocal & exit /b 1)
+cargo build --release --locked -p rcce-client --bin client-window || (cd /d "%ROOTDIR%" & endlocal & exit /b 1)
 copy /Y "%ROOTDIR%\client-rs\target\release\client-window.exe" "%ROOTDIR%\bin\ClientRS.exe" >nul || (cd /d "%ROOTDIR%" & endlocal & exit /b 1)
 echo   Built bin\ClientRS.exe
 rem Rust server (server-rs) -> bin\ServerRS.exe (headless; Linux is the deploy target)
 cd /d "%ROOTDIR%\server-rs"
-cargo build --release --bin rcce-server || (cd /d "%ROOTDIR%" & endlocal & exit /b 1)
+cargo build --release --locked --bin rcce-server || (cd /d "%ROOTDIR%" & endlocal & exit /b 1)
 copy /Y "%ROOTDIR%\server-rs\target\release\rcce-server.exe" "%ROOTDIR%\bin\ServerRS.exe" >nul || (cd /d "%ROOTDIR%" & endlocal & exit /b 1)
 echo   Built bin\ServerRS.exe
 cd /d "%ROOTDIR%"
