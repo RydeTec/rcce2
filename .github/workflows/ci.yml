@@ -78,7 +78,8 @@ jobs:
         run: test.bat
 
       # The Rust client (client-rs/) ships its own deterministic unit + parser
-      # robustness tests. windows-latest has the Rust toolchain preinstalled.
+      # robustness tests. Select the repository MSRV instead of relying on the
+      # mutable toolchain preinstalled on windows-latest.
       # Gate ALL four logic crates on every PR:
       #   - rcce-data / rcce-net: parsers + wire codec — the "soft-fail, never
       #     panic on hostile input" invariant must not regress.
@@ -90,6 +91,17 @@ jobs:
       #     crates the project changes most) on a fresh checkout. The one-time
       #     wgpu/winit compile is amortised by the cache step below (which already
       #     lists client-rs/target). The i686-only rcenet-ffi-probe is excluded.
+      - name: Set up Rust 1.85.0 (client)
+        uses: dtolnay/rust-toolchain@1.85.0
+        with:
+          components: clippy
+
+      - name: Report Rust toolchain (client)
+        shell: bash
+        run: |
+          rustc --version
+          cargo --version
+
       - name: Cache Rust build (client-rs)
         uses: actions/cache@v4
         with:
@@ -98,7 +110,7 @@ jobs:
             ~/.cargo/registry/cache
             ~/.cargo/git/db
             client-rs/target
-          key: cargo-${{ runner.os }}-${{ hashFiles('client-rs/Cargo.lock') }}
+          key: cargo-${{ runner.os }}-${{ hashFiles('client-rs/Cargo.lock', 'rust-toolchain.toml') }}
           restore-keys: |
             cargo-${{ runner.os }}-
 
@@ -157,6 +169,16 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Set up Rust 1.85.0 (server)
+        uses: dtolnay/rust-toolchain@1.85.0
+        with:
+          components: clippy
+
+      - name: Report Rust toolchain (server)
+        run: |
+          rustc --version
+          cargo --version
+
       - name: Cache Rust build (server-rs)
         uses: actions/cache@v4
         with:
@@ -165,7 +187,7 @@ jobs:
             ~/.cargo/registry/cache
             ~/.cargo/git/db
             server-rs/target
-          key: cargo-server-${{ runner.os }}-${{ hashFiles('server-rs/Cargo.lock') }}
+          key: cargo-server-${{ runner.os }}-${{ hashFiles('server-rs/Cargo.lock', 'rust-toolchain.toml') }}
           restore-keys: |
             cargo-server-${{ runner.os }}-
 

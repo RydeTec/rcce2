@@ -9188,12 +9188,10 @@ impl App {
                         // AI\Reputation, Interface3D.bb:26). Signed; tinted by sign as
                         // a readability nicety over Blitz's plain label.
                         let rep = t.reputation;
-                        let rc = if rep < 0 {
-                            [1.0, 0.55, 0.5, 1.0]
-                        } else if rep > 0 {
-                            [0.6, 1.0, 0.6, 1.0]
-                        } else {
-                            [0.82, 0.82, 0.82, 1.0]
+                        let rc = match rep.cmp(&0) {
+                            std::cmp::Ordering::Less => [1.0, 0.55, 0.5, 1.0],
+                            std::cmp::Ordering::Greater => [0.6, 1.0, 0.6, 1.0],
+                            std::cmp::Ordering::Equal => [0.82, 0.82, 0.82, 1.0],
                         };
                         overlay.text_shadow(px0 + 8.0, py0 + 45.0, 1.0, &format!("Reputation: {rep}"), rc);
                     }
@@ -10287,12 +10285,10 @@ impl App {
                 } else if matches!(trade.kind, TradeKind::Player) {
                     // My offered gold (TradeCost). `+`/`-` adjust it; positive = I give
                     // gold, negative = I demand it. Shown above the Confirm button.
-                    let (c_txt, c_col) = if trade_cost > 0 {
-                        (format!("Your gold: +{trade_cost}  [+/- adjust]"), gold)
-                    } else if trade_cost < 0 {
-                        (format!("Your gold: {trade_cost}  [+/- adjust]"), [1.0, 0.6, 0.5, 1.0])
-                    } else {
-                        ("Your gold: 0  [+/- adjust]".to_string(), dimc)
+                    let (c_txt, c_col) = match trade_cost.cmp(&0) {
+                        std::cmp::Ordering::Greater => (format!("Your gold: +{trade_cost}  [+/- adjust]"), gold),
+                        std::cmp::Ordering::Less => (format!("Your gold: {trade_cost}  [+/- adjust]"), [1.0, 0.6, 0.5, 1.0]),
+                        std::cmp::Ordering::Equal => ("Your gold: 0  [+/- adjust]".to_string(), dimc),
                     };
                     overlay.text(px + 12.0, py + ph - 42.0, 1.0, &c_txt, c_col);
                     // Player↔player Confirm button — commits my staged offer (+ accepts
