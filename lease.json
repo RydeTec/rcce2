@@ -1,16 +1,1 @@
-{
-  "run_id": "rcce2-hourly-replacement-20260715T010744Z-fdad",
-  "status": "released",
-  "started_at": "2026-07-15T01:25:34Z",
-  "heartbeat_at": "2026-07-15T01:26:20Z",
-  "expires_at": "2026-07-15T01:26:20Z",
-  "issue": 629,
-  "branch": "codex-automation/629-weather-stale-area-guard",
-  "pr": 630,
-  "phase": "released-after-pr-630-admin-merge",
-  "scope": {
-    "subsystems": ["Blitz server GM weather command safety"],
-    "paths": ["src/Modules/ServerNet.bb", "src/Tests/Modules/ServerNetWireBoundsTest.bb", "docs/protocol/index.md"],
-    "interfaces": ["P_ChatMessage /weather", "AreaInstance lookup", "generated packet source index"]
-  }
-}
+{"run_id":"rcce2-hourly-replacement-20260715T020643Z-90d8fa2a4e63","status":"active","started_at":"2026-07-15T02:06:46Z","heartbeat_at":"2026-07-15T02:06:46Z","expires_at":"2026-07-15T02:16:46Z","issue":null,"branch":null,"pr":null,"phase":"select-and-reserve","scope":{"subsystems":["Blitz server stale AreaInstance guard"],"paths":["src/Server.bb","src/Tests/Modules/ServerAreaInstanceGuardTest.bb","docs/protocol/index.md"],"interfaces":["server admin player list","server portal and trigger area membership","AreaInstance lookup"]}}
