@@ -359,12 +359,14 @@ Repeat
 					For AI.ActorInstance = Each ActorInstance
 						If AI\RNID > 0
 							AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea)
-							If AInstance <> Null And AInstance\Area = GameArea
-								If AI\Name$ + " (" + AInstance\ID + ")" = Name$
-									DataAux$ = RCE_StrFromInt(AI\RNID)
-									RCE_FSend(0, RCE_PlayerKicked, DataAux$, True, Len(DataAux$))
-									RCE_FSend(AI\RNID, P_KickedPlayer, "", True, 0)
-									Exit
+							If AInstance <> Null
+								If AInstance\Area = GameArea
+									If AI\Name$ + " (" + AInstance\ID + ")" = Name$
+										DataAux$ = RCE_StrFromInt(AI\RNID)
+										RCE_FSend(0, RCE_PlayerKicked, DataAux$, True, Len(DataAux$))
+										RCE_FSend(AI\RNID, P_KickedPlayer, "", True, 0)
+										Exit
+									EndIf
 								EndIf
 							EndIf
 						EndIf
@@ -401,8 +403,10 @@ Repeat
 				For AI.ActorInstance = Each ActorInstance
 					If AI\RNID > 0
 						AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea)
-						If AInstance <> Null And AInstance\Area = GameArea
-							AddListBoxItem(Game\PlayersList, AI\Name$ + " (" + AInstance\ID + ")")
+						If AInstance <> Null
+							If AInstance\Area = GameArea
+								AddListBoxItem(Game\PlayersList, AI\Name$ + " (" + AInstance\ID + ")")
+							EndIf
 						EndIf
 					EndIf
 				Next
@@ -579,81 +583,83 @@ Repeat
 				For AI.ActorInstance = Each ActorInstance
 					If AI\RuntimeID > -1 And AI\RNID > 0
 						AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea)
-						If AInstance <> Null And AInstance\Area = UpdateArea
-							; Portals
-							For i = 0 To 99
-								If Len(UpdateArea\PortalName$[i]) > 0
-									If Len(UpdateArea\PortalLinkArea$[i]) > 0
-										; Calculate distance
-										Size# = UpdateArea\PortalSize#[i] * UpdateArea\PortalSize#[i]
-										DistX# = Abs(AI\X# - UpdateArea\PortalX#[i])
-										DistY# = Abs(AI\Y# - UpdateArea\PortalY#[i])
-										DistZ# = Abs(AI\Z# - UpdateArea\PortalZ#[i])
-										Dist# = (DistX# * DistX#) + (DistY# * DistY#) + (DistZ# * DistZ#)
-										; Inside portal area
-										; Lock keys on the (Area, index) pair: a stale
-										; LastPortal index left over from a different
-										; area must not block a same-index portal in the
-										; current one, and the time floor still bars
-										; immediate re-entry of the exact portal the
-										; actor was just placed on.
-										;
-										; Lazy resolve LastPortalAreaName$ -> Handle.
-										; The persisted form is the area NAME (Handles
-										; are process-local); first time we see this
-										; actor in a portal area after login, re-bind
-										; the area handle. If the area was renamed /
-										; deleted between sessions, leave the handle
-										; at 0 and the lock just stays clear -- safe
-										; direction.
-										If AI\LastPortalArea = 0 And AI\LastPortalAreaName$ <> ""
-											Local LpAr.Area = FindArea(AI\LastPortalAreaName$)
-											If LpAr <> Null Then AI\LastPortalArea = Handle(LpAr)
-										EndIf
-										If Dist# < Size# And (AI\LastPortal <> i Or AI\LastPortalArea <> Handle(UpdateArea) Or (MilliSecs() - AI\LastPortalTime > PortalLockTime))
-											InPortal = False
-											Name$ = Upper$(UpdateArea\PortalLinkArea$[i])
-											For Ar.Area = Each Area
-												If Upper$(Ar\Name$) = Name$
-													Name$ = Upper$(UpdateArea\PortalLinkName$[i])
-													Port = 0
-													If Len(Name$) > 0
-														For j = 0 To 99
-															If Upper$(Ar\PortalName$[j]) = Name$ Then Port = j : Exit
-														Next
+						If AInstance <> Null
+							If AInstance\Area = UpdateArea
+								; Portals
+								For i = 0 To 99
+									If Len(UpdateArea\PortalName$[i]) > 0
+										If Len(UpdateArea\PortalLinkArea$[i]) > 0
+											; Calculate distance
+											Size# = UpdateArea\PortalSize#[i] * UpdateArea\PortalSize#[i]
+											DistX# = Abs(AI\X# - UpdateArea\PortalX#[i])
+											DistY# = Abs(AI\Y# - UpdateArea\PortalY#[i])
+											DistZ# = Abs(AI\Z# - UpdateArea\PortalZ#[i])
+											Dist# = (DistX# * DistX#) + (DistY# * DistY#) + (DistZ# * DistZ#)
+											; Inside portal area
+											; Lock keys on the (Area, index) pair: a stale
+											; LastPortal index left over from a different
+											; area must not block a same-index portal in the
+											; current one, and the time floor still bars
+											; immediate re-entry of the exact portal the
+											; actor was just placed on.
+											;
+											; Lazy resolve LastPortalAreaName$ -> Handle.
+											; The persisted form is the area NAME (Handles
+											; are process-local); first time we see this
+											; actor in a portal area after login, re-bind
+											; the area handle. If the area was renamed /
+											; deleted between sessions, leave the handle
+											; at 0 and the lock just stays clear -- safe
+											; direction.
+											If AI\LastPortalArea = 0 And AI\LastPortalAreaName$ <> ""
+												Local LpAr.Area = FindArea(AI\LastPortalAreaName$)
+												If LpAr <> Null Then AI\LastPortalArea = Handle(LpAr)
+											EndIf
+											If Dist# < Size# And (AI\LastPortal <> i Or AI\LastPortalArea <> Handle(UpdateArea) Or (MilliSecs() - AI\LastPortalTime > PortalLockTime))
+												InPortal = False
+												Name$ = Upper$(UpdateArea\PortalLinkArea$[i])
+												For Ar.Area = Each Area
+													If Upper$(Ar\Name$) = Name$
+														Name$ = Upper$(UpdateArea\PortalLinkName$[i])
+														Port = 0
+														If Len(Name$) > 0
+															For j = 0 To 99
+																If Upper$(Ar\PortalName$[j]) = Name$ Then Port = j : Exit
+															Next
+														EndIf
+														SetArea(AI, Ar, 0, -1, Port)
+														InPortal = True
+														Exit
 													EndIf
-													SetArea(AI, Ar, 0, -1, Port)
-													InPortal = True
-													Exit
-												EndIf
-											Next
-											If InPortal = True Then Exit
+												Next
+												If InPortal = True Then Exit
+											EndIf
 										EndIf
 									EndIf
-								EndIf
-							Next
+								Next
 
-							; Triggers
-							InTrigger = -1
-							For i = 0 To 149
-								If Len(UpdateArea\TriggerScript$[i]) > 0
-									; Calculate distance
-									Size# = UpdateArea\TriggerSize#[i] * UpdateArea\TriggerSize#[i]
-									DistX# = Abs(AI\X# - UpdateArea\TriggerX#[i])
-									DistY# = Abs(AI\Y# - UpdateArea\TriggerY#[i])
-									DistZ# = Abs(AI\Z# - UpdateArea\TriggerZ#[i])
-									Dist# = (DistX# * DistX#) + (DistY# * DistY#) + (DistZ# * DistZ#)
-									; Inside trigger area
-									If Dist# < Size#
-										InTrigger = i
-										; Only execute script if this trigger was not already executed
-										If AI\LastTrigger <> i
-											ThreadScript(UpdateArea\TriggerScript$[i], UpdateArea\TriggerMethod$[i], Handle(AI), 0, Str$(i))
+								; Triggers
+								InTrigger = -1
+								For i = 0 To 149
+									If Len(UpdateArea\TriggerScript$[i]) > 0
+										; Calculate distance
+										Size# = UpdateArea\TriggerSize#[i] * UpdateArea\TriggerSize#[i]
+										DistX# = Abs(AI\X# - UpdateArea\TriggerX#[i])
+										DistY# = Abs(AI\Y# - UpdateArea\TriggerY#[i])
+										DistZ# = Abs(AI\Z# - UpdateArea\TriggerZ#[i])
+										Dist# = (DistX# * DistX#) + (DistY# * DistY#) + (DistZ# * DistZ#)
+										; Inside trigger area
+										If Dist# < Size#
+											InTrigger = i
+											; Only execute script if this trigger was not already executed
+											If AI\LastTrigger <> i
+												ThreadScript(UpdateArea\TriggerScript$[i], UpdateArea\TriggerMethod$[i], Handle(AI), 0, Str$(i))
+											EndIf
 										EndIf
 									EndIf
-								EndIf
-							Next
-							AI\LastTrigger = InTrigger
+									Next
+									AI\LastTrigger = InTrigger
+							EndIf
 						EndIf
 					EndIf
 				Next
