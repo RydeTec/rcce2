@@ -133,6 +133,37 @@ Function SectionContains%(Path$, StartMarker$, EndMarker$, Needle$)
 	Return False
 End Function
 
+; Verifies that a bounded handler section reads AInstance\Area only while the
+; immediately preceding AInstance null guard is still open. BlitzForge `And`
+; evaluates both operands, so a combined `AInstance <> Null And
+; AInstance\Area = ...` condition is not a safe substitute.
+Function SectionUsesNestedAreaGuard%(Path$, StartMarker$, EndMarker$, AreaNeedle$)
+	Local F.BBStream = ReadFile(Path$)
+	Local InSection%, SawInstanceGuard%
+	Local Line$
+	If F = Null Then F = ReadFile("..\" + Path$)
+	If F = Null Then Return False
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		If Instr(Line$, StartMarker$) > 0 Then InSection = True
+		If InSection = True And Instr(Line$, EndMarker$) > 0 Then Exit
+		If InSection = True
+			If Instr(Line$, "If AInstance <> Null") > 0 Then SawInstanceGuard = True
+			If SawInstanceGuard = True
+				If Instr(Line$, AreaNeedle$) > 0
+					CloseFile F
+					Return True
+				EndIf
+				; The preceding guard ended before the Area read, so a later
+				; condition would dereference a stale instance.
+				If Instr(Line$, "EndIf") > 0 Then Exit
+			EndIf
+		EndIf
+	Wend
+	CloseFile F
+	Return False
+End Function
+
 ; ====================================================================
 ; RuntimeActorFromWire -- rejection: out of range
 ; ====================================================================
@@ -256,4 +287,13 @@ End Test
 Test testWeatherCommandUsesExplicitAreaInstanceGuard()
 	Assert(SectionContains%("Modules\ServerNet.bb", "Case LanguageString$(LS_SCWeather)", "Case LanguageString$(LS_SCTime)", "If AInstance <> Null") = True)
 	Assert(SectionContains%("Modules\ServerNet.bb", "Case LanguageString$(LS_SCWeather)", "Case LanguageString$(LS_SCTime)", "AInstance <> Null And") = False)
+End Test
+
+; ====================================================================
+; General chat -- stale AreaInstance rejection
+; ====================================================================
+
+Test testGeneralChatKeepsAreaReadInsideNullGuard()
+	Assert(SectionUsesNestedAreaGuard%("Modules\ServerNet.bb", "; General chat - forward to other people in same area", "; Repositioning an actor (client has completed)", "If AInstance\Area = GameArea") = True)
+	Assert(SectionContains%("Modules\ServerNet.bb", "; General chat - forward to other people in same area", "; Repositioning an actor (client has completed)", "AInstance <> Null And AInstance\Area = GameArea") = False)
 End Test
