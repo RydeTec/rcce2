@@ -1,1 +1,25 @@
-{"run_id":"rcce2-hourly-replacement-20260715T050818Z-9cbb7a5351c7","status":"released","started_at":"2026-07-15T05:28:25Z","heartbeat_at":"2026-07-15T05:29:45Z","expires_at":"2026-07-15T05:29:45Z","issue":637,"branch":"codex-automation/637-bvm-setleader-area-guard","pr":638,"phase":"selector-released-after-admin-merge-attempt-exit-0","scope":{"subsystems":["Blitz server BVM pet/patrol stale-area safety"],"paths":["src/Modules/ScriptingCommands.bb","src/Tests/Modules/ScriptingCommandsGuardTest.bb"],"interfaces":["BVM_SETLEADER","Object.AreaInstance","Actor patrol fallback"]}}
+{
+  "run_id": "rcce2-hourly-replacement-20260715T060819Z-d44421cdf1fd",
+  "status": "active",
+  "started_at": "2026-07-15T06:08:18Z",
+  "heartbeat_at": "2026-07-15T06:08:18Z",
+  "expires_at": "2026-07-15T06:18:18Z",
+  "issue": 615,
+  "branch": "codex-automation/move10-standard-update",
+  "pr": 616,
+  "phase": "selector-resume-validation",
+  "scope": {
+    "subsystems": [
+      "Rust client movement update parity"
+    ],
+    "paths": [
+      "client-rs/crates/rcce-client/src/bin/client_window.rs",
+      "docs/rust-client/ACCEPTANCE.md"
+    ],
+    "interfaces": [
+      "P_StandardUpdate",
+      "WalkingBackward",
+      "routine movement send cadence"
+    ]
+  }
+}
