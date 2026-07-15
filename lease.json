@@ -1,13 +1,13 @@
 {
   "run_id": "rcce2-hourly-replacement-20260715T060819Z-d44421cdf1fd",
-  "status": "active",
-  "started_at": "2026-07-15T06:32:07Z",
-  "heartbeat_at": "2026-07-15T06:32:07Z",
-  "expires_at": "2026-07-15T06:42:07Z",
+  "status": "released",
+  "started_at": "2026-07-15T06:32:00Z",
+  "heartbeat_at": "2026-07-15T06:34:19Z",
+  "expires_at": "2026-07-15T06:34:19Z",
   "issue": 615,
   "branch": "codex-automation/move10-standard-update",
   "pr": 616,
-  "phase": "selector-final-merge-validation",
+  "phase": "selector-released-after-admin-merge",
   "scope": {
     "subsystems": [
       "Rust client movement update parity"
