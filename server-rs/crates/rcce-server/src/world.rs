@@ -2856,14 +2856,15 @@ mod tests {
         assert_eq!(state.accounts.find("hero").unwrap().characters[0].actor.script_globals[1], "spoke", "WaitSpeak resumed on chat");
 
         // --- WaitSpeak: retain a chat event that wins the race before the
-        // script reaches GetWaitResult. This is a condition-based observation
-        // of the real async handoff, not a fixed scheduling delay.
+        // script reaches GetWaitResult. The handshake signal persists while
+        // the script is held, so this cannot miss a faster script thread.
         let early_s_src = "Function Main()\n\tp = Actor()\n\tSetWaitSpeak(p, p)\n\tSetWaiting(1)\n\tr = GetWaitResult()\n\tSetActorGlobal(p, 3, \"early\")\nEnd Function\n";
         state.start_inline_script(early_s_src, "Main", rid, 0, 1, true);
+        let armed = state.hold_last_waitspeak_arm();
         let mut armed_before_park = false;
         for _ in 0..100 {
             state.pump_scripts();
-            if state.waitspeak_is_armed_before_park(rid) {
+            if armed.try_recv().is_ok() {
                 armed_before_park = true;
                 break;
             }
@@ -2871,6 +2872,7 @@ mod tests {
         }
         assert!(armed_before_park, "WaitSpeak arms before GetWaitResult parks");
         state.dispatch(1, P_CHAT_MESSAGE, b"early");
+        state.release_last_waitspeak_arm();
         for _ in 0..100 {
             state.pump_scripts();
             if state.running_script_count() == 0 { break; }

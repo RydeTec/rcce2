@@ -200,6 +200,12 @@ struct RunningScript {
     pending_response: Option<String>,
     /// The held reply for a suspended `GetWaitResult`.
     waiting_reply: Option<std::sync::mpsc::Sender<rcce_script::Value>>,
+    /// Test-only handshake that holds the script immediately after
+    /// `SetWaitSpeak`, making the early-chat regression deterministic.
+    #[cfg(test)]
+    test_waitspeak_armed: Option<std::sync::mpsc::Sender<()>>,
+    #[cfg(test)]
+    test_waitspeak_reply: Option<std::sync::mpsc::Sender<rcce_script::Value>>,
     /// The script's `Param$` (`ThreadScript`'s 5th arg) — the comma-separated
     /// argument string `Parameter(n)` splits. Slash-commands pass the text after
     /// the command; most other spawns leave it empty.
@@ -2340,6 +2346,10 @@ impl ServerState {
             wait_result: String::new(),
             pending_response: None,
             waiting_reply: None,
+            #[cfg(test)]
+            test_waitspeak_armed: None,
+            #[cfg(test)]
+            test_waitspeak_reply: None,
             param,
             wait_time: 0,
             wait_start: 0,
@@ -2382,6 +2392,8 @@ impl ServerState {
             wait_result: String::new(),
             pending_response: None,
             waiting_reply: None,
+            test_waitspeak_armed: None,
+            test_waitspeak_reply: None,
             param: String::new(),
             wait_time: 0,
             wait_start: 0,
@@ -2400,14 +2412,24 @@ impl ServerState {
         }
     }
 
-    /// Test-only observation of the race window between `SetWaitSpeak` and a
-    /// parked `GetWaitResult`. This lets the regression inject chat at the
-    /// real event-loop boundary without timing guesses.
+    /// Test-only handshake that pauses the most recently started script after
+    /// it has armed `SetWaitSpeak` but before it can issue `SetWaiting`.
     #[cfg(test)]
-    pub fn waitspeak_is_armed_before_park(&self, speaker_rid: u16) -> bool {
-        self.running_scripts.iter().any(|rs| {
-            rs.wait_speak == speaker_rid && rs.waiting_reply.is_none()
-        })
+    pub fn hold_last_waitspeak_arm(&mut self) -> std::sync::mpsc::Receiver<()> {
+        let (armed, observed) = std::sync::mpsc::channel();
+        let rs = self.running_scripts.last_mut().expect("inline script exists");
+        rs.test_waitspeak_armed = Some(armed);
+        observed
+    }
+
+    /// Release the [`Self::hold_last_waitspeak_arm`] handshake so the script
+    /// can continue to `SetWaiting` and `GetWaitResult`.
+    #[cfg(test)]
+    pub fn release_last_waitspeak_arm(&mut self) {
+        let rs = self.running_scripts.last_mut().expect("inline script exists");
+        rs.test_waitspeak_armed = None;
+        let reply = rs.test_waitspeak_reply.take().expect("WaitSpeak reply held");
+        let _ = reply.send(rcce_script::Value::Int(0));
     }
 
     /// Drive all running scripts: execute their pending `BVM_*` calls against
@@ -2526,6 +2548,12 @@ impl ServerState {
                             }
                             "setwaitspeak" => {
                                 self.running_scripts[i].wait_speak = args.first().map(|v| v.to_int()).unwrap_or(0) as u16;
+                                #[cfg(test)]
+                                if let Some(armed) = self.running_scripts[i].test_waitspeak_armed.clone() {
+                                    let _ = armed.send(());
+                                    self.running_scripts[i].test_waitspeak_reply = Some(reply);
+                                    continue;
+                                }
                                 let _ = reply.send(rcce_script::Value::Int(0));
                                 continue;
                             }
