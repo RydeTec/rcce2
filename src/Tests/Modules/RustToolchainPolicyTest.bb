@@ -44,7 +44,10 @@ End Test
 
 Test testRustCIUsesPolicyAndInvalidatesCachesWhenItChanges()
 	Assert(FileOccurrenceCount%(".github\workflows\ci.yml", "uses: dtolnay/rust-toolchain@1.85.0") = 2)
-	Assert(FileContains%(".github\workflows\ci.yml", "rust-toolchain.toml") = True)
+	Assert(FileContains%(".github\workflows\ci.yml", "- name: Report Rust toolchain (client)") = True)
+	Assert(FileContains%(".github\workflows\ci.yml", "- name: Report Rust toolchain (server)") = True)
+	Assert(FileContains%(".github\workflows\ci.yml", "key: cargo-${{ runner.os }}-${{ hashFiles('client-rs/Cargo.lock', 'rust-toolchain.toml') }}") = True)
+	Assert(FileContains%(".github\workflows\ci.yml", "key: cargo-server-${{ runner.os }}-${{ hashFiles('server-rs/Cargo.lock', 'rust-toolchain.toml') }}") = True)
 End Test
 
 Test testOptInReleaseBuildsKeepBothLockfilesLocked()
