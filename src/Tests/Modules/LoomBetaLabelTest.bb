@@ -31,3 +31,12 @@ Test testLoomGuidanceMatchesTheBetaLauncher()
 	Assert(FileContains%("docs\\loom\\README.md", "**Loom (Beta)**") = True)
 	Assert(FileContains%("CLAUDE.md", "## Loom (beta redesigned editor)") = True)
 End Test
+
+Test testCurrentFacingGuidanceCannotRegressToAlpha()
+	Assert(FileContains%("Project Manager.bb", "Loom (Alpha)") = False)
+	Assert(FileContains%("Loom.bb", "Loom World Editor (Alpha)") = False)
+	Assert(FileContains%("Loom.bb", "Read-only in this alpha") = False)
+	Assert(FileContains%("docs\\loom\\README.md", "**Loom (Alpha)**") = False)
+	Assert(FileContains%("CLAUDE.md", "## Loom (alpha redesigned editor)") = False)
+	Assert(FileContains%("CLAUDE.md", "Read-only in the alpha; editing is a beta concern") = False)
+End Test
