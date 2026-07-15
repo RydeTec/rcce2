@@ -68,13 +68,19 @@ Function UpdateCombat()
 		EndIf
 	EndIf
 
-	; Update blood spurts
-	For B.BloodSpurt = Each BloodSpurt
+	; BloodSpurts can expire together after a burst hit. Capture the next
+	; live-Type node before deleting the current one; a For-Each cursor would
+	; otherwise advance through the deleted instance and skip its sibling.
+	Local B.BloodSpurt = First BloodSpurt
+	Local BNext.BloodSpurt = Null
+	While B <> Null
+		BNext = After B
 		If MilliSecs() - B\Timer > 600
 			RP_KillEmitter(B\EmitterEN, False, False)
 			Delete(B)
 		EndIf
-	Next
+		B = BNext
+	Wend
 
 End Function
 
