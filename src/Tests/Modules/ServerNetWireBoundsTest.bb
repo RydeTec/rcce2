@@ -197,7 +197,7 @@ Function SectionAccountDMGuardsSafe%(Path$, StartMarker$, EndMarker$, ExpectedDM
 					Return False
 				EndIf
 				If Instr(Line$, "If A <> Null") > 0 Then SawAccountGuard = True
-				If Instr(Line$, "A\\IsDM") > 0
+				If Instr(Line$, "A\IsDM") > 0
 					If SawAccountGuard = False
 						CloseFile F
 						Return False
