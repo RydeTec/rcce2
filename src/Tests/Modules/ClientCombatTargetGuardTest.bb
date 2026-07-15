@@ -16,7 +16,7 @@ Function StalePlayerTargetReturnsBeforeHealthRead%(Path$)
 	While Not Eof(F)
 		Line$ = ReadLine$(F)
 		If Instr(Line$, "Function UpdateCombat()") > 0 Then Stage = 1
-		If Stage = 1 And Instr(Line$, "If A = Null Or A\Attributes\Value[HealthStat] < 1") > 0
+		If Stage > 0 And Stage < 7 And Instr(Line$, "A\Attributes\Value[HealthStat]") > 0
 			CloseFile F
 			Return False
 		EndIf
