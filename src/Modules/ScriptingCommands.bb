@@ -1039,19 +1039,21 @@ Function BVM_SETLEADER(Param1%, Param2%)
 				; no zone to patrol in.
 				AInstance.AreaInstance = Object.AreaInstance(Actor\ServerArea)
 				Found = False
-				If AInstance <> Null And AInstance\Area <> Null
-					For i = 0 To 249
-						If AInstance\Area\PrevWaypoint[i] <> 255
-							Actor\OldX# = Actor\X#
-							Actor\OldZ# = Actor\Z#
-							Actor\AIMode = AI_Patrol
-							Actor\DestX# = AInstance\Area\WaypointX#[i] + Rnd#(-5.0, 5.0)
-							Actor\DestZ# = AInstance\Area\WaypointZ#[i] + Rnd#(-5.0, 5.0)
-							Actor\CurrentWaypoint = i
-							Found = True
-							Exit
-						EndIf
-					Next
+				If AInstance <> Null
+					If AInstance\Area <> Null
+						For i = 0 To 249
+							If AInstance\Area\PrevWaypoint[i] <> 255
+								Actor\OldX# = Actor\X#
+								Actor\OldZ# = Actor\Z#
+								Actor\AIMode = AI_Patrol
+								Actor\DestX# = AInstance\Area\WaypointX#[i] + Rnd#(-5.0, 5.0)
+								Actor\DestZ# = AInstance\Area\WaypointZ#[i] + Rnd#(-5.0, 5.0)
+								Actor\CurrentWaypoint = i
+								Found = True
+								Exit
+							EndIf
+						Next
+					EndIf
 				EndIf
 				; Die if no waypoint available (or area is gone)
 				If Found = False Then KillActor(Actor, Null)
