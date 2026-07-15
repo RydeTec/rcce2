@@ -177,7 +177,7 @@ End Function
 
 Function SectionAccountDMGuardsSafe%(Path$, StartMarker$, EndMarker$, ExpectedDMReads%)
 	Local F.BBStream = ReadFile(Path$)
-	Local InSection%, SawAccountLookup%, SawAccountGuard%, DMReads%
+	Local InSection%, SawAccountLookup%, SawAccountGuard%, GuardColumn%, DMReads%
 	Local Line$, Trimmed$
 	If F = Null Then F = ReadFile("..\" + Path$)
 	If F = Null Then Return False
@@ -196,7 +196,10 @@ Function SectionAccountDMGuardsSafe%(Path$, StartMarker$, EndMarker$, ExpectedDM
 					CloseFile F
 					Return False
 				EndIf
-				If Instr(Line$, "If A <> Null") > 0 Then SawAccountGuard = True
+				If Instr(Line$, "If A <> Null") > 0
+					SawAccountGuard = True
+					GuardColumn = Instr(Line$, "If A <> Null")
+				EndIf
 				If Instr(Line$, "A\IsDM") > 0
 					If SawAccountGuard = False
 						CloseFile F
@@ -204,6 +207,7 @@ Function SectionAccountDMGuardsSafe%(Path$, StartMarker$, EndMarker$, ExpectedDM
 					EndIf
 					DMReads = DMReads + 1
 				EndIf
+				If SawAccountGuard = True And Instr(Line$, "EndIf") = GuardColumn Then SawAccountGuard = False
 			EndIf
 		EndIf
 	Wend
