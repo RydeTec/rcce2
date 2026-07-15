@@ -715,10 +715,12 @@ Function UpdateNetwork()
 								If A2\RNID > 0 Then RCE_Send(Host, A2\RNID, P_ChatMessage, Pa$, True)
 								A2 = A2\NextInZone
 							Wend
-						EndIf
-						If AInstance <> Null And AInstance\Area = GameArea
-							AddListBoxItem(Game\ChatText, Pa$ + Chr$(13))
-							If ChatLoggingMode > 0 Then WriteLog(ChatLog, Pa$, True, True)
+							If AInstance\Area = GameArea
+								AddListBoxItem(Game\ChatText, Pa$ + Chr$(13))
+								If ChatLoggingMode > 0 Then WriteLog(ChatLog, Pa$, True, True)
+							ElseIf ChatLoggingMode = 2
+								WriteLog(ChatLog, Pa$, True, True)
+							EndIf
 						ElseIf ChatLoggingMode = 2
 							WriteLog(ChatLog, Pa$, True, True)
 						EndIf
