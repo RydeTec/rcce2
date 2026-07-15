@@ -1387,9 +1387,16 @@ Function RP_FreeEmitter(ID, FreeConfig = False, FreeTex = False)
 			FreeTexture E\Config\Texture
 			E\Config\Texture = 0
 		EndIf
-		For P.RP_Particle = Each RP_Particle
+		; After-cursor walk: hard teardown Deletes P. A For-Each cursor
+		; would advance through the freed particle's next pointer and can
+		; skip particles when an emitter owns more than one.
+		Local P.RP_Particle = First RP_Particle
+		Local PNext.RP_Particle = Null
+		While P <> Null
+			PNext = After P
 			If P\E = E Then Delete P
-		Next
+			P = PNext
+		Wend
 		FreeEntity E\MeshEN
 		FreeEntity E\EmitterEN
 		Delete E
