@@ -1123,7 +1123,8 @@ Function RP_SaveEmitterConfig(ID, File$)
 
 	C.RP_EmitterConfig = Object.RP_EmitterConfig(ID)
 	If C <> Null
-		F = WriteFile(File$)
+		Local Temp$ = SafeWriteOpen$(File$)
+		F = WriteFile(Temp$)
 		If F = 0 Then Return False
 
 			WriteInt F, C\MaxParticles
@@ -1167,8 +1168,7 @@ Function RP_SaveEmitterConfig(ID, File$)
 			WriteFloat F, C\GChange#
 			WriteFloat F, C\BChange#
 
-		CloseFile(F)
-		Return True
+		Return SafeWriteCommit%(Temp$, File$, F)
 	Else
 		Return False
 	EndIf
