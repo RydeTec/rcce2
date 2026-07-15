@@ -4131,8 +4131,8 @@ impl ServerState {
     /// inventory item that has a use-script — distinct from `P_EatItem`
     /// (potions). Wire = `[u8 slot]` (self) or `[u8 slot][u16 targetRid]`. Runs
     /// the item's `Script$`/`SMethod$` with `actor = clicker`, `context = target`.
-    /// Exclusivity (class/race) isn't enforced — the item parser omits those
-    /// fields, same as `handle_eat_item`.
+    /// The actor must satisfy the item's case-insensitive `ExclusiveRace` and
+    /// `ExclusiveClass` gates before the hook starts (`ServerNet.bb:1429`).
     pub fn handle_item_script(&mut self, peer: u32, payload: &[u8]) -> Vec<Outgoing> {
         if payload.is_empty() {
             return Vec::new();
@@ -4153,7 +4153,7 @@ impl ServerState {
             0
         };
         // Validate the slot has a stocked item with a use-script.
-        let (script, method) = {
+        let (script, method, excl_race, excl_class, actor_id) = {
             let Some(rec) = self
                 .accounts
                 .find(&sess.user)
@@ -4179,8 +4179,23 @@ impl ServerState {
             } else {
                 def.smethod.clone()
             };
-            (def.script.clone(), method)
+            (
+                def.script.clone(),
+                method,
+                def.excl_race.clone(),
+                def.excl_class.clone(),
+                rec.actor.actor_id,
+            )
         };
+        let Some(template) = self.catalog.get(actor_id) else {
+            return Vec::new();
+        };
+        if !excl_race.is_empty() && !template.race.eq_ignore_ascii_case(&excl_race) {
+            return Vec::new();
+        }
+        if !excl_class.is_empty() && !template.class.eq_ignore_ascii_case(&excl_class) {
+            return Vec::new();
+        }
         self.fire_hook_async(&script, &method, sess.runtime_id, ctx_rid, peer);
         Vec::new()
     }

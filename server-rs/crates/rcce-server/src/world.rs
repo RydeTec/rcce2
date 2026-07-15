@@ -5635,6 +5635,72 @@ End Function
     }
 
     #[test]
+    fn item_script_enforces_race_and_class_restrictions() {
+        use crate::state::ServerState;
+        use rcce_server_core::item::ItemInstance;
+
+        let dir = data_dir();
+        let catalog = rcce_server_core::ActorCatalog::load(dir.join("Server Data/Actors.dat"));
+        let template = catalog
+            .templates
+            .values()
+            .find(|t| t.playable)
+            .cloned()
+            .expect("shipped data has a playable actor template");
+        let mut store = tmp_store("item_script_restrictions");
+        let mut account = Account::new("hero", MD5, "h@x.com").unwrap();
+        let mut character = Character::blank();
+        character.actor_id = template.id;
+        character.name = "Hero".into();
+        character.area = template.start_area.clone();
+        account.characters.push(CharacterRecord::new(character));
+        store.push(account);
+
+        let mut state = ServerState::new(config_for(dir.clone()), store, catalog);
+        if state.scripts.get("Click_Test").is_none() {
+            eprintln!("skipping: Click_Test.rsl did not parse");
+            return;
+        }
+
+        let mut base = state.items.items.first().cloned().expect("Items.dat is populated");
+        base.script = "Click_Test".into();
+        base.smethod = "Main".into();
+
+        let mut wrong_race = base.clone();
+        wrong_race.id = 65_010;
+        wrong_race.excl_race = format!("not-{}", template.race);
+        wrong_race.excl_class = template.class.clone();
+
+        let mut wrong_class = base.clone();
+        wrong_class.id = 65_011;
+        wrong_class.excl_race = template.race.clone();
+        wrong_class.excl_class = format!("not-{}", template.class);
+
+        let mut matching = base;
+        matching.id = 65_012;
+        matching.excl_race = template.race.to_ascii_uppercase();
+        matching.excl_class = template.class.to_ascii_lowercase();
+        state.items.items.extend([wrong_race, wrong_class, matching]);
+
+        handle_start_game(&start_packet("hero", MD5, 0), &mut state.accounts, &mut state.throttle, &mut state.world, &state.config, 1, 0);
+        let use_slot = |state: &mut ServerState, item_id| {
+            let inventory = &mut state.accounts.find_mut("hero").unwrap().characters[0].actor.inventory;
+            inventory[14].item = Some(ItemInstance::new(item_id));
+            inventory[14].amount = 1;
+            state.handle_item_script(1, &[14]);
+        };
+
+        use_slot(&mut state, 65_010);
+        assert_eq!(state.running_script_count(), 0, "wrong-race item use must not start a script");
+
+        use_slot(&mut state, 65_011);
+        assert_eq!(state.running_script_count(), 0, "wrong-class item use must not start a script");
+
+        use_slot(&mut state, 65_012);
+        assert_eq!(state.running_script_count(), 1, "matching restrictions still start the item script");
+    }
+
+    #[test]
     fn swapping_two_inventory_slots_moves_the_items() {
         use crate::state::ServerState;
         use rcce_server_core::item::ItemInstance;
