@@ -2,12 +2,12 @@
   "run_id": "rcce2-hourly-replacement-20260715T010744Z-fdad",
   "status": "active",
   "started_at": "2026-07-15T01:10:00Z",
-  "heartbeat_at": "2026-07-15T01:20:04Z",
-  "expires_at": "2026-07-16T01:20:04Z",
+  "heartbeat_at": "2026-07-15T01:25:34Z",
+  "expires_at": "2026-07-16T01:25:34Z",
   "issue": 629,
   "branch": "codex-automation/629-weather-stale-area-guard",
   "pr": 630,
-  "phase": "ci-and-independent-review",
+  "phase": "final-merge-validation",
   "scope": {
     "subsystems": [
       "Blitz server GM weather command safety"
