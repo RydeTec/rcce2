@@ -13,7 +13,7 @@ The five shipping executables built from `src/`:
 | [src/Server.bb](src/Server.bb) | `bin/Server.exe` | Authoritative game server |
 | [src/Client.bb](src/Client.bb) | `bin/Client.exe` | Game client |
 | [src/GUE.bb](src/GUE.bb) | `bin/GUE.exe` | Graphical world editor (the established editor) |
-| [src/Loom.bb](src/Loom.bb) | `bin/Loom.exe` | Loom alpha — parallel redesigned editor; **read [docs/loom/README.md](docs/loom/README.md) before touching** |
+| [src/Loom.bb](src/Loom.bb) | `bin/Loom.exe` | Loom beta — parallel redesigned editor with primary GUE workflow parity; **read [docs/loom/README.md](docs/loom/README.md) before touching** |
 | [src/Project Manager.bb](src/Project%20Manager.bb) | `Project Manager.exe` | Project launcher — launches GUE or Loom for the active project |
 
 Plus seven editor tools under `src/Tools/` (RC Architect, Terrain/Cave/Rock/Tree editors, Gubbin Tool).
@@ -27,9 +27,9 @@ Always check `.claude/skills/` for relevant skills before working in a specialty
 - **rcce2-bvm-command** — invoke before adding/modifying a `BVM_*` function in [ScriptingCommands.bb](src/Modules/ScriptingCommands.bb). The dispatch in [RC_Standard_Invoker.bb](src/Modules/RC_Standard_Invoker.bb) is alphabetically opcode-ordered and has a 142-case renumber trap.
 - **rcce2-test-writing** — invoke before adding a test under `src/Tests/`. Test files are `Strict`+`EnableGC`+inline-stubbed and must not pull in network/world deps.
 
-## Loom (alpha redesigned editor)
+## Loom (beta redesigned editor)
 
-A parallel editor to GUE, shipping as `bin/Loom.exe`. Built around the design concept *"every reference between entities is a clickable thread."* Read-only in the alpha; editing is a beta concern.
+A parallel editor to GUE, shipping as `bin/Loom.exe`. Built around the design concept *"every reference between entities is a clickable thread."* The shipped beta supports primary GUE workflows and writes through the same data modules and save paths.
 
 **Before touching any `src/Loom.bb` or `src/Modules/Loom/*` file, read [docs/loom/README.md](docs/loom/README.md).** It explains what Loom is supposed to be, separate from what it currently is.
 

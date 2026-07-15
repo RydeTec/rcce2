@@ -67,7 +67,7 @@ What it deliberately still can't do:
 compile.bat       # builds bin/Loom.exe alongside GUE.exe / Server.exe / etc.
 ```
 
-Then open Project Manager (`Project Manager.exe` in the repo root), pick a project, switch to the Engine tab, and click **Loom (Alpha)** next to **Game Unified Editor**.
+Then open Project Manager (`Project Manager.exe` in the repo root), pick a project, switch to the Engine tab, and click **Loom (Beta)** next to **Game Unified Editor**.
 
 The button auto-disables if `bin/Loom.exe` is missing.
 

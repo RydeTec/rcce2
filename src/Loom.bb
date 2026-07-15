@@ -1,11 +1,11 @@
 // =============================================================================
-// Loom.bb -- Loom World Editor (Alpha)
+// Loom.bb -- Loom World Editor (Beta)
 // =============================================================================
 //
 // **Read docs/loom/README.md first** if you're picking this up. The north
 // star, architecture, roadmap, and the ADRs that explain why the code is
 // shaped the way it is all live under docs/loom/. The literal Claude Design
-// prototype the alpha is built against is preserved at docs/loom/prototype/.
+// prototype from Loom's alpha design phase is preserved at docs/loom/prototype/.
 //
 // A drop-in alternative to GUE, sharing the on-disk data formats but with
 // a fresh UI built around the Loom design concept: every entity is browsable,
@@ -27,8 +27,8 @@
 //   composer focused, back stack empty       ->  close composer
 //   browser only (nothing focused)           ->  exit Loom
 //
-// Read-only in this alpha. Editing is a beta concern (needs save/dirty
-// tracking that's its own design surface -- see docs/loom/decisions/002).
+// The beta edits through GUE's established save paths while preserving the
+// Loom-specific save/dirty tracking described in docs/loom/README.md.
 //
 // Architecture: `Type Loom` owns instances of `Threads`, `Browser`, and
 // `Composer`. The main loop calls `Loom::renderFrame(app)` once per frame.
@@ -475,7 +475,7 @@ EnsureRenderSanity(Int(boot_width), Int(boot_height), 0, 2)
 SetBuffer(BackBuffer())
 // Keep the probe's title-bar failure notice (the only OS-rendered text
 // visible when every surface is dead) instead of overwriting it.
-If RenderSanityResult >= 0 Then AppTitle("Loom -- World Editor (Alpha) -- Realm Crafter " + rcceVersion$)
+If RenderSanityResult >= 0 Then AppTitle("Loom -- World Editor (Beta) -- Realm Crafter " + rcceVersion$)
 
 // Log -- Data\Logs\Loom Log.txt (relative to project root, next to GUE's log).
 Global LoomLog = StartLog("Loom Log", False)
