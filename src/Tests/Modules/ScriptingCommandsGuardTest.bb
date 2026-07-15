@@ -87,3 +87,37 @@ End Test
 Test testSetLeaderPatrolReadsAreaOnlyAfterNestedGuards()
 	Assert(SectionHasOrderedPatrolGuard%("Modules\ScriptingCommands.bb") = True)
 End Test
+
+Function QuestGuardSectionIsSafe%(Path$, FunctionName$, ReturnValue$)
+	Local F.BBStream = ReadFile(Path$)
+	Local InSection%, SawNullGuard%, SawLoggedOnGuard%
+	Local Line$
+	If F = Null Then F = ReadFile("..\" + Path$)
+	If F = Null Then Return False
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		If Instr(Line$, "Function " + FunctionName$) > 0 Then InSection = True
+		If InSection = True And Instr(Line$, "If A = Null Or A\LoggedOn") > 0
+			CloseFile F
+			Return False
+		EndIf
+		If InSection = True And Instr(Line$, "If A = Null Then Return" + ReturnValue$) > 0 Then SawNullGuard = True
+		If InSection = True And SawNullGuard = True And Instr(Line$, "If A\LoggedOn < 0 Or A\LoggedOn > 9 Then Return" + ReturnValue$) > 0 Then SawLoggedOnGuard = True
+		If InSection = True And Instr(Line$, "A\QuestLog") > 0 And SawLoggedOnGuard = False
+			CloseFile F
+			Return False
+		EndIf
+		If InSection = True And Instr(Line$, "End Function") > 0 Then Exit
+	Wend
+	CloseFile F
+	Return SawNullGuard = True And SawLoggedOnGuard = True
+End Function
+
+Test testQuestBVMsGuardStaleAccountBeforeQuestLogAccess()
+	Assert(QuestGuardSectionIsSafe%("Modules\ScriptingCommands.bb", "BVM_NEWQUEST", "") = True)
+	Assert(QuestGuardSectionIsSafe%("Modules\ScriptingCommands.bb", "BVM_UPDATEQUEST", "") = True)
+	Assert(QuestGuardSectionIsSafe%("Modules\ScriptingCommands.bb", "BVM_COMPLETEQUEST", "") = True)
+	Assert(QuestGuardSectionIsSafe%("Modules\ScriptingCommands.bb", "BVM_DELETEQUEST", "") = True)
+	Assert(QuestGuardSectionIsSafe%("Modules\ScriptingCommands.bb", "BVM_QUESTSTATUS$", " " + Chr$(34) + Chr$(34)) = True)
+	Assert(QuestGuardSectionIsSafe%("Modules\ScriptingCommands.bb", "BVM_QUESTCOMPLETE%", " 0") = True)
+End Test
