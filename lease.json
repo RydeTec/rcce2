@@ -2,12 +2,12 @@
   "run_id": "rcce2-hourly-replacement-20260715T071342Z-5ebc04181d2b",
   "status": "active",
   "started_at": "2026-07-15T07:15:25Z",
-  "heartbeat_at": "2026-07-15T07:40:41Z",
-  "expires_at": "2026-07-16T07:40:41Z",
+  "heartbeat_at": "2026-07-15T07:43:11Z",
+  "expires_at": "2026-07-16T07:43:11Z",
   "issue": 639,
   "branch": "codex-automation/639-quest-account-null-guards",
   "pr": 640,
-  "phase": "final-merge-validation-ce3c9449f872",
+  "phase": "admin-merge-after-review-policy-block-ce3c9449f872",
   "scope": {
     "subsystems": [
       "Blitz server BVM quest account-handle safety"
