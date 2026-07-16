@@ -96,6 +96,20 @@ Function AccountDMCommandAllowed%(AccountPresent%, IsDM%)
 	Return True
 End Function
 
+; --- Replicated P_UpdateTrading partner guard -----------------------------
+
+; A logout or close-trade sequence can clear TradingActor while a stale trade
+; window still emits P_UpdateTrading. BlitzForge evaluates And eagerly, so the
+; production handler must establish every relationship in a separate nested
+; branch before reading TradingActor\TradingActor.
+Function TradePartnerUsable%(IsTrading%, PartnerPresent%, SelfPartner%, Reciprocal%)
+	If IsTrading <> 4 Then Return False
+	If PartnerPresent = False Then Return False
+	If SelfPartner = True Then Return False
+	If Reciprocal = False Then Return False
+	Return True
+End Function
+
 ; The network/world graph cannot be Included into this standalone harness, so
 ; also pin the source-level safety contract. This catches a future regression
 ; that removes the production nested guard while leaving this model unchanged.
@@ -213,6 +227,36 @@ Function SectionAccountDMGuardsSafe%(Path$, StartMarker$, EndMarker$, ExpectedDM
 	Wend
 	CloseFile F
 	Return DMReads = ExpectedDMReads
+End Function
+
+; The first reciprocal partner dereference must be inside the explicit
+; TradingActor guard. Reject the historical eager compound predicate even if
+; it happens to contain a null comparison.
+Function SectionTradingPartnerGuardSafe%(Path$, StartMarker$, EndMarker$)
+	Local F.BBStream = ReadFile(Path$)
+	Local InSection%, SawPartnerGuard%
+	Local Line$
+	If F = Null Then F = ReadFile("..\" + Path$)
+	If F = Null Then Return False
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		If Instr(Line$, StartMarker$) > 0 Then InSection = True
+		If InSection = True And Instr(Line$, EndMarker$) > 0 Then Exit
+		If InSection = True
+			If Instr(Line$, "If AI\IsTrading = 4 And AI\TradingActor <> Null And") > 0
+				CloseFile F
+				Return False
+			EndIf
+			If Instr(Line$, "If AI\TradingActor <> Null") > 0 Then SawPartnerGuard = True
+			If Instr(Line$, "AI\TradingActor\TradingActor") > 0
+				CloseFile F
+				Return SawPartnerGuard
+			EndIf
+			If SawPartnerGuard = True And Instr(Line$, "EndIf") > 0 Then SawPartnerGuard = False
+		EndIf
+	Wend
+	CloseFile F
+	Return False
 End Function
 
 ; ====================================================================
@@ -352,6 +396,28 @@ End Test
 Test testLiveDMAccountRemainsAuthorized()
 	Assert(AccountDMCommandAllowed%(True, True) = True)
 	Assert(AccountDMCommandAllowed%(True, False) = False)
+End Test
+
+; ====================================================================
+; P_UpdateTrading -- stale partner rejection
+; ====================================================================
+
+Test testMissingTradePartnerRejectsUpdate()
+	Assert(TradePartnerUsable%(4, False, False, False) = False)
+End Test
+
+Test testTradePartnerMustBeNonSelfAndReciprocal()
+	Assert(TradePartnerUsable%(4, True, True, True) = False)
+	Assert(TradePartnerUsable%(4, True, False, False) = False)
+	Assert(TradePartnerUsable%(3, True, False, True) = False)
+End Test
+
+Test testLiveReciprocalTradePartnerRemainsUsable()
+	Assert(TradePartnerUsable%(4, True, False, True) = True)
+End Test
+
+Test testProductionTradePartnerGuardAvoidsEagerAnd()
+	Assert(SectionTradingPartnerGuardSafe%("Modules\ServerNet.bb", "Case P_UpdateTrading", "Case P_OpenTrading") = True)
 End Test
 
 Test testChatCommandAccountGuardsNeverUseNonShortCircuitAnd()

@@ -828,28 +828,34 @@ Function UpdateNetwork()
 					; must claim A as its own partner -- otherwise an
 					; injection that sets only one side's TradingActor
 					; would let A drain inventory into a one-way channel.
-					If AI\IsTrading = 4 And AI\TradingActor <> Null And AI\TradingActor <> AI And AI\TradingActor\TradingActor = AI
-						Slot = RCE_IntFromStr(Left$(M\MessageData$, 1))
-						Amount = RCE_IntFromStr(Mid$(M\MessageData$, 2, 2))
-						; Slot is a backpack-relative offset (0..31). Reject anything that
-						; would push the array index past the inventory bounds; without this,
-						; a crafted Slot reads (and the ItemInstanceToString$ helper writes)
-						; from adjacent ActorInstance fields.
-						If Slot >= 0 And Slot <= 31 And Slot + SlotI_Backpack <= Slots_Inventory
-							; Record the server-authoritative offer state.
-							; The accept-side swap reads from this rather than
-							; from the client-controlled accept-packet bytes;
-							; that closes the dupe where the client's accept
-							; payload claims a different stack than what the
-							; trade UI showed via P_UpdateTrading.
-							If Amount > AI\Inventory\Amounts[Slot + SlotI_Backpack]
-								Amount = AI\Inventory\Amounts[Slot + SlotI_Backpack]
+					If AI\IsTrading = 4
+						If AI\TradingActor <> Null
+							If AI\TradingActor <> AI
+								If AI\TradingActor\TradingActor = AI
+									Slot = RCE_IntFromStr(Left$(M\MessageData$, 1))
+									Amount = RCE_IntFromStr(Mid$(M\MessageData$, 2, 2))
+									; Slot is a backpack-relative offset (0..31). Reject anything that
+									; would push the array index past the inventory bounds; without this,
+									; a crafted Slot reads (and the ItemInstanceToString$ helper writes)
+									; from adjacent ActorInstance fields.
+									If Slot >= 0 And Slot <= 31 And Slot + SlotI_Backpack <= Slots_Inventory
+										; Record the server-authoritative offer state.
+										; The accept-side swap reads from this rather than
+										; from the client-controlled accept-packet bytes;
+										; that closes the dupe where the client's accept
+										; payload claims a different stack than what the
+										; trade UI showed via P_UpdateTrading.
+										If Amount > AI\Inventory\Amounts[Slot + SlotI_Backpack]
+											Amount = AI\Inventory\Amounts[Slot + SlotI_Backpack]
+										EndIf
+										If Amount < 0 Then Amount = 0
+										AI\TradeOfferedAmount[Slot] = Amount
+										Pa$ = M\MessageData$
+										If Amount > 0 Then Pa$ = Pa$ + ItemInstanceToString$(AI\Inventory\Items[Slot + SlotI_Backpack])
+										RCE_Send(Host, AI\TradingActor\RNID, P_UpdateTrading, Pa$, True)
+									EndIf
+								EndIf
 							EndIf
-							If Amount < 0 Then Amount = 0
-							AI\TradeOfferedAmount[Slot] = Amount
-							Pa$ = M\MessageData$
-							If Amount > 0 Then Pa$ = Pa$ + ItemInstanceToString$(AI\Inventory\Items[Slot + SlotI_Backpack])
-							RCE_Send(Host, AI\TradingActor\RNID, P_UpdateTrading, Pa$, True)
 						EndIf
 					EndIf
 				EndIf
