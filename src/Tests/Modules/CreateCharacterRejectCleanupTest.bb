@@ -174,7 +174,7 @@ Function CreateCharacterSaveFailureRollsBack%(Path$)
 			If Trimmed$ = "A\Character[FreeSlot] = Null" Then SawCharacterClear = True
 			If Trimmed$ = "A\QuestLog[FreeSlot] = Null" Then SawQuestClear = True
 			If Trimmed$ = "A\ActionBar[FreeSlot] = Null" Then SawActionBarClear = True
-			If Trimmed$ = "RCE_Send(Host, FromID, P_CreateCharacter, \"N\", True)" Then SawFailureReply = True
+			If Trimmed$ = "RCE_Send(Host, FromID, P_CreateCharacter, " + Chr$(34) + "N" + Chr$(34) + ", True)" Then SawFailureReply = True
 			If Trimmed$ = "End Function" Then InRejectHelper = False
 		EndIf
 	Wend
