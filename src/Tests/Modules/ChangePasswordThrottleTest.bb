@@ -72,7 +72,7 @@ Function ChangePasswordRecordsThrottleOutcomes%(Path$)
 		If InCase = True
 			If Instr(Line$, "LoginAttemptRecord(M\\FromID, True)") > 0 Then SuccessRecorded = True
 			If Instr(Line$, "LoginAttemptRecord(M\\FromID, False)") > 0 Then FailureRecords = FailureRecords + 1
-			If Instr(Line$, "RCE_Send(Host, M\\FromID, P_ChangePassword, \"Y\", True)") > 0 And SuccessRecorded = False
+			If Instr(Line$, "RCE_Send(Host, M\\FromID, P_ChangePassword, " + Chr$(34) + "Y" + Chr$(34) + ", True)") > 0 And SuccessRecorded = False
 				CloseFile F
 				Return False
 			EndIf
