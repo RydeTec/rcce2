@@ -2667,10 +2667,16 @@ Function UpdateNetwork()
 							PwdLen = RCE_IntFromStr(Mid$(M\MessageData$, Offset, 1))
 							; Store the new password in the v1 salted format
 							; immediately, not the raw client MD5.
+							Local OldPass$ = A\Pass$
 							A\Pass$ = HashPassword$(Mid$(M\MessageData$, Offset + 1, PwdLen))
-							LoginAttemptRecord(M\FromID, True)
-							RCE_Send(Host, M\FromID, P_ChangePassword, "Y", True)
-							//If MySQL = True Then My_SaveAccount(A, False)
+							If SaveAccounts()
+								LoginAttemptRecord(M\FromID, True)
+								RCE_Send(Host, M\FromID, P_ChangePassword, "Y", True)
+							Else
+								A\Pass$ = OldPass$
+								LoginAttemptRecord(M\FromID, False)
+								RCE_Send(Host, M\FromID, P_ChangePassword, "P", True)
+							EndIf
 						; Otherwise return password failure
 						Else
 							LoginAttemptRecord(M\FromID, False)

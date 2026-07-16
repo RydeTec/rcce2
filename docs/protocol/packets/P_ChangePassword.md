@@ -50,8 +50,8 @@ The legacy server additionally sent `"N"` for "account not found" ([Tools/Module
    - `A\Pass$ <> ""` — rejects accounts with an empty stored hash.
    - `VerifyPassword%(A\Pass$, currentMD5)` — current password verifies (constant-time, both legacy MD5 and v1 accepted).
    - `RequesterOwnsAccountSession(A, M\FromID)` — the requester is the account's currently-logged-in connection ([AccountsServer.bb:124-133](../../../src/Modules/AccountsServer.bb#L124)). This is the replay/theft mitigation.
-4. **On success** ([:2633-2635](../../../src/Modules/ServerNet.bb#L2633)) — `A\Pass$ = HashPassword$(newMD5)` stores the new password in v1 salted format immediately (not the raw client MD5), records a successful attempt, and replies `"Y"`.
-5. **On any failure of the gate** ([:2640](../../../src/Modules/ServerNet.bb#L2640)) — record the failed attempt, then reply `"P"`.
+4. **On success** — the handler stages the old hash, stores `A\Pass$ = HashPassword$(newMD5)` in v1 salted format (not the raw client MD5), then requires `SaveAccounts()` to atomically commit it before recording a successful attempt and replying `"Y"`.
+5. **On any failure of the gate or commit** — the handler records a failed attempt, then replies `"P"`. A failed `SaveAccounts()` restores the staged in-memory hash first, so neither the reply nor a later save can claim the uncommitted password.
 6. **Account-not-found path** ([:2659-2665](../../../src/Modules/ServerNet.bb#L2659)) — `If Exists = False`, the handler still reads the current-password field and calls `VerifyPassword%("", ...)` to pay the SHA-256 cost (timing-uniform with the found-account-wrong-password path), records the failed attempt, then replies `"P"` — the same code as a credential failure, so the reply does not betray whether the username is registered.
 
 ## Anti-cheat / abuse surface

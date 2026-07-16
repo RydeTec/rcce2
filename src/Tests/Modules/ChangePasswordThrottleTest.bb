@@ -80,7 +80,9 @@ Function ChangePasswordRecordsThrottleOutcomes%(Path$)
 	Wend
 
 	CloseFile F
-	Return SuccessRecorded = True And FailureRecords = 2
+	; Two authentication failures (bad/unknown account) plus a failed atomic
+	; password commit each retain the generic P reply and failure record.
+	Return SuccessRecorded = True And FailureRecords = 3
 
 End Function
 
