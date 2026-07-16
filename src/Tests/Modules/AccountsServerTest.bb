@@ -94,6 +94,16 @@ End Function
 Include "Modules\PasswordHash.bb"
 Include "Modules\AccountsServer.bb"
 
+Function LeadingTabs%(Line$)
+	Local Count%, Pos% = 1
+	While Pos <= Len(Line$)
+		If Mid$(Line$, Pos, 1) <> Chr$(9) Then Exit
+		Count = Count + 1
+		Pos = Pos + 1
+	Wend
+	Return Count
+End Function
+
 ; AddAccount is coupled to the account UI and full save graph, so this bounded
 ; source contract pins the atomic-v1 and rollback shape without faking that
 ; graph. It rejects the legacy direct append and requires every transient
@@ -136,7 +146,7 @@ End Function
 
 Function CreateAccountRepliesAfterAtomicSave%(Path$)
 	Local F.BBStream = ReadFile(Path$)
-	Local InCase%, Stage%
+	Local FailureReply%, GuardIndent%, InCase%, Stage%
 	Local Line$
 	If F = Null Then F = ReadFile("..\" + Path$)
 	If F = Null Then Return False
@@ -148,15 +158,23 @@ Function CreateAccountRepliesAfterAtomicSave%(Path$)
 		If InCase = True
 			Select Stage
 				Case 0
-					If Instr(Line$, "ElseIf AddAccount(Username$, Password$, Email$)") > 0 Then Stage = 1
+					If Instr(Line$, "ElseIf AddAccount(Username$, Password$, Email$)") > 0
+						GuardIndent = LeadingTabs(Line$)
+						Stage = 1
+					EndIf
 				Case 1
-					If Instr(Line$, "P_CreateAccount, " + Chr$(34) + "Y" + Chr$(34) + ", True") > 0 Then Stage = 2
+					If Instr(Line$, "P_CreateAccount, " + Chr$(34) + "Y" + Chr$(34) + ", True") > 0 And LeadingTabs(Line$) = GuardIndent + 1 Then Stage = 2
 				Case 2
-					If Trim$(Line$) = "Else" Then Stage = 3
+					If Trim$(Line$) = "Else" And LeadingTabs(Line$) = GuardIndent Then Stage = 3
 				Case 3
-					If Instr(Line$, "P_CreateAccount, " + Chr$(34) + "N" + Chr$(34) + ", True") > 0
+					If Instr(Line$, "P_CreateAccount, " + Chr$(34) + "Y" + Chr$(34) + ", True") > 0 And LeadingTabs(Line$) = GuardIndent + 1
 						CloseFile F
-						Return True
+						Return False
+					EndIf
+					If Instr(Line$, "P_CreateAccount, " + Chr$(34) + "N" + Chr$(34) + ", True") > 0 And LeadingTabs(Line$) = GuardIndent + 1 Then FailureReply = True
+					If Trim$(Line$) = "EndIf" And LeadingTabs(Line$) = GuardIndent
+						CloseFile F
+						Return FailureReply
 					EndIf
 			End Select
 		EndIf

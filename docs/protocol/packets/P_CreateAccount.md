@@ -73,7 +73,7 @@ These are **not** defended and are documented here honestly rather than implied:
 | PR [#118](https://github.com/RydeTec/rcce2/pull/118) (`88aaf393`) | Server-side password-hash migration. `AddAccount` now stores `HashPassword$(Pass$)` (salted SHA-256 v1) instead of the raw client MD5, so theft of `Accounts.dat` no longer yields working wire credentials. The wire format (client sends MD5) is unchanged. |
 | PR [#266](https://github.com/RydeTec/rcce2/pull/266) / [#268](https://github.com/RydeTec/rcce2/pull/268) | Introduced and extended the `LoginAttemptOk` throttle across the auth handlers — **but not** `P_CreateAccount`. The absence here is current behavior, not an oversight that was later patched. |
 
-[`AccountsServerTest.bb`](../../../src/Tests/Modules/AccountsServerTest.bb) covers successful atomic creation and rollback after a failed commit. Packet validation logic is exercised end-to-end.
+[`AccountsServerTest.bb`](../../../src/Tests/Modules/AccountsServerTest.bb) is a bounded source contract for atomic creation, rollback after a failed commit, and the corresponding `"N"` reply. Packet validation logic is exercised end-to-end.
 
 ## Related packets
 
