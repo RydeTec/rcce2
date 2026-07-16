@@ -26,7 +26,7 @@ Function ChangePasswordThrottlesBeforeHashing%(Path$)
 	Local F.BBStream = ReadFile(Path$)
 	Local GuardIndent%, InCase%, Stage%
 	Local Line$
-	If F = Null Then F = ReadFile("..\\" + Path$)
+	If F = Null Then F = ReadFile("..\" + Path$)
 	If F = Null Then Return False
 
 	While Not Eof(F)
@@ -39,13 +39,13 @@ Function ChangePasswordThrottlesBeforeHashing%(Path$)
 				CloseFile F
 				Return False
 			EndIf
-			If Stage = 0 And Instr(Line$, "If Not LoginAttemptOk(M\\FromID)") > 0
+			If Stage = 0 And Instr(Line$, "If Not LoginAttemptOk(M\FromID)") > 0
 				GuardIndent = LeadingTabs(Line$)
 				Stage = 1
 			EndIf
-			If Stage = 1 And Instr(Line$, "RCE_Send(Host, M\\FromID, P_ChangePassword, " + Chr$(34) + "P" + Chr$(34) + ", True)") > 0 And LeadingTabs(Line$) = GuardIndent + 1 Then Stage = 2
+			If Stage = 1 And Instr(Line$, "RCE_Send(Host, M\FromID, P_ChangePassword, " + Chr$(34) + "P" + Chr$(34) + ", True)") > 0 And LeadingTabs(Line$) = GuardIndent + 1 Then Stage = 2
 			If Stage = 2 And Instr(Line$, "Else") > 0 And LeadingTabs(Line$) = GuardIndent Then Stage = 3
-			If Stage = 3 And Instr(Line$, "UsernameLen = RCE_IntFromStr(Left$(M\\MessageData$, 1))") > 0 And LeadingTabs(Line$) = GuardIndent Then Stage = 4
+			If Stage = 3 And Instr(Line$, "UsernameLen = RCE_IntFromStr(Left$(M\MessageData$, 1))") > 0 And LeadingTabs(Line$) = GuardIndent Then Stage = 4
 			If Stage = 4 And Instr(Line$, "VerifyPassword%(") > 0
 				CloseFile F
 				Return True
@@ -62,7 +62,7 @@ Function ChangePasswordRecordsThrottleOutcomes%(Path$)
 	Local F.BBStream = ReadFile(Path$)
 	Local FailureRecords%, InCase%, SuccessRecorded%
 	Local Line$
-	If F = Null Then F = ReadFile("..\\" + Path$)
+	If F = Null Then F = ReadFile("..\" + Path$)
 	If F = Null Then Return False
 
 	While Not Eof(F)
@@ -70,9 +70,9 @@ Function ChangePasswordRecordsThrottleOutcomes%(Path$)
 		If Instr(Line$, "Case P_ChangePassword") > 0 Then InCase = True
 		If InCase = True And Instr(Line$, "Case P_FetchCharacter") > 0 Then Exit
 		If InCase = True
-			If Instr(Line$, "LoginAttemptRecord(M\\FromID, True)") > 0 Then SuccessRecorded = True
-			If Instr(Line$, "LoginAttemptRecord(M\\FromID, False)") > 0 Then FailureRecords = FailureRecords + 1
-			If Instr(Line$, "RCE_Send(Host, M\\FromID, P_ChangePassword, " + Chr$(34) + "Y" + Chr$(34) + ", True)") > 0 And SuccessRecorded = False
+			If Instr(Line$, "LoginAttemptRecord(M\FromID, True)") > 0 Then SuccessRecorded = True
+			If Instr(Line$, "LoginAttemptRecord(M\FromID, False)") > 0 Then FailureRecords = FailureRecords + 1
+			If Instr(Line$, "RCE_Send(Host, M\FromID, P_ChangePassword, " + Chr$(34) + "Y" + Chr$(34) + ", True)") > 0 And SuccessRecorded = False
 				CloseFile F
 				Return False
 			EndIf
@@ -85,9 +85,9 @@ Function ChangePasswordRecordsThrottleOutcomes%(Path$)
 End Function
 
 Test testChangePasswordThrottlePrecedesPacketReadsAndHashing()
-	Assert(ChangePasswordThrottlesBeforeHashing%("Modules\\ServerNet.bb") = True)
+	Assert(ChangePasswordThrottlesBeforeHashing%("Modules\ServerNet.bb") = True)
 End Test
 
 Test testChangePasswordRecordsOutcomesForTheThrottle()
-	Assert(ChangePasswordRecordsThrottleOutcomes%("Modules\\ServerNet.bb") = True)
+	Assert(ChangePasswordRecordsThrottleOutcomes%("Modules\ServerNet.bb") = True)
 End Test
