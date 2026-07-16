@@ -22,7 +22,8 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        # actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           # BlitzForge submodule; nested reshade deps are not needed for
           # compile/test so we skip recursive to keep the checkout fast.
@@ -38,7 +39,8 @@ jobs:
 
       - name: Restore BlitzForge bin from cache
         id: bf-cache
-        uses: actions/cache@v4
+        # actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: |
             compiler/BlitzForge/bin/blitzcc.exe
@@ -49,7 +51,8 @@ jobs:
 
       - name: Add MSBuild to PATH
         if: steps.bf-cache.outputs.cache-hit != 'true'
-        uses: microsoft/setup-msbuild@v2
+        # microsoft/setup-msbuild@v2
+        uses: microsoft/setup-msbuild@6fb02220983dee41ce7ae257b6f4d8f9bf5ed4ce
 
       - name: Build BlitzForge compiler
         if: steps.bf-cache.outputs.cache-hit != 'true'
@@ -92,7 +95,8 @@ jobs:
       #     wgpu/winit compile is amortised by the cache step below (which already
       #     lists client-rs/target). The i686-only rcenet-ffi-probe is excluded.
       - name: Set up Rust 1.85.0 (client)
-        uses: dtolnay/rust-toolchain@1.85.0
+        # dtolnay/rust-toolchain@1.85.0
+        uses: dtolnay/rust-toolchain@98effd2fc0b766278e30ab86762dd5e9a8531399
         with:
           components: clippy
 
@@ -103,7 +107,8 @@ jobs:
           cargo --version
 
       - name: Cache Rust build (client-rs)
-        uses: actions/cache@v4
+        # actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: |
             ~/.cargo/registry/index
@@ -167,10 +172,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        # actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
       - name: Set up Rust 1.85.0 (server)
-        uses: dtolnay/rust-toolchain@1.85.0
+        # dtolnay/rust-toolchain@1.85.0
+        uses: dtolnay/rust-toolchain@98effd2fc0b766278e30ab86762dd5e9a8531399
         with:
           components: clippy
 
@@ -180,7 +187,8 @@ jobs:
           cargo --version
 
       - name: Cache Rust build (server-rs)
-        uses: actions/cache@v4
+        # actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: |
             ~/.cargo/registry/index
