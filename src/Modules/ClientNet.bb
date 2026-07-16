@@ -675,15 +675,22 @@ Function UpdateNetwork()
 					EndIf
 				EndIf
 
-			; Screen flash
-			Case P_ScreenFlash
-				Red = RCE_IntFromStr(Mid$(M\MessageData$, 1, 1))
-				Green = RCE_IntFromStr(Mid$(M\MessageData$, 2, 1))
-				Blue = RCE_IntFromStr(Mid$(M\MessageData$, 3, 1))
-				Alpha# = RCE_IntFromStr(Mid$(M\MessageData$, 4, 1)) / 255.0
-				Length = RCE_IntFromStr(Mid$(M\MessageData$, 5, 4))
-				TexID = RCE_IntFromStr(Mid$(M\MessageData$, 9, 2))
-				ScreenFlash(Red, Green, Blue, TexID, Length, Alpha#)
+				; Screen flash
+				Case P_ScreenFlash
+					; P_ScreenFlash is fixed-width: RGB + alpha + duration + texture.
+					; Mid$ returns an empty string past the payload, which decodes as
+					; zero and would turn a truncated packet into a zero-alpha flash.
+					If Len(M\MessageData$) < 11 Then
+						; Drop malformed cosmetic effects instead of disturbing the render loop.
+					Else
+						Red = RCE_IntFromStr(Mid$(M\MessageData$, 1, 1))
+						Green = RCE_IntFromStr(Mid$(M\MessageData$, 2, 1))
+						Blue = RCE_IntFromStr(Mid$(M\MessageData$, 3, 1))
+						Alpha# = RCE_IntFromStr(Mid$(M\MessageData$, 4, 1)) / 255.0
+						Length = RCE_IntFromStr(Mid$(M\MessageData$, 5, 4))
+						TexID = RCE_IntFromStr(Mid$(M\MessageData$, 9, 2))
+						ScreenFlash(Red, Green, Blue, TexID, Length, Alpha#)
+					EndIf
 
 			; Received XP points, or somebody got a level-up
 			Case P_XPUpdate
