@@ -110,8 +110,44 @@ Function UnloadRestartsAfterDelete%(Path$)
 
 End Function
 
+Function FreeGadgetItemsAdvanceBeforeDelete%(Path$)
+	Local F.BBStream = ReadFile(Path$)
+	Local InFunction%, Stage%
+	Local Line$
+	If F = Null Then F = ReadFile("..\" + Path$)
+	If F = Null Then Return False
+
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		If Instr(Line$, "Function GY_FreeGadget(GHandle)") > 0 Then InFunction = True
+		If InFunction = True
+			If Instr(Line$, "For I.GY_ComboItem = Each GY_ComboItem") > 0 Or Instr(Line$, "For Li.GY_ListItem = Each GY_ListItem") > 0
+				CloseFile F
+				Return False
+			EndIf
+			If Stage = 0 And Instr(Line$, "Local ComboItem.GY_ComboItem = First GY_ComboItem") > 0 Then Stage = 1
+			If Stage = 1 And Instr(Line$, "Local NextComboItem.GY_ComboItem = After ComboItem") > 0 Then Stage = 2
+			If Stage = 2 And Instr(Line$, "If ComboItem\Box = Co Then GY_Free3DText(ComboItem\LabelEN) : Delete ComboItem") > 0 Then Stage = 3
+			If Stage = 3 And Instr(Line$, "ComboItem = NextComboItem") > 0 Then Stage = 4
+			If Stage = 4 And Instr(Line$, "Local ListItem.GY_ListItem = First GY_ListItem") > 0 Then Stage = 5
+			If Stage = 5 And Instr(Line$, "Local NextListItem.GY_ListItem = After ListItem") > 0 Then Stage = 6
+			If Stage = 6 And Instr(Line$, "If ListItem\Box = L Then GY_Free3DText(ListItem\LabelEN) : Delete ListItem") > 0 Then Stage = 7
+			If Stage = 7 And Instr(Line$, "ListItem = NextListItem") > 0 Then Stage = 8
+			If Instr(Line$, "; A scrollbar") > 0
+				CloseFile F
+				Return Stage = 8
+			EndIf
+		EndIf
+	Wend
+
+	CloseFile F
+	Return False
+
+End Function
+
 Test testGooeyTeardownRestartsAfterRecursiveDeletes()
 	Assert(ClearGadgetsRestartsAfterDelete%("Modules\Gooey.bb") = True)
 	Assert(FreeGadgetChildrenRestartAfterDelete%("Modules\Gooey.bb") = True)
 	Assert(UnloadRestartsAfterDelete%("Modules\Gooey.bb") = True)
+	Assert(FreeGadgetItemsAdvanceBeforeDelete%("Modules\Gooey.bb") = True)
 End Test

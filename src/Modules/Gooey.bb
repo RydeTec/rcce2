@@ -3838,9 +3838,12 @@ Function GY_FreeGadget(GHandle)
 		If Co\RightEN <> 0 Then FreeEntity(Co\RightEN)
 		If Co\ButtonGadget <> 0 Then GY_FreeGadget(Co\ButtonGadget)
 		; Free its items
-		For I.GY_ComboItem = Each GY_ComboItem
-			If I\Box = Co Then GY_Free3DText(I\LabelEN) : Delete I
-		Next
+		Local ComboItem.GY_ComboItem = First GY_ComboItem
+		While ComboItem <> Null
+			Local NextComboItem.GY_ComboItem = After ComboItem
+			If ComboItem\Box = Co Then GY_Free3DText(ComboItem\LabelEN) : Delete ComboItem
+			ComboItem = NextComboItem
+		Wend
 		Delete Co
 	; Listbox
 	ElseIf Object.GY_ListBox(G\TypeHandle) <> Null
@@ -3848,9 +3851,12 @@ Function GY_FreeGadget(GHandle)
 		If L\BorderEN <> 0 Then FreeEntity(L\BorderEN)
 		If L\ScrollGadget <> 0 Then GY_FreeGadget(L\ScrollGadget)
 		; Free its items
-		For Li.GY_ListItem = Each GY_ListItem
-			If Li\Box = L Then GY_Free3DText(Li\LabelEN) : Delete Li
-		Next
+		Local ListItem.GY_ListItem = First GY_ListItem
+		While ListItem <> Null
+			Local NextListItem.GY_ListItem = After ListItem
+			If ListItem\Box = L Then GY_Free3DText(ListItem\LabelEN) : Delete ListItem
+			ListItem = NextListItem
+		Wend
 		Delete L
 	; A scrollbar
 	ElseIf Object.GY_ScrollBar(G\TypeHandle) <> Null
