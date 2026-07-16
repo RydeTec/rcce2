@@ -296,7 +296,10 @@ Function LoadLanguage(Filename$)
 						LString$ = Left$(LString$, Pos - 1)
 					EndIf
 					; Add line
-					If ID > MaxLanguageString Then RuntimeError("Too many string constants in Language.txt!")
+					If ID > MaxLanguageString
+						CloseFile(F)
+						Return False
+					EndIf
 					
 					; Slash-command names live in the LS_SCKick..LS_SCSeason range
 					; (190..219); they're matched case-insensitively by
