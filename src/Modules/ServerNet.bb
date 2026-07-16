@@ -113,6 +113,21 @@ Function SendChatHelpDetail(AI.ActorInstance, T$, IsDM%)
 	EndIf
 End Function
 
+; P_CreateCharacter allocates all three per-slot records before it can prove
+; that the mutation is valid and durable. Every post-allocation rejection must
+; restore the slot completely so a retry cannot encounter a dangling character
+; or leaked QuestLog/ActionBar record.
+Function RejectCharacterCreation(A.Account, FreeSlot, FromID)
+	FreeActorInstance(A\Character[FreeSlot])
+	If A\QuestLog[FreeSlot] <> Null Then Delete(A\QuestLog[FreeSlot])
+	If A\ActionBar[FreeSlot] <> Null Then Delete(A\ActionBar[FreeSlot])
+	A\Character[FreeSlot] = Null
+	A\QuestLog[FreeSlot] = Null
+	A\ActionBar[FreeSlot] = Null
+	RCE_Send(Host, FromID, P_CreateCharacter, "N", True)
+
+End Function
+
 ; Queues a packet (queued packets are delayed so that for each destination, only one is sent per 12 milliseconds)
 Function SendQueued(Connection, Destination, PacketType, Pa$, ReliableFlag = False, PlayerFrom = 0)
 
@@ -2936,19 +2951,7 @@ Function UpdateNetwork()
 										; character on a broken race. Reject the
 										; creation cleanly and log instead.
 										WriteLog(MainLog, "P_CreateCharacter: race '" + C\Actor\Race$ + "' StartArea '" + C\Area$ + "' not found, rejecting")
-										FreeActorInstance(A\Character[FreeSlot])
-										; Reject must leave the slot fully empty. FreeActorInstance does NOT
-										; null A\Character[FreeSlot], so without this the slot is left dangling
-										; -- the FreeSlot/TotalChars scan (2796/2799) then counts it as occupied,
-										; and the P_GetCharacters list-send (2426) derefs the freed instance
-										; (use-after-free). The QuestLog/ActionBar New'd in lockstep above also
-										; leak (mirror of #447). Clear all three.
-										If A\QuestLog[FreeSlot] <> Null Then Delete(A\QuestLog[FreeSlot])
-										If A\ActionBar[FreeSlot] <> Null Then Delete(A\ActionBar[FreeSlot])
-										A\Character[FreeSlot] = Null
-										A\QuestLog[FreeSlot] = Null
-										A\ActionBar[FreeSlot] = Null
-										RCE_Send(Host, M\FromID, P_CreateCharacter, "N", True)
+										RejectCharacterCreation(A, FreeSlot, M\FromID)
 										Exists = True : Exit
 									EndIf
 									For i = 0 To 99
@@ -2973,19 +2976,7 @@ Function UpdateNetwork()
 										Next
 										; Check for cheating
 										If TotalAmount > AttributeAssignment
-											FreeActorInstance(A\Character[FreeSlot])
-										; Reject must leave the slot fully empty. FreeActorInstance does NOT
-										; null A\Character[FreeSlot], so without this the slot is left dangling
-										; -- the FreeSlot/TotalChars scan (2796/2799) then counts it as occupied,
-										; and the P_GetCharacters list-send (2426) derefs the freed instance
-										; (use-after-free). The QuestLog/ActionBar New'd in lockstep above also
-										; leak (mirror of #447). Clear all three.
-										If A\QuestLog[FreeSlot] <> Null Then Delete(A\QuestLog[FreeSlot])
-										If A\ActionBar[FreeSlot] <> Null Then Delete(A\ActionBar[FreeSlot])
-										A\Character[FreeSlot] = Null
-										A\QuestLog[FreeSlot] = Null
-										A\ActionBar[FreeSlot] = Null
-									        RCE_Send(Host, M\FromID, P_CreateCharacter, "N", True)
+											RejectCharacterCreation(A, FreeSlot, M\FromID)
 											Exists = True : Exit
 										EndIf
 									EndIf
@@ -2994,12 +2985,15 @@ Function UpdateNetwork()
 									If MySQL = True
 										; Similar to old command, however, takes no file/stream argument
 										//My_NewActorInstance(C, A\QuestLog[FreeSlot], A\ActionBar[FreeSlot], False, A\My_ID)
-									; Otherwise save all accounts
+										LoginAttemptRecord(M\FromID, True)
+										RCE_Send(Host, M\FromID, P_CreateCharacter, "Y", True)
+									; Flat-file success is not real until the atomic account save commits.
+									ElseIf SaveAccounts()
+										LoginAttemptRecord(M\FromID, True)
+										RCE_Send(Host, M\FromID, P_CreateCharacter, "Y", True)
 									Else
-										SaveAccounts()
-							        EndIf
-							        LoginAttemptRecord(M\FromID, True)
-							        RCE_Send(Host, M\FromID, P_CreateCharacter, "Y", True)
+										RejectCharacterCreation(A, FreeSlot, M\FromID)
+									EndIf
 								; If there are no free slots, reply with failure
 								Else
 							        RCE_Send(Host, M\FromID, P_CreateCharacter, "N", True)

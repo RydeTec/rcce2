@@ -129,3 +129,61 @@ Test testRejectLeavesOtherSlotsIntact()
 	Assert(m\ch[2] = 102) : Assert(m\ab[2] = 302)
 	Assert(m\ch[3] = 0)        ; only the rejected slot cleared
 End Test
+
+; ServerNet pulls the live network/world graph, so pin its bounded source
+; contract in addition to the slot-lifecycle model above. A character is not
+; durable until SaveAccounts commits; a failed commit must reuse the same full
+; cleanup as the earlier post-allocation reject paths and reply N.
+Function CreateCharacterSaveFailureRollsBack%(Path$)
+	Local F.BBStream = ReadFile(Path$)
+	Local InCase%, InRejectHelper%, SawMySQL%, SawCommitGate%, SaveStage%, SawSaveFailureReject%
+	Local SawFree%, SawQuestDelete%, SawActionBarDelete%, SawCharacterClear%, SawQuestClear%, SawActionBarClear%, SawFailureReply%
+	Local Line$, Trimmed$
+	If F = Null Then F = ReadFile("..\" + Path$)
+	If F = Null Then Return False
+
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		Trimmed$ = Trim$(Line$)
+		If Trimmed$ = "Case P_CreateCharacter ; :)" Then InCase = True
+		If InCase = True And Trimmed$ = "Case P_DeleteCharacter" Then InCase = False
+		If InCase = True
+			; The old unconditional call acknowledged success even when the
+			; atomic commit returned False.
+			If Trimmed$ = "SaveAccounts()"
+				CloseFile F
+				Return False
+			EndIf
+			If Trimmed$ = "If MySQL = True"
+				SawMySQL = True
+				SaveStage = 1
+			EndIf
+			If SaveStage = 1 And Trimmed$ = "ElseIf SaveAccounts()"
+				SawCommitGate = True
+				SaveStage = 2
+			EndIf
+			If SaveStage = 2 And Trimmed$ = "Else" Then SaveStage = 3
+			If SaveStage = 3 And Trimmed$ = "RejectCharacterCreation(A, FreeSlot, M\FromID)" Then SawSaveFailureReject = True
+		EndIf
+
+		If Trimmed$ = "Function RejectCharacterCreation(A.Account, FreeSlot, FromID)" Then InRejectHelper = True
+		If InRejectHelper = True
+			If Trimmed$ = "FreeActorInstance(A\Character[FreeSlot])" Then SawFree = True
+			If Trimmed$ = "If A\QuestLog[FreeSlot] <> Null Then Delete(A\QuestLog[FreeSlot])" Then SawQuestDelete = True
+			If Trimmed$ = "If A\ActionBar[FreeSlot] <> Null Then Delete(A\ActionBar[FreeSlot])" Then SawActionBarDelete = True
+			If Trimmed$ = "A\Character[FreeSlot] = Null" Then SawCharacterClear = True
+			If Trimmed$ = "A\QuestLog[FreeSlot] = Null" Then SawQuestClear = True
+			If Trimmed$ = "A\ActionBar[FreeSlot] = Null" Then SawActionBarClear = True
+			If Trimmed$ = "RCE_Send(Host, FromID, P_CreateCharacter, \"N\", True)" Then SawFailureReply = True
+			If Trimmed$ = "End Function" Then InRejectHelper = False
+		EndIf
+	Wend
+
+	CloseFile F
+	Return SawMySQL And SawCommitGate And SawSaveFailureReject And SawFree And SawQuestDelete And SawActionBarDelete And SawCharacterClear And SawQuestClear And SawActionBarClear And SawFailureReply
+
+End Function
+
+Test testFailedCharacterSaveRejectsAndRestoresTheAllocatedSlot()
+	Assert(CreateCharacterSaveFailureRollsBack%("Modules\ServerNet.bb") = True)
+End Test
