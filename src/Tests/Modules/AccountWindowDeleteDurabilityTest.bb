@@ -29,8 +29,8 @@ End Function
 Function AccountWindowDeleteCommitsBeforeLiveTeardown%(Path$)
 
 	Local F.BBStream = OpenContractFile(Path$)
-	Local InDeleteCase%, Stage%, SuccessStage%, FailureStage%
-	Local SawMark%, SawCommit%, SawCounters%, SawReindex%, SawDelete%, SawRemove%, SawFailureRestore%, SawFailureLog%
+	Local InDeleteCase%, Stage%, CommitBranch%, CommitIndent%
+	Local SawMark%, SawCommit%, SawTotalAccounts%, SawDMCounter%, SawBannedCounter%, SawAccountLabel%, SawDMLabel%, SawBannedLabel%, SawReindexStart%, SawReindexStep%, SawDelete%, SawRemove%, SawFailureRestore%, SawFailureLog%
 	Local Line$, Trimmed$
 	If F = Null Then Return False
 
@@ -40,7 +40,7 @@ Function AccountWindowDeleteCommitsBeforeLiveTeardown%(Path$)
 		If Trimmed$ = "Case Accounts\DeleteButton" Then InDeleteCase = True
 		If InDeleteCase And Trimmed$ = "Case Updates\LockButton" Then Exit
 		If InDeleteCase
-			If Stage < 2 And (Trimmed$ = "Delete A" Or Instr(Trimmed$, "Accounts\TotalAccounts = Accounts\TotalAccounts - 1") > 0 Or Instr(Trimmed$, "RemoveGadgetItem Accounts\List") > 0)
+			If Stage < 2 And (Trimmed$ = "Delete A" Or Instr(Trimmed$, "Accounts\TotalAccounts =") > 0 Or Instr(Trimmed$, "Accounts\TotalDMs =") > 0 Or Instr(Trimmed$, "Accounts\TotalBanned =") > 0 Or Instr(Trimmed$, "SetGadgetText(") > 0 Or Instr(Trimmed$, "Ac2.Account = After A") > 0 Or Instr(Trimmed$, "Ac2\ListID =") > 0 Or Instr(Trimmed$, "RemoveGadgetItem Accounts\List") > 0)
 				CloseFile F
 				Return False
 			EndIf
@@ -50,16 +50,22 @@ Function AccountWindowDeleteCommitsBeforeLiveTeardown%(Path$)
 			ElseIf Stage = 1 And Trimmed$ = "If SaveAccounts()"
 				SawCommit = True
 				Stage = 2
-				SuccessStage = 1
-			ElseIf Stage = 2 And Trimmed$ = "Else"
-				SuccessStage = 0
-				FailureStage = 1
-			ElseIf SuccessStage = 1
-				If Instr(Trimmed$, "Accounts\TotalAccounts = Accounts\TotalAccounts - 1") > 0 Then SawCounters = True
-				If Trimmed$ = "Ac2.Account = After A" Then SawReindex = True
+				CommitBranch = 1
+				CommitIndent = LeadingTabs(Line$)
+			ElseIf CommitBranch = 1 And Trimmed$ = "Else" And LeadingTabs(Line$) = CommitIndent
+				CommitBranch = 2
+			ElseIf CommitBranch = 1
+				If Instr(Trimmed$, "Accounts\TotalAccounts = Accounts\TotalAccounts - 1") > 0 Then SawTotalAccounts = True
+				If Instr(Trimmed$, "Accounts\TotalDMs = Accounts\TotalDMs - 1") > 0 Then SawDMCounter = True
+				If Instr(Trimmed$, "Accounts\TotalBanned = Accounts\TotalBanned - 1") > 0 Then SawBannedCounter = True
+				If Instr(Trimmed$, "SetGadgetText(Accounts\AccountsLabel") > 0 Then SawAccountLabel = True
+				If Instr(Trimmed$, "SetGadgetText(Accounts\DMLabel") > 0 Then SawDMLabel = True
+				If Instr(Trimmed$, "SetGadgetText(Accounts\BannedLabel") > 0 Then SawBannedLabel = True
+				If Trimmed$ = "Ac2.Account = After A" Then SawReindexStart = True
+				If Trimmed$ = "Ac2\ListID = Ac2\ListID - 1" Then SawReindexStep = True
 				If Trimmed$ = "Delete A" Then SawDelete = True
 				If Instr(Trimmed$, "RemoveGadgetItem Accounts\List") > 0 Then SawRemove = True
-			ElseIf FailureStage = 1
+			ElseIf CommitBranch = 2
 				If Trimmed$ = "A\PendingDelete = False" Then SawFailureRestore = True
 				If Instr(Trimmed$, "Could not delete account") > 0 Then SawFailureLog = True
 			EndIf
@@ -67,15 +73,32 @@ Function AccountWindowDeleteCommitsBeforeLiveTeardown%(Path$)
 	Wend
 
 	CloseFile F
-	Return SawMark And SawCommit And SawCounters And SawReindex And SawDelete And SawRemove And SawFailureRestore And SawFailureLog
+	Return SawMark And SawCommit And SawTotalAccounts And SawDMCounter And SawBannedCounter And SawAccountLabel And SawDMLabel And SawBannedLabel And SawReindexStart And SawReindexStep And SawDelete And SawRemove And SawFailureRestore And SawFailureLog
+
+End Function
+
+Function IsAccountRecordWrite%(Trimmed$)
+
+	If Trimmed$ = "WriteString F, A\User$" Then Return True
+	If Trimmed$ = "WriteString F, A\Pass$" Then Return True
+	If Trimmed$ = "WriteString F, A\Email$" Then Return True
+	If Trimmed$ = "WriteByte F, A\IsDM" Then Return True
+	If Trimmed$ = "WriteByte F, A\IsBanned" Then Return True
+	If Trimmed$ = "WriteString F, A\Ignore$" Then Return True
+	If Trimmed$ = "WriteByte F, Chars" Then Return True
+	If Trimmed$ = "WriteActorInstance(F, A\Character[i])" Then Return True
+	If Trimmed$ = "WriteString F, A\QuestLog[i]\EntryName$[j]" Then Return True
+	If Trimmed$ = "WriteString F, A\QuestLog[i]\EntryStatus$[j]" Then Return True
+	If Trimmed$ = "WriteString F, A\ActionBar[i]\Slots$[j]" Then Return True
+	Return False
 
 End Function
 
 Function PendingDeleteIsExcludedFromFlatFileSave%(Path$)
 
 	Local F.BBStream = OpenContractFile(Path$)
-	Local InSave%, Stage%, GuardIndent%
-	Local SawField%, SawGuard%, SawUserWrite%, SawPassWrite%, SawCharsWrite%, SawGuardEnd%
+	Local InSave%, Stage%, GuardIndent%, GuardActive%
+	Local SawField%, SawGuard%, SawUserWrite%, SawPassWrite%, SawEmailWrite%, SawDMWrite%, SawBannedWrite%, SawIgnoreWrite%, SawCharsWrite%, SawActorWrite%, SawQuestNameWrite%, SawQuestStatusWrite%, SawActionBarWrite%, SawGuardEnd%
 	Local Line$, Trimmed$
 	If F = Null Then Return False
 
@@ -89,14 +112,30 @@ Function PendingDeleteIsExcludedFromFlatFileSave%(Path$)
 			If Stage = 1 And Trimmed$ = "If A\PendingDelete = False"
 				SawGuard = True
 				GuardIndent = LeadingTabs(Line$)
+				GuardActive = True
 				Stage = 2
 			EndIf
 			If Stage = 2
-				If Trimmed$ = "WriteString F, A\User$" And LeadingTabs(Line$) = GuardIndent + 1 Then SawUserWrite = True
-				If Trimmed$ = "WriteString F, A\Pass$" And LeadingTabs(Line$) = GuardIndent + 1 Then SawPassWrite = True
-				If Trimmed$ = "WriteByte F, Chars" And LeadingTabs(Line$) = GuardIndent + 1 Then SawCharsWrite = True
-				If Trimmed$ = "EndIf" And LeadingTabs(Line$) = GuardIndent
+				If IsAccountRecordWrite%(Trimmed$)
+					If GuardActive = False Or LeadingTabs(Line$) <= GuardIndent
+						CloseFile F
+						Return False
+					EndIf
+				EndIf
+				If Trimmed$ = "WriteString F, A\User$" Then SawUserWrite = True
+				If Trimmed$ = "WriteString F, A\Pass$" Then SawPassWrite = True
+				If Trimmed$ = "WriteString F, A\Email$" Then SawEmailWrite = True
+				If Trimmed$ = "WriteByte F, A\IsDM" Then SawDMWrite = True
+				If Trimmed$ = "WriteByte F, A\IsBanned" Then SawBannedWrite = True
+				If Trimmed$ = "WriteString F, A\Ignore$" Then SawIgnoreWrite = True
+				If Trimmed$ = "WriteByte F, Chars" Then SawCharsWrite = True
+				If Trimmed$ = "WriteActorInstance(F, A\Character[i])" Then SawActorWrite = True
+				If Trimmed$ = "WriteString F, A\QuestLog[i]\EntryName$[j]" Then SawQuestNameWrite = True
+				If Trimmed$ = "WriteString F, A\QuestLog[i]\EntryStatus$[j]" Then SawQuestStatusWrite = True
+				If Trimmed$ = "WriteString F, A\ActionBar[i]\Slots$[j]" Then SawActionBarWrite = True
+				If GuardActive And Trimmed$ = "EndIf" And LeadingTabs(Line$) = GuardIndent
 					SawGuardEnd = True
+					GuardActive = False
 					Stage = 3
 				EndIf
 			EndIf
@@ -105,7 +144,7 @@ Function PendingDeleteIsExcludedFromFlatFileSave%(Path$)
 	Wend
 
 	CloseFile F
-	Return SawField And SawGuard And SawUserWrite And SawPassWrite And SawCharsWrite And SawGuardEnd
+	Return SawField And SawGuard And SawUserWrite And SawPassWrite And SawEmailWrite And SawDMWrite And SawBannedWrite And SawIgnoreWrite And SawCharsWrite And SawActorWrite And SawQuestNameWrite And SawQuestStatusWrite And SawActionBarWrite And SawGuardEnd
 
 End Function
 
