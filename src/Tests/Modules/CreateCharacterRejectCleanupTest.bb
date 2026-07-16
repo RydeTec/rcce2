@@ -136,9 +136,10 @@ End Test
 ; cleanup as the earlier post-allocation reject paths and reply N.
 Function CreateCharacterSaveFailureRollsBack%(Path$)
 	Local F.BBStream = ReadFile(Path$)
-	Local InCase%, InRejectHelper%, SawMySQL%, SawCommitGate%, SaveStage%, SawSaveFailureReject%
+	Local InCase%, InRejectHelper%, SawMySQL%, SawCommitGate%, SaveStage%, SawMySQLSuccessY%, SawCommittedSuccessY%, SawSaveFailureReject%
 	Local SawFree%, SawQuestDelete%, SawActionBarDelete%, SawCharacterClear%, SawQuestClear%, SawActionBarClear%, SawFailureReply%
-	Local Line$, Trimmed$
+	Local Line$, Trimmed$, SuccessReply$
+	SuccessReply = "RCE_Send(Host, M\FromID, P_CreateCharacter, " + Chr$(34) + "Y" + Chr$(34) + ", True)"
 	If F = Null Then F = ReadFile("..\" + Path$)
 	If F = Null Then Return False
 
@@ -162,6 +163,16 @@ Function CreateCharacterSaveFailureRollsBack%(Path$)
 				SawCommitGate = True
 				SaveStage = 2
 			EndIf
+			If Trimmed$ = SuccessReply
+				If SaveStage = 1
+					SawMySQLSuccessY = True
+				ElseIf SaveStage = 2
+					SawCommittedSuccessY = True
+				Else
+					CloseFile F
+					Return False
+				EndIf
+			EndIf
 			If SaveStage = 2 And Trimmed$ = "Else" Then SaveStage = 3
 			If SaveStage = 3 And Trimmed$ = "RejectCharacterCreation(A, FreeSlot, M\FromID)" Then SawSaveFailureReject = True
 		EndIf
@@ -180,7 +191,7 @@ Function CreateCharacterSaveFailureRollsBack%(Path$)
 	Wend
 
 	CloseFile F
-	Return SawMySQL And SawCommitGate And SawSaveFailureReject And SawFree And SawQuestDelete And SawActionBarDelete And SawCharacterClear And SawQuestClear And SawActionBarClear And SawFailureReply
+	Return SawMySQL And SawCommitGate And SawMySQLSuccessY And SawCommittedSuccessY And SawSaveFailureReject And SawFree And SawQuestDelete And SawActionBarDelete And SawCharacterClear And SawQuestClear And SawActionBarClear And SawFailureReply
 
 End Function
 
