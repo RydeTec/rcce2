@@ -1194,23 +1194,12 @@ Function UpdateNetwork()
 					; Someone else attacked someone else
 					Else
 						RuntimeID = RCE_IntFromStr(Mid$(M\MessageData$, 4, 2))
-						A2.ActorInstance = RuntimeIDList(RuntimeID)
-						If A2 <> Null
-							AnimateActorAttack(A)
-							A2\Attributes\Value[HealthStat] = A2\Attributes\Value[HealthStat] - Damage
-							PlayAnimation(A2, 3, 0.035, Rand(Anim_FirstHit, Anim_LastHit))
-							PlayActorSound(A, Rand(Speech_Attack1, Speech_Attack2))
-							PlayActorSound(A2, Rand(Speech_Hit1, Speech_Hit2))
-							If A2\Actor\BloodTexID > 0
-								B.BloodSpurt = New BloodSpurt
-								B\Timer = MilliSecs()
-								B\EmitterEN = RP_CreateEmitter(A2\Actor\BloodTexID)
-								PositionEntity(B\EmitterEN, EntityX#(A2\CollisionEN), EntityY#(A2\CollisionEN), EntityZ#(A2\CollisionEN))
-								PointEntity(B\EmitterEN, A\CollisionEN)
-								MoveEntity(B\EmitterEN, 0.0, 0.0, 1.0)
-							EndIf
-							PointEntity A\CollisionEN, A2\CollisionEN
-							RotateEntity A\CollisionEN, 0.0, EntityYaw#(A\CollisionEN) + 180.0, 0.0
+							A2.ActorInstance = RuntimeIDList(RuntimeID)
+							If A2 <> Null
+								AnimateActorAttack(A)
+								PlayActorSound(A, Rand(Speech_Attack1, Speech_Attack2))
+								PointEntity A\CollisionEN, A2\CollisionEN
+								RotateEntity A\CollisionEN, 0.0, EntityYaw#(A\CollisionEN) + 180.0, 0.0
 						EndIf
 					EndIf
 					If A = CharInteract Then UpdateCharInteractionWindow()
