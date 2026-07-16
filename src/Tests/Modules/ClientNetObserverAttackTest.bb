@@ -7,7 +7,7 @@ EnableGC
 
 Function ObserverAttackIsAnimationOnly%(Path$)
 	Local F.BBStream = ReadFile(Path$)
-	Local InObserver%, SawAttackerAnimation%, SawAttackerSound%, SawFacing%
+	Local InObserver%, SawAttackerAnimation%, SawAttackerSound%, SawFacing%, SawRotation%
 	Local Line$
 	If F = Null Then F = ReadFile("..\" + Path$)
 	If F = Null Then Return False
@@ -33,6 +33,10 @@ Function ObserverAttackIsAnimationOnly%(Path$)
 				CloseFile F
 				Return False
 			EndIf
+			If Instr(Line$, "AnimateActorParry(A2)") > 0
+				CloseFile F
+				Return False
+			EndIf
 			If Instr(Line$, "B.BloodSpurt = New BloodSpurt") > 0
 				CloseFile F
 				Return False
@@ -40,11 +44,12 @@ Function ObserverAttackIsAnimationOnly%(Path$)
 			If Instr(Line$, "AnimateActorAttack(A)") > 0 Then SawAttackerAnimation = True
 			If Instr(Line$, "PlayActorSound(A, Rand(Speech_Attack1, Speech_Attack2))") > 0 Then SawAttackerSound = True
 			If Instr(Line$, "PointEntity A\CollisionEN, A2\CollisionEN") > 0 Then SawFacing = True
+			If Instr(Line$, "RotateEntity A\CollisionEN, 0.0, EntityYaw#(A\CollisionEN) + 180.0, 0.0") > 0 Then SawRotation = True
 		EndIf
 	Wend
 
 	CloseFile F
-	Return SawAttackerAnimation And SawAttackerSound And SawFacing
+	Return SawAttackerAnimation And SawAttackerSound And SawFacing And SawRotation
 End Function
 
 Test testObserverAttackDoesNotReuseStaleDamage()
