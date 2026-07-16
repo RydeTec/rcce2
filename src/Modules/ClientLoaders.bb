@@ -378,21 +378,32 @@ Function UnloadGame()
 	Unload_Radar()
 	GY_Unload()
 	
-	For L.Light = Each Light
+	; Capture the next node before deleting the current one. BlitzForge's
+	; For-Each cursor otherwise advances through the freed Light on shutdown.
+	Local L.Light = First Light
+	Local LNext.Light = Null
+	While L <> Null
+		LNext = After L
 		FreeEntity(L\EN)
 		Delete L
-	Next
+		L = LNext
+	Wend
 	
 	For i = 0 To 65534
 		UnloadTexture(i)
 		UnloadMesh(i)
 	Next
 	
-	; Clear all actor 3D instances
-	For AI.ActorInstance = Each Actorinstance
+	; Clear all actor 3D instances. FreeActorInstance3D destroys the current
+	; instance, so preserve its successor before tearing it down.
+	Local AI.ActorInstance = First ActorInstance
+	Local AINext.ActorInstance = Null
+	While AI <> Null
+		AINext = After AI
 		FreeActorInstance3D(AI)
 		Delete(AI)
-	Next
+		AI = AINext
+	Wend
 	AreaName$ = ""
 	OldAreaName$ = ""
 	OldAreaID = 0
