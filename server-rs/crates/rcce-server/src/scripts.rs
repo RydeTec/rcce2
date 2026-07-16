@@ -18,7 +18,7 @@ use rcce_server_core::record::CharacterRecord;
 use rcce_server_core::ActorCatalog;
 
 use crate::spawn::SpawnManager;
-use crate::state::Outgoing;
+use crate::state::{clamp_attribute_max, Outgoing};
 use crate::world::{self, World};
 
 /// Module name from a `Using "RC_Core.rcm"` path (stem, lowercased).
@@ -406,7 +406,7 @@ impl ScriptHost<'_> {
             return;
         };
         let applied = self.with_char_mut(rid, |r| {
-            let v = new_max.max(0) as i16;
+            let v = clamp_attribute_max(new_max);
             if let Some(slot) = r.actor.attributes.maximum.get_mut(idx) {
                 *slot = v;
             }
@@ -1060,7 +1060,7 @@ impl Host for ScriptHost<'_> {
                 if self.privileged {
                     let (rid, name, delta) = (rid0(), arg_s(1), arg_i(2) as i32);
                     let cur = self.attr_value(rid, &name, true).unwrap_or(0);
-                    self.set_max_attr(rid, &name, cur + delta);
+                    self.set_max_attr(rid, &name, cur.saturating_add(delta));
                 }
                 Value::Int(0)
             }
