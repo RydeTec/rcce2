@@ -41,13 +41,51 @@ Type ServerWater
 	Field X#, Y#, Z#
 	Field Width#, Depth#
 	Field Damage, DamageType
-	; Next link in Area\FirstWater chain. Maintained at allocation
-	; (ServerLoadArea below). Becomes dangling when the owning Area
+	; Next link in Area\FirstWater chain. Maintained by ServerWaterAttach.
+	; Becomes dangling when the owning Area
 	; is deleted (ServerUnloadArea Deletes both the chain heads and
 	; every linked ServerWater in a single call, so no caller can
 	; observe a stale NextWater pointer).
 	Field NextWater.ServerWater
 End Type
+
+; Links a live water record into the authoritative chain used by area save,
+; unload, and water-damage traversal. Both the server loader and GUE's editor
+; creation paths use this helper so they cannot diverge on chain maintenance.
+Function ServerWaterAttach(W.ServerWater, A.Area)
+
+	If W = Null Then Return
+	If A = Null Then Return
+	W\Area = A
+	W\NextWater = A\FirstWater
+	A\FirstWater = W
+
+End Function
+
+; Removes a water record from its area's authoritative chain before a caller
+; deletes the record. The caller still owns the actual Delete operation.
+Function ServerWaterDetach(W.ServerWater)
+
+	If W = Null Then Return
+	Local A.Area = W\Area
+	If A = Null Then Return
+
+	If A\FirstWater = W
+		A\FirstWater = W\NextWater
+	Else
+		Local Previous.ServerWater = A\FirstWater
+		While Previous <> Null
+			If Previous\NextWater = W
+				Previous\NextWater = W\NextWater
+				Exit
+			EndIf
+			Previous = Previous\NextWater
+		Wend
+	EndIf
+
+	W\NextWater = Null
+
+End Function
 
 ; Each area instance may have up to 500 player owned items of scenery (e.g. chests, doors, etc.) {##}
 ;Type OwnedScenery
@@ -351,7 +389,6 @@ Function ServerLoadArea.Area(Name$)
 		Waters = ReadShort(F)
 		For i = 1 To Waters
 			W.ServerWater = New ServerWater
-			W\Area = A
 			W\X# = ReadFloat#(F)
 			W\Y# = ReadFloat#(F)
 			W\Z# = ReadFloat#(F)
@@ -364,18 +401,10 @@ Function ServerLoadArea.Area(Name$)
 			; SafeZone-damage loop (GameServer.bb ~773) indexes
 			; A\Resistances[SW\DamageType].
 			If W\DamageType < 0 Or W\DamageType > 19 Then W\DamageType = 0
-			; Link into A\FirstWater chain. With SaveArea +
-			; ServerUnloadArea also using the chain, the global
-			; `For Each ServerWater` collection still owns every
-			; record (creation and Delete are the only sites that
-			; touch the Each iterator), but no per-frame or
-			; per-save code paths have to filter it by Area.
-			; Head-insert is fine -- the underwater check Exits
-			; on first match and SaveArea writes are
-			; order-insensitive (ServerLoadArea just reads N
-			; records).
-			W\NextWater = A\FirstWater
-			A\FirstWater = W
+			; Save and damage handling use the per-Area chain rather than
+			; filtering the global collection. GUE uses the same helper for
+			; editor-created water records.
+			ServerWaterAttach(W, A)
 		Next
 
 	CloseFile(F)

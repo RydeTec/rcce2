@@ -2942,7 +2942,7 @@ Cls
 							Else
 								W.Water = New Water
 								SW.ServerWater = New ServerWater
-								SW\Area = CurrentArea
+								ServerWaterAttach(SW, CurrentArea)
 								W\ServerWater = Handle(SW)
 								W\TexHandle = GetTexture(NewID, True)
 								W\TexID = NewID
@@ -8780,6 +8780,7 @@ Function ZoneDeleteEntity(EN, NoUndo = False)
 			PokeInt(B, 30, SW\Damage)
 			PokeInt(B, 34, SW\DamageType)
 		EndIf
+		ServerWaterDetach(SW)
 		Delete(SW)
 		FreeTexture(W\TexHandle)
 		UnloadTexture(W\TexID)
@@ -9555,6 +9556,7 @@ Function PerformUndo()
 					; Recover information from extra info bank
 					W.Water = New Water
 					SW.ServerWater = New ServerWater
+					ServerWaterAttach(SW, CurrentArea)
 					W\TexScale# = PeekFloat#(U\ExtraInfo, 0)
 					X# = PeekFloat#(U\ExtraInfo, 4)
 					Y# = PeekFloat#(U\ExtraInfo, 8)
