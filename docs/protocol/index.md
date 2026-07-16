@@ -39,9 +39,9 @@ pages is a per-iteration documentation task — see CONTRIBUTING.md.
 |---|---|---|---|---|---|
 | 1 | `P_CreateAccount` | C→S | [ServerNet.bb:2446](../../src/Modules/ServerNet.bb#L2446) | — | [P_CreateAccount](packets/P_CreateAccount.md) |
 | 2 | `P_VerifyAccount` | C→S | [ServerNet.bb:2502](../../src/Modules/ServerNet.bb#L2502) | — | [P_VerifyAccount](packets/P_VerifyAccount.md) |
-| 3 | `P_FetchCharacter` | C→S | [ServerNet.bb:2707](../../src/Modules/ServerNet.bb#L2707) | — | — |
-| 4 | `P_CreateCharacter` | C→S | [ServerNet.bb:2831](../../src/Modules/ServerNet.bb#L2831) | — | — |
-| 5 | `P_DeleteCharacter` | C→S | [ServerNet.bb:3047](../../src/Modules/ServerNet.bb#L3047) | — | — |
+| 3 | `P_FetchCharacter` | C→S | [ServerNet.bb:2713](../../src/Modules/ServerNet.bb#L2713) | — | — |
+| 4 | `P_CreateCharacter` | C→S | [ServerNet.bb:2837](../../src/Modules/ServerNet.bb#L2837) | — | — |
+| 5 | `P_DeleteCharacter` | C→S | [ServerNet.bb:3053](../../src/Modules/ServerNet.bb#L3053) | — | — |
 | 6 | `P_ChangePassword` | C→S | [ServerNet.bb:2637](../../src/Modules/ServerNet.bb#L2637) | — | [P_ChangePassword](packets/P_ChangePassword.md) |
 | 7 | `P_FetchActors` | C→S | [ServerNet.bb:2338](../../src/Modules/ServerNet.bb#L2338) | — | — |
 | 8 | `P_FetchItems` | Unused | — | — | — |
