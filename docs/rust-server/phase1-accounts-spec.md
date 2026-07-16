@@ -41,7 +41,7 @@
 - Compute: client sends `MD5(password)` (32 hex) on wire; server stores `SHA256(salt_bytes + md5_ascii_bytes)` hex. **VERIFY whether the SHA input is the salt+md5-ascii or salt+md5-bytes — critical for on-disk compat.**
 - Legacy: raw 32-char MD5, no `$1$`. Verify by direct compare.
 - `VerifyPassword(stored, client_md5)`: v1 path recomputes + `ConstantTimeStrEq`; legacy path constant-time compares; **malformed/not-found path STILL runs a dummy SHA256 (timing-uniform) — security invariant, do not optimize away.**
-- `UpgradePasswordIfLegacy`: on successful legacy login, rehash to v1 in memory; next save persists it (lazy migration).
+- `UpgradePasswordIfLegacy`: on successful legacy login, rehash to v1 and atomically persist it in the authentication path. If that save fails, restore the verified legacy hash in memory so a later successful login can retry the migration.
 
 ## The 6 handlers (ServerNet.bb ~2365-3054) — replies
 All inbound start: `[u8 ulen][username][u8 plen][md5password]`. Auth-before-disclosure: find account silently, verify password (pay dummy hash on miss), only then disclose ban/online.

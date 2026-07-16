@@ -25,8 +25,9 @@
 ;
 ; Migration is automatic: on the first successful login of an account
 ; whose Accounts.dat entry is still legacy MD5, the server replaces
-; A\Pass$ with a freshly salted v1 hash. The next SaveAccounts() then
-; persists the upgrade.
+; A\Pass$ with a freshly salted v1 hash and commits it through
+; SaveAccounts(). A failed commit restores the verified legacy hash so the
+; next successful login can retry the upgrade safely.
 ; ============================================================================
 
 Const PWHASH_VERSION_TAG$ = "$1$"
@@ -297,8 +298,8 @@ Function VerifyPassword%(Stored$, ClientMD5$)
 	Return ConstantTimeStrEq%(Stored, ClientMD5)
 End Function
 
-; True iff Stored is in the legacy plain-MD5 format and should be
-; upgraded to v1 on next save.
+; True iff Stored is in the legacy plain-MD5 format and an authenticated
+; caller must attempt the durable v1 migration boundary.
 Function PasswordIsLegacy%(Stored$)
 	If Len(Stored) = 0 Then Return False
 	If Left$(Stored, Len(PWHASH_VERSION_TAG)) = PWHASH_VERSION_TAG Then Return False
