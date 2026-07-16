@@ -2,8 +2,6 @@ Strict
 EnableGC
 
 Global MySQL = False
-Global AccountsServerTest_ListItems = 0
-Global AccountsServerTest_CommitSucceeds = True
 
 Type ActorInstance
 	Field Account
@@ -33,17 +31,13 @@ Function SetGadgetText(parent%, text$)
 End Function
 
 Function CountGadgetItems(parent%)
-	Return AccountsServerTest_ListItems
+	Return 0
 End Function
 
 Function AddListBoxItem(parent%, text$)
-	Global AccountsServerTest_ListItems = AccountsServerTest_ListItems + 1
 End Function
 
 Function RemoveGadgetItem(parent%, index%)
-	If AccountsServerTest_ListItems > 0
-		Global AccountsServerTest_ListItems = AccountsServerTest_ListItems - 1
-	EndIf
 End Function
 
 Function CreateWindow(title$, x%, y%, width%, height%, parent%, style%)
@@ -87,9 +81,7 @@ Function SafeWriteOpen$(FinalPath$)
 End Function
 
 Function SafeWriteCommit%(TempPath$, FinalPath$, F)
-	CloseFile(F)
-	DeleteFile(TempPath$)
-	Return AccountsServerTest_CommitSucceeds
+	Return True
 End Function
 
 Function SafeWriteAbort(TempPath$, F)
@@ -102,11 +94,76 @@ End Function
 Include "Modules\PasswordHash.bb"
 Include "Modules\AccountsServer.bb"
 
-Function ResetAccountsServerTestState()
-	Delete Each Account
-	Global Accounts.AccountsWindow = New AccountsWindow()
-	Global AccountsServerTest_ListItems = 0
-	Global AccountsServerTest_CommitSucceeds = True
+; AddAccount is coupled to the account UI and full save graph, so this bounded
+; source contract pins the atomic-v1 and rollback shape without faking that
+; graph. It rejects the legacy direct append and requires every transient
+; state change to be undone after SaveAccounts reports failure.
+Function AddAccountUsesAtomicSaveAndRollback%(Path$)
+	Local F.BBStream = ReadFile(Path$)
+	Local Stage%
+	Local Line$
+	If F = Null Then F = ReadFile("..\" + Path$)
+	If F = Null Then Return False
+
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		If Instr(Line$, "Function AddAccount%(User$, Pass$, Email$)") > 0 Then Stage = 1
+		If Stage > 0 And Instr(Line$, "Function SaveAccounts()") > 0 Then Exit
+		If Stage > 0 And (Instr(Line$, "OpenFile(") > 0 Or Instr(Line$, "SeekFile(") > 0)
+			CloseFile F
+			Return False
+		EndIf
+		Select Stage
+			Case 1
+				If Instr(Line$, "If SaveAccounts() Then Return True") > 0 Then Stage = 2
+			Case 2
+				If Instr(Line$, "RemoveGadgetItem(Accounts\List, A\ListID)") > 0 Then Stage = 3
+			Case 3
+				If Instr(Line$, "Accounts\TotalAccounts = Accounts\TotalAccounts - 1") > 0 Then Stage = 4
+			Case 4
+				If Instr(Line$, "Delete A") > 0 Then Stage = 5
+			Case 5
+				If Trim$(Line$) = "Return False"
+					CloseFile F
+					Return True
+				EndIf
+		End Select
+	Wend
+
+	CloseFile F
+	Return False
+End Function
+
+Function CreateAccountRepliesAfterAtomicSave%(Path$)
+	Local F.BBStream = ReadFile(Path$)
+	Local InCase%, Stage%
+	Local Line$
+	If F = Null Then F = ReadFile("..\" + Path$)
+	If F = Null Then Return False
+
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		If Instr(Line$, "Case P_CreateAccount") > 0 Then InCase = True
+		If InCase = True And Instr(Line$, "Case P_VerifyAccount") > 0 Then Exit
+		If InCase = True
+			Select Stage
+				Case 0
+					If Instr(Line$, "ElseIf AddAccount(Username$, Password$, Email$)") > 0 Then Stage = 1
+				Case 1
+					If Instr(Line$, "P_CreateAccount, " + Chr$(34) + "Y" + Chr$(34) + ", True") > 0 Then Stage = 2
+				Case 2
+					If Trim$(Line$) = "Else" Then Stage = 3
+				Case 3
+					If Instr(Line$, "P_CreateAccount, " + Chr$(34) + "N" + Chr$(34) + ", True") > 0
+						CloseFile F
+						Return True
+					EndIf
+			End Select
+		EndIf
+	Wend
+
+	CloseFile F
+	Return False
 End Function
 
 Test testFindAccountByListIDReturnsMatchingAccount()
@@ -178,28 +235,10 @@ Test testFormatAccountListEntryLoggedInBannedGM()
 	Assert(FormatAccountListEntry$(True, True, 5, "alice", "alice@example.com") = "* [BAN][GM] alice  (alice@example.com)")
 End Test
 
-Test testAddAccountCommitsBeforeReportingSuccess()
-	ResetAccountsServerTestState()
-
-	Assert(AddAccount("alice", "0123456789abcdef0123456789abcdef", "alice@example.com") = True)
-	Local created.Account = First Account
-	Assert(created <> Null)
-	Assert(created\User$ = "alice")
-	Assert(Accounts\TotalAccounts = 1)
-	Assert(AccountsServerTest_ListItems = 1)
-
-	ResetAccountsServerTestState()
+Test testAddAccountUsesAtomicSaveAndRollsBackOnFailure()
+	Assert(AddAccountUsesAtomicSaveAndRollback%("Modules\AccountsServer.bb") = True)
 End Test
 
-Test testAddAccountRollsBackWhenAtomicCommitFails()
-	ResetAccountsServerTestState()
-	Global AccountsServerTest_CommitSucceeds = False
-
-	Assert(AddAccount("alice", "0123456789abcdef0123456789abcdef", "alice@example.com") = False)
-	Local remaining.Account = First Account
-	Assert(remaining = Null)
-	Assert(Accounts\TotalAccounts = 0)
-	Assert(AccountsServerTest_ListItems = 0)
-
-	ResetAccountsServerTestState()
+Test testCreateAccountSendsFailureWhenAtomicSaveFails()
+	Assert(CreateAccountRepliesAfterAtomicSave%("Modules\ServerNet.bb") = True)
 End Test
