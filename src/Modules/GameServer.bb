@@ -823,14 +823,16 @@ Function UpdateActorInstances(Broadcast)
 					; skip this block; breath loss above already ran and
 					; the next tick will either re-pick a new water or
 					; clear AI\Underwater via the no-hit path above.
-					If SW <> Null And SW\Damage > 0
-						Damage = SW\Damage - (AI\Resistances[SW\DamageType] - 100)
-						If Damage < 1 Then Damage = 1
-						UpdateAttribute(AI, HealthStat, AI\Attributes\Value[HealthStat] - Damage)
-						If AI\Attributes\Value[HealthStat] <= 0
-							AI\Attributes\Value[HealthStat] = 0
-							; Same iterator-during-iteration hazard — defer.
-							DeferKillActor(AI, Null)
+					If SW <> Null
+						If SW\Damage > 0
+							Damage = SW\Damage - (AI\Resistances[SW\DamageType] - 100)
+							If Damage < 1 Then Damage = 1
+							UpdateAttribute(AI, HealthStat, AI\Attributes\Value[HealthStat] - Damage)
+							If AI\Attributes\Value[HealthStat] <= 0
+								AI\Attributes\Value[HealthStat] = 0
+								; Same iterator-during-iteration hazard — defer.
+								DeferKillActor(AI, Null)
+							EndIf
 						EndIf
 					EndIf
 				EndIf
