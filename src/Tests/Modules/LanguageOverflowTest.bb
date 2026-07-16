@@ -10,7 +10,7 @@ Include "Modules\Language.bb"
 Global OverflowLanguageFile$ = CurrentDir$() + "language_overflow_test.txt"
 
 Function WriteOverflowLanguageFile%()
-	Local F% = WriteFile(OverflowLanguageFile$)
+	Local F.BBStream = WriteFile(OverflowLanguageFile$)
 	If F = 0 Then Return False
 
 	Local ID%
