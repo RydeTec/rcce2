@@ -1563,11 +1563,15 @@ Function UpdateNetwork()
 				If A <> Null
 					If A <> Me
 						; Free projectiles targeted at this actor
-						For ProjI.ProjectileInstance = Each ProjectileInstance
-							If ProjI\Target = A
-								FreeProjectileInstance(ProjI)
+						Local ActorProjI.ProjectileInstance = First ProjectileInstance
+						Local ActorProjINext.ProjectileInstance = Null
+						While ActorProjI <> Null
+							ActorProjINext = After ActorProjI
+							If ActorProjI\Target = A
+								FreeProjectileInstance(ActorProjI)
 							EndIf
-						Next
+							ActorProjI = ActorProjINext
+						Wend
 						
 						;Actor shadows Cysis145
 						FreeShadowCaster% (A\EN)
@@ -1684,9 +1688,13 @@ Function UpdateNetwork()
 					Next
 
 					; Remove all in-flight projectiles
-					For ProjI.ProjectileInstance = Each ProjectileInstance
-						FreeProjectileInstance(ProjI)
-					Next
+					Local AreaProjI.ProjectileInstance = First ProjectileInstance
+					Local AreaProjINext.ProjectileInstance = Null
+					While AreaProjI <> Null
+						AreaProjINext = After AreaProjI
+						FreeProjectileInstance(AreaProjI)
+						AreaProjI = AreaProjINext
+					Wend
 
 					; Save radar state
 					If OldAreaName$ <> "" Then Save_Radar_Fog(RadarPath$ + Me\Name$ + "-" + OldAreaName$ + ".rdr")
