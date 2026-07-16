@@ -43,7 +43,7 @@ Function ChangePasswordThrottlesBeforeHashing%(Path$)
 				GuardIndent = LeadingTabs(Line$)
 				Stage = 1
 			EndIf
-			If Stage = 1 And Instr(Line$, "RCE_Send(Host, M\\FromID, P_ChangePassword, \"P\", True)") > 0 And LeadingTabs(Line$) = GuardIndent + 1 Then Stage = 2
+			If Stage = 1 And Instr(Line$, "RCE_Send(Host, M\\FromID, P_ChangePassword, " + Chr$(34) + "P" + Chr$(34) + ", True)") > 0 And LeadingTabs(Line$) = GuardIndent + 1 Then Stage = 2
 			If Stage = 2 And Instr(Line$, "Else") > 0 And LeadingTabs(Line$) = GuardIndent Then Stage = 3
 			If Stage = 3 And Instr(Line$, "UsernameLen = RCE_IntFromStr(Left$(M\\MessageData$, 1))") > 0 And LeadingTabs(Line$) = GuardIndent Then Stage = 4
 			If Stage = 4 And Instr(Line$, "VerifyPassword%(") > 0
