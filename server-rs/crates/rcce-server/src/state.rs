@@ -135,6 +135,11 @@ fn stat_update_a(rid: u16, idx: usize, value: i16) -> Vec<u8> {
     s
 }
 
+/// Attribute maxima are stored as signed 16-bit values in actor persistence.
+pub(crate) fn clamp_attribute_max(value: i64) -> i16 {
+    value.clamp(0, i16::MAX as i64) as i16
+}
+
 /// Where a reply packet goes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Target {
@@ -200,6 +205,12 @@ struct RunningScript {
     pending_response: Option<String>,
     /// The held reply for a suspended `GetWaitResult`.
     waiting_reply: Option<std::sync::mpsc::Sender<rcce_script::Value>>,
+    /// Test-only handshake that holds the script immediately after
+    /// `SetWaitSpeak`, making the early-chat regression deterministic.
+    #[cfg(test)]
+    test_waitspeak_armed: Option<std::sync::mpsc::Sender<()>>,
+    #[cfg(test)]
+    test_waitspeak_reply: Option<std::sync::mpsc::Sender<rcce_script::Value>>,
     /// The script's `Param$` (`ThreadScript`'s 5th arg) — the comma-separated
     /// argument string `Parameter(n)` splits. Slash-commands pass the text after
     /// the command; most other spawns leave it empty.
@@ -2340,6 +2351,10 @@ impl ServerState {
             wait_result: String::new(),
             pending_response: None,
             waiting_reply: None,
+            #[cfg(test)]
+            test_waitspeak_armed: None,
+            #[cfg(test)]
+            test_waitspeak_reply: None,
             param,
             wait_time: 0,
             wait_start: 0,
@@ -2382,6 +2397,8 @@ impl ServerState {
             wait_result: String::new(),
             pending_response: None,
             waiting_reply: None,
+            test_waitspeak_armed: None,
+            test_waitspeak_reply: None,
             param: String::new(),
             wait_time: 0,
             wait_start: 0,
@@ -2398,6 +2415,26 @@ impl ServerState {
         if let Some(rs) = self.running_scripts.last_mut() {
             rs.param = param.to_string();
         }
+    }
+
+    /// Test-only handshake that pauses the most recently started script after
+    /// it has armed `SetWaitSpeak` but before it can issue `SetWaiting`.
+    #[cfg(test)]
+    pub fn hold_last_waitspeak_arm(&mut self) -> std::sync::mpsc::Receiver<()> {
+        let (armed, observed) = std::sync::mpsc::channel();
+        let rs = self.running_scripts.last_mut().expect("inline script exists");
+        rs.test_waitspeak_armed = Some(armed);
+        observed
+    }
+
+    /// Release the [`Self::hold_last_waitspeak_arm`] handshake so the script
+    /// can continue to `SetWaiting` and `GetWaitResult`.
+    #[cfg(test)]
+    pub fn release_last_waitspeak_arm(&mut self) {
+        let rs = self.running_scripts.last_mut().expect("inline script exists");
+        rs.test_waitspeak_armed = None;
+        let reply = rs.test_waitspeak_reply.take().expect("WaitSpeak reply held");
+        let _ = reply.send(rcce_script::Value::Int(0));
     }
 
     /// Drive all running scripts: execute their pending `BVM_*` calls against
@@ -2516,6 +2553,12 @@ impl ServerState {
                             }
                             "setwaitspeak" => {
                                 self.running_scripts[i].wait_speak = args.first().map(|v| v.to_int()).unwrap_or(0) as u16;
+                                #[cfg(test)]
+                                if let Some(armed) = self.running_scripts[i].test_waitspeak_armed.clone() {
+                                    let _ = armed.send(());
+                                    self.running_scripts[i].test_waitspeak_reply = Some(reply);
+                                    continue;
+                                }
                                 let _ = reply.send(rcce_script::Value::Int(0));
                                 continue;
                             }
@@ -4067,7 +4110,7 @@ impl ServerState {
             let Some(rec) = self.accounts.find_mut(&user).and_then(|a| a.characters.get_mut(slot)) else {
                 return Vec::new();
             };
-            let v = new_max.max(0) as i16;
+            let v = clamp_attribute_max(new_max as i64);
             if let Some(s) = rec.actor.attributes.maximum.get_mut(idx) {
                 *s = v;
             }
@@ -4230,12 +4273,17 @@ impl ServerState {
     /// Resume any script parked on `WaitSpeak` for `speaker_rid` (it spoke).
     fn resume_speak_waits(&mut self, speaker_rid: u16) {
         for rs in self.running_scripts.iter_mut() {
-            if rs.wait_speak == speaker_rid && speaker_rid != 0 && rs.waiting_reply.is_some() {
+            if rs.wait_speak == speaker_rid && speaker_rid != 0 {
                 if let Some(reply) = rs.waiting_reply.take() {
                     rs.wait_result = "1".to_string();
                     let _ = reply.send(rcce_script::Value::Str("1".to_string()));
-                    rs.wait_speak = 0;
+                } else {
+                    // A matching chat event can arrive after SetWaitSpeak but
+                    // before the script reaches GetWaitResult. Preserve it
+                    // across SetWaiting, matching the dialog-response path.
+                    rs.pending_response = Some("1".to_string());
                 }
+                rs.wait_speak = 0;
             }
         }
     }

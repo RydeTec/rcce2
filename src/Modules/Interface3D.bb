@@ -566,8 +566,10 @@ Function UpdateInterface()
 				; Do not allow above water surface if swimming
 				If Me\Underwater <> 0
 					W.Water = Object.Water(Me\Underwater)
-					If EntityY#(Me\CollisionEN) > EntityY#(W\EN) - 0.5
-						PositionEntity(Me\CollisionEN, EntityX#(Me\CollisionEN), EntityY#(W\EN) - 0.505, EntityZ#(Me\CollisionEN))
+					If W <> Null
+						If EntityY#(Me\CollisionEN) > EntityY#(W\EN) - 0.5
+							PositionEntity(Me\CollisionEN, EntityX#(Me\CollisionEN), EntityY#(W\EN) - 0.505, EntityZ#(Me\CollisionEN))
+						EndIf
 					EndIf
 				EndIf
 				QuitActive = False

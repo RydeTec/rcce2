@@ -1970,6 +1970,23 @@ mod tests {
                 outs.iter().any(|o| o.msg_type == P_STAT_UPDATE && o.payload.first() == Some(&b'M')),
                 "/setattributemax broadcasts P_StatUpdate 'M'"
             );
+
+            let overflowing_setmax = format!("/setattributemax {attr},32768");
+            let outs = state.dispatch(1, P_CHAT_MESSAGE, overflowing_setmax.as_bytes());
+            assert_eq!(
+                state.accounts.find("Hero").unwrap().characters[0].actor.attributes.maximum[idx],
+                i16::MAX,
+                "/setattributemax saturates at the signed persistence maximum"
+            );
+            assert!(
+                outs.iter().any(|o| {
+                    o.msg_type == P_STAT_UPDATE
+                        && o.payload.len() == 6
+                        && o.payload[0] == b'M'
+                        && o.payload[4..6] == i16::MAX.to_le_bytes()
+                }),
+                "/setattributemax broadcasts the saturated P_StatUpdate 'M' maximum"
+            );
         }
 
         // /script: DM spawns the named script privileged; non-DM refused.
@@ -2854,6 +2871,31 @@ mod tests {
         state.dispatch(1, P_CHAT_MESSAGE, b"hello"); // the speak event
         for _ in 0..100 { state.pump_scripts(); if state.running_script_count() == 0 { break; } std::thread::sleep(std::time::Duration::from_millis(1)); }
         assert_eq!(state.accounts.find("hero").unwrap().characters[0].actor.script_globals[1], "spoke", "WaitSpeak resumed on chat");
+
+        // --- WaitSpeak: retain a chat event that wins the race before the
+        // script reaches GetWaitResult. The handshake signal persists while
+        // the script is held, so this cannot miss a faster script thread.
+        let early_s_src = "Function Main()\n\tp = Actor()\n\tSetWaitSpeak(p, p)\n\tSetWaiting(1)\n\tr = GetWaitResult()\n\tSetActorGlobal(p, 3, \"early\")\nEnd Function\n";
+        state.start_inline_script(early_s_src, "Main", rid, 0, 1, true);
+        let armed = state.hold_last_waitspeak_arm();
+        let mut armed_before_park = false;
+        for _ in 0..100 {
+            state.pump_scripts();
+            if armed.try_recv().is_ok() {
+                armed_before_park = true;
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        assert!(armed_before_park, "WaitSpeak arms before GetWaitResult parks");
+        state.dispatch(1, P_CHAT_MESSAGE, b"early");
+        state.release_last_waitspeak_arm();
+        for _ in 0..100 {
+            state.pump_scripts();
+            if state.running_script_count() == 0 { break; }
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        assert_eq!(state.accounts.find("hero").unwrap().characters[0].actor.script_globals[3], "early", "WaitSpeak retains an early chat event");
 
         // --- WaitItem: park until the player holds the item. ---
         let i_src = format!("Function Main()\n\tp = Actor()\n\tSetWaitItem(p, \"{}\", 1)\n\tSetWaiting(1)\n\tr = GetWaitResult()\n\tSetActorGlobal(p, 2, \"got\")\nEnd Function\n", item.name);
@@ -3757,26 +3799,44 @@ mod tests {
         state.accounts.find_mut("hero").unwrap().characters[0].actor.attributes.maximum[hidx] = 100;
         let rid = state.world.session(1).unwrap().runtime_id as i64;
 
-        // Privileged: SetMaxAttribute(rid, attr, 1) + SetReputation(rid, -500).
+        // Privileged: direct and delta maximum writes saturate without narrowing.
         {
             let mut host = crate::scripts::ScriptHost {
                 world: &state.world, accounts: &mut state.accounts, spawns: &state.spawns,
                 catalog: &state.catalog, attr_names: &state.attr_names, rng: &mut state.rng,
                 actor: rid, ctx: 0, privileged: true, dirty: false, out: Vec::new(),
             };
-            host.call("setmaxattribute", &[Value::Int(rid), Value::Str(attr.clone()), Value::Int(1)]);
+            host.call("setmaxattribute", &[Value::Int(rid), Value::Str(attr.clone()), Value::Int(2_147_483_648)]);
+            assert!(
+                host.out.iter().any(|o| {
+                    o.msg_type == P_STAT_UPDATE
+                        && o.payload.len() == 6
+                        && o.payload[0] == b'M'
+                        && o.payload[4..6] == i16::MAX.to_le_bytes()
+                }),
+                "SetMaxAttribute keeps i64 input wide through the saturated 'M' stat update"
+            );
+            host.out.clear();
+            host.call("setmaxattribute", &[Value::Int(rid), Value::Str(attr.clone()), Value::Int(100)]);
+            host.out.clear();
+            host.call("changemaxattribute", &[Value::Int(rid), Value::Str(attr.clone()), Value::Int(i64::MAX)]);
             host.call("setreputation", &[Value::Int(rid), Value::Int(-500)]);
             let rep = host.call("reputation", &[Value::Int(rid)]).to_int();
             assert_eq!(rep, -500, "Reputation read reflects the set");
             assert!(
-                host.out.iter().any(|o| o.msg_type == P_STAT_UPDATE && o.payload.first() == Some(&b'M')),
-                "SetMaxAttribute broadcasts a 'M' stat update"
+                host.out.iter().any(|o| {
+                    o.msg_type == P_STAT_UPDATE
+                        && o.payload.len() == 6
+                        && o.payload[0] == b'M'
+                        && o.payload[4..6] == i16::MAX.to_le_bytes()
+                }),
+                "ChangeMaxAttribute keeps i64 input wide through the saturated 'M' stat update"
             );
         }
         assert_eq!(
             state.accounts.find("hero").unwrap().characters[0].actor.attributes.maximum[hidx],
-            1,
-            "max attribute set"
+            i16::MAX,
+            "max attribute saturates at the signed persistence maximum"
         );
         assert_eq!(state.accounts.find("hero").unwrap().characters[0].actor.reputation, -500);
 
@@ -3792,7 +3852,7 @@ mod tests {
         }
         assert_eq!(
             state.accounts.find("hero").unwrap().characters[0].actor.attributes.maximum[hidx],
-            1,
+            i16::MAX,
             "unprivileged SetMaxAttribute is gated out"
         );
         assert_eq!(

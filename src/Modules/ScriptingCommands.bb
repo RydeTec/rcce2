@@ -1039,19 +1039,21 @@ Function BVM_SETLEADER(Param1%, Param2%)
 				; no zone to patrol in.
 				AInstance.AreaInstance = Object.AreaInstance(Actor\ServerArea)
 				Found = False
-				If AInstance <> Null And AInstance\Area <> Null
-					For i = 0 To 249
-						If AInstance\Area\PrevWaypoint[i] <> 255
-							Actor\OldX# = Actor\X#
-							Actor\OldZ# = Actor\Z#
-							Actor\AIMode = AI_Patrol
-							Actor\DestX# = AInstance\Area\WaypointX#[i] + Rnd#(-5.0, 5.0)
-							Actor\DestZ# = AInstance\Area\WaypointZ#[i] + Rnd#(-5.0, 5.0)
-							Actor\CurrentWaypoint = i
-							Found = True
-							Exit
-						EndIf
-					Next
+				If AInstance <> Null
+					If AInstance\Area <> Null
+						For i = 0 To 249
+							If AInstance\Area\PrevWaypoint[i] <> 255
+								Actor\OldX# = Actor\X#
+								Actor\OldZ# = Actor\Z#
+								Actor\AIMode = AI_Patrol
+								Actor\DestX# = AInstance\Area\WaypointX#[i] + Rnd#(-5.0, 5.0)
+								Actor\DestZ# = AInstance\Area\WaypointZ#[i] + Rnd#(-5.0, 5.0)
+								Actor\CurrentWaypoint = i
+								Found = True
+								Exit
+							EndIf
+						Next
+					EndIf
 				EndIf
 				; Die if no waypoint available (or area is gone)
 				If Found = False Then KillActor(Actor, Null)
@@ -2019,8 +2021,9 @@ End Function
 Function BVM_CREATEDIR%(Param1$)
 	If Not BVM_RequirePrivileged() Then Return 0
 	If Not BVM_ScriptPathIsSafe(Param1$) Then Return 0
-	CreateDir(RCScriptFiles$ + Param1$)
-Return Result%
+	Local Path$ = RCScriptFiles$ + Param1$
+	CreateDir(Path$)
+	Return FileType(Path$) = 2
 End Function
 
 Function BVM_FILESIZE%(Param1$)
@@ -2194,7 +2197,8 @@ Function BVM_NEWQUEST(Param1%, Param2$, Param3$, Param4%=255, Param5%=255, Param
 			; QuestLog is Field[9]; either condition would crash the
 			; server with a Blitz Field OOB or Null deref during a
 			; script-triggered quest mutation.
-			If A = Null Or A\LoggedOn < 0 Or A\LoggedOn > 9 Then Return
+			If A = Null Then Return
+			If A\LoggedOn < 0 Or A\LoggedOn > 9 Then Return
 			Name$ = Param2$
 			; Check it doesn't already exist
 			FreeSpace = -1
@@ -2227,7 +2231,8 @@ Function BVM_UPDATEQUEST(Param1%, Param2$, Param3$, Param4%=255, Param5%=255, Pa
 	If Actor <> Null
 		If Actor\RNID > 0
 			A.Account = Object.Account(Actor\Account)
-			If A = Null Or A\LoggedOn < 0 Or A\LoggedOn > 9 Then Return
+			If A = Null Then Return
+			If A\LoggedOn < 0 Or A\LoggedOn > 9 Then Return
 			Name$ = Upper$(Param2$)
 			Status$ = RCE_StrFromInt$(Param4%, 1)
 			Status$ = Status$ + RCE_StrFromInt$(Param5%, 1)
@@ -2252,7 +2257,8 @@ Function BVM_COMPLETEQUEST(Param1%, Param2$)
 	If Actor <> Null
 		If Actor\RNID > 0
 			A.Account = Object.Account(Actor\Account)
-			If A = Null Or A\LoggedOn < 0 Or A\LoggedOn > 9 Then Return
+			If A = Null Then Return
+			If A\LoggedOn < 0 Or A\LoggedOn > 9 Then Return
 			Name$ = Upper$(Param2$)
 			Status$ = Chr$(255) + Chr$(225) + Chr$(100) + Chr$(254)
 			For i = 0 To 499
@@ -2282,7 +2288,8 @@ Function BVM_DELETEQUEST(Param1%, Param2$)
 	If Actor <> Null
 		If Actor\RNID > 0
 			A.Account = Object.Account(Actor\Account)
-			If A = Null Or A\LoggedOn < 0 Or A\LoggedOn > 9 Then Return
+			If A = Null Then Return
+			If A\LoggedOn < 0 Or A\LoggedOn > 9 Then Return
 			Name$ = Upper$(Param2$)
 			For i = 0 To 499
 				If Upper$(A\QuestLog[A\LoggedOn]\EntryName$[i]) = Name$
@@ -2301,7 +2308,8 @@ Function BVM_QUESTSTATUS$(Param1%, Param2$)
 	If Actor <> Null
 		If Actor\RNID > 0
 			A.Account = Object.Account(Actor\Account)
-			If A = Null Or A\LoggedOn < 0 Or A\LoggedOn > 9 Then Return ""
+			If A = Null Then Return ""
+			If A\LoggedOn < 0 Or A\LoggedOn > 9 Then Return ""
 			Name$ = Upper$(Param2$)
 			For i = 0 To 499
 				If Upper$(A\QuestLog[A\LoggedOn]\EntryName$[i]) = Name$
@@ -2319,7 +2327,8 @@ Function BVM_QUESTCOMPLETE%(Param1%, Param2$)
 	If Actor <> Null
 		If Actor\RNID > 0
 			A.Account = Object.Account(Actor\Account)
-			If A = Null Or A\LoggedOn < 0 Or A\LoggedOn > 9 Then Return 0
+			If A = Null Then Return 0
+			If A\LoggedOn < 0 Or A\LoggedOn > 9 Then Return 0
 			Name$ = Upper$(Param2$)
 			For i = 0 To 499
 				If Upper$(A\QuestLog[A\LoggedOn]\EntryName$[i]) = Name$

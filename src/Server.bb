@@ -723,22 +723,28 @@ Repeat
 	; memorise (e.g. logout race): MemorisingSpell records were not
 	; previously reaped on FreeActorInstance, so a stale MS\AI here
 	; would null-deref on SpellLevels.
-	For MS.MemorisingSpell = Each MemorisingSpell
+	Local MS.MemorisingSpell = First MemorisingSpell
+	Local MSNext.MemorisingSpell = Null
+	While MS <> Null
+		MSNext = After MS
 		If MilliSecs() - MS\CreatedTime > 6000
-			If MS\AI <> Null And MS\KnownNum >= 0 And MS\KnownNum <= 999
-				If MS\AI\SpellLevels[MS\KnownNum] > 0
-					For i = 0 To 9
-						If MS\AI\MemorisedSpells[i] = 5000
-							MS\AI\MemorisedSpells[i] = MS\KnownNum
-							MS\AI\SpellCharge[MS\KnownNum] = 0
-							Exit
-						EndIf
-					Next
+			If MS\AI <> Null
+				If MS\KnownNum >= 0 And MS\KnownNum <= 999
+					If MS\AI\SpellLevels[MS\KnownNum] > 0
+						For i = 0 To 9
+							If MS\AI\MemorisedSpells[i] = 5000
+								MS\AI\MemorisedSpells[i] = MS\KnownNum
+								MS\AI\SpellCharge[MS\KnownNum] = 0
+								Exit
+							EndIf
+						Next
+					EndIf
 				EndIf
 			EndIf
 			Delete MS
 		EndIf
-	Next
+		MS = MSNext
+	Wend
 
 	; Scripts
 		UpdateScripts()

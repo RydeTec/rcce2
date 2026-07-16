@@ -25,7 +25,15 @@ Function UpdateCombat()
 		; pathway, or simply a missed cleanup site). Treat a Null
 		; lookup the same as a dead target so the next deref doesn't
 		; crash UpdateCombat -- this runs every frame.
-		If A = Null Or A\Attributes\Value[HealthStat] < 1
+		If A = Null
+			PlayerTarget = 0
+			HideEntity(ActorSelectEN)			; Replace through clean function
+			DestroyCharInteractionWindow()
+			If useClickMovement then ShowEntity(ClickMarkerEN)			; Replace through clean function
+			Return
+		EndIf
+
+		If A\Attributes\Value[HealthStat] < 1
 			PlayerTarget = 0
 			HideEntity(ActorSelectEN)			; Replace through clean function
 			DestroyCharInteractionWindow()
@@ -68,13 +76,19 @@ Function UpdateCombat()
 		EndIf
 	EndIf
 
-	; Update blood spurts
-	For B.BloodSpurt = Each BloodSpurt
+	; BloodSpurts can expire together after a burst hit. Capture the next
+	; live-Type node before deleting the current one; a For-Each cursor would
+	; otherwise advance through the deleted instance and skip its sibling.
+	Local B.BloodSpurt = First BloodSpurt
+	Local BNext.BloodSpurt = Null
+	While B <> Null
+		BNext = After B
 		If MilliSecs() - B\Timer > 600
 			RP_KillEmitter(B\EmitterEN, False, False)
 			Delete(B)
 		EndIf
-	Next
+		B = BNext
+	Wend
 
 End Function
 

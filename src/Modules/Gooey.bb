@@ -219,9 +219,11 @@ End Type
 
 ; Removes all present gadgets
 Function GY_ClearGadgets()
-	For gadget.GY_Gadget = Each GY_Gadget
-		GY_FreeGadget(Handle(gadget))
-	Next
+	Local Gadget.GY_Gadget = First GY_Gadget
+	While Gadget <> Null
+		GY_FreeGadget(Handle(Gadget))
+		Gadget = First GY_Gadget
+	Wend
 End Function
 
 
@@ -3766,10 +3768,17 @@ Function GY_FreeGadget(GHandle)
 	G.GY_Gadget = Object.GY_Gadget(GHandle)
 	If G = Null Then Return False
 
-	; Free children
-	For Child.GY_Gadget = Each GY_Gadget
-		If Child\Parent = G Then GY_FreeGadget(Handle(Child))
-	Next
+	; Free children. Recursion can delete entries beyond the current cursor, so
+	; restart after a delete instead of advancing a stale For Each cursor.
+	Local Child.GY_Gadget = First GY_Gadget
+	While Child <> Null
+		If Child\Parent = G
+			GY_FreeGadget(Handle(Child))
+			Child = First GY_Gadget
+		Else
+			Child = After Child
+		EndIf
+	Wend
 
 	; If it's a window
 	If Object.GY_Window(G\TypeHandle) <> Null
@@ -4032,13 +4041,18 @@ End Function
 ; Unloads everything being used by Gooey
 Function GY_Unload()
 
-	; Free gadgets
-	For W.GY_Window = Each GY_Window
+	; Free gadgets. Each call deletes the current window/gadget Type, so restart
+	; from First rather than advancing a cursor through a deleted instance.
+	Local W.GY_Window = First GY_Window
+	While W <> Null
 		GY_FreeGadget(Handle(W\Gadget))
-	Next
-	For G.GY_Gadget = Each GY_Gadget
+		W = First GY_Window
+	Wend
+	Local G.GY_Gadget = First GY_Gadget
+	While G <> Null
 		GY_FreeGadget(Handle(G))
-	Next
+		G = First GY_Gadget
+	Wend
 
 	; Textures
 	FreeTexture(GY_Window)
@@ -5057,4 +5071,4 @@ End Function
 Function GYFovCam(Cam, xWidth, yHeight)
    Local FOV# = (2 * ATan(Tan((74) / 2) * xWidth / yHeight))
    CameraZoom(Cam, 1.0 / Tan(FOV# / 2))
-End Function 
+End Function
