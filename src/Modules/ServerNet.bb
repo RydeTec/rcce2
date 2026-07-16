@@ -2617,7 +2617,9 @@ Function UpdateNetwork()
 						; P_ChangePassword lets any party with the (broken-
 						; MD5) hash steal the account permanently.
 						If PwdLen >= 1 And A\Pass$ <> "" And VerifyPassword%(A\Pass$, Mid$(M\MessageData$, Offset + 1, PwdLen)) And RequesterOwnsAccountSession(A, M\FromID)
-							Offset = 2 + PwdLen
+							; Move past the current-password length byte and payload.
+							; Recomputing from PwdLen alone drops the username block.
+							Offset = Offset + 1 + PwdLen
 							PwdLen = RCE_IntFromStr(Mid$(M\MessageData$, Offset, 1))
 							; Store the new password in the v1 salted format
 							; immediately, not the raw client MD5.
