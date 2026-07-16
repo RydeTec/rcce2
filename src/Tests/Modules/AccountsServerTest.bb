@@ -29,10 +29,15 @@ Function SetGadgetText(parent%, text$)
 End Function
 
 Function CountGadgetItems(parent%)
-	Return 0
+	Return AccountsServerTest_ListItems
 End Function
 
 Function AddListBoxItem(parent%, text$)
+	AccountsServerTest_ListItems = AccountsServerTest_ListItems + 1
+End Function
+
+Function RemoveGadgetItem(parent%, index%)
+	If AccountsServerTest_ListItems > 0 Then AccountsServerTest_ListItems = AccountsServerTest_ListItems - 1
 End Function
 
 Function CreateWindow(title$, x%, y%, width%, height%, parent%, style%)
@@ -64,6 +69,8 @@ Function Desktop()
 End Function
 
 Global MySQL = False
+Global AccountsServerTest_ListItems = 0
+Global AccountsServerTest_CommitSucceeds = True
 
 ; Logging stubs so AccountsServer's SafeWrite/WriteLog calls resolve in this
 ; unit-test build. The real implementations live in Modules\Logging.bb but
@@ -78,7 +85,9 @@ Function SafeWriteOpen$(FinalPath$)
 End Function
 
 Function SafeWriteCommit%(TempPath$, FinalPath$, F)
-	Return True
+	CloseFile(F)
+	DeleteFile(TempPath$)
+	Return AccountsServerTest_CommitSucceeds
 End Function
 
 Function SafeWriteAbort(TempPath$, F)
@@ -90,6 +99,13 @@ End Function
 
 Include "Modules\PasswordHash.bb"
 Include "Modules\AccountsServer.bb"
+
+Function ResetAccountsServerTestState()
+	Delete Each Account
+	Accounts = New AccountsWindow()
+	AccountsServerTest_ListItems = 0
+	AccountsServerTest_CommitSucceeds = True
+End Function
 
 Test testFindAccountByListIDReturnsMatchingAccount()
 	Local firstAccount.Account = New Account()
@@ -158,4 +174,30 @@ End Test
 
 Test testFormatAccountListEntryLoggedInBannedGM()
 	Assert(FormatAccountListEntry$(True, True, 5, "alice", "alice@example.com") = "* [BAN][GM] alice  (alice@example.com)")
+End Test
+
+Test testAddAccountCommitsBeforeReportingSuccess()
+	ResetAccountsServerTestState()
+
+	Assert(AddAccount("alice", "0123456789abcdef0123456789abcdef", "alice@example.com") = True)
+	Local created.Account = First Account
+	Assert(created <> Null)
+	Assert(created\User$ = "alice")
+	Assert(Accounts\TotalAccounts = 1)
+	Assert(AccountsServerTest_ListItems = 1)
+
+	ResetAccountsServerTestState()
+End Test
+
+Test testAddAccountRollsBackWhenAtomicCommitFails()
+	ResetAccountsServerTestState()
+	AccountsServerTest_CommitSucceeds = False
+
+	Assert(AddAccount("alice", "0123456789abcdef0123456789abcdef", "alice@example.com") = False)
+	Local remaining.Account = First Account
+	Assert(remaining = Null)
+	Assert(Accounts\TotalAccounts = 0)
+	Assert(AccountsServerTest_ListItems = 0)
+
+	ResetAccountsServerTestState()
 End Test

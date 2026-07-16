@@ -38,11 +38,11 @@ pages is a per-iteration documentation task — see CONTRIBUTING.md.
 | ID | Packet | Direction | Server handler | Client handler | Detail |
 |---|---|---|---|---|---|
 | 1 | `P_CreateAccount` | C→S | [ServerNet.bb:2411](../../src/Modules/ServerNet.bb#L2411) | — | [P_CreateAccount](packets/P_CreateAccount.md) |
-| 2 | `P_VerifyAccount` | C→S | [ServerNet.bb:2465](../../src/Modules/ServerNet.bb#L2465) | — | [P_VerifyAccount](packets/P_VerifyAccount.md) |
-| 3 | `P_FetchCharacter` | C→S | [ServerNet.bb:2670](../../src/Modules/ServerNet.bb#L2670) | — | — |
-| 4 | `P_CreateCharacter` | C→S | [ServerNet.bb:2794](../../src/Modules/ServerNet.bb#L2794) | — | — |
-| 5 | `P_DeleteCharacter` | C→S | [ServerNet.bb:3031](../../src/Modules/ServerNet.bb#L3031) | — | — |
-| 6 | `P_ChangePassword` | C→S | [ServerNet.bb:2600](../../src/Modules/ServerNet.bb#L2600) | — | [P_ChangePassword](packets/P_ChangePassword.md) |
+| 2 | `P_VerifyAccount` | C→S | [ServerNet.bb:2467](../../src/Modules/ServerNet.bb#L2467) | — | [P_VerifyAccount](packets/P_VerifyAccount.md) |
+| 3 | `P_FetchCharacter` | C→S | [ServerNet.bb:2672](../../src/Modules/ServerNet.bb#L2672) | — | — |
+| 4 | `P_CreateCharacter` | C→S | [ServerNet.bb:2796](../../src/Modules/ServerNet.bb#L2796) | — | — |
+| 5 | `P_DeleteCharacter` | C→S | [ServerNet.bb:3033](../../src/Modules/ServerNet.bb#L3033) | — | — |
+| 6 | `P_ChangePassword` | C→S | [ServerNet.bb:2602](../../src/Modules/ServerNet.bb#L2602) | — | [P_ChangePassword](packets/P_ChangePassword.md) |
 | 7 | `P_FetchActors` | C→S | [ServerNet.bb:2303](../../src/Modules/ServerNet.bb#L2303) | — | — |
 | 8 | `P_FetchItems` | Unused | — | — | — |
 | 9 | `P_ChangeArea` | Both | [ServerNet.bb:768](../../src/Modules/ServerNet.bb#L768) | [ClientNet.bb:1648](../../src/Modules/ClientNet.bb#L1648) | — |
