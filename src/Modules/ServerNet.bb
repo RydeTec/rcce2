@@ -2449,10 +2449,12 @@ Function UpdateNetwork()
 						If Valid = True
 							If MySQL = True
 								//My_AddAccount(Username$, Password$, Email$)
+								RCE_Send(Host, M\FromID, P_CreateAccount, "Y", True)
+							ElseIf AddAccount(Username$, Password$, Email$)
+								RCE_Send(Host, M\FromID, P_CreateAccount, "Y", True)
 							Else
-								AddAccount(Username$, Password$, Email$)
+								RCE_Send(Host, M\FromID, P_CreateAccount, "N", True)
 							EndIf
-							RCE_Send(Host, M\FromID, P_CreateAccount, "Y", True)
 						Else
 							RCE_Send(Host, M\FromID, P_CreateAccount, "N", True)
 						EndIf

@@ -149,7 +149,7 @@ This function changes whether or not an account is flagged as banned. It calls [
 
 **AddAccount(User$, Pass$, Email$)**  
   
-Return value: None  
+Return value: Success flag
   
 Parameters:  
 
@@ -158,7 +158,7 @@ Parameters:
 *   _Email$_ - Email address for the new account
 
   
-This function creates a new Account object, sets its initial values, adds the new account to the server's Accounts window, and appends it to the Accounts.dat file.
+This function creates a new Account object, sets its initial values, and adds it to the server's Accounts window. It then saves the complete account set through `SaveAccounts`' atomic v1 writer. It returns True only after that commit succeeds; on failure it removes the new account and its list/count changes so callers can report that registration did not persist.
 
   
   

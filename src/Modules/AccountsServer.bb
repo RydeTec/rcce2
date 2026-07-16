@@ -190,7 +190,7 @@ End Function
 ; Creates a new account. Pass$ is the client-supplied MD5; we wrap it
 ; in the v1 salted-SHA-256 storage format so the on-disk record is
 ; not directly replayable on the wire.
-Function AddAccount(User$, Pass$, Email$)
+Function AddAccount%(User$, Pass$, Email$)
 
 	; Create account
 	A.Account = New Account
@@ -203,14 +203,18 @@ Function AddAccount(User$, Pass$, Email$)
 	Accounts\TotalAccounts = Accounts\TotalAccounts + 1
 	SetGadgetText(Accounts\AccountsLabel, "Total accounts: " + Str(Accounts\TotalAccounts))
 
-	; Add to accounts file
-	F = OpenFile("Data\Server Data\Accounts.dat")
-	SeekFile(F, FileSize("Data\Server Data\Accounts.dat"))
-		WriteString F, A\User$
-		WriteString F, A\Pass$
-		WriteString F, A\Email$
-		WriteByte F, 0
-	CloseFile(F)
+	; New records must use the same atomic v1 writer as every other account
+	; save. Appending the legacy four-field layout after a v1 file corrupts
+	; the next restart because LoadAccounts expects the full v1 record.
+	If SaveAccounts() Then Return True
+
+	; The write did not commit, so remove every transient record/UI change
+	; before the caller reports failure to the registering client.
+	RemoveGadgetItem(Accounts\List, A\ListID)
+	Accounts\TotalAccounts = Accounts\TotalAccounts - 1
+	SetGadgetText(Accounts\AccountsLabel, "Total accounts: " + Str(Accounts\TotalAccounts))
+	Delete A
+	Return False
 
 End Function
 
