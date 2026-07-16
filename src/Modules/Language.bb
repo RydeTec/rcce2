@@ -334,13 +334,13 @@ Function RestoreLanguage(Filename$)
 	; Load the present language file to restore the whole system
 	LoadLanguage("Data\Game Data\Language.txt")
 	
-	Local F% = WriteFile(Filename$)
+	Local Temp$ = SafeWriteOpen$(Filename$)
+	Local F% = WriteFile(Temp$)
 	If F = 0 Then Return False
 	For i = 0 To MaxLanguageString
 		WriteLine( F, LanguageString$(i) )
 	Next
 	
-	CloseFile(F)
-	Return True
+	Return SafeWriteCommit%(Temp$, Filename$, F)
 	
 End Function
