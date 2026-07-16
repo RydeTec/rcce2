@@ -298,8 +298,8 @@ Function VerifyPassword%(Stored$, ClientMD5$)
 	Return ConstantTimeStrEq%(Stored, ClientMD5)
 End Function
 
-; True iff Stored is in the legacy plain-MD5 format and should be
-; upgraded to v1 on next save.
+; True iff Stored is in the legacy plain-MD5 format and an authenticated
+; caller must attempt the durable v1 migration boundary.
 Function PasswordIsLegacy%(Stored$)
 	If Len(Stored) = 0 Then Return False
 	If Left$(Stored, Len(PWHASH_VERSION_TAG)) = PWHASH_VERSION_TAG Then Return False
