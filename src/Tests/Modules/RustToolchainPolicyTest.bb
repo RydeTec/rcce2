@@ -43,7 +43,9 @@ Test testDeclaredMSRVIsPinnedWithClippy()
 End Test
 
 Test testRustCIUsesPolicyAndInvalidatesCachesWhenItChanges()
-	Assert(FileOccurrenceCount%(".github\workflows\ci.yml", "uses: dtolnay/rust-toolchain@1.85.0") = 2)
+	; The explicit 1.85.0 setup steps stay pinned to their reviewed action
+	; revision; the step names below retain the human-readable Rust policy.
+	Assert(FileOccurrenceCount%(".github\workflows\ci.yml", "uses: dtolnay/rust-toolchain@98effd2fc0b766278e30ab86762dd5e9a8531399") = 2)
 	Assert(FileContains%(".github\workflows\ci.yml", "- name: Report Rust toolchain (client)") = True)
 	Assert(FileContains%(".github\workflows\ci.yml", "- name: Report Rust toolchain (server)") = True)
 	Assert(FileContains%(".github\workflows\ci.yml", "key: cargo-${{ runner.os }}-${{ hashFiles('client-rs/Cargo.lock', 'rust-toolchain.toml') }}") = True)
