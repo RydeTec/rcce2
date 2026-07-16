@@ -195,6 +195,9 @@ jobs:
         working-directory: server-rs
         run: cargo test --workspace --locked
 
+      - name: Build Rust server Docker image
+        run: docker build -f server-rs/Dockerfile -t rcce-server .
+
       - name: Clippy (server workspace, -D warnings)
         working-directory: server-rs
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
