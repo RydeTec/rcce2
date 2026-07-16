@@ -77,7 +77,7 @@ Byte   RStart, GStart, BStart                   ; initial colour
 Float  RChange, GChange, BChange                ; per-frame colour delta
 ```
 
-**Format note — not SafeWrite.** `RP_SaveEmitterConfig` uses plain `WriteFile` ([`RottParticles.bb:1126`](../../src/Modules/RottParticles.bb#L1126)) — no atomic-rename, no `.bak` retention. A crash mid-save leaves a truncated `.rpc`; subsequent loads `ReadInt` past EOF and get zero-filled fields (Blitz3D doesn't error on past-EOF reads). This is a known candidate for a `SafeWriteOpen` / `SafeWriteCommit` migration following the [`reference_safewrite_migration_template.md`](../../../../.claude/projects/C--Users-dyanr-Desktop-rcce2/memory/reference_safewrite_migration_template.md) pattern. Not yet done.
+**Format note — recovery-safe save.** `RP_SaveEmitterConfig` writes the unchanged positional payload to the temporary path returned by `SafeWriteOpen$`, then finishes through `SafeWriteCommit%`. A crash mid-save therefore cannot replace the prior `.rpc` with a truncated file; the helper retains a `.bak` recovery copy until the completed temporary payload is promoted. `RP_LoadEmitterConfig` still reads the same 40 fields in the same order.
 
 **`Name$`** is derived from the file path at load time (`RP_LoadEmitterConfig` strips the directory and extension at [`RottParticles.bb:1188-1195`](../../src/Modules/RottParticles.bb#L1188)) — it's not persisted in the file. Save preserves the path-derived name on load round-trips.
 
@@ -86,9 +86,9 @@ Float  RChange, GChange, BChange                ; per-frame colour delta
 | Function | Behavior |
 |---|---|
 | `RP_KillEmitter(ID, FreeConfig=False, FreeTex=False)` | **Graceful.** Sets `E\KillMode = 1..4` depending on the flag combination; `RP_Update` then waits for `ActiveParticles = 0` (i.e. every live particle to finish its lifetime) before invoking `RP_FreeEmitter` with the same flag combination. Use this for visual continuity — particles already in flight complete their animation. The 4 modes encode the (FreeConfig, FreeTex) pair: 1=(F,F), 2=(T,T), 3=(T,F), 4=(F,T). |
-| `RP_FreeEmitter(ID, FreeConfig=False, FreeTex=False)` | **Hard.** Immediately deletes every `RP_Particle` belonging to this emitter, frees the `MeshEN` + `EmitterEN` Blitz entities, and `Delete`s the `RP_Emitter`. Optionally frees the config (`FreeConfig=True`) and texture (`FreeTex=True`). Use this when the emitter must vanish immediately (e.g. zone change, player disconnect). |
+| `RP_FreeEmitter(ID, FreeConfig=False, FreeTex=False)` | **Hard.** Immediately deletes every `RP_Particle` belonging to this emitter, frees the `MeshEN` + `EmitterEN` Blitz entities, and `Delete`s the `RP_Emitter`. Its particle teardown captures the next particle before a possible delete, so every owned particle is visited safely. Optionally frees the config (`FreeConfig=True`) and texture (`FreeTex=True`). Use this when the emitter must vanish immediately (e.g. zone change, player disconnect). |
 | `RP_FreeEmitterConfig(ID, FreeTex)` | Free a config — but defensively walks every other config sharing the same `Texture` handle and zeros their `Texture` field before `FreeTexture`, so a shared texture isn't yanked out from under a sibling config. Same defensive walk in `RP_FreeEmitter(ID, FreeConfig=False, FreeTex=True)`. |
-| `RP_Clear(Configs=True, Textures=True)` | Frees **every** live emitter using the after-cursor pattern. Same hazard as `RP_Update`'s emitter walk — `RP_FreeEmitter` is called mid-iteration, so `ENext = After E` capture is required. The audit comment at [`RottParticles.bb:1403-1406`](../../src/Modules/RottParticles.bb#L1403) documents the trigger (zone change with multiple active emitters). |
+| `RP_Clear(Configs=True, Textures=True)` | Frees **every** live emitter using the after-cursor pattern. Same hazard as `RP_Update`'s emitter walk — `RP_FreeEmitter` is called mid-iteration, so `ENext = After E` capture is required. The audit comment at [`RottParticles.bb:1410-1413`](../../src/Modules/RottParticles.bb#L1410) documents the trigger (zone change with multiple active emitters). |
 
 ### `RP_Config*` setter family — ~40 functions
 
@@ -107,10 +107,10 @@ Three shape-specific setters (`RP_ConfigShapeSphere`, `RP_ConfigShapeCylinder`, 
 - **Use `RP_KillEmitter` over `RP_FreeEmitter` for player-visible effects** — particles in flight should complete their lifetimes for visual continuity. Hard-free is for hard-cut transitions (zone change, disconnect).
 - **`Object.RP_Emitter(EntityName$(ID))` is the lookup for runtime emitter handles**; `Object.RP_EmitterConfig(ID)` is the lookup for config handles. Don't accidentally use `Object.RP_Emitter(ID)` directly with a config ID — it will return Null because the EntityName$ indirection is the contract.
 - **The 40-field `.rpc` schema is positional.** Adding a new field requires updating `RP_SaveEmitterConfig`, `RP_LoadEmitterConfig`, *and* the `RP_CopyEmitterConfig` deep-copy at [`RottParticles.bb:1045-1098`](../../src/Modules/RottParticles.bb#L1045). Missing any one drops the field on save / round-trip.
-- **`RP_Particle` instances are recycled during normal per-frame operation, not freed.** The `InUse = False` flag is the "dead" state, and `RP_SpawnParticle` flips it back to `True` for a respawn. The exception is emitter teardown — `RP_FreeEmitter` ([`RottParticles.bb:1390-1392`](../../src/Modules/RottParticles.bb#L1390)) walks `For P = Each RP_Particle / If P\E = E Then Delete P`, deleting every particle owned by the dying emitter. New per-particle fields that need a reset on respawn should be reset in `RP_SpawnParticle` ([`RottParticles.bb:241`](../../src/Modules/RottParticles.bb#L241)), not in `RP_CreateParticle` (which runs once at slot pre-allocation in `RP_CreateEmitter`).
+- **`RP_Particle` instances are recycled during normal per-frame operation, not freed.** The `InUse = False` flag is the "dead" state, and `RP_SpawnParticle` flips it back to `True` for a respawn. The exception is emitter teardown — `RP_FreeEmitter` ([`RottParticles.bb:1393-1399`](../../src/Modules/RottParticles.bb#L1393)) uses a `First / After / While` walk, capturing the next particle before deleting an owned one so every particle is visited safely. New per-particle fields that need a reset on respawn should be reset in `RP_SpawnParticle` ([`RottParticles.bb:241`](../../src/Modules/RottParticles.bb#L241)), not in `RP_CreateParticle` (which runs once at slot pre-allocation in `RP_CreateEmitter`).
 - **Both `RP_Update`'s emitter walk and `RP_Clear` use the after-cursor pattern.** Any new function that walks `For Each RP_Emitter` AND can free emitters mid-walk must do the same `First / After / While <> Null` shape.
 - **The texture-share defensive walk** in `RP_FreeEmitterConfig` and `RP_FreeEmitter(..., FreeTex=True)` is the canonical pattern for "free a resource that might be shared across siblings." Replicate it if you add another shared-resource field.
-- **`RP_SaveEmitterConfig` is a SafeWrite migration candidate.** Direct `WriteFile` to production path is the legacy shape; adopting `SafeWriteOpen` / `SafeWriteCommit` would close the truncated-on-crash failure mode. Follow the memory template.
+- **`RP_SaveEmitterConfig` uses the SafeWrite helper.** It preserves the existing 40-field payload while a failed or interrupted save retains a recovery path instead of exposing a partial replacement.
 
 ## Related modules
 
@@ -119,12 +119,12 @@ Three shape-specific setters (`RP_ConfigShapeSphere`, `RP_ConfigShapeCylinder`, 
 - [`Media.bb`](media.md) — provides the underlying `Texture` handles consumed by `RP_ConfigTexture`. `RP_FreeEmitterConfig` calls Blitz `FreeTexture` directly, not `UnloadTexture` — so freeing an emitter's texture does **not** clear `Media.bb`'s `LoadedTextures(ID)` cache slot. This is a known asymmetry; consumers who want full media-cache invalidation must call `UnloadTexture` themselves afterward.
 - [`Client.bb`](../../src/Client.bb) — calls `RP_Update(Delta)` once per main-loop frame.
 - [`Server.bb`](../../src/Server.bb) — also calls `RP_Update` for any server-side emitters (rare; mostly client-only feature).
-- [`Logging.bb`](logging.md) — provides `SafeWriteOpen` / `SafeWriteCommit` (not yet adopted here — see migration candidate above).
+- [`Logging.bb`](logging.md) — provides the `SafeWriteOpen` / `SafeWriteCommit` recovery-safe save path used by `RP_SaveEmitterConfig`.
 
 ## See also
 
 - CLAUDE.md → "Iterator-during-iteration hazards" — `RP_Update` and `RP_Clear` are canonical after-cursor examples.
-- CLAUDE.md → "Atomic writes" — `RP_SaveEmitterConfig` is a candidate migration site.
+- CLAUDE.md → "Atomic writes" — `RP_SaveEmitterConfig` follows the established SafeWrite persistence contract.
 - CLAUDE.md → "Float sanitisation at the BVM / wire boundary" — `RP_SetParticleFrame`'s `/0` guard is the same family of defenses.
 - [`projectiles3d.md`](projectiles3d.md) — the canonical consumer.
 
@@ -136,7 +136,7 @@ The module exports 55 functions across the families: 1 update loop (`RP_Update`)
 
 ### <a id="rp_saveemitterconfig"></a>`RP_SaveEmitterConfig(ID, File$)`
 
-Write the config to `File$` (typically `.rpc` extension under `Data\Emitter Configs\`). Returns `True` on success, `False` on bad ID or `WriteFile` failure. **Not atomic** — see migration candidate note above.
+Write the config to `File$` (typically `.rpc` extension under `Data\Emitter Configs\`). Returns the result of `SafeWriteCommit` after writing the unchanged 40-field payload to a temporary file; returns `False` on bad ID, temporary `WriteFile` failure, or a failed commit.
 
 ### <a id="rp_loademitterconfig"></a>`RP_LoadEmitterConfig(File$, Texture, FaceEntity)`
 

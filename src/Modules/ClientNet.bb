@@ -675,15 +675,22 @@ Function UpdateNetwork()
 					EndIf
 				EndIf
 
-			; Screen flash
-			Case P_ScreenFlash
-				Red = RCE_IntFromStr(Mid$(M\MessageData$, 1, 1))
-				Green = RCE_IntFromStr(Mid$(M\MessageData$, 2, 1))
-				Blue = RCE_IntFromStr(Mid$(M\MessageData$, 3, 1))
-				Alpha# = RCE_IntFromStr(Mid$(M\MessageData$, 4, 1)) / 255.0
-				Length = RCE_IntFromStr(Mid$(M\MessageData$, 5, 4))
-				TexID = RCE_IntFromStr(Mid$(M\MessageData$, 9, 2))
-				ScreenFlash(Red, Green, Blue, TexID, Length, Alpha#)
+				; Screen flash
+				Case P_ScreenFlash
+					; P_ScreenFlash is fixed-width: RGB + alpha + duration + texture.
+					; Mid$ returns an empty string past the payload, which decodes as
+					; zero and would turn a truncated packet into a zero-alpha flash.
+					If Len(M\MessageData$) < 11 Then
+						; Drop malformed cosmetic effects instead of disturbing the render loop.
+					Else
+						Red = RCE_IntFromStr(Mid$(M\MessageData$, 1, 1))
+						Green = RCE_IntFromStr(Mid$(M\MessageData$, 2, 1))
+						Blue = RCE_IntFromStr(Mid$(M\MessageData$, 3, 1))
+						Alpha# = RCE_IntFromStr(Mid$(M\MessageData$, 4, 1)) / 255.0
+						Length = RCE_IntFromStr(Mid$(M\MessageData$, 5, 4))
+						TexID = RCE_IntFromStr(Mid$(M\MessageData$, 9, 2))
+						ScreenFlash(Red, Green, Blue, TexID, Length, Alpha#)
+					EndIf
 
 			; Received XP points, or somebody got a level-up
 			Case P_XPUpdate
@@ -1563,11 +1570,15 @@ Function UpdateNetwork()
 				If A <> Null
 					If A <> Me
 						; Free projectiles targeted at this actor
-						For ProjI.ProjectileInstance = Each ProjectileInstance
-							If ProjI\Target = A
-								FreeProjectileInstance(ProjI)
+						Local ActorProjI.ProjectileInstance = First ProjectileInstance
+						Local ActorProjINext.ProjectileInstance = Null
+						While ActorProjI <> Null
+							ActorProjINext = After ActorProjI
+							If ActorProjI\Target = A
+								FreeProjectileInstance(ActorProjI)
 							EndIf
-						Next
+							ActorProjI = ActorProjINext
+						Wend
 						
 						;Actor shadows Cysis145
 						FreeShadowCaster% (A\EN)
@@ -1684,9 +1695,13 @@ Function UpdateNetwork()
 					Next
 
 					; Remove all in-flight projectiles
-					For ProjI.ProjectileInstance = Each ProjectileInstance
-						FreeProjectileInstance(ProjI)
-					Next
+					Local AreaProjI.ProjectileInstance = First ProjectileInstance
+					Local AreaProjINext.ProjectileInstance = Null
+					While AreaProjI <> Null
+						AreaProjINext = After AreaProjI
+						FreeProjectileInstance(AreaProjI)
+						AreaProjI = AreaProjINext
+					Wend
 
 					; Save radar state
 					If OldAreaName$ <> "" Then Save_Radar_Fog(RadarPath$ + Me\Name$ + "-" + OldAreaName$ + ".rdr")

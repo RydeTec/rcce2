@@ -252,7 +252,8 @@ End Function
 ; Saves control bindings
 Function SaveControlBindings(Filename$)
 
-	F = WriteFile(Filename$)
+	Local Temp$ = SafeWriteOpen$(Filename$)
+	F = WriteFile(Temp$)
 	If F = 0 Then Return False
 
 		WriteInt(F, Key_Forward)
@@ -277,8 +278,7 @@ Function SaveControlBindings(Filename$)
 		WriteInt(F, Key_TalkTo)
 		WriteInt(F, Key_Select)
 
-	CloseFile(F)
-	Return True
+	Return SafeWriteCommit%(Temp$, Filename$, F)
 
 End Function
 

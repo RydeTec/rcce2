@@ -1,110 +1,80 @@
 Strict
 EnableGC
 
-; Regression test pinning the stale-handle Null discipline at the
-; underwater-damage re-lookup site in GameServer.bb's
-; UpdateActorInstances loop (~line 772-820).
-;
-; Pre-fix bug shape:
-;
-;   ; initial scan captures Handle to the matched ServerWater
-;   Underwater = Handle(SW)
-;   ; ... breath/damage logic ticks once per second ...
-;   ElseIf MilliSecs() - AI\Underwater >= 1000
-;       AI\Underwater = AI\Underwater + 1000
-;       SW = Object.ServerWater(Underwater)    ; could return Null!
-;       ...
-;       If SW\Damage > 0                       ; <-- crash here
-;
-; Window: the SW was live at initial scan, but >=1s elapsed before
-; the per-second damage branch fires. If the owning Area was
-; ServerUnloadArea'd, or the water was explicitly Deleted, in that
-; window, Object.ServerWater returns Null and the unguarded deref
-; takes down the server -- every actor underwater is at risk every
-; tick.
-;
-; Post-fix posture: `SW <> Null` guard on the damage branch. Breath
-; loss still runs (AI-state-only, doesn't read SW); only the damage
-; block (which reads SW\Damage / SW\DamageType) is gated. The next
-; tick either re-picks a new water via the initial scan or clears
-; AI\Underwater via the no-hit path.
-;
-; GameServer.bb pulls actor / packet / world graph and can't be
-; Included into a Strict test build. Following the established
-; replicated-gate pattern (AccountEnumerationTest, BVMPrivilegeGateTest,
-; WireParameterHardeningTest), the gate predicate is replicated
-; below. A production change MUST update both copies; the duplication
-; is the trigger to refresh the test rationale.
+; GameServer owns the server actor/world graph, so this focused source
+; contract protects the delayed ServerWater re-lookup without loading that
+; graph into the headless test harness. BlitzForge And is non-short-circuit:
+; the Null branch and the SW field read must therefore be separate nested Ifs.
 
-; --- Replicated gate predicate --------------------------------------
-
-; Returns True iff the damage branch should run -- i.e., the
-; re-resolved ServerWater is still live AND damages.
-;
-; SW_IsNull     : True iff Object.ServerWater(Underwater) returned Null
-; SW_Damage     : the SW\Damage field value (0 means no damage)
-Function UnderwaterDamageBranchShouldRun%(SW_IsNull%, SW_Damage%)
-	If SW_IsNull = True Then Return False
-	If SW_Damage <= 0 Then Return False
-	Return True
+Function LeadingTabs%(Line$)
+	Local Count%, Pos% = 1
+	While Pos <= Len(Line$)
+		If Mid$(Line$, Pos, 1) <> Chr$(9) Then Exit
+		Count = Count + 1
+		Pos = Pos + 1
+	Wend
+	Return Count
 End Function
 
-; ====================================================================
-; Positive cases -- live water with damage
-; ====================================================================
+Function HasSafeDelayedWaterDamageGuard%(Path$)
+	Local F.BBStream = ReadFile(Path$)
+	Local Line$, Trimmed$
+	Local Stage%, GuardIndent%
+	If F = Null Then F = ReadFile("..\" + Path$)
+	If F = Null Then F = ReadFile("..\..\" + Path$)
+	If F = Null Then Return False
 
-Test testLiveDamagingWaterRuns()
-	; Standard hazard water: live handle, positive damage.
-	Assert(UnderwaterDamageBranchShouldRun%(False, 5) = True)
-End Test
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		Trimmed$ = Trim$(Line$)
+		If Instr(Trimmed$, "If SW <> Null And") > 0
+			CloseFile F
+			Return False
+		EndIf
+		Select Stage
+			Case 0
+				If Instr(Line$, "SW = Object.ServerWater(Underwater)") > 0 Then Stage = 1
+			Case 1
+				If Trimmed$ = "If SW <> Null"
+					GuardIndent = LeadingTabs(Line$)
+					Stage = 2
+				ElseIf Left$(Trimmed$, 1) <> ";" And Instr(Line$, "SW\Damage") > 0
+					CloseFile F
+					Return False
+				EndIf
+			Case 2
+				If Trimmed$ = "If SW\Damage > 0"
+					If LeadingTabs(Line$) <> GuardIndent + 1
+						CloseFile F
+						Return False
+					EndIf
+					Stage = 3
+				ElseIf Left$(Trimmed$, 1) <> ";" And Instr(Line$, "SW\Damage") > 0
+					CloseFile F
+					Return False
+				EndIf
+			Case 3
+				If Instr(Line$, "Damage = SW\Damage - (AI\Resistances[SW\DamageType] - 100)") > 0
+					If LeadingTabs(Line$) <> GuardIndent + 2
+						CloseFile F
+						Return False
+					EndIf
+					Stage = 4
+				EndIf
+			Case 4
+				If Trimmed$ = "EndIf" And LeadingTabs(Line$) = GuardIndent + 1 Then Stage = 5
+			Case 5
+				If Trimmed$ = "EndIf" And LeadingTabs(Line$) = GuardIndent
+					CloseFile F
+					Return True
+				EndIf
+		End Select
+	Wend
 
-Test testLiveDamagingWaterMinimumDamageRuns()
-	; Damage = 1 -- the minimum positive value still triggers.
-	Assert(UnderwaterDamageBranchShouldRun%(False, 1) = True)
-End Test
+	CloseFile F
+	Return False
+End Function
 
-; ====================================================================
-; Negative cases -- live but non-damaging
-; ====================================================================
-
-Test testLiveZeroDamageDoesNotRun()
-	; Live water but Damage = 0. Pre-fix and post-fix: branch is
-	; skipped (the SW\Damage > 0 inner check rejects). Pinned so a
-	; future refactor doesn't accidentally fire damage on every
-	; benign water tile.
-	Assert(UnderwaterDamageBranchShouldRun%(False, 0) = False)
-End Test
-
-Test testLiveNegativeDamageDoesNotRun()
-	; Hypothetical: a SW\Damage = -3 (corrupted area file, future
-	; admin tooling). The branch must not fire -- the original
-	; `If SW\Damage > 0` check is what filters this.
-	Assert(UnderwaterDamageBranchShouldRun%(False, -1) = False)
-End Test
-
-; ====================================================================
-; Negative cases -- STALE HANDLE (the load-bearing test)
-; ====================================================================
-
-Test testStaleHandleNullDoesNotRun()
-	; The exact pre-fix crash shape: Object.ServerWater returned
-	; Null because the water was Deleted in the 1s breath window.
-	; Pre-fix: branch ran anyway and `SW\Damage` Null-deref'd the
-	; server. Post-fix: `SW <> Null` rejects before any field read.
-	Assert(UnderwaterDamageBranchShouldRun%(True, 5) = False)
-End Test
-
-Test testStaleHandleZeroDamageDoesNotRun()
-	; SW_Damage value here is meaningless (SW is Null, can't read
-	; a field on it). But pin that the Null branch short-circuits
-	; before the damage check even runs.
-	Assert(UnderwaterDamageBranchShouldRun%(True, 0) = False)
-End Test
-
-Test testStaleHandleHighDamageDoesNotRun()
-	; Stress: even a high reported damage value can't override the
-	; Null gate. This case is unreachable in production (SW is Null
-	; means SW\Damage can't be read), but the predicate's Null gate
-	; must be unconditional.
-	Assert(UnderwaterDamageBranchShouldRun%(True, 9999) = False)
+Test testDelayedWaterDamageGuardsStaleServerWater()
+	Assert(HasSafeDelayedWaterDamageGuard%("src\Modules\GameServer.bb") = True)
 End Test

@@ -67,14 +67,16 @@ RealmCrafter was one of the earliest tools that let solo developers and small te
 
 ## Quick start
 
-### Install a release (recommended)
+### Install a release (Windows)
 
-1. Grab the latest build for your OS from [**Releases**](https://github.com/RydeTec/rcce2/releases/latest).
+1. Windows users can grab the latest release from [**Releases**](https://github.com/RydeTec/rcce2/releases/latest).
 2. Unzip it.
-3. Launch **Project Manager** (`Project Manager.exe` on Windows, `Project Manager` on macOS).
+3. Launch **Project Manager** (`Project Manager.exe`).
 4. Open the bundled sample project, hit **Run Server**, then **Run Client**.
 
-> **macOS users — alpha.** RCCE produces native Apple Silicon binaries via [BlitzForge's macOS port](compiler/BlitzForge#macos-apple-silicon--alpha), which is currently **alpha**: the runtime path is incomplete, many language and standard-library features are not yet wired up, and breakage is expected. Use the macOS build for development and feedback, not for shipping a game. See [macOS Apple Silicon notes](docs/macos-apple-silicon.md) for the current source-build flow and compatibility caveats.
+### macOS (Apple Silicon, alpha)
+
+macOS currently has no downloadable release package. Build from source using the [macOS Apple Silicon notes](docs/macos-apple-silicon.md). RCCE produces native Apple Silicon binaries via [BlitzForge's macOS port](compiler/BlitzForge#macos-apple-silicon--alpha), which is currently **alpha**: the runtime path is incomplete, many language and standard-library features are not yet wired up, and breakage is expected. Use the macOS build for development and feedback, not for shipping a game.
 
 ### Build from source
 

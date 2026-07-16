@@ -31,7 +31,9 @@ End Type
 Function SendChatHelp(AI.ActorInstance, Topic$)
 	Local IsDM% = False
 	A.Account = Object.Account(AI\Account)
-	If A <> Null And A\IsDM = True Then IsDM = True
+	If A <> Null
+		If A\IsDM = True Then IsDM = True
+	EndIf
 
 	; Detail mode: /help <command>
 	Local T$ = Upper$(Trim$(Topic$))
@@ -203,7 +205,8 @@ Function UpdateNetwork()
 								; Stale Account handle (mid-logout, freed account) returns
 								; Null from Object.Account -- bare A\IsDM crashes the server
 								; from a chat command. Guard every /command's DM gate.
-								If A <> Null And A\IsDM = True
+							If A <> Null
+								If A\IsDM = True
 									A2.ActorInstance = FindActorInstanceFromName(Params$)
 									If A2 <> Null 
 										If A2\RNID > 0
@@ -213,6 +216,7 @@ Function UpdateNetwork()
 										EndIf
 									EndIf
 								EndIf
+							EndIf
 							Case LanguageString$(LS_SCUnIgnore)
 								A2.ActorInstance = FindActorInstanceFromName(Params$)
 								If A2 <> Null And A2 <> AI
@@ -247,7 +251,8 @@ Function UpdateNetwork()
 								EndIf
 							Case LanguageString$(LS_SCNetDump)
 								A.Account = Object.Account(AI\Account)
-								If A <> Null And LogNetwork = False And A\IsDM = True
+							If A <> Null
+								If LogNetwork = False And A\IsDM = True
 									RCE_Send(Host, AI\RNID, P_ChatMessage, Chr$(254) + "Starting new net dump...", True)
 									L = StartLog("Network Data Dump")
 										WriteLog(L, "Starting new net dump...", True, True)
@@ -257,6 +262,7 @@ Function UpdateNetwork()
 									;LogNetworkBytesIn = RCE_BytesReceived(Host)
 									;LogNetworkBytesOut = RCE_BytesSent(Host)
 								EndIf
+							EndIf
 							Case LanguageString$(LS_SCPet)
 								If AI\NumberOfSlaves > 0
 									Name$ = Upper$(Trim$(Split$(Params$, 1, ",")))
@@ -335,10 +341,13 @@ Function UpdateNetwork()
 								EndIf
 							Case LanguageString$(LS_SCXP)
 								A.Account = Object.Account(AI\Account)
-								If A <> Null And A\IsDM = True Then GiveXP(AI, Int(Params$))
+							If A <> Null
+								If A\IsDM = True Then GiveXP(AI, Int(Params$))
+							EndIf
 							Case LanguageString$(LS_SCGold)
 								A.Account = Object.Account(AI\Account)
-								If A <> Null And A\IsDM = True
+							If A <> Null
+								If A\IsDM = True
 									Change = Int(Params$)
 									AI\Gold = AI\Gold + Change
 									If Change > 0
@@ -348,9 +357,11 @@ Function UpdateNetwork()
 									EndIf
 									RCE_Send(Host, AI\RNID, P_GoldChange, Pa$, True)
 								EndIf
+							EndIf
 							Case LanguageString$(LS_SCSetAttribute)
 								A.Account = Object.Account(AI\Account)
-								If A <> Null And A\IsDM = True
+							If A <> Null
+								If A\IsDM = True
 									Attribute = FindAttribute(Split$(Params$, 1, ","))
 									If Attribute > -1
 										If Attribute = HealthStat Or Attribute = SpeedStat Or Attribute = EnergyStat
@@ -362,9 +373,11 @@ Function UpdateNetwork()
 										EndIf
 									EndIf
 								EndIf
+							EndIf
 							Case LanguageString$(LS_SCSetAttributeMax)
 								A.Account = Object.Account(AI\Account)
-								If A <> Null And A\IsDM = True
+							If A <> Null
+								If A\IsDM = True
 									Attribute = FindAttribute(Split$(Params$, 1, ","))
 									If Attribute > -1
 										If Attribute = HealthStat Or Attribute = SpeedStat Or Attribute = EnergyStat
@@ -376,9 +389,11 @@ Function UpdateNetwork()
 										EndIf
 									EndIf
 								EndIf
+							EndIf
 							Case LanguageString$(LS_SCScript)
 								A.Account = Object.Account(AI\Account)
-								If A <> Null And A\IsDM = True
+							If A <> Null
+								If A\IsDM = True
 									Name$ = Trim$(Split$(Params$, 1, ","))
 									Func$ = Trim$(Split$(Params$, 2, ","))
 									; Privileged=1: this code path has verified
@@ -387,6 +402,7 @@ Function UpdateNetwork()
 									; BVM_RequirePrivileged().
 									ThreadScript(Name$, Func$, Handle(AI), 0, "", 1)
 								EndIf
+							EndIf
 							Case LanguageString$(LS_SCMe)
 								Pa$ = Chr$(252) + "* " + AI\Name$ + " " + Params$
 								AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea)
@@ -427,17 +443,21 @@ Function UpdateNetwork()
 							; body was already coded against.
 							Case LanguageString$(LS_SCGMSay)
 								A.Account = Object.Account(AI\Account)
-								If A <> Null And A\IsDM = True
+							If A <> Null
+								If A\IsDM = True
 									Pa$ = Chr$(254) + "<GM> <" + AI\Name$ + "> " + Params$
 									; Online-player chain walk; DM filter still
 									; needs the Account lookup.
 									A2.ActorInstance = FirstOnlinePlayer
 									While A2 <> Null
 										A.Account = Object.Account(A2\Account)
-										If A <> Null And A\IsDM = True Then RCE_Send(Host, A2\RNID, P_ChatMessage, Pa$, True)
+										If A <> Null
+											If A\IsDM = True Then RCE_Send(Host, A2\RNID, P_ChatMessage, Pa$, True)
+										EndIf
 										A2 = A2\NextOnlinePlayer
 									Wend
 								EndIf
+							EndIf
 							Case LanguageString$(LS_SCGuildSay)
 								If AI\TeamID > 0
 									Pa$ = Chr$(251) + "<G> <" + AI\Name$ + "> " + Params$
@@ -540,7 +560,8 @@ Function UpdateNetwork()
 								RCE_Send(Host, AI\RNID, P_ChatMessage, Chr$(254) + LanguageString$(LS_PlayersInZone) + " " + Str$(Players - 1), True)
 							Case LanguageString$(LS_SCWarp)
 								A.Account = Object.Account(AI\Account)
-								If A <> Null And A\IsDM = True
+							If A <> Null
+								If A\IsDM = True
 									Ar.Area = FindArea(Trim$(Split$(Params$, 1, ",")))
 									If Ar <> Null
 										Instance = Split$(Params$, 2, ",")
@@ -552,9 +573,11 @@ Function UpdateNetwork()
 										Next
 									EndIf
 								EndIf
+							EndIf
 							Case LanguageString$(LS_SCWarpOther)
 								A.Account = Object.Account(AI\Account)
-								If A <> Null And A\IsDM = True
+							If A <> Null
+								If A\IsDM = True
 									Name$ = Upper$(Trim$(Split$(Params$, 1, ",")))
 									; Online-player chain walk for /warpother
 									; target lookup.
@@ -582,9 +605,11 @@ Function UpdateNetwork()
 										A2 = A2\NextOnlinePlayer
 									Wend
 								EndIf
+							EndIf
 							Case LanguageString$(LS_SCAbility)
 								A.Account = Object.Account(AI\Account)
-								If A <> Null And A\IsDM = True
+							If A <> Null
+								If A\IsDM = True
 									Params$ = Upper$(Params$)
 									Name$ = Trim$(SafeSplit$(Params$, 1, ","))
 									Level = Trim$(SafeSplit$(Params$, 2, ","))
@@ -592,10 +617,12 @@ Function UpdateNetwork()
 										If Upper$(Sp\Name$) = Name$ Then AddSpell(AI, Sp\ID, Level) : Exit
 									Next
 								EndIf
+							EndIf
 							Case LanguageString$(LS_SCGive)
 								; Make sure it's a GM account
 								A.Account = Object.Account(AI\Account)
-								If A <> Null And A\IsDM = True
+							If A <> Null
+								If A\IsDM = True
 									; Find the requested item
 									Params$ = Upper$(Params$)
 									For It.Item = Each Item
@@ -612,11 +639,13 @@ Function UpdateNetwork()
 										EndIf
 									Next
 								EndIf
+							EndIf
 							Case LanguageString$(LS_SCWeather)
 								Params$ = Trim$(Upper$(Params$))
 								; Make sure it's a GM account
 								A.Account = Object.Account(AI\Account)
-								If A <> Null And A\IsDM = True
+							If A <> Null
+								If A\IsDM = True
 									AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea)
 									If AInstance <> Null
 										; Choose new weather
@@ -655,8 +684,9 @@ Function UpdateNetwork()
 													Next
 												EndIf
 											Next
-										EndIf
 									EndIf
+								EndIf
+							EndIf
 								EndIf
 							Case LanguageString$(LS_SCTime)
 								Hour$ = Str$(TimeH)
@@ -798,28 +828,34 @@ Function UpdateNetwork()
 					; must claim A as its own partner -- otherwise an
 					; injection that sets only one side's TradingActor
 					; would let A drain inventory into a one-way channel.
-					If AI\IsTrading = 4 And AI\TradingActor <> Null And AI\TradingActor <> AI And AI\TradingActor\TradingActor = AI
-						Slot = RCE_IntFromStr(Left$(M\MessageData$, 1))
-						Amount = RCE_IntFromStr(Mid$(M\MessageData$, 2, 2))
-						; Slot is a backpack-relative offset (0..31). Reject anything that
-						; would push the array index past the inventory bounds; without this,
-						; a crafted Slot reads (and the ItemInstanceToString$ helper writes)
-						; from adjacent ActorInstance fields.
-						If Slot >= 0 And Slot <= 31 And Slot + SlotI_Backpack <= Slots_Inventory
-							; Record the server-authoritative offer state.
-							; The accept-side swap reads from this rather than
-							; from the client-controlled accept-packet bytes;
-							; that closes the dupe where the client's accept
-							; payload claims a different stack than what the
-							; trade UI showed via P_UpdateTrading.
-							If Amount > AI\Inventory\Amounts[Slot + SlotI_Backpack]
-								Amount = AI\Inventory\Amounts[Slot + SlotI_Backpack]
+					If AI\IsTrading = 4
+						If AI\TradingActor <> Null
+							If AI\TradingActor <> AI
+								If AI\TradingActor\TradingActor = AI
+									Slot = RCE_IntFromStr(Left$(M\MessageData$, 1))
+									Amount = RCE_IntFromStr(Mid$(M\MessageData$, 2, 2))
+									; Slot is a backpack-relative offset (0..31). Reject anything that
+									; would push the array index past the inventory bounds; without this,
+									; a crafted Slot reads (and the ItemInstanceToString$ helper writes)
+									; from adjacent ActorInstance fields.
+									If Slot >= 0 And Slot <= 31 And Slot + SlotI_Backpack <= Slots_Inventory
+										; Record the server-authoritative offer state.
+										; The accept-side swap reads from this rather than
+										; from the client-controlled accept-packet bytes;
+										; that closes the dupe where the client's accept
+										; payload claims a different stack than what the
+										; trade UI showed via P_UpdateTrading.
+										If Amount > AI\Inventory\Amounts[Slot + SlotI_Backpack]
+											Amount = AI\Inventory\Amounts[Slot + SlotI_Backpack]
+										EndIf
+										If Amount < 0 Then Amount = 0
+										AI\TradeOfferedAmount[Slot] = Amount
+										Pa$ = M\MessageData$
+										If Amount > 0 Then Pa$ = Pa$ + ItemInstanceToString$(AI\Inventory\Items[Slot + SlotI_Backpack])
+										RCE_Send(Host, AI\TradingActor\RNID, P_UpdateTrading, Pa$, True)
+									EndIf
+								EndIf
 							EndIf
-							If Amount < 0 Then Amount = 0
-							AI\TradeOfferedAmount[Slot] = Amount
-							Pa$ = M\MessageData$
-							If Amount > 0 Then Pa$ = Pa$ + ItemInstanceToString$(AI\Inventory\Items[Slot + SlotI_Backpack])
-							RCE_Send(Host, AI\TradingActor\RNID, P_UpdateTrading, Pa$, True)
 						EndIf
 					EndIf
 				EndIf
@@ -2562,6 +2598,13 @@ Function UpdateNetwork()
 
 			; Change account password request
 			Case P_ChangePassword
+				; The no-account path intentionally pays VerifyPassword%'s dummy
+				; SHA-256 cost to keep account existence timing-uniform. Apply the
+				; shared per-source throttle before any packet/hash work so an
+				; unauthenticated peer cannot pump that cost at line rate.
+				If Not LoginAttemptOk(M\FromID)
+					RCE_Send(Host, M\FromID, P_ChangePassword, "P", True)
+				Else
 				UsernameLen = RCE_IntFromStr(Left$(M\MessageData$, 1))
 				Username$ = Mid$(M\MessageData$, 2, UsernameLen)
 				; Find account
@@ -2581,15 +2624,19 @@ Function UpdateNetwork()
 						; P_ChangePassword lets any party with the (broken-
 						; MD5) hash steal the account permanently.
 						If PwdLen >= 1 And A\Pass$ <> "" And VerifyPassword%(A\Pass$, Mid$(M\MessageData$, Offset + 1, PwdLen)) And RequesterOwnsAccountSession(A, M\FromID)
-							Offset = 2 + PwdLen
+							; Move past the current-password length byte and payload.
+							; Recomputing from PwdLen alone drops the username block.
+							Offset = Offset + 1 + PwdLen
 							PwdLen = RCE_IntFromStr(Mid$(M\MessageData$, Offset, 1))
 							; Store the new password in the v1 salted format
 							; immediately, not the raw client MD5.
 							A\Pass$ = HashPassword$(Mid$(M\MessageData$, Offset + 1, PwdLen))
+							LoginAttemptRecord(M\FromID, True)
 							RCE_Send(Host, M\FromID, P_ChangePassword, "Y", True)
 							//If MySQL = True Then My_SaveAccount(A, False)
 						; Otherwise return password failure
 						Else
+							LoginAttemptRecord(M\FromID, False)
 							RCE_Send(Host, M\FromID, P_ChangePassword, "P", True)
 						EndIf
 						Exists = True
@@ -2614,7 +2661,9 @@ Function UpdateNetwork()
 					Offset = 2 + UsernameLen
 					PwdLen = RCE_IntFromStr(Mid$(M\MessageData$, Offset, 1))
 					VerifyPassword%("", Mid$(M\MessageData$, Offset + 1, PwdLen))
+					LoginAttemptRecord(M\FromID, False)
 					RCE_Send(Host, M\FromID, P_ChangePassword, "P", True)
+				EndIf
 				EndIf
 
 			; Request to fetch character data

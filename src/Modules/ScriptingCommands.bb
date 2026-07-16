@@ -2021,8 +2021,9 @@ End Function
 Function BVM_CREATEDIR%(Param1$)
 	If Not BVM_RequirePrivileged() Then Return 0
 	If Not BVM_ScriptPathIsSafe(Param1$) Then Return 0
-	CreateDir(RCScriptFiles$ + Param1$)
-Return Result%
+	Local Path$ = RCScriptFiles$ + Param1$
+	CreateDir(Path$)
+	Return FileType(Path$) = 2
 End Function
 
 Function BVM_FILESIZE%(Param1$)

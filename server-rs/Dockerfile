@@ -12,7 +12,7 @@
 # no catalog) but characters can't be created until data is provided.
 
 # ---- build stage -----------------------------------------------------------
-FROM rust:1-bookworm AS build
+FROM rust:1.85.0-bookworm AS build
 WORKDIR /src
 # The shared wire/format crates (path deps) + the server workspace. The client
 # workspace manifest is needed so Cargo can resolve `*.workspace = true`
@@ -22,8 +22,8 @@ COPY client-rs ./client-rs
 COPY server-rs ./server-rs
 WORKDIR /src/server-rs
 # enet-sys compiles the vendored ENet fork via the `cc` crate — gcc ships in the
-# rust:bookworm image, so no extra apt packages are required.
-RUN cargo build --release --bin rcce-server \
+# rust:1.85.0-bookworm image, so no extra apt packages are required.
+RUN cargo build --release --locked --bin rcce-server \
     && strip target/release/rcce-server
 
 # ---- runtime stage ---------------------------------------------------------

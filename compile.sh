@@ -154,12 +154,12 @@ if [[ "${BUILD_RUST}" -eq 1 ]]; then
   else
     mkdir -p "${ROOTDIR}/bin"
     # Rust client (client-rs) -> bin/ClientRS
-    (cd "${ROOTDIR}/client-rs" && cargo build --release -p rcce-client --bin client-window)
+    (cd "${ROOTDIR}/client-rs" && cargo build --release --locked -p rcce-client --bin client-window)
     cp -f "${ROOTDIR}/client-rs/target/release/client-window${EXE_SUFFIX}" \
       "${ROOTDIR}/bin/ClientRS${EXE_SUFFIX}"
     echo "  Built bin/ClientRS${EXE_SUFFIX}"
     # Rust server (server-rs) -> bin/ServerRS (headless; Linux is the deploy target)
-    (cd "${ROOTDIR}/server-rs" && cargo build --release --bin rcce-server)
+    (cd "${ROOTDIR}/server-rs" && cargo build --release --locked --bin rcce-server)
     cp -f "${ROOTDIR}/server-rs/target/release/rcce-server${EXE_SUFFIX}" \
       "${ROOTDIR}/bin/ServerRS${EXE_SUFFIX}"
     echo "  Built bin/ServerRS${EXE_SUFFIX}"

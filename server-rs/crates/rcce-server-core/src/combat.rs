@@ -57,15 +57,11 @@ pub fn melee_swing(formula: u8, input: &SwingInput, rolls: &Rolls) -> SwingResul
     // Base damage depends on the formula.
     let mut damage = match formula {
         1 => match input.weapon_damage {
-            Some(wd) => {
-                if input.strength < wd {
-                    wd - rolls.roll_5_8
-                } else if input.strength > wd {
-                    wd + rolls.roll_5_8
-                } else {
-                    wd + rolls.roll_n5_5
-                }
-            }
+            Some(wd) => match input.strength.cmp(&wd) {
+                std::cmp::Ordering::Less => wd - rolls.roll_5_8,
+                std::cmp::Ordering::Greater => wd + rolls.roll_5_8,
+                std::cmp::Ordering::Equal => wd + rolls.roll_n5_5,
+            },
             None => input.strength / 8 + rolls.roll_n5_5,
         },
         2 => match input.weapon_damage {

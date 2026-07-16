@@ -22,7 +22,8 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        # actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           # BlitzForge submodule; nested reshade deps are not needed for
           # compile/test so we skip recursive to keep the checkout fast.
@@ -38,7 +39,8 @@ jobs:
 
       - name: Restore BlitzForge bin from cache
         id: bf-cache
-        uses: actions/cache@v4
+        # actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: |
             compiler/BlitzForge/bin/blitzcc.exe
@@ -49,7 +51,8 @@ jobs:
 
       - name: Add MSBuild to PATH
         if: steps.bf-cache.outputs.cache-hit != 'true'
-        uses: microsoft/setup-msbuild@v2
+        # microsoft/setup-msbuild@v2
+        uses: microsoft/setup-msbuild@6fb02220983dee41ce7ae257b6f4d8f9bf5ed4ce
 
       - name: Build BlitzForge compiler
         if: steps.bf-cache.outputs.cache-hit != 'true'
@@ -78,7 +81,8 @@ jobs:
         run: test.bat
 
       # The Rust client (client-rs/) ships its own deterministic unit + parser
-      # robustness tests. windows-latest has the Rust toolchain preinstalled.
+      # robustness tests. Select the repository MSRV instead of relying on the
+      # mutable toolchain preinstalled on windows-latest.
       # Gate ALL four logic crates on every PR:
       #   - rcce-data / rcce-net: parsers + wire codec — the "soft-fail, never
       #     panic on hostile input" invariant must not regress.
@@ -90,15 +94,28 @@ jobs:
       #     crates the project changes most) on a fresh checkout. The one-time
       #     wgpu/winit compile is amortised by the cache step below (which already
       #     lists client-rs/target). The i686-only rcenet-ffi-probe is excluded.
+      - name: Set up Rust 1.85.0 (client)
+        # dtolnay/rust-toolchain@1.85.0
+        uses: dtolnay/rust-toolchain@98effd2fc0b766278e30ab86762dd5e9a8531399
+        with:
+          components: clippy
+
+      - name: Report Rust toolchain (client)
+        shell: bash
+        run: |
+          rustc --version
+          cargo --version
+
       - name: Cache Rust build (client-rs)
-        uses: actions/cache@v4
+        # actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: |
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
             ~/.cargo/git/db
             client-rs/target
-          key: cargo-${{ runner.os }}-${{ hashFiles('client-rs/Cargo.lock') }}
+          key: cargo-${{ runner.os }}-${{ hashFiles('client-rs/Cargo.lock', 'rust-toolchain.toml') }}
           restore-keys: |
             cargo-${{ runner.os }}-
 
@@ -155,23 +172,39 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        # actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Set up Rust 1.85.0 (server)
+        # dtolnay/rust-toolchain@1.85.0
+        uses: dtolnay/rust-toolchain@98effd2fc0b766278e30ab86762dd5e9a8531399
+        with:
+          components: clippy
+
+      - name: Report Rust toolchain (server)
+        run: |
+          rustc --version
+          cargo --version
 
       - name: Cache Rust build (server-rs)
-        uses: actions/cache@v4
+        # actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: |
             ~/.cargo/registry/index
             ~/.cargo/registry/cache
             ~/.cargo/git/db
             server-rs/target
-          key: cargo-server-${{ runner.os }}-${{ hashFiles('server-rs/Cargo.lock') }}
+          key: cargo-server-${{ runner.os }}-${{ hashFiles('server-rs/Cargo.lock', 'rust-toolchain.toml') }}
           restore-keys: |
             cargo-server-${{ runner.os }}-
 
       - name: Build + test (server workspace, locked)
         working-directory: server-rs
         run: cargo test --workspace --locked
+
+      - name: Build Rust server Docker image
+        run: docker build -f server-rs/Dockerfile -t rcce-server .
 
       - name: Clippy (server workspace, -D warnings)
         working-directory: server-rs
