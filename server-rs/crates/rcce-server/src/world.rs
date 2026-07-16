@@ -1970,6 +1970,23 @@ mod tests {
                 outs.iter().any(|o| o.msg_type == P_STAT_UPDATE && o.payload.first() == Some(&b'M')),
                 "/setattributemax broadcasts P_StatUpdate 'M'"
             );
+
+            let overflowing_setmax = format!("/setattributemax {attr},32768");
+            let outs = state.dispatch(1, P_CHAT_MESSAGE, overflowing_setmax.as_bytes());
+            assert_eq!(
+                state.accounts.find("Hero").unwrap().characters[0].actor.attributes.maximum[idx],
+                i16::MAX,
+                "/setattributemax saturates at the signed persistence maximum"
+            );
+            assert!(
+                outs.iter().any(|o| {
+                    o.msg_type == P_STAT_UPDATE
+                        && o.payload.len() == 6
+                        && o.payload[0] == b'M'
+                        && o.payload[4..6] == i16::MAX.to_le_bytes()
+                }),
+                "/setattributemax broadcasts the saturated P_StatUpdate 'M' maximum"
+            );
         }
 
         // /script: DM spawns the named script privileged; non-DM refused.
@@ -3782,26 +3799,44 @@ mod tests {
         state.accounts.find_mut("hero").unwrap().characters[0].actor.attributes.maximum[hidx] = 100;
         let rid = state.world.session(1).unwrap().runtime_id as i64;
 
-        // Privileged: SetMaxAttribute(rid, attr, 1) + SetReputation(rid, -500).
+        // Privileged: direct and delta maximum writes saturate without narrowing.
         {
             let mut host = crate::scripts::ScriptHost {
                 world: &state.world, accounts: &mut state.accounts, spawns: &state.spawns,
                 catalog: &state.catalog, attr_names: &state.attr_names, rng: &mut state.rng,
                 actor: rid, ctx: 0, privileged: true, dirty: false, out: Vec::new(),
             };
-            host.call("setmaxattribute", &[Value::Int(rid), Value::Str(attr.clone()), Value::Int(1)]);
+            host.call("setmaxattribute", &[Value::Int(rid), Value::Str(attr.clone()), Value::Int(2_147_483_648)]);
+            assert!(
+                host.out.iter().any(|o| {
+                    o.msg_type == P_STAT_UPDATE
+                        && o.payload.len() == 6
+                        && o.payload[0] == b'M'
+                        && o.payload[4..6] == i16::MAX.to_le_bytes()
+                }),
+                "SetMaxAttribute keeps i64 input wide through the saturated 'M' stat update"
+            );
+            host.out.clear();
+            host.call("setmaxattribute", &[Value::Int(rid), Value::Str(attr.clone()), Value::Int(100)]);
+            host.out.clear();
+            host.call("changemaxattribute", &[Value::Int(rid), Value::Str(attr.clone()), Value::Int(i64::MAX)]);
             host.call("setreputation", &[Value::Int(rid), Value::Int(-500)]);
             let rep = host.call("reputation", &[Value::Int(rid)]).to_int();
             assert_eq!(rep, -500, "Reputation read reflects the set");
             assert!(
-                host.out.iter().any(|o| o.msg_type == P_STAT_UPDATE && o.payload.first() == Some(&b'M')),
-                "SetMaxAttribute broadcasts a 'M' stat update"
+                host.out.iter().any(|o| {
+                    o.msg_type == P_STAT_UPDATE
+                        && o.payload.len() == 6
+                        && o.payload[0] == b'M'
+                        && o.payload[4..6] == i16::MAX.to_le_bytes()
+                }),
+                "ChangeMaxAttribute keeps i64 input wide through the saturated 'M' stat update"
             );
         }
         assert_eq!(
             state.accounts.find("hero").unwrap().characters[0].actor.attributes.maximum[hidx],
-            1,
-            "max attribute set"
+            i16::MAX,
+            "max attribute saturates at the signed persistence maximum"
         );
         assert_eq!(state.accounts.find("hero").unwrap().characters[0].actor.reputation, -500);
 
@@ -3817,7 +3852,7 @@ mod tests {
         }
         assert_eq!(
             state.accounts.find("hero").unwrap().characters[0].actor.attributes.maximum[hidx],
-            1,
+            i16::MAX,
             "unprivileged SetMaxAttribute is gated out"
         );
         assert_eq!(
