@@ -1,6 +1,10 @@
 Strict
 EnableGC
 
+Global MySQL = False
+Global AccountsServerTest_ListItems = 0
+Global AccountsServerTest_CommitSucceeds = True
+
 Type ActorInstance
 	Field Account
 	Field RNID
@@ -33,11 +37,13 @@ Function CountGadgetItems(parent%)
 End Function
 
 Function AddListBoxItem(parent%, text$)
-	AccountsServerTest_ListItems = AccountsServerTest_ListItems + 1
+	Global AccountsServerTest_ListItems = AccountsServerTest_ListItems + 1
 End Function
 
 Function RemoveGadgetItem(parent%, index%)
-	If AccountsServerTest_ListItems > 0 Then AccountsServerTest_ListItems = AccountsServerTest_ListItems - 1
+	If AccountsServerTest_ListItems > 0
+		Global AccountsServerTest_ListItems = AccountsServerTest_ListItems - 1
+	EndIf
 End Function
 
 Function CreateWindow(title$, x%, y%, width%, height%, parent%, style%)
@@ -67,10 +73,6 @@ End Function
 Function Desktop()
 	Return 0
 End Function
-
-Global MySQL = False
-Global AccountsServerTest_ListItems = 0
-Global AccountsServerTest_CommitSucceeds = True
 
 ; Logging stubs so AccountsServer's SafeWrite/WriteLog calls resolve in this
 ; unit-test build. The real implementations live in Modules\Logging.bb but
@@ -102,9 +104,9 @@ Include "Modules\AccountsServer.bb"
 
 Function ResetAccountsServerTestState()
 	Delete Each Account
-	Accounts = New AccountsWindow()
-	AccountsServerTest_ListItems = 0
-	AccountsServerTest_CommitSucceeds = True
+	Global Accounts.AccountsWindow = New AccountsWindow()
+	Global AccountsServerTest_ListItems = 0
+	Global AccountsServerTest_CommitSucceeds = True
 End Function
 
 Test testFindAccountByListIDReturnsMatchingAccount()
@@ -191,7 +193,7 @@ End Test
 
 Test testAddAccountRollsBackWhenAtomicCommitFails()
 	ResetAccountsServerTestState()
-	AccountsServerTest_CommitSucceeds = False
+	Global AccountsServerTest_CommitSucceeds = False
 
 	Assert(AddAccount("alice", "0123456789abcdef0123456789abcdef", "alice@example.com") = False)
 	Local remaining.Account = First Account
