@@ -401,7 +401,7 @@ impl ScriptHost<'_> {
     /// Set an attribute's MAXIMUM by name (`BVM_SETMAXATTRIBUTE`); broadcast
     /// `P_StatUpdate "M"` (`[u16 rid][u8 idx][u16 max]`) to the actor's same-area
     /// players. No-op for a non-player / unknown name.
-    fn set_max_attr(&mut self, rid: u16, name: &str, new_max: i32) {
+    fn set_max_attr(&mut self, rid: u16, name: &str, new_max: i64) {
         let Some(idx) = self.attr_names.index_of(name) else {
             return;
         };
@@ -1051,15 +1051,15 @@ impl Host for ScriptHost<'_> {
             // one-shot brick vector; full-priv parity with SETATTRIBUTE).
             "setmaxattribute" => {
                 if self.privileged {
-                    let (rid, name, val) = (rid0(), arg_s(1), arg_i(2) as i32);
+                    let (rid, name, val) = (rid0(), arg_s(1), arg_i(2));
                     self.set_max_attr(rid, &name, val);
                 }
                 Value::Int(0)
             }
             "changemaxattribute" => {
                 if self.privileged {
-                    let (rid, name, delta) = (rid0(), arg_s(1), arg_i(2) as i32);
-                    let cur = self.attr_value(rid, &name, true).unwrap_or(0);
+                    let (rid, name, delta) = (rid0(), arg_s(1), arg_i(2));
+                    let cur = self.attr_value(rid, &name, true).unwrap_or(0) as i64;
                     self.set_max_attr(rid, &name, cur.saturating_add(delta));
                 }
                 Value::Int(0)

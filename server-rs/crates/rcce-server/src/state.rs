@@ -136,8 +136,8 @@ fn stat_update_a(rid: u16, idx: usize, value: i16) -> Vec<u8> {
 }
 
 /// Attribute maxima are stored as signed 16-bit values in actor persistence.
-pub(crate) fn clamp_attribute_max(value: i32) -> i16 {
-    value.clamp(0, i16::MAX as i32) as i16
+pub(crate) fn clamp_attribute_max(value: i64) -> i16 {
+    value.clamp(0, i16::MAX as i64) as i16
 }
 
 /// Where a reply packet goes.
@@ -4110,7 +4110,7 @@ impl ServerState {
             let Some(rec) = self.accounts.find_mut(&user).and_then(|a| a.characters.get_mut(slot)) else {
                 return Vec::new();
             };
-            let v = clamp_attribute_max(new_max);
+            let v = clamp_attribute_max(new_max as i64);
             if let Some(s) = rec.actor.attributes.maximum.get_mut(idx) {
                 *s = v;
             }
