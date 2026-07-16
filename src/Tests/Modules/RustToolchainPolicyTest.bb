@@ -56,3 +56,16 @@ Test testOptInReleaseBuildsKeepBothLockfilesLocked()
 	Assert(FileContains%("compile.bat", "cargo build --release --locked -p rcce-client --bin client-window") = True)
 	Assert(FileContains%("compile.bat", "cargo build --release --locked --bin rcce-server") = True)
 End Test
+
+Test testRustServerContainerBuilderKeepsDeclaredToolchainAndLockfile()
+	Assert(FileContains%("server-rs\Dockerfile", "FROM rust:1.85.0-bookworm AS build") = True)
+	Assert(FileContains%("server-rs\Dockerfile", "RUN cargo build --release --locked --bin rcce-server") = True)
+	Assert(FileContains%("server-rs\README.md", "cargo build --release --locked") = True)
+	Assert(FileContains%("server-rs\README.md", "cargo test --workspace --locked") = True)
+	Assert(FileContains%("server-rs\README.md", "cargo clippy --workspace --all-targets --locked -- -D warnings") = True)
+End Test
+
+Test testRustServerCIBuildsContainerImage()
+	Assert(FileContains%(".github\workflows\ci.yml", "- name: Build Rust server Docker image") = True)
+	Assert(FileContains%(".github\workflows\ci.yml", "docker build -f server-rs/Dockerfile -t rcce-server .") = True)
+End Test

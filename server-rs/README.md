@@ -15,9 +15,9 @@ Parity status, design notes, and the cycle log live in
 
 ```sh
 cd server-rs
-cargo build --release            # → target/release/rcce-server
-cargo test --workspace           # full suite (unit + real-ENet e2e)
-cargo clippy --workspace --all-targets -- -D warnings
+cargo build --release --locked            # → target/release/rcce-server
+cargo test --workspace --locked           # full suite (unit + real-ENet e2e)
+cargo clippy --workspace --all-targets --locked -- -D warnings
 ```
 
 Or, from the repo root, build all the Rust apps (client + server) at once:
@@ -27,8 +27,9 @@ Or, from the repo root, build all the Rust apps (client + server) at once:
 ./compile.sh -e -t -r            # only the Rust apps (skip the Blitz engine + tools)
 ```
 
-CI gates the server on **ubuntu-latest** (the deploy target) on every PR — build,
-the full test suite, and clippy `-D warnings` (see `.github/workflows/ci.yml`).
+CI gates the server on **ubuntu-latest** (the deploy target) on every PR — the
+locked workspace build/test suite, clippy `-D warnings`, and a production Docker
+image build (see `.github/workflows/ci.yml`).
 
 ## Run
 
