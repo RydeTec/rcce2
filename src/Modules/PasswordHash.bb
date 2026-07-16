@@ -25,8 +25,9 @@
 ;
 ; Migration is automatic: on the first successful login of an account
 ; whose Accounts.dat entry is still legacy MD5, the server replaces
-; A\Pass$ with a freshly salted v1 hash. The next SaveAccounts() then
-; persists the upgrade.
+; A\Pass$ with a freshly salted v1 hash and commits it through
+; SaveAccounts(). A failed commit restores the verified legacy hash so the
+; next successful login can retry the upgrade safely.
 ; ============================================================================
 
 Const PWHASH_VERSION_TAG$ = "$1$"

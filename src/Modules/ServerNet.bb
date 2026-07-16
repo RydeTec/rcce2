@@ -148,6 +148,18 @@ Function SendDeletedCharacterRoster(A.Account, FromID)
 	RCE_Send(Host, FromID, P_DeleteCharacter, Pa$, True)
 End Function
 
+; A legacy MD5 credential is only upgraded when the Accounts.dat transaction
+; commits. Authentication still succeeds on a write failure: restoring the
+; old verified hash makes the migration retry safely at a later login.
+Function PersistLegacyPasswordUpgrade%(A.Account, ClientMD5$)
+	If Not PasswordIsLegacy%(A\Pass$) Then Return True
+	Local OldPass$ = A\Pass$
+	A\Pass$ = UpgradePasswordIfLegacy$(A\Pass$, ClientMD5$)
+	If SaveAccounts() Then Return True
+	A\Pass$ = OldPass$
+	Return False
+End Function
+
 ; Queues a packet (queued packets are delayed so that for each destination, only one is sent per 12 milliseconds)
 Function SendQueued(Connection, Destination, PacketType, Pa$, ReliableFlag = False, PlayerFrom = 0)
 
@@ -2223,10 +2235,9 @@ Function UpdateNetwork()
 						; as P_VerifyAccount).
 						Local IncomingPwd$ = Mid$(M\MessageData$, Offset + 1, PwdLen)
 						If PwdLen >= 1 And A\Pass$ <> "" And VerifyPassword%(A\Pass$, IncomingPwd$) And A\IsBanned = False
-							; Lazy-migrate the on-disk record to the salted v1
-							; format once we know this MD5 is valid. The next
-							; SaveAccounts() persists the upgrade.
-							A\Pass$ = UpgradePasswordIfLegacy$(A\Pass$, IncomingPwd$)
+							; Keep the verified legacy credential when the atomic
+							; migration save fails; the successful login can retry it.
+							PersistLegacyPasswordUpgrade%(A, IncomingPwd$)
 							Offset = Offset + 1 + PwdLen
 							Number = Asc(Mid$(M\MessageData$, Offset, 1))
 
@@ -2614,10 +2625,10 @@ Function UpdateNetwork()
 						LoginAttemptRecord(M\FromID, False)
 						RCE_Send(Host, M\FromID, P_VerifyAccount, "L", True)
 					Else
-						; Success: send back character list.
+						; Success: persist a legacy upgrade before completing the
+						; otherwise unchanged authenticated reply path.
+						PersistLegacyPasswordUpgrade%(FoundA, Mid$(M\MessageData$, Offset + 1, PwdLen))
 						LoginAttemptRecord(M\FromID, True)
-						; Lazy-migrate to v1 on first successful login.
-						FoundA\Pass$ = UpgradePasswordIfLegacy$(FoundA\Pass$, Mid$(M\MessageData$, Offset + 1, PwdLen))
 						Pa$ = "Y"
 						For i = 0 To 9
 							If FoundA\Character[i] <> Null
