@@ -111,7 +111,8 @@ Function DeleteCharacterSaveContract%(Path$)
 	Local InCase%, SawRemovedCharacter%, SawRemovedQuestLog%, SawRemovedActionBar%
 	Local SawCommitGate%, SawCommittedActorFree%, SawCommittedQuestDelete%, SawCommittedActionBarDelete%, SawCommittedReply%
 	Local SawRollbackShift%, SawRollbackCharacter%, SawRollbackQuestLog%, SawRollbackActionBar%, SawFailureReply%
-	Local Line$, Trimmed$
+	Local Line$, Trimmed$, FailureReply$
+	FailureReply$ = "RCE_Send(Host, M\FromID, P_DeleteCharacter, " + Chr$(34) + "N" + Chr$(34) + ", True)"
 	If F = Null Then F = ReadFile("..\" + Path$)
 	If F = Null Then Return False
 
@@ -135,7 +136,7 @@ Function DeleteCharacterSaveContract%(Path$)
 				If Trimmed$ = "A\Character[Number] = RemovedCharacter" Then SawRollbackCharacter = True
 				If Trimmed$ = "A\QuestLog[Number] = RemovedQuestLog" Then SawRollbackQuestLog = True
 				If Trimmed$ = "A\ActionBar[Number] = RemovedActionBar" Then SawRollbackActionBar = True
-				If Trimmed$ = "RCE_Send(Host, M\FromID, P_DeleteCharacter, \"N\", True)" Then SawFailureReply = True
+				If Trimmed$ = FailureReply$ Then SawFailureReply = True
 			EndIf
 			If Trimmed$ = "End Select" Then InCase = False
 		EndIf
