@@ -5,6 +5,16 @@ EnableGC
 ; the fixed LanguageString$ registry can hold. LoadLanguage must reject the
 ; overflow through its existing False result instead of terminating startup.
 
+; RestoreLanguage uses these persistence helpers. This test exercises only
+; LoadLanguage, so keep matching stubs rather than pulling in Logging.bb.
+Function SafeWriteOpen$(FinalPath$)
+	Return FinalPath$ + ".tmp"
+End Function
+
+Function SafeWriteCommit%(TempPath$, FinalPath$, F)
+	Return True
+End Function
+
 Include "Modules\Language.bb"
 
 Global OverflowLanguageFile$ = CurrentDir$() + "language_overflow_test.txt"
