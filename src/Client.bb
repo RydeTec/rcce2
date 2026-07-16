@@ -1112,6 +1112,14 @@ End Function
 ; Flashes the screen with a given colour
 Function ScreenFlash(R, G, B, TextureID, Length, InitialAlpha# = 1.0)
 
+	; A malformed packet or script-provided zero alpha must not reach the
+	; fade calculations below. Clear any prior overlay and treat it as no flash.
+	If InitialAlpha# <= 0.0 Or Length <= 0
+		Flashing = False
+		EntityAlpha(FlashEN, 0.0)
+		Return
+	EndIf
+
 	If TextureID < 65535
 		Tex = GetTexture(TextureID)
 		If Tex > 0
