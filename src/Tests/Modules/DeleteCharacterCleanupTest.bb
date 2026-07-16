@@ -100,3 +100,51 @@ Test testDeleteLastPopulatedSlot()
 	Assert(m\ch[2] = 0) : Assert(m\ab[2] = 0)
 	Assert(m\ch[0] = 100) : Assert(m\ch[1] = 101)  ; earlier slots intact
 End Test
+
+; P_DeleteCharacter cannot acknowledge a flat-file deletion until SaveAccounts
+; commits it. The removed records must remain available for rollback while the
+; compacted arrays are serialized, then be released exactly once after commit.
+; ServerNet pulls in RakNet/world dependencies, so pin its bounded source
+; contract here rather than Include it into this isolated test.
+Function DeleteCharacterSaveContract%(Path$)
+	Local F.BBStream = ReadFile(Path$)
+	Local InCase%, SawRemovedCharacter%, SawRemovedQuestLog%, SawRemovedActionBar%
+	Local SawCommitGate%, SawCommittedActorFree%, SawCommittedQuestDelete%, SawCommittedActionBarDelete%, SawCommittedReply%
+	Local SawRollbackShift%, SawRollbackCharacter%, SawRollbackQuestLog%, SawRollbackActionBar%, SawFailureReply%
+	Local Line$, Trimmed$
+	If F = Null Then F = ReadFile("..\" + Path$)
+	If F = Null Then Return False
+
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		Trimmed$ = Trim$(Line$)
+		If Trimmed$ = "Case P_DeleteCharacter ; :)" Then InCase = True
+		If InCase
+			If Trimmed$ = "Local RemovedCharacter.ActorInstance = A\Character[Number]" Then SawRemovedCharacter = True
+			If Trimmed$ = "Local RemovedQuestLog.QuestLog = A\QuestLog[Number]" Then SawRemovedQuestLog = True
+			If Trimmed$ = "Local RemovedActionBar.ActionBarData = A\ActionBar[Number]" Then SawRemovedActionBar = True
+			If Trimmed$ = "ElseIf SaveAccounts()" Then SawCommitGate = True
+			If SawCommitGate
+				If Trimmed$ = "If RemovedCharacter <> Null Then FreeActorInstance(RemovedCharacter)" Then SawCommittedActorFree = True
+				If Trimmed$ = "If RemovedQuestLog <> Null Then Delete(RemovedQuestLog)" Then SawCommittedQuestDelete = True
+				If Trimmed$ = "If RemovedActionBar <> Null Then Delete(RemovedActionBar)" Then SawCommittedActionBarDelete = True
+				If Trimmed$ = "SendDeletedCharacterRoster(A, M\FromID)" Then SawCommittedReply = True
+			EndIf
+			If Trimmed$ = "For i = 9 To Number + 1 Step -1" Then SawRollbackShift = True
+			If SawRollbackShift
+				If Trimmed$ = "A\Character[Number] = RemovedCharacter" Then SawRollbackCharacter = True
+				If Trimmed$ = "A\QuestLog[Number] = RemovedQuestLog" Then SawRollbackQuestLog = True
+				If Trimmed$ = "A\ActionBar[Number] = RemovedActionBar" Then SawRollbackActionBar = True
+				If Trimmed$ = "RCE_Send(Host, M\FromID, P_DeleteCharacter, \"N\", True)" Then SawFailureReply = True
+			EndIf
+			If Trimmed$ = "End Select" Then InCase = False
+		EndIf
+	Wend
+
+	CloseFile F
+	Return SawRemovedCharacter And SawRemovedQuestLog And SawRemovedActionBar And SawCommitGate And SawCommittedActorFree And SawCommittedQuestDelete And SawCommittedActionBarDelete And SawCommittedReply And SawRollbackShift And SawRollbackCharacter And SawRollbackQuestLog And SawRollbackActionBar And SawFailureReply
+End Function
+
+Test testFlatFileDeleteStagesSaveAndRollsBackOnFailure()
+	Assert(DeleteCharacterSaveContract%("Modules\ServerNet.bb") = True)
+End Test

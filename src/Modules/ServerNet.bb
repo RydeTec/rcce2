@@ -128,6 +128,26 @@ Function RejectCharacterCreation(A.Account, FreeSlot, FromID)
 
 End Function
 
+; Sends the compacted character roster after P_DeleteCharacter has committed.
+; Keeping the wire construction in one helper makes the success boundary
+; explicit in the flat-file and legacy MySQL branches.
+Function SendDeletedCharacterRoster(A.Account, FromID)
+	Local Pa$ = ""
+	Local i
+	For i = 0 To 9
+		If A\Character[i] <> Null
+			Pa$ = Pa$ + RCE_StrFromInt$(Len(A\Character[i]\Name$), 1) + A\Character[i]\Name$
+			Pa$ = Pa$ + RCE_StrFromInt$(A\Character[i]\Actor\ID, 2)
+			Pa$ = Pa$ + RCE_StrFromInt$(A\Character[i]\Gender, 1)
+			Pa$ = Pa$ + RCE_StrFromInt$(A\Character[i]\FaceTex, 1) + RCE_StrFromInt$(A\Character[i]\Hair, 1)
+			Pa$ = Pa$ + RCE_StrFromInt$(A\Character[i]\Beard, 1)
+			Pa$ = Pa$ + RCE_StrFromInt$(A\Character[i]\BodyTex, 1)
+		EndIf
+	Next
+	LoginAttemptRecord(FromID, True)
+	RCE_Send(Host, FromID, P_DeleteCharacter, Pa$, True)
+End Function
+
 ; Queues a packet (queued packets are delayed so that for each destination, only one is sent per 12 milliseconds)
 Function SendQueued(Connection, Destination, PacketType, Pa$, ReliableFlag = False, PlayerFrom = 0)
 
@@ -3047,20 +3067,12 @@ Function UpdateNetwork()
 							Offset = Offset + 1 + PwdLen
 							Number = Asc(Mid$(M\MessageData$, Offset, 1))
 							If Number > -1 And Number < 10
-								; Delete the character
-								If A\QuestLog[Number] <> Null Then Delete A\QuestLog[Number]
-								; Free the per-character ActionBar too: the shift loop below
-								; overwrites A\ActionBar[Number] without releasing it, leaking one
-								; ActionBarData (+ its 36 slot strings) per character deletion.
-								; DeleteCharacter() only frees the ActorInstance, and the load
-								; cleanup at AccountsServer.bb:366 frees QuestLog AND ActionBar
-								; together -- restore that symmetry here. No double-free.
-								If A\ActionBar[Number] <> Null Then Delete A\ActionBar[Number]
-								If MySQL = True
-									//My_DeleteCharacter(A, Number)
-								Else
-									DeleteCharacter(A, Number)
-								EndIf
+								; Keep the removed records alive while the compacted account is
+								; atomically saved. Deleting them before SaveAccounts() would
+								; make a failed commit impossible to roll back in memory.
+								Local RemovedCharacter.ActorInstance = A\Character[Number]
+								Local RemovedQuestLog.QuestLog = A\QuestLog[Number]
+								Local RemovedActionBar.ActionBarData = A\ActionBar[Number]
 								For i = Number To 8
 									A\Character[i] = A\Character[i + 1]
 									A\QuestLog[i] = A\QuestLog[i + 1]
@@ -3070,20 +3082,32 @@ Function UpdateNetwork()
 								A\QuestLog[9] = Null
 								A\ActionBar[9] = Null
 
-								; Send back new character list
-								Pa$ = ""
-								For i = 0 To 9
-									If A\Character[i] <> Null
-										Pa$ = Pa$ + RCE_StrFromInt$(Len(A\Character[i]\Name$), 1) + A\Character[i]\Name$
-										Pa$ = Pa$ + RCE_StrFromInt$(A\Character[i]\Actor\ID, 2)
-										Pa$ = Pa$ + RCE_StrFromInt$(A\Character[i]\Gender, 1)
-										Pa$ = Pa$ + RCE_StrFromInt$(A\Character[i]\FaceTex, 1) + RCE_StrFromInt$(A\Character[i]\Hair, 1)
-										Pa$ = Pa$ + RCE_StrFromInt$(A\Character[i]\Beard, 1)
-										Pa$ = Pa$ + RCE_StrFromInt$(A\Character[i]\BodyTex, 1)
-									EndIf
-								Next
-								LoginAttemptRecord(M\FromID, True)
-								RCE_Send(Host, M\FromID, P_DeleteCharacter, Pa$, True)
+								If MySQL = True
+									; Preserve the legacy MySQL path; it owns persistence separately.
+									If RemovedQuestLog <> Null Then Delete(RemovedQuestLog)
+									If RemovedActionBar <> Null Then Delete(RemovedActionBar)
+									//My_DeleteCharacter(A, Number)
+									SendDeletedCharacterRoster(A, M\FromID)
+								ElseIf SaveAccounts()
+									; The compacted slot array is durable. Release the staged
+									; records now, exactly once, then acknowledge the deletion.
+									If RemovedCharacter <> Null Then FreeActorInstance(RemovedCharacter)
+									If RemovedQuestLog <> Null Then Delete(RemovedQuestLog)
+									If RemovedActionBar <> Null Then Delete(RemovedActionBar)
+									SendDeletedCharacterRoster(A, M\FromID)
+								Else
+									; The old Accounts.dat remains authoritative, so restore all
+									; three parallel arrays before reporting failure to the client.
+									For i = 9 To Number + 1 Step -1
+										A\Character[i] = A\Character[i - 1]
+										A\QuestLog[i] = A\QuestLog[i - 1]
+										A\ActionBar[i] = A\ActionBar[i - 1]
+									Next
+									A\Character[Number] = RemovedCharacter
+									A\QuestLog[Number] = RemovedQuestLog
+									A\ActionBar[Number] = RemovedActionBar
+									RCE_Send(Host, M\FromID, P_DeleteCharacter, "N", True)
+								EndIf
 							Else
 						        RCE_Send(Host, M\FromID, P_DeleteCharacter, "N", True)
 							EndIf
