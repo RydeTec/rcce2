@@ -33,3 +33,12 @@ Test testMacOSInstructionsPointToTheSupportedSourceBuildPath()
 	Assert(FileContains%("ReadMe.md", "macOS currently has no downloadable release package") = True)
 	Assert(FileContains%("ReadMe.md", "[macOS Apple Silicon notes](docs/macos-apple-silicon.md)") = True)
 End Test
+
+Test testSourceBuildOnboardingDoesNotAdvertiseTheMacOSBootstrapForLinux()
+	Assert(FileContains%("docs/start.md", "### macOS (Apple Silicon, alpha)") = True)
+	Assert(FileContains%("docs/start.md", "### macOS / Linux") = False)
+	Assert(FileContains%("docs/start.md", "bootstrap_macos.sh` is required on macOS") = True)
+	Assert(FileContains%("CONTRIBUTING.md", "# macOS (Apple Silicon, alpha)") = True)
+	Assert(FileContains%("CONTRIBUTING.md", "# macOS / Linux (alpha)") = False)
+	Assert(FileContains%("CONTRIBUTING.md", "macOS equivalent") = True)
+End Test

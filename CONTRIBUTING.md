@@ -40,7 +40,7 @@ compile.bat -t           # engine only — fastest iteration loop (~10× faster 
 compile.bat -b           # also rebuild BlitzForge from source (slow, MSBuild)
 compile.bat -e           # skip engine, build tools only
 
-# macOS / Linux (alpha)
+# macOS (Apple Silicon, alpha)
 ./compile.sh
 ```
 
@@ -55,7 +55,7 @@ compile.bat -e           # skip engine, build tools only
 ```powershell
 test.bat                 # run every test file under src/Tests/
 test.bat ItemsTest       # run only files whose basename contains "ItemsTest"
-./test.sh ItemsTest      # macOS / Linux equivalent
+./test.sh ItemsTest      # macOS equivalent
 ```
 
 The runner prints `[RUN ]` / `[PASS]` / `[FAIL]` per file plus an end-of-run summary. CI calls `test.bat` with no args and only checks the exit code.

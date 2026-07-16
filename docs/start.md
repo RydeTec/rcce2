@@ -51,7 +51,7 @@ publish.bat
 test.bat
 ```
 
-### macOS / Linux
+### macOS (Apple Silicon, alpha)
 
 Use the shell scripts from the repository root:
 
@@ -63,9 +63,8 @@ Use the shell scripts from the repository root:
 ./test.sh
 ```
 
-`bootstrap_macos.sh` is required on macOS before the first source build. The
-script name is historical; it prepares the Unix-side toolchain used by the
-current shell workflow.
+`bootstrap_macos.sh` is required on macOS before the first source build. It
+prepares the macOS toolchain used by the current shell workflow.
 
 macOS support is currently alpha because the underlying BlitzForge runtime is
 still incomplete there. Treat the macOS path as a development and feedback
