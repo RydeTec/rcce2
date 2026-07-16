@@ -31,7 +31,9 @@ End Type
 Function SendChatHelp(AI.ActorInstance, Topic$)
 	Local IsDM% = False
 	A.Account = Object.Account(AI\Account)
-	If A <> Null And A\IsDM = True Then IsDM = True
+	If A <> Null
+		If A\IsDM = True Then IsDM = True
+	EndIf
 
 	; Detail mode: /help <command>
 	Local T$ = Upper$(Trim$(Topic$))
@@ -203,7 +205,8 @@ Function UpdateNetwork()
 								; Stale Account handle (mid-logout, freed account) returns
 								; Null from Object.Account -- bare A\IsDM crashes the server
 								; from a chat command. Guard every /command's DM gate.
-								If A <> Null And A\IsDM = True
+							If A <> Null
+								If A\IsDM = True
 									A2.ActorInstance = FindActorInstanceFromName(Params$)
 									If A2 <> Null 
 										If A2\RNID > 0
@@ -213,6 +216,7 @@ Function UpdateNetwork()
 										EndIf
 									EndIf
 								EndIf
+							EndIf
 							Case LanguageString$(LS_SCUnIgnore)
 								A2.ActorInstance = FindActorInstanceFromName(Params$)
 								If A2 <> Null And A2 <> AI
@@ -247,7 +251,8 @@ Function UpdateNetwork()
 								EndIf
 							Case LanguageString$(LS_SCNetDump)
 								A.Account = Object.Account(AI\Account)
-								If A <> Null And LogNetwork = False And A\IsDM = True
+							If A <> Null
+								If LogNetwork = False And A\IsDM = True
 									RCE_Send(Host, AI\RNID, P_ChatMessage, Chr$(254) + "Starting new net dump...", True)
 									L = StartLog("Network Data Dump")
 										WriteLog(L, "Starting new net dump...", True, True)
@@ -257,6 +262,7 @@ Function UpdateNetwork()
 									;LogNetworkBytesIn = RCE_BytesReceived(Host)
 									;LogNetworkBytesOut = RCE_BytesSent(Host)
 								EndIf
+							EndIf
 							Case LanguageString$(LS_SCPet)
 								If AI\NumberOfSlaves > 0
 									Name$ = Upper$(Trim$(Split$(Params$, 1, ",")))
@@ -335,10 +341,13 @@ Function UpdateNetwork()
 								EndIf
 							Case LanguageString$(LS_SCXP)
 								A.Account = Object.Account(AI\Account)
-								If A <> Null And A\IsDM = True Then GiveXP(AI, Int(Params$))
+							If A <> Null
+								If A\IsDM = True Then GiveXP(AI, Int(Params$))
+							EndIf
 							Case LanguageString$(LS_SCGold)
 								A.Account = Object.Account(AI\Account)
-								If A <> Null And A\IsDM = True
+							If A <> Null
+								If A\IsDM = True
 									Change = Int(Params$)
 									AI\Gold = AI\Gold + Change
 									If Change > 0
@@ -348,9 +357,11 @@ Function UpdateNetwork()
 									EndIf
 									RCE_Send(Host, AI\RNID, P_GoldChange, Pa$, True)
 								EndIf
+							EndIf
 							Case LanguageString$(LS_SCSetAttribute)
 								A.Account = Object.Account(AI\Account)
-								If A <> Null And A\IsDM = True
+							If A <> Null
+								If A\IsDM = True
 									Attribute = FindAttribute(Split$(Params$, 1, ","))
 									If Attribute > -1
 										If Attribute = HealthStat Or Attribute = SpeedStat Or Attribute = EnergyStat
@@ -362,9 +373,11 @@ Function UpdateNetwork()
 										EndIf
 									EndIf
 								EndIf
+							EndIf
 							Case LanguageString$(LS_SCSetAttributeMax)
 								A.Account = Object.Account(AI\Account)
-								If A <> Null And A\IsDM = True
+							If A <> Null
+								If A\IsDM = True
 									Attribute = FindAttribute(Split$(Params$, 1, ","))
 									If Attribute > -1
 										If Attribute = HealthStat Or Attribute = SpeedStat Or Attribute = EnergyStat
@@ -376,9 +389,11 @@ Function UpdateNetwork()
 										EndIf
 									EndIf
 								EndIf
+							EndIf
 							Case LanguageString$(LS_SCScript)
 								A.Account = Object.Account(AI\Account)
-								If A <> Null And A\IsDM = True
+							If A <> Null
+								If A\IsDM = True
 									Name$ = Trim$(Split$(Params$, 1, ","))
 									Func$ = Trim$(Split$(Params$, 2, ","))
 									; Privileged=1: this code path has verified
@@ -387,6 +402,7 @@ Function UpdateNetwork()
 									; BVM_RequirePrivileged().
 									ThreadScript(Name$, Func$, Handle(AI), 0, "", 1)
 								EndIf
+							EndIf
 							Case LanguageString$(LS_SCMe)
 								Pa$ = Chr$(252) + "* " + AI\Name$ + " " + Params$
 								AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea)
@@ -427,17 +443,21 @@ Function UpdateNetwork()
 							; body was already coded against.
 							Case LanguageString$(LS_SCGMSay)
 								A.Account = Object.Account(AI\Account)
-								If A <> Null And A\IsDM = True
+							If A <> Null
+								If A\IsDM = True
 									Pa$ = Chr$(254) + "<GM> <" + AI\Name$ + "> " + Params$
 									; Online-player chain walk; DM filter still
 									; needs the Account lookup.
 									A2.ActorInstance = FirstOnlinePlayer
 									While A2 <> Null
 										A.Account = Object.Account(A2\Account)
-										If A <> Null And A\IsDM = True Then RCE_Send(Host, A2\RNID, P_ChatMessage, Pa$, True)
+										If A <> Null
+											If A\IsDM = True Then RCE_Send(Host, A2\RNID, P_ChatMessage, Pa$, True)
+										EndIf
 										A2 = A2\NextOnlinePlayer
 									Wend
 								EndIf
+							EndIf
 							Case LanguageString$(LS_SCGuildSay)
 								If AI\TeamID > 0
 									Pa$ = Chr$(251) + "<G> <" + AI\Name$ + "> " + Params$
@@ -540,7 +560,8 @@ Function UpdateNetwork()
 								RCE_Send(Host, AI\RNID, P_ChatMessage, Chr$(254) + LanguageString$(LS_PlayersInZone) + " " + Str$(Players - 1), True)
 							Case LanguageString$(LS_SCWarp)
 								A.Account = Object.Account(AI\Account)
-								If A <> Null And A\IsDM = True
+							If A <> Null
+								If A\IsDM = True
 									Ar.Area = FindArea(Trim$(Split$(Params$, 1, ",")))
 									If Ar <> Null
 										Instance = Split$(Params$, 2, ",")
@@ -552,9 +573,11 @@ Function UpdateNetwork()
 										Next
 									EndIf
 								EndIf
+							EndIf
 							Case LanguageString$(LS_SCWarpOther)
 								A.Account = Object.Account(AI\Account)
-								If A <> Null And A\IsDM = True
+							If A <> Null
+								If A\IsDM = True
 									Name$ = Upper$(Trim$(Split$(Params$, 1, ",")))
 									; Online-player chain walk for /warpother
 									; target lookup.
@@ -582,9 +605,11 @@ Function UpdateNetwork()
 										A2 = A2\NextOnlinePlayer
 									Wend
 								EndIf
+							EndIf
 							Case LanguageString$(LS_SCAbility)
 								A.Account = Object.Account(AI\Account)
-								If A <> Null And A\IsDM = True
+							If A <> Null
+								If A\IsDM = True
 									Params$ = Upper$(Params$)
 									Name$ = Trim$(SafeSplit$(Params$, 1, ","))
 									Level = Trim$(SafeSplit$(Params$, 2, ","))
@@ -592,10 +617,12 @@ Function UpdateNetwork()
 										If Upper$(Sp\Name$) = Name$ Then AddSpell(AI, Sp\ID, Level) : Exit
 									Next
 								EndIf
+							EndIf
 							Case LanguageString$(LS_SCGive)
 								; Make sure it's a GM account
 								A.Account = Object.Account(AI\Account)
-								If A <> Null And A\IsDM = True
+							If A <> Null
+								If A\IsDM = True
 									; Find the requested item
 									Params$ = Upper$(Params$)
 									For It.Item = Each Item
@@ -612,11 +639,13 @@ Function UpdateNetwork()
 										EndIf
 									Next
 								EndIf
+							EndIf
 							Case LanguageString$(LS_SCWeather)
 								Params$ = Trim$(Upper$(Params$))
 								; Make sure it's a GM account
 								A.Account = Object.Account(AI\Account)
-								If A <> Null And A\IsDM = True
+							If A <> Null
+								If A\IsDM = True
 									AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea)
 									If AInstance <> Null
 										; Choose new weather
@@ -655,8 +684,9 @@ Function UpdateNetwork()
 													Next
 												EndIf
 											Next
-										EndIf
 									EndIf
+								EndIf
+							EndIf
 								EndIf
 							Case LanguageString$(LS_SCTime)
 								Hour$ = Str$(TimeH)

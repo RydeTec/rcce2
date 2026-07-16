@@ -85,13 +85,24 @@ Function WeatherAreaUsable%(InstancePresent%)
 	Return True
 End Function
 
+; --- Replicated Account DM authorization guard -----------------------------
+
+; A stale Account handle can resolve to Null while an actor is still present.
+; BlitzForge evaluates And without short-circuiting, so the production command
+; gates must first establish the Account before reading IsDM.
+Function AccountDMCommandAllowed%(AccountPresent%, IsDM%)
+	If AccountPresent = False Then Return False
+	If IsDM = False Then Return False
+	Return True
+End Function
+
 ; The network/world graph cannot be Included into this standalone harness, so
 ; also pin the source-level safety contract. This catches a future regression
 ; that removes the production nested guard while leaving this model unchanged.
 Function FunctionBodyContains%(Path$, FunctionMarker$, Needle$)
 	Local F.BBStream = ReadFile(Path$)
 	Local InFunction%
-	Local Line$
+	Local Line$, Trimmed$
 	; test.sh runs each test from src\Tests, whereas an IDE may run it from
 	; src. Support both working directories without touching production paths.
 	If F = Null Then F = ReadFile("..\" + Path$)
@@ -162,6 +173,46 @@ Function SectionUsesNestedAreaGuard%(Path$, StartMarker$, EndMarker$, AreaNeedle
 	Wend
 	CloseFile F
 	Return False
+End Function
+
+Function SectionAccountDMGuardsSafe%(Path$, StartMarker$, EndMarker$, ExpectedDMReads%)
+	Local F.BBStream = ReadFile(Path$)
+	Local InSection%, SawAccountLookup%, SawAccountGuard%, GuardColumn%, DMReads%
+	Local Line$, Trimmed$
+	If F = Null Then F = ReadFile("..\" + Path$)
+	If F = Null Then Return False
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		If Instr(Line$, StartMarker$) > 0 Then InSection = True
+		If InSection = True And Instr(Line$, EndMarker$) > 0 Then Exit
+		If InSection = True
+			Trimmed$ = Trim$(Line$)
+			If Left$(Trimmed$, 1) <> ";" And Instr(Line$, "A.Account = Object.Account") > 0
+				SawAccountLookup = True
+				SawAccountGuard = False
+			EndIf
+			If Left$(Trimmed$, 1) <> ";" And SawAccountLookup = True
+				If Instr(Line$, "If A <> Null And") > 0 Or Instr(Line$, "If A <> Null Or") > 0
+					CloseFile F
+					Return False
+				EndIf
+				If Instr(Line$, "If A <> Null") > 0
+					SawAccountGuard = True
+					GuardColumn = Instr(Line$, "If A <> Null")
+				EndIf
+				If Instr(Line$, "A\IsDM") > 0
+					If SawAccountGuard = False
+						CloseFile F
+						Return False
+					EndIf
+					DMReads = DMReads + 1
+				EndIf
+				If SawAccountGuard = True And Instr(Line$, "EndIf") = GuardColumn Then SawAccountGuard = False
+			EndIf
+		EndIf
+	Wend
+	CloseFile F
+	Return DMReads = ExpectedDMReads
 End Function
 
 ; ====================================================================
@@ -287,6 +338,29 @@ End Test
 Test testWeatherCommandUsesExplicitAreaInstanceGuard()
 	Assert(SectionContains%("Modules\ServerNet.bb", "Case LanguageString$(LS_SCWeather)", "Case LanguageString$(LS_SCTime)", "If AInstance <> Null") = True)
 	Assert(SectionContains%("Modules\ServerNet.bb", "Case LanguageString$(LS_SCWeather)", "Case LanguageString$(LS_SCTime)", "AInstance <> Null And") = False)
+End Test
+
+; ====================================================================
+; Chat-command Account handles -- stale-account rejection
+; ====================================================================
+
+Test testMissingAccountNeverAuthorizesDMCommand()
+	Assert(AccountDMCommandAllowed%(False, True) = False)
+	Assert(AccountDMCommandAllowed%(False, False) = False)
+End Test
+
+Test testLiveDMAccountRemainsAuthorized()
+	Assert(AccountDMCommandAllowed%(True, True) = True)
+	Assert(AccountDMCommandAllowed%(True, False) = False)
+End Test
+
+Test testChatCommandAccountGuardsNeverUseNonShortCircuitAnd()
+	; PR #213 introduced `If A <> Null And A\IsDM`; that still dereferences
+	; a stale Account because BlitzForge evaluates both operands. Every Account
+	; DM gate in UpdateNetwork must instead enter `If A <> Null` first.
+	Assert(SectionAccountDMGuardsSafe%("Modules\ServerNet.bb", "Function SendChatHelp", "End Function", 1) = True)
+	; This count includes both the /gm sender and recipient account checks.
+	Assert(SectionAccountDMGuardsSafe%("Modules\ServerNet.bb", "Case P_ChatMessage", "Case P_RepositionActor", 14) = True)
 End Test
 
 ; ====================================================================
