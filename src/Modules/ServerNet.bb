@@ -2598,6 +2598,13 @@ Function UpdateNetwork()
 
 			; Change account password request
 			Case P_ChangePassword
+				; The no-account path intentionally pays VerifyPassword%'s dummy
+				; SHA-256 cost to keep account existence timing-uniform. Apply the
+				; shared per-source throttle before any packet/hash work so an
+				; unauthenticated peer cannot pump that cost at line rate.
+				If Not LoginAttemptOk(M\FromID)
+					RCE_Send(Host, M\FromID, P_ChangePassword, "P", True)
+				Else
 				UsernameLen = RCE_IntFromStr(Left$(M\MessageData$, 1))
 				Username$ = Mid$(M\MessageData$, 2, UsernameLen)
 				; Find account
@@ -2624,10 +2631,12 @@ Function UpdateNetwork()
 							; Store the new password in the v1 salted format
 							; immediately, not the raw client MD5.
 							A\Pass$ = HashPassword$(Mid$(M\MessageData$, Offset + 1, PwdLen))
+							LoginAttemptRecord(M\FromID, True)
 							RCE_Send(Host, M\FromID, P_ChangePassword, "Y", True)
 							//If MySQL = True Then My_SaveAccount(A, False)
 						; Otherwise return password failure
 						Else
+							LoginAttemptRecord(M\FromID, False)
 							RCE_Send(Host, M\FromID, P_ChangePassword, "P", True)
 						EndIf
 						Exists = True
@@ -2652,7 +2661,9 @@ Function UpdateNetwork()
 					Offset = 2 + UsernameLen
 					PwdLen = RCE_IntFromStr(Mid$(M\MessageData$, Offset, 1))
 					VerifyPassword%("", Mid$(M\MessageData$, Offset + 1, PwdLen))
+					LoginAttemptRecord(M\FromID, False)
 					RCE_Send(Host, M\FromID, P_ChangePassword, "P", True)
+				EndIf
 				EndIf
 
 			; Request to fetch character data
