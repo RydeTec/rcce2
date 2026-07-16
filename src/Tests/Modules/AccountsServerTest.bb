@@ -167,7 +167,7 @@ Function CreateAccountRepliesAfterAtomicSave%(Path$)
 				Case 2
 					If Trim$(Line$) = "Else" And LeadingTabs(Line$) = GuardIndent Then Stage = 3
 				Case 3
-					If Instr(Line$, "P_CreateAccount, " + Chr$(34) + "Y" + Chr$(34) + ", True") > 0 And LeadingTabs(Line$) = GuardIndent + 1
+					If Instr(Line$, "P_CreateAccount, " + Chr$(34) + "Y" + Chr$(34) + ", True") > 0 And LeadingTabs(Line$) > GuardIndent
 						CloseFile F
 						Return False
 					EndIf
