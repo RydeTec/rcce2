@@ -4888,7 +4888,10 @@ Cls
 					ClearTextureFilters() : TextureFilter("m_", 1 + 4) : TextureFilter("a_", 1 + 2)
 
 					; Match client water with server water
-					For W.Water = Each Water
+					W = First Water
+					Local WNext.Water = Null
+					While W <> Null
+						WNext = After W
 						For SW.ServerWater = Each ServerWater
 							If SW\Area = CurrentArea
 								If SW\Width# = W\ScaleX# And SW\Depth# = W\ScaleZ#
@@ -4909,7 +4912,8 @@ Cls
 							FreeEntity(W\EN)
 							Delete(W)
 						EndIf
-					Next
+						W = WNext
+					Wend
 
 					; Load meshes for server side parts
 					For i = 0 To 149
