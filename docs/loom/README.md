@@ -47,7 +47,7 @@ A full-featured GUE replacement with thread navigation, search, and a custom-dra
 
 What it deliberately still can't do:
 
-- **Render zones in 3D.** The 3D mesh loader is locked into GUE's UI substrate — see [decisions/004-deferred-3d-viewport.md](decisions/004-deferred-3d-viewport.md).
+- **Terrain sculpting, water-volume editing, weather/environment editing, or scenery texture painting.** The Zone viewport's World mode renders the focused zone's real terrain, scenery, and water through the shared `LoadAreaData` loader; it falls back to schematic mode when a zone has no visual `.dat`. These remaining editing surfaces are separate subsystems — see [roadmap.md](roadmap.md) and [decisions/004-deferred-3d-viewport.md](decisions/004-deferred-3d-viewport.md).
 - **Walk-in playtest.** Requires server-side feature work (out-of-band player spawn API) — see roadmap "Deferred."
 - **Multi-cursor / collaboration.** Out of scope indefinitely.
 
