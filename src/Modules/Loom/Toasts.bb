@@ -110,13 +110,16 @@ Type Toasts
     // -------------------------------------------------------------------------
     Method render(sw%, sh%)
         // Garbage-collect expired
-        Local t.Toast
-        For t = Each Toast
+        Local t.Toast = First Toast
+        Local nextToast.Toast = Null
+        While t <> Null
+            nextToast = After t
             If (MilliSecs() - t\CreatedAt) >= TOAST_TTL_MS
                 Delete t
                 self\count = self\count - 1
             EndIf
-        Next
+            t = nextToast
+        Wend
 
         If self\count = 0 Then Return
 
