@@ -4888,7 +4888,7 @@ Cls
 					ClearTextureFilters() : TextureFilter("m_", 1 + 4) : TextureFilter("a_", 1 + 2)
 
 					; Match client water with server water
-					Local W.Water = First Water
+					W = First Water
 					Local WNext.Water = Null
 					While W <> Null
 						WNext = After W

@@ -37,7 +37,7 @@ Test testGUEWaterReconciliationCapturesTheSuccessorBeforeCleanup()
 	Local SectionEnd$ = "; Load meshes for server side parts"
 	Assert(SectionLine%("GUE.bb", SectionStart$, SectionEnd$, "For W.Water = Each Water") = 0)
 
-	Local FirstLine% = SectionLine%("GUE.bb", SectionStart$, SectionEnd$, "Local W.Water = First Water")
+	Local FirstLine% = SectionLine%("GUE.bb", SectionStart$, SectionEnd$, "W = First Water")
 	Local CaptureLine% = SectionLine%("GUE.bb", SectionStart$, SectionEnd$, "WNext = After W")
 	Local UnloadLine% = SectionLine%("GUE.bb", SectionStart$, SectionEnd$, "UnloadTexture(W\TexID)")
 	Local FreeTextureLine% = SectionLine%("GUE.bb", SectionStart$, SectionEnd$, "FreeTexture(W\TexHandle)")
