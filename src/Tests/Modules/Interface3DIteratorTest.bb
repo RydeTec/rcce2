@@ -19,6 +19,16 @@ Function CleanupSectionUsesAfterCursor%(Path$, StartMarker$, EndMarker$, LegacyF
 			CloseFile F
 			Return False
 		EndIf
+		If Stage > 0 And Stage < 5
+			If FirstCleanup$ <> "" And Instr(Line$, FirstCleanup$) > 0 Then
+				CloseFile F
+				Return False
+			EndIf
+			If Instr(Line$, Cleanup$) > 0 Then
+				CloseFile F
+				Return False
+			EndIf
+		EndIf
 		If Stage = 1
 			If Instr(Line$, FirstCursor$) > 0 Then Stage = 2
 		ElseIf Stage = 2
