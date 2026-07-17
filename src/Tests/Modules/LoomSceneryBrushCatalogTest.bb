@@ -33,7 +33,7 @@ Function StaleSceneryBrushIsRejected%(Path$)
 				EndIf
 			Case 2
 				If Trimmed$ = "ScnBrushMeshID = 0" Then SawBrushIDReset = True
-				If Trimmed$ = "ScnBrushName$ = \"\"" Then SawBrushNameReset = True
+				If Trimmed$ = "ScnBrushName$ = " + Chr$(34) + Chr$(34) Then SawBrushNameReset = True
 				If Trimmed$ = "Return"
 					If SawBrushIDReset = False Or SawBrushNameReset = False
 						CloseFile F
