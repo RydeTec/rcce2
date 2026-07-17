@@ -32,6 +32,16 @@ Strict
 ;    here (this file is Strict; the Language.bb file is not, which
 ;    is why the original bug went silent).
 
+; RestoreLanguage uses these persistence helpers. This range-only test does
+; not exercise restore writes, so use matching stubs instead of Logging.bb.
+Function SafeWriteOpen$(FinalPath$)
+	Return FinalPath$ + ".tmp"
+End Function
+
+Function SafeWriteCommit%(TempPath$, FinalPath$, F)
+	Return True
+End Function
+
 Include "Modules\Language.bb"
 
 ; Replicates the post-fix range guard from Language.bb:301. Any
