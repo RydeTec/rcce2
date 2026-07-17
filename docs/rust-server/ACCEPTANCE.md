@@ -239,8 +239,8 @@ Status: **DONE**.
 
 **ACC-DEPLOY-3 — Linux CI gate.**
 Input: the `rust-server` CI job on ubuntu-latest.
-Observable: `cargo test --workspace --locked` + `clippy --all-targets --locked -D warnings` pass (exercises the cfg(unix) shutdown path).
-Verify: `executed` — CI job green in 57s (Cycle 100).
+Observable: `cargo test --workspace --locked` + `clippy --all-targets --locked -D warnings` pass (exercises the cfg(unix) shutdown path), and the `Smoke-test Rust server Docker startup` step boots the just-built image with project data mounted and waits for its post-bind `Listening on UDP 25000.` readiness log.
+Verify: the `rust-server` CI job runs the Docker build and startup smoke alongside the Rust test and Clippy gates.
 Status: **DONE**.
 
 **ACC-DEPLOY-4 — Updates-server file-update channel.**

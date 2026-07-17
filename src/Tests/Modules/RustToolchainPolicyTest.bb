@@ -71,3 +71,12 @@ Test testRustServerCIBuildsContainerImage()
 	Assert(FileContains%(".github\workflows\ci.yml", "- name: Build Rust server Docker image") = True)
 	Assert(FileContains%(".github\workflows\ci.yml", "docker build -f server-rs/Dockerfile -t rcce-server .") = True)
 End Test
+
+Test testRustServerCISmokeTestsContainerStartup()
+	Assert(FileContains%(".github\workflows\ci.yml", "- name: Smoke-test Rust server Docker startup") = True)
+	Assert(FileContains%(".github\workflows\ci.yml", "docker run --detach --name " + Chr$(34) + "$container_name" + Chr$(34) + " -p 25000:25000/udp -v " + Chr$(34) + "$GITHUB_WORKSPACE/data:/data:ro" + Chr$(34) + " rcce-server") = True)
+	Assert(FileContains%(".github\workflows\ci.yml", "Listening on UDP 25000.") = True)
+	Assert(FileContains%(".github\workflows\ci.yml", "docker logs " + Chr$(34) + "$container_name" + Chr$(34)) = True)
+	Assert(FileContains%(".github\workflows\ci.yml", "trap cleanup EXIT") = True)
+	Assert(FileContains%("docs\rust-server\ACCEPTANCE.md", "Smoke-test Rust server Docker startup") = True)
+End Test

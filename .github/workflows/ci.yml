@@ -206,6 +206,33 @@ jobs:
       - name: Build Rust server Docker image
         run: docker build -f server-rs/Dockerfile -t rcce-server .
 
+      - name: Smoke-test Rust server Docker startup
+        shell: bash
+        run: |
+          set -euo pipefail
+          container_name=rcce-server-smoke
+          cleanup() {
+            docker rm --force "$container_name" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          docker run --detach --name "$container_name" -p 25000:25000/udp -v "$GITHUB_WORKSPACE/data:/data:ro" rcce-server
+
+          ready=false
+          for attempt in $(seq 1 30); do
+            if docker logs "$container_name" 2>&1 | grep -Fq "Listening on UDP 25000."; then
+              ready=true
+              break
+            fi
+            sleep 1
+          done
+
+          if [ "$ready" != true ]; then
+            echo "Rust server Docker smoke test did not reach UDP readiness"
+            docker logs "$container_name" || true
+            exit 1
+          fi
+
       - name: Clippy (server workspace, -D warnings)
         working-directory: server-rs
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
