@@ -17512,96 +17512,168 @@ Function FUI_DeleteGadget( ID )
 	
 	win.Window = Object.Window( ID )
 	If win <> Null
-		For reg.Region = Each Region
+		Local reg.Region = First Region
+		While reg <> Null
 			If reg\Owner = win
 				FUI_DeleteGadget( Handle( reg ) )
+				reg = First Region
+			Else
+				reg = After reg
 			EndIf
-		Next
-		For Tab.Tab = Each Tab
+		Wend
+		Local Tab.Tab = First Tab
+		While Tab <> Null
 			If Tab\Owner = win
 				FUI_DeleteGadget( Handle( Tab ) )
+				Tab = First Tab
+			Else
+				Tab = After Tab
 			EndIf
-		Next
-		For pan.Panel = Each Panel
+		Wend
+		Local pan.Panel = First Panel
+		While pan <> Null
 			If pan\Owner = win
 				FUI_DeleteGadget( Handle( pan ) )
+				pan = First Panel
+			Else
+				pan = After pan
 			EndIf
-		Next
-		For btn.Button = Each Button
+		Wend
+		Local btn.Button = First Button
+		While btn <> Null
 			If btn\Owner = win
 				FUI_DeleteGadget( Handle( btn ) )
+				btn = First Button
+			Else
+				btn = After btn
 			EndIf
-		Next
-		For chk.CheckBox = Each CheckBox
+		Wend
+		Local chk.CheckBox = First CheckBox
+		While chk <> Null
 			If chk\Owner = win
 				FUI_DeleteGadget( Handle( chk ) )
+				chk = First CheckBox
+			Else
+				chk = After chk
 			EndIf
-		Next
-		For cbo.ComboBox = Each ComboBox
+		Wend
+		Local cbo.ComboBox = First ComboBox
+		While cbo <> Null
 			If cbo\Owner = win
 				FUI_DeleteGadget( Handle( cbo ) )
+				cbo = First ComboBox
+			Else
+				cbo = After cbo
 			EndIf
-		Next
-		For grp.GroupBox = Each GroupBox
+		Wend
+		Local grp.GroupBox = First GroupBox
+		While grp <> Null
 			If grp\Owner = win
 				FUI_DeleteGadget( Handle( grp ) )
+				grp = First GroupBox
+			Else
+				grp = After grp
 			EndIf
-		Next
-		For img.ImageBox = Each ImageBox
+		Wend
+		Local img.ImageBox = First ImageBox
+		While img <> Null
 			If img\Owner = win
 				FUI_DeleteGadget( Handle( img ) )
+				img = First ImageBox
+			Else
+				img = After img
 			EndIf
-		Next
-		For lbl.Label = Each Label
+		Wend
+		Local lbl.Label = First Label
+		While lbl <> Null
 			If lbl\Owner = win
 				FUI_DeleteGadget( Handle( lbl ) )
+				lbl = First Label
+			Else
+				lbl = After lbl
 			EndIf
-		Next
-		For lst.ListBox = Each ListBox
+		Wend
+		Local lst.ListBox = First ListBox
+		While lst <> Null
 			If lst\Owner = win
 				FUI_DeleteGadget( Handle( lst ) )
+				lst = First ListBox
+			Else
+				lst = After lst
 			EndIf
-		Next
-		For prg.ProgressBar = Each ProgressBar
+		Wend
+		Local prg.ProgressBar = First ProgressBar
+		While prg <> Null
 			If prg\Owner = win
 				FUI_DeleteGadget( Handle( prg ) )
+				prg = First ProgressBar
+			Else
+				prg = After prg
 			EndIf
-		Next
-		For rad.Radio = Each Radio
+		Wend
+		Local rad.Radio = First Radio
+		While rad <> Null
 			If rad\Owner = win
 				FUI_DeleteGadget( Handle( rad ) )
+				rad = First Radio
+			Else
+				rad = After rad
 			EndIf
-		Next
-		For scroll.ScrollBar = Each ScrollBar
+		Wend
+		Local scroll.ScrollBar = First ScrollBar
+		While scroll <> Null
 			If scroll\Owner = win
 				FUI_DeleteGadget( Handle( scroll ) )
+				scroll = First ScrollBar
+			Else
+				scroll = After scroll
 			EndIf
-		Next
-		For sld.Slider = Each Slider
+		Wend
+		Local sld.Slider = First Slider
+		While sld <> Null
 			If sld\Owner = win
 				FUI_DeleteGadget( Handle( sld ) )
+				sld = First Slider
+			Else
+				sld = After sld
 			EndIf
-		Next
-		For spn.Spinner = Each Spinner
+		Wend
+		Local spn.Spinner = First Spinner
+		While spn <> Null
 			If spn\Owner = win
 				FUI_DeleteGadget( Handle( spn ) )
+				spn = First Spinner
+			Else
+				spn = After spn
 			EndIf
-		Next
-		For txt.TextBox = Each TextBox
+		Wend
+		Local txt.TextBox = First TextBox
+		While txt <> Null
 			If txt\Owner = win
 				FUI_DeleteGadget( Handle( txt ) )
+				txt = First TextBox
+			Else
+				txt = After txt
 			EndIf
-		Next
-		For tree.TreeView = Each TreeView
+		Wend
+		Local tree.TreeView = First TreeView
+		While tree <> Null
 			If tree\Owner = win
 				FUI_DeleteGadget( Handle( tree ) )
+				tree = First TreeView
+			Else
+				tree = After tree
 			EndIf
-		Next
-		For view.View = Each View
+		Wend
+		Local view.View = First View
+		While view <> Null
 			If view\Owner = win
 				FUI_DeleteGadget( Handle( view ) )
+				view = First View
+			Else
+				view = After view
 			EndIf
-		Next
+		Wend
 		
 		FreeEntity win\Mesh
 		Delete win
