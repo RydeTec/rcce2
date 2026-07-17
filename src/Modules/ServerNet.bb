@@ -212,7 +212,10 @@ Function UpdateNetwork()
 ;	EndIf
 
 	; Send off any queued messages
-	For Q.QueuedPacket = Each QueuedPacket
+	Local Q.QueuedPacket = First QueuedPacket
+	Local QNext.QueuedPacket = Null
+	While Q <> Null
+		QNext = After Q
 		If Q\PreviousInQueue = Null
 			If MilliSecs() - Q\PreviousSentTime >= 12
 				; Send it
@@ -225,7 +228,8 @@ Function UpdateNetwork()
 				Delete(Q)
 			EndIf
 		EndIf
-	Next
+		Q = QNext
+	Wend
 
 	; Incoming messages
 	For M.RCE_Message = Each RCE_Message
