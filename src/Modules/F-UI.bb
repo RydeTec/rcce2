@@ -16970,13 +16970,17 @@ Function FUI_Destroy(  )
 	Delete Each ComboBox
 	Delete Each ComboBoxItem
 	Delete Each GroupBox
-	For img.ImageBox = Each ImageBox
+	Local img.ImageBox = First ImageBox
+	Local imgNext.ImageBox = Null
+	While img <> Null
+		imgNext = After img
 		If img\Image <> Null
 			FreeImage img\Image
 			img\Image = Null
 		EndIf
 		Delete img
-	Next
+		img = imgNext
+	Wend
 	Delete Each Label
 	Delete Each ListBox
 	Delete Each ListBoxItem
@@ -16988,17 +16992,25 @@ Function FUI_Destroy(  )
 	Delete Each TextBox
 	Delete Each TreeView
 	Delete Each Node
-	For view.View = Each View
+	Local view.View = First View
+	Local viewNext.View = Null
+	While view <> Null
+		viewNext = After view
 		FreeEntity view\Cam
 		
 		Delete view
-	Next
-	For m.Mesh = Each Mesh
+		view = viewNext
+	Wend
+	Local m.Mesh = First Mesh
+	Local mNext.Mesh = Null
+	While m <> Null
+		mNext = After m
 		If m\Mesh <> Null FreeEntity m\Mesh
 			m\Mesh = Null
 		
 		Delete m
-	Next
+		m = mNext
+	Wend
 	
 	If ICON_NEW <> Null
 		FreeImage ICON_NEW
