@@ -438,24 +438,30 @@ Repeat
 				If Confirm("Really remove account?") = True
 					A.Account = FindAccountByListID(SelectedGadgetItem(Accounts\List))
 					If A <> Null
-						; Remove from counters
-						Accounts\TotalAccounts = Accounts\TotalAccounts - 1
-						If A\IsDM = True Then Accounts\TotalDMs = Accounts\TotalDMs - 1
-						If A\IsBanned = True Then Accounts\TotalBanned = Accounts\TotalBanned - 1
-						SetGadgetText(Accounts\AccountsLabel, "Total accounts: " + Str(Accounts\TotalAccounts))
-						SetGadgetText(Accounts\DMLabel, "GM accounts: " + Str(Accounts\TotalDMs))
-						SetGadgetText(Accounts\BannedLabel, "Banned accounts: " + Str(Accounts\TotalBanned))
-						; Move all others up in the list
-						Ac2.Account = After A
-						While Ac2 <> Null
-							Ac2\ListID = Ac2\ListID - 1
-							Ac2 = After Ac2
-						Wend
-						; Delete it
-						WriteLog(MainLog, "Deleted account: " + A\User$)
-						Delete A
-						RemoveGadgetItem Accounts\List, SelectedGadgetItem(Accounts\List)
-						SaveAccounts()
+						; Keep the account/UI live until the prospective Accounts.dat write
+						; commits. A failed atomic save must leave memory matching disk.
+						A\PendingDelete = True
+						If SaveAccounts()
+							; Remove from counters only after the deletion is durable.
+							Accounts\TotalAccounts = Accounts\TotalAccounts - 1
+							If A\IsDM = True Then Accounts\TotalDMs = Accounts\TotalDMs - 1
+							If A\IsBanned = True Then Accounts\TotalBanned = Accounts\TotalBanned - 1
+							SetGadgetText(Accounts\AccountsLabel, "Total accounts: " + Str(Accounts\TotalAccounts))
+							SetGadgetText(Accounts\DMLabel, "GM accounts: " + Str(Accounts\TotalDMs))
+							SetGadgetText(Accounts\BannedLabel, "Banned accounts: " + Str(Accounts\TotalBanned))
+							; Move all others up in the list.
+							Ac2.Account = After A
+							While Ac2 <> Null
+								Ac2\ListID = Ac2\ListID - 1
+								Ac2 = After Ac2
+							Wend
+							WriteLog(MainLog, "Deleted account: " + A\User$)
+							Delete A
+							RemoveGadgetItem Accounts\List, SelectedGadgetItem(Accounts\List)
+						Else
+							A\PendingDelete = False
+							WriteLog(MainLog, "Could not delete account: " + A\User$ + " because Accounts.dat was not saved")
+						EndIf
 					EndIf
 				EndIf
 			; Lock/unlock updates server

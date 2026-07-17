@@ -29,6 +29,10 @@ End Type
 Type Account
 	Field User$, Pass$, Email$, IsDM, IsBanned
 	Field ListID
+	; The Accounts-window delete path marks a record while SaveAccounts writes
+	; the prospective file. A failed atomic commit clears this marker so the
+	; still-live record and its UI entry remain authoritative.
+	Field PendingDelete
 	Field LoggedOn
 	Field Character.ActorInstance[9]
 	Field QuestLog.QuestLog[9]
@@ -247,29 +251,31 @@ Function SaveAccounts()
 		WriteByte F, ACCOUNTS_VERSION_CURRENT%
 
 		For A.Account = Each Account
-			WriteString F, A\User$
-			WriteString F, A\Pass$
-			WriteString F, A\Email$
-			WriteByte F, A\IsDM
-			WriteByte F, A\IsBanned
-			WriteString F, A\Ignore$
-			Chars = 0
-			For i = 0 To 9
-				If A\Character[i] <> Null Then Chars = Chars + 1
-			Next
-			WriteByte F, Chars
-			For i = 0 To 9
-				If A\Character[i] <> Null
-					WriteActorInstance(F, A\Character[i])
-					For j = 0 To 499
-						WriteString F, A\QuestLog[i]\EntryName$[j]
-						WriteString F, A\QuestLog[i]\EntryStatus$[j]
-					Next
-					For j = 0 To 35
-						WriteString F, A\ActionBar[i]\Slots$[j]
-					Next
-				EndIf
-			Next
+			If A\PendingDelete = False
+				WriteString F, A\User$
+				WriteString F, A\Pass$
+				WriteString F, A\Email$
+				WriteByte F, A\IsDM
+				WriteByte F, A\IsBanned
+				WriteString F, A\Ignore$
+				Chars = 0
+				For i = 0 To 9
+					If A\Character[i] <> Null Then Chars = Chars + 1
+				Next
+				WriteByte F, Chars
+				For i = 0 To 9
+					If A\Character[i] <> Null
+						WriteActorInstance(F, A\Character[i])
+						For j = 0 To 499
+							WriteString F, A\QuestLog[i]\EntryName$[j]
+							WriteString F, A\QuestLog[i]\EntryStatus$[j]
+						Next
+						For j = 0 To 35
+							WriteString F, A\ActionBar[i]\Slots$[j]
+						Next
+					EndIf
+				Next
+			EndIf
 		Next
 
 	Return SafeWriteCommit(TempPath$, FinalPath$, F)
