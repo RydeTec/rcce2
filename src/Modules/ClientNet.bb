@@ -1116,10 +1116,15 @@ Function UpdateNetwork()
 					If Handle(A) = PlayerTarget Then PlayerTarget = 0 : AttackTarget = False
 					If A = CharInteract Then DestroyCharInteractionWindow()
 
-					; Free any dialogs
-					For Di.Dialog = Each Dialog
-						If Di\ActorInstance = A Then FreeDialog(Handle(Di))
-					Next
+					; Free any dialogs. FreeDialog deletes the current record, so
+					; capture the next cursor before freeing a matching dialog.
+					Local DeadDialog.Dialog = First Dialog
+					Local NextDeadDialog.Dialog = Null
+					While DeadDialog <> Null
+						NextDeadDialog = After DeadDialog
+						If DeadDialog\ActorInstance = A Then FreeDialog(Handle(DeadDialog))
+						DeadDialog = NextDeadDialog
+					Wend
 				EndIf
 
 			; Actor attacked
