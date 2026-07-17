@@ -8984,15 +8984,19 @@ Function ScaleEntireZoneDialog()
 	Repeat
 
 		; Events
-		For E.Event = Each Event
-			Select E\EventID
+		Local ScaleEvent.Event = First Event
+		Local NextScaleEvent.Event = Null
+		While ScaleEvent <> Null
+			NextScaleEvent = After ScaleEvent
+			Select ScaleEvent\EventID
 				Case BCancel
 					Done = 2
 				Case BDone
 					Done = 1
 			End Select
-			Delete(E)
-		Next
+			Delete(ScaleEvent)
+			ScaleEvent = NextScaleEvent
+		Wend
 
 		; Render
 		FUI_Update()
@@ -10398,11 +10402,14 @@ Function GenerateGamePatch()
 	Repeat
 		FUI_Update()
 		Flip(0)
-		For E.Event = Each Event
-			Select E\EventID
+		Local QuitEvent.Event = First Event
+		Local NextQuitEvent.Event = Null
+		While QuitEvent <> Null
+			NextQuitEvent = After QuitEvent
+			Select QuitEvent\EventID
 				; Window closed
 				Case W
-					If Lower$(E\EventData$) = "closed"
+					If Lower$(QuitEvent\EventData$) = "closed"
 						FUI_DeleteGadget(W)
 						Return
 					EndIf
@@ -10411,8 +10418,9 @@ Function GenerateGamePatch()
 					FUI_DeleteGadget(W)
 					Return
 			End Select
-			Delete(E)
-		Next
+			Delete(QuitEvent)
+			QuitEvent = NextQuitEvent
+		Wend
 	Forever
 
 End Function
