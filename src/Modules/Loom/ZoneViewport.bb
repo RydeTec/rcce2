@@ -1211,6 +1211,17 @@ Function Loom_AddSceneryAtClick(zoneHandle, localX, localY)
     Local py# = VPPickY#
     Local pz# = VPPickZ#
 
+    ; Media deletion rebuilds the catalog, so a previously selected brush ID
+    ; can outlive its MeshEntry. Validate the catalog before loading or
+    ; allocating anything: BlitzForge And is eager and cannot guard mEnt\Scale.
+    Local mEnt.MeshEntry = Meshes_GetByID(ScnBrushMeshID)
+    If mEnt = Null
+        ScnBrushMeshID = 0
+        ScnBrushName$ = ""
+        Toast_Show("Selected scenery mesh is no longer available; pick another mesh", "warning")
+        Return
+    EndIf
+
     Local en = GetMesh(ScnBrushMeshID, False)
     If en = 0
         Toast_Show("Could not load mesh " + Str(ScnBrushMeshID), "warning")
@@ -1219,8 +1230,7 @@ Function Loom_AddSceneryAtClick(zoneHandle, localX, localY)
 
     ; Brush scale mirrors GUE's place-from-browser: mesh's catalog scale * 0.05.
     Local sc# = 1.0
-    Local mEnt.MeshEntry = Meshes_GetByID(ScnBrushMeshID)
-    If mEnt <> Null And mEnt\Scale# > 0.0 Then sc# = mEnt\Scale# * 0.05
+    If mEnt\Scale# > 0.0 Then sc# = mEnt\Scale# * 0.05
     If sc# <= 0.0 Then sc# = 1.0
 
     ; --- Create + fully initialize every serialized field ---
