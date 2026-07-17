@@ -1602,7 +1602,10 @@ Function UpdateInterface()
 	If First Dialog = Null And First TextInput = Null And MouseDown(2) = False Then InDialog = False : FlushMouse()
 
 	;- Update chat bubbles
-	For Bubble.Bubble = Each Bubble
+	Local Bubble.Bubble = First Bubble
+	Local BNext.Bubble = Null
+	While Bubble <> Null
+		BNext = After Bubble
 		; Position above character's head
 		AI.ActorInstance = Bubble\ActorInstance
 		If AI <> Null
@@ -1632,7 +1635,8 @@ Function UpdateInterface()
 			FreeEntity(Bubble\EN)
 			Delete(Bubble)
 		EndIf
-	Next
+		Bubble = BNext
+	Wend
 
 	; Update quest log window
 	If QuestLogVisible = True
@@ -3051,13 +3055,17 @@ EndIf
 
 ;Increased Chat fader timer from 10 to 15 seconds cysis145
 	; Make current chat text disappear after 15 seconds
-	For CC.CurrentChat = Each CurrentChat
+	Local CC.CurrentChat = First CurrentChat
+	Local CCNext.CurrentChat = Null
+	While CC <> Null
+		CCNext = After CC
 		If MilliSecs() - CC\Timer > 15000
 			Delete(CC)
 			; Remove from display
 			If HistoryMode = False Then UpdateChatTextDisplay()
 		EndIf
-	Next
+		CC = CCNext
+	Wend
 	
 	;If ( ControlDown(29) Or ControlDown(157) ) And ControlDown(199) ; Ctrl + Home [#@#]
 	;	ToggleDebugBannerVisibility()
