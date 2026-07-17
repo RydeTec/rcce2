@@ -37,6 +37,33 @@ Function FileOccurrenceCount%(Path$, Needle$)
 	Return Count
 End Function
 
+Function FileContainsSequenceBefore%(Path$, StartNeedle$, FirstNeedle$, SecondNeedle$, EndNeedle$)
+	Local F.BBStream = ReadFile(Path$)
+	Local Line$
+	Local Stage = 0
+	If F = Null Then F = ReadFile("..\" + Path$)
+	If F = Null Then F = ReadFile("..\..\" + Path$)
+	If F = Null Then Return False
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		If Stage = 0
+			If Instr(Line$, StartNeedle$) > 0 Then Stage = 1
+		Else
+			If Stage = 1 And Instr(Line$, FirstNeedle$) > 0 Then Stage = 2
+			If Stage = 2 And Instr(Line$, SecondNeedle$) > 0
+				CloseFile F
+				Return True
+			EndIf
+			If Instr(Line$, EndNeedle$) > 0
+				CloseFile F
+				Return False
+			EndIf
+		EndIf
+	Wend
+	CloseFile F
+	Return False
+End Function
+
 Test testDeclaredMSRVIsPinnedWithClippy()
 	Assert(FileContains%("rust-toolchain.toml", "channel = " + Chr$(34) + "1.85.0" + Chr$(34)) = True)
 	Assert(FileContains%("rust-toolchain.toml", "components = [" + Chr$(34) + "clippy" + Chr$(34) + "]") = True)
@@ -57,6 +84,13 @@ Test testOptInReleaseBuildsKeepBothLockfilesLocked()
 	Assert(FileContains%("compile.sh", "cargo build --release --locked --bin rcce-server") = True)
 	Assert(FileContains%("compile.bat", "cargo build --release --locked -p rcce-client --bin client-window") = True)
 	Assert(FileContains%("compile.bat", "cargo build --release --locked --bin rcce-server") = True)
+End Test
+
+Test testExplicitRustBuildsRejectMissingCargo()
+	Assert(FileContains%("compile.sh", "Skipping ClientRS/ServerRS.") = False)
+	Assert(FileContains%("compile.bat", "Skipping ClientRS.exe/ServerRS.exe.") = False)
+	Assert(FileContainsSequenceBefore%("compile.sh", "if ! command -v cargo >/dev/null 2>&1; then", "Cannot build ClientRS/ServerRS.", "exit 1", "  else") = True)
+	Assert(FileContainsSequenceBefore%("compile.bat", "if errorlevel 1 (", "Cannot build ClientRS.exe/ServerRS.exe.", "exit /b 1", ")") = True)
 End Test
 
 Test testRustServerContainerBuilderKeepsDeclaredToolchainAndLockfile()

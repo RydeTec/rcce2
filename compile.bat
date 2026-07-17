@@ -125,8 +125,9 @@ if not %BUILD_RUST%==1 goto skip_rust
 echo Compiling RealmCrafter CE Rust apps (client-rs + server-rs)...
 where cargo >nul 2>nul
 if errorlevel 1 (
-    echo   cargo not found on PATH -- install Rust from https://rustup.rs to build the Rust apps. Skipping ClientRS.exe/ServerRS.exe.
-    goto skip_rust
+    echo   cargo not found on PATH -- install Rust from https://rustup.rs to build the Rust apps. Cannot build ClientRS.exe/ServerRS.exe.
+    endlocal
+    exit /b 1
 )
 rem Rust client (client-rs) -> bin\ClientRS.exe
 cd /d "%ROOTDIR%\client-rs"

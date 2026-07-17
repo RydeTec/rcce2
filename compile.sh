@@ -150,7 +150,8 @@ fi
 if [[ "${BUILD_RUST}" -eq 1 ]]; then
   echo "Compiling RealmCrafter CE Rust apps (client-rs + server-rs)..."
   if ! command -v cargo >/dev/null 2>&1; then
-    echo "  cargo not found on PATH -- install Rust from https://rustup.rs to build the Rust apps. Skipping ClientRS/ServerRS." >&2
+    echo "  cargo not found on PATH -- install Rust from https://rustup.rs to build the Rust apps. Cannot build ClientRS/ServerRS." >&2
+    exit 1
   else
     mkdir -p "${ROOTDIR}/bin"
     # Rust client (client-rs) -> bin/ClientRS
