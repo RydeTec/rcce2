@@ -55,17 +55,63 @@ Function RecentCleanupFollowsRequiredCopies%(Path$)
 	Return False
 End Function
 
+Function CompileForwardingFailsClosed%(Path$)
+	Local F.BBStream = ReadFile(Path$)
+	Local Line$
+	Local Stage% = 0
+	If F = Null Then F = ReadFile("..\" + Path$)
+	If F = Null Then F = ReadFile("..\..\" + Path$)
+	If F = Null Then Return False
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		If Stage = 0 And Instr(Line$, "call " + Chr$(34) + "%ROOTDIR%\compile.bat" + Chr$(34) + " %* || (") > 0 Then Stage = 1
+		If Stage = 1 And Instr(Line$, "echo Compilation failed; aborting publish.") > 0 Then Stage = 2
+		If Stage = 2 And Instr(Line$, "endlocal") > 0 Then Stage = 3
+		If Stage = 3 And Instr(Line$, "exit /b 1") > 0
+			CloseFile F
+			Return True
+		EndIf
+	Wend
+	CloseFile F
+	Return False
+End Function
+
+Function CopyRequiredFailsClosed%(Path$)
+	Local F.BBStream = ReadFile(Path$)
+	Local Line$
+	Local Stage% = 0
+	If F = Null Then F = ReadFile("..\" + Path$)
+	If F = Null Then F = ReadFile("..\..\" + Path$)
+	If F = Null Then Return False
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		If Stage = 0 And Instr(Line$, ":CopyRequired") > 0 Then Stage = 1
+		If Stage = 1 And Instr(Line$, "xcopy %*") > 0 Then Stage = 2
+		If Stage = 2 And Instr(Line$, "if errorlevel 1 (") > 0 Then Stage = 3
+		If Stage = 3 And Instr(Line$, "Copy failed; aborting publish.") > 0 Then Stage = 4
+		If Stage = 4 And Instr(Line$, "exit /b 1") > 0
+			CloseFile F
+			Return True
+		EndIf
+	Wend
+	CloseFile F
+	Return False
+End Function
+
 Test testPublishForwardsRequestedBuildFlags()
-	Assert(FileContains%("publish.bat", "call " + Chr$(34) + "%ROOTDIR%\compile.bat" + Chr$(34) + " %* || (") = True)
+	Assert(CompileForwardingFailsClosed%("publish.bat") = True)
 End Test
 
 Test testPublishFailsWhenARequiredPayloadCopyFails()
 	Assert(FileOccurrenceCount%("publish.bat", "call :CopyRequired ") = 7)
-	Assert(FileOccurrenceCount%("publish.bat", " || exit /b 1") = 7)
-	Assert(FileContains%("publish.bat", ":CopyRequired") = True)
-	Assert(FileContains%("publish.bat", "xcopy %*") = True)
-	Assert(FileContains%("publish.bat", "if errorlevel 1 (") = True)
-	Assert(FileContains%("publish.bat", "Copy failed; aborting publish.") = True)
+	Assert(FileContains%("publish.bat", "call :CopyRequired /E /Y /I " + Chr$(34) + "%ROOTDIR%\bin" + Chr$(34) + " " + Chr$(34) + "%ROOTDIR%\release\bin" + Chr$(34) + " || exit /b 1") = True)
+	Assert(FileContains%("publish.bat", "call :CopyRequired /E /Y /I " + Chr$(34) + "%ROOTDIR%\bin\ReShade.ini.example" + Chr$(34) + " " + Chr$(34) + "%ROOTDIR%\release\bin\ReShade.ini" + Chr$(34) + " || exit /b 1") = True)
+	Assert(FileContains%("publish.bat", "call :CopyRequired /Y " + Chr$(34) + "%ROOTDIR%\Project Manager.exe" + Chr$(34) + " " + Chr$(34) + "%ROOTDIR%\release\" + Chr$(34) + " || exit /b 1") = True)
+	Assert(FileContains%("publish.bat", "call :CopyRequired /E /Y /I " + Chr$(34) + "%ROOTDIR%\data" + Chr$(34) + " " + Chr$(34) + "%ROOTDIR%\release\data" + Chr$(34) + " || exit /b 1") = True)
+	Assert(FileContains%("publish.bat", "call :CopyRequired /E /Y /I " + Chr$(34) + "%ROOTDIR%\res" + Chr$(34) + " " + Chr$(34) + "%ROOTDIR%\release\res" + Chr$(34) + " || exit /b 1") = True)
+	Assert(FileContains%("publish.bat", "call :CopyRequired /E /Y /I " + Chr$(34) + "%ROOTDIR%\docs" + Chr$(34) + " " + Chr$(34) + "%ROOTDIR%\release\docs" + Chr$(34) + " || exit /b 1") = True)
+	Assert(FileContains%("publish.bat", "call :CopyRequired /E /Y /I " + Chr$(34) + "%ROOTDIR%\extras\Freemake" + Chr$(34) + " " + Chr$(34) + "%ROOTDIR%\release\extras\Freemake" + Chr$(34) + " || exit /b 1") = True)
+	Assert(CopyRequiredFailsClosed%("publish.bat") = True)
 End Test
 
 Test testPublishKeepsRecentProjectStateOutOfTheRelease()
