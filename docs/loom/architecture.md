@@ -255,7 +255,7 @@ See [decisions/001-custom-draw-not-fui.md](decisions/001-custom-draw-not-fui.md)
 
 The *data-only* halves of the area I/O were carved out of `ClientAreas.bb` into the shared `Modules/AreaLoader.bb` precisely so Loom can use them without that coupling: `LoadAreaData` (the reader, ADR-004 Phase B) and now `SaveArea` (the whole-visual-area writer, ADR-007 "Phase D"). GUE `Include`s `AreaLoader.bb` before `ClientAreas.bb`, so its own `LoadAreaData`/`SaveArea` calls resolve to the shared definitions unchanged.
 
-Concrete consequence: **Loom cannot render the 3D zone mesh.** Zone composer shows zone metadata as text + portal-target chips; the Atlas surface gives a 2D spatial view from the portal graph topology. See [decisions/004-deferred-3d-viewport.md](decisions/004-deferred-3d-viewport.md) for the path to fixing this (extract `GetFilename$` to a shared helper; either rewrite `LoadArea`'s data path with the GUI side ripped out, or build a Loom-side mesh loader).
+Concrete consequence: **Loom can render the 3D zone mesh in World mode.** `ZoneViewport.bb` loads the focused zone's real terrain, scenery, and water through `LoadAreaData`, overlays the schematic markers at their true coordinates, and soft-falls back to schematic mode when no visual `.dat` exists. World-mode entity editing and scenery placement write through the shared area save path; terrain sculpting, water-volume editing, weather/environment editing, and scenery texture painting remain separate deferred surfaces. See [decisions/004-deferred-3d-viewport.md](decisions/004-deferred-3d-viewport.md) for the shipped extraction and viewport history.
 
 ## Data-model gotchas
 

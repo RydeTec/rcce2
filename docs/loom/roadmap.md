@@ -72,7 +72,7 @@ Shipped, next, and deferred. Read this when picking what to build next.
 
 All six original "next up" roadmap items are shipped, plus eight scope-expanded surfaces (palette, search-within-category, entity creation, deletion, discard, conscience ribbon, broken-ref finder, keyboard nav, atlas, ref-field editing, timeline scrubber, recents, tools tab). Loom is now in **beta** — every primary GUE workflow has a Loom equivalent.
 
-Beta vs alpha distinction: alpha was read-only browsing; beta covers full editing parity with GUE. Out-of-scope items (3D viewport, walk-in playtest, multi-cursor) remain in the deferred list below.
+Beta vs alpha distinction: alpha was read-only browsing; beta covers full editing parity with GUE. Out-of-scope items (walk-in playtest and multi-cursor) remain in the deferred list below; the zone viewport's World mode is shipped, while its remaining terrain, water, weather, and texture-painting follow-ups are listed separately.
 
 ## Next up
 

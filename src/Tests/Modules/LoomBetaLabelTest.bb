@@ -40,3 +40,14 @@ Test testCurrentFacingGuidanceCannotRegressToAlpha()
 	Assert(FileContains%("CLAUDE.md", "## Loom (alpha redesigned editor)") = False)
 	Assert(FileContains%("CLAUDE.md", "Read-only in the alpha; editing is a beta concern") = False)
 End Test
+
+Test testLoomGuidanceIdentifiesTheShippedWorldMode()
+	Assert(FileContains%("docs\\loom\\README.md", "World mode renders the focused zone's real terrain, scenery, and water") = True)
+	Assert(FileContains%("docs\\loom\\README.md", "falls back to schematic mode when a zone has no visual `.dat`") = True)
+	Assert(FileContains%("docs\\loom\\README.md", "Terrain sculpting, water-volume editing, weather/environment editing, or scenery texture painting.") = True)
+	Assert(FileContains%("docs\\loom\\architecture.md", "Loom can render the 3D zone mesh in World mode") = True)
+	Assert(FileContains%("docs\\loom\\roadmap.md", "Out-of-scope items (walk-in playtest and multi-cursor) remain in the deferred list below") = True)
+	Assert(FileContains%("docs\\loom\\README.md", "Render zones in 3D.") = False)
+	Assert(FileContains%("docs\\loom\\architecture.md", "Loom cannot render the 3D zone mesh.") = False)
+	Assert(FileContains%("docs\\loom\\roadmap.md", "Out-of-scope items (3D viewport, walk-in playtest, multi-cursor)") = False)
+End Test
