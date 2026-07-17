@@ -55,7 +55,7 @@ So a fully-commented row counts as **no row** — it does not consume an `ID`. T
 
 ### Restoration / hot-reload
 
-`RestoreLanguage(Filename$)` writes the current in-memory `LanguageString$()` array out to a file — used by tooling to dump the active locale back to disk after edits. It first reloads `Data\Game Data\Language.txt` so a partial in-memory state isn't persisted. The output is plain `WriteLine` per slot; comments are not preserved (the input-side comment stripping is one-way).
+`RestoreLanguage(Filename$)` writes the current in-memory `LanguageString$()` array out to a file — used by tooling to dump the active locale back to disk after edits. It first reloads `Data\Game Data\Language.txt` so a partial in-memory state isn't persisted. It writes each plain `WriteLine` slot to a temporary file and promotes that file with `SafeWriteCommit%` only after the complete write succeeds, so a failed restore leaves the prior recovery file intact. Comments are not preserved (the input-side comment stripping is one-way).
 
 There is no hot-reload at runtime — strings are read once at boot. The actual `LoadLanguage` callers are [`ClientLoaders.bb:4`](../../src/Modules/ClientLoaders.bb#L4) for the client and [`Server.bb:197`](../../src/Server.bb#L197) for the server (the latter loads `Data\Server Data\Language.txt`, distinct from the client's `Data\Game Data\Language.txt`). `MainMenu.bb` is the largest consumer of the loaded strings but does not load them. To test a localized string change, restart the affected process.
 
