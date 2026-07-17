@@ -9,7 +9,7 @@ EnableGC
 Function StaleSceneryBrushIsRejected%(Path$)
 	Local F.BBStream = ReadFile(Path$)
 	Local Line$, Trimmed$
-	Local Stage%, SawBrushIDReset%, SawBrushNameReset%
+	Local InPlacement%, Stage%, SawBrushIDReset%, SawBrushNameReset%
 	If F = Null Then F = ReadFile("..\" + Path$)
 	If F = Null Then F = ReadFile("..\..\" + Path$)
 	If F = Null Then Return False
@@ -17,13 +17,24 @@ Function StaleSceneryBrushIsRejected%(Path$)
 	While Not Eof(F)
 		Line$ = ReadLine$(F)
 		Trimmed$ = Trim$(Line$)
+		If Instr(Trimmed$, "Function Loom_AddSceneryAtClick") > 0 Then InPlacement = True
+		If InPlacement = False Then Continue
+		If Trimmed$ = "End Function"
+			CloseFile F
+			Return False
+		EndIf
 		If Instr(Trimmed$, "If mEnt <> Null And") > 0
 			CloseFile F
 			Return False
 		EndIf
 		Select Stage
 			Case 0
-				If Instr(Trimmed$, "Local mEnt.MeshEntry = Meshes_GetByID(ScnBrushMeshID)") > 0 Then Stage = 1
+				If Instr(Trimmed$, "Local mEnt.MeshEntry = Meshes_GetByID(ScnBrushMeshID)") > 0
+					Stage = 1
+				ElseIf Instr(Trimmed$, "GetMesh(") > 0 Or Instr(Trimmed$, "New Scenery") > 0
+					CloseFile F
+					Return False
+				EndIf
 			Case 1
 				If Trimmed$ = "If mEnt = Null"
 					Stage = 2
