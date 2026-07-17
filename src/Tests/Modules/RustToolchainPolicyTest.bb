@@ -59,6 +59,15 @@ Test testOptInReleaseBuildsKeepBothLockfilesLocked()
 	Assert(FileContains%("compile.bat", "cargo build --release --locked --bin rcce-server") = True)
 End Test
 
+Test testExplicitRustBuildsRejectMissingCargo()
+	Assert(FileContains%("compile.sh", "Cannot build ClientRS/ServerRS.") = True)
+	Assert(FileContains%("compile.sh", "Skipping ClientRS/ServerRS.") = False)
+	Assert(FileContains%("compile.sh", "exit 1") = True)
+	Assert(FileContains%("compile.bat", "Cannot build ClientRS.exe/ServerRS.exe.") = True)
+	Assert(FileContains%("compile.bat", "Skipping ClientRS.exe/ServerRS.exe.") = False)
+	Assert(FileContains%("compile.bat", "exit /b 1") = True)
+End Test
+
 Test testRustServerContainerBuilderKeepsDeclaredToolchainAndLockfile()
 	Assert(FileContains%("server-rs\Dockerfile", "FROM rust:1.85.0-bookworm AS build") = True)
 	Assert(FileContains%("server-rs\Dockerfile", "RUN cargo build --release --locked --bin rcce-server") = True)
