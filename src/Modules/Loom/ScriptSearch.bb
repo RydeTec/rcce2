@@ -106,10 +106,13 @@ Type ScriptSearch
 
 
     Method clearHits()
-        Local h.ScriptSearchHit
-        For h = Each ScriptSearchHit
+        Local h.ScriptSearchHit = First ScriptSearchHit
+        Local nextHit.ScriptSearchHit = Null
+        While h <> Null
+            nextHit = After h
             Delete h
-        Next
+            h = nextHit
+        Wend
         self\hitCount = 0
         self\scrollOffset = 0
     End Method
