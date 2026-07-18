@@ -48,4 +48,6 @@ Test testContributorGeneratedDocsGuidanceMatchesCI()
 	Assert(FileContains%("CONTRIBUTING.md", "./scripts/gen_bvm_reference.sh") = True)
 	Assert(FileContains%("CONTRIBUTING.md", "Both checks run in the GitHub Actions workflow") = True)
 	Assert(FileContains%("CONTRIBUTING.md", "neither is yet wired into the GitHub Actions workflow") = False)
+	Assert(FileContains%(".github\workflows\ci.yml", "bash scripts/gen_packet_index.sh --check") = True)
+	Assert(FileContains%(".github\workflows\ci.yml", "bash scripts/gen_bvm_reference.sh --check") = True)
 End Test
