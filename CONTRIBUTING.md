@@ -192,7 +192,7 @@ Two doc artifacts are generated from source; do not edit by hand. After touching
   ./scripts/gen_packet_index.sh
   ```
 
-Both scripts accept `--check` mode (exit non-zero if the doc is stale) for use in pre-commit hooks or CI; neither is yet wired into the GitHub Actions workflow.
+Both scripts accept `--check` mode (exit non-zero if the doc is stale) for use in pre-commit hooks or CI. Both checks run in the GitHub Actions workflow.
 
 Per-packet detail pages under [`docs/protocol/packets/`](docs/protocol/packets/) are hand-written and incrementally filled. Adding one is a good first PR — pick an under-documented packet from the index table where the "Detail" column shows `—`.
 
