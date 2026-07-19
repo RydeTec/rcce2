@@ -82,7 +82,7 @@ The next-tier roadmap items, in rough order of leverage:
 
 **Shipped (texture thumbnails for Item + Spell):** Item and Spell composers now render a 64×64 thumbnail next to the `ThumbnailTexID` field via the new `Modules/Loom/ImageCache.bb`. Lazy loads through `GetTextureName$` (existing Media.bb function) + `LoadImage`, caches per-ID, paints a `?` placeholder for missing/invalid IDs. See "Shipped" entries below for the full architecture.
 
-**Shipped: 3D previews cover the actor base mesh, item `MMeshID`, and mesh-catalog entries.** The existing widget auto-spins and uses the render-to-texture path described above; it does not yet apply textures, tick animation, or support manual orbit.
+**Shipped: 3D previews cover the actor base mesh, item `MMeshID`, and mesh-catalog entries.** The existing widget auto-spins and uses the render-to-texture path described above. For actor previews, it applies available male body/face textures and supports drag-to-orbit plus wheel zoom; animation playback remains deferred.
 
 **Still deferred:** previews for item `FMeshID`, other actor appearance slots, and the full-project texture grid.
 
