@@ -103,8 +103,11 @@ Function ChooseMeshDialog(MeshType = MeshDialog_All, InitialFolder$ = "", XPos =
 	Result = 0
 	While Result = 0
 
-		For E.Event = Each Event
-			Select E\EventID
+		Local MeshDialogEvent.Event = First Event
+		Local NextMeshDialogEvent.Event = Null
+		While MeshDialogEvent <> Null
+			NextMeshDialogEvent = After MeshDialogEvent
+			Select MeshDialogEvent\EventID
 				; Selected folder changed
 				Case LMeshFolder
 					Name$ = FUI_SendMessage(LMeshFolder, M_GETTEXT)
@@ -124,7 +127,7 @@ Function ChooseMeshDialog(MeshType = MeshDialog_All, InitialFolder$ = "", XPos =
 					EndIf
 				; Window closed
 				Case WMeshDialog
-					If Lower$(E\EventData$) = "closed" Then Result = -1
+					If Lower$(MeshDialogEvent\EventData$) = "closed" Then Result = -1
 				; Cancel hit
 				Case BMeshDialogCancel
 					Result = -1
@@ -132,8 +135,9 @@ Function ChooseMeshDialog(MeshType = MeshDialog_All, InitialFolder$ = "", XPos =
 				Case BMeshDialogOK
 					Result = FUI_SendMessageI(FUI_SendMessage(LMeshDialog, M_GETINDEX), M_GETDATA) + 1
 			End Select
-			Delete E
-		Next
+			Delete MeshDialogEvent
+			MeshDialogEvent = NextMeshDialogEvent
+		Wend
 
 		If Mesh <> 0 Then TurnEntity Mesh, 0, 0.5, 0
 		FUI_Update()
@@ -186,8 +190,11 @@ Function ChooseTextureDialog(InitialFolder$ = "", XPos = -1, YPos = -1)
 	Result = 0
 	While Result = 0
 
-		For E.Event = Each Event
-			Select E\EventID
+		Local TextureDialogEvent.Event = First Event
+		Local NextTextureDialogEvent.Event = Null
+		While TextureDialogEvent <> Null
+			NextTextureDialogEvent = After TextureDialogEvent
+			Select TextureDialogEvent\EventID
 				; Selected folder changed
 				Case LTextureFolder
 					Name$ = FUI_SendMessage(LTextureFolder, M_GETTEXT)
@@ -203,7 +210,7 @@ Function ChooseTextureDialog(InitialFolder$ = "", XPos = -1, YPos = -1)
 					UnloadTexture(ID)
 				; Window closed
 				Case WTextureDialog
-					If Lower$(E\EventData$) = "closed" Then Result = -1
+					If Lower$(TextureDialogEvent\EventData$) = "closed" Then Result = -1
 				; Cancel hit
 				Case BTextureDialogCancel
 					Result = -1
@@ -211,8 +218,9 @@ Function ChooseTextureDialog(InitialFolder$ = "", XPos = -1, YPos = -1)
 				Case BTextureDialogOK
 					Result = FUI_SendMessageI(FUI_SendMessage(LTextureDialog, M_GETINDEX), M_GETDATA) + 1
 			End Select
-			Delete E
-		Next
+			Delete TextureDialogEvent
+			TextureDialogEvent = NextTextureDialogEvent
+		Wend
 
 		FUI_Update()
 		Flip(0)
@@ -252,8 +260,11 @@ Function ChooseSoundDialog(SoundType = SoundDialog_All, InitialFolder$ = "", XPo
 	Result = 0
 	While Result = 0
 
-		For E.Event = Each Event
-			Select E\EventID
+		Local SoundDialogEvent.Event = First Event
+		Local NextSoundDialogEvent.Event = Null
+		While SoundDialogEvent <> Null
+			NextSoundDialogEvent = After SoundDialogEvent
+			Select SoundDialogEvent\EventID
 				; Selected folder changed
 				Case LSoundFolder
 					Name$ = FUI_SendMessage(LSoundFolder, M_GETTEXT)
@@ -280,7 +291,7 @@ Function ChooseSoundDialog(SoundType = SoundDialog_All, InitialFolder$ = "", XPo
 					If Sound <> 0 Then FreeSound(Sound) : Sound = 0
 				; Window closed
 				Case WSoundDialog
-					If Lower$(E\EventData$) = "closed" Then Result = -1
+					If Lower$(SoundDialogEvent\EventData$) = "closed" Then Result = -1
 				; Cancel hit
 				Case BSoundDialogCancel
 					Result = -1
@@ -288,8 +299,9 @@ Function ChooseSoundDialog(SoundType = SoundDialog_All, InitialFolder$ = "", XPo
 				Case BSoundDialogOK
 					Result = FUI_SendMessageI(FUI_SendMessage(LSoundDialog, M_GETINDEX), M_GETDATA) + 1
 			End Select
-			Delete E
-		Next
+			Delete SoundDialogEvent
+			SoundDialogEvent = NextSoundDialogEvent
+		Wend
 
 		FUI_Update()
 		Flip(0)
@@ -329,8 +341,11 @@ Function ChooseMusicDialog(InitialFolder$ = "", XPos = -1, YPos = -1)
 	Result = 0
 	While Result = 0
 
-		For E.Event = Each Event
-			Select E\EventID
+		Local MusicDialogEvent.Event = First Event
+		Local NextMusicDialogEvent.Event = Null
+		While MusicDialogEvent <> Null
+			NextMusicDialogEvent = After MusicDialogEvent
+			Select MusicDialogEvent\EventID
 				; Selected folder changed
 				Case LMusicFolder
 					Name$ = FUI_SendMessage(LMusicFolder, M_GETTEXT)
@@ -357,7 +372,7 @@ Function ChooseMusicDialog(InitialFolder$ = "", XPos = -1, YPos = -1)
 					Chan = 0
 				; Window closed
 				Case WMusicDialog
-					If Lower$(E\EventData$) = "closed" Then Result = -1
+					If Lower$(MusicDialogEvent\EventData$) = "closed" Then Result = -1
 				; Cancel hit
 				Case BMusicDialogCancel
 					Result = -1
@@ -365,8 +380,9 @@ Function ChooseMusicDialog(InitialFolder$ = "", XPos = -1, YPos = -1)
 				Case BMusicDialogOK
 					Result = FUI_SendMessageI(FUI_SendMessage(LMusicDialog, M_GETINDEX), M_GETDATA) + 1
 			End Select
-			Delete E
-		Next
+			Delete MusicDialogEvent
+			MusicDialogEvent = NextMusicDialogEvent
+		Wend
 
 		FUI_Update()
 		Flip(0)
