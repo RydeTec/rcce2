@@ -30,9 +30,9 @@ Function SafeWriteOpen$(FinalPath$)
 	Return Temp$
 End Function
 
-; Returns True on success, False on any failure (in which case the caller
-; should treat the save as not having happened — the production file is
-; still the previous version, and the temp has been cleaned up).
+; Returns True on success, False on any failure. A failed copy keeps the
+; verified recovery artifacts in place so the caller can treat the save as
+; not having happened rather than silently accepting a truncated file.
 Function SafeWriteCommit%(TempPath$, FinalPath$, F)
 	If F <> 0 Then CloseFile(F)
 
@@ -42,7 +42,8 @@ Function SafeWriteCommit%(TempPath$, FinalPath$, F)
 		WriteLog(MainLog, "SafeWriteCommit: temp missing for " + FinalPath$)
 		Return False
 	EndIf
-	If FileSize(TempPath$) = 0
+	Local TempSize = FileSize(TempPath$)
+	If TempSize = 0
 		WriteLog(MainLog, "SafeWriteCommit: temp empty for " + FinalPath$ + ", refusing to promote")
 		DeleteFile(TempPath$)
 		Return False
@@ -50,18 +51,36 @@ Function SafeWriteCommit%(TempPath$, FinalPath$, F)
 
 	; Demote the current production file to .bak (one cycle of backup).
 	Local Bak$ = FinalPath$ + ".bak"
+	Local FinalSize = FileSize(FinalPath$)
+	Local BakTemp$ = Bak$ + ".tmp"
 	If FileType(FinalPath$) = 1
+		; Stage the new backup separately so an old .bak survives until the
+		; replacement has been copied and verified.
+		If FileType(BakTemp$) = 1 Then DeleteFile(BakTemp$)
+		CopyFile(FinalPath$, BakTemp$)
+		If FileType(BakTemp$) <> 1 Or FileSize(BakTemp$) <> FinalSize
+			WriteLog(MainLog, "SafeWriteCommit: backup staging failed for " + FinalPath$)
+			Return False
+		EndIf
+
 		If FileType(Bak$) = 1 Then DeleteFile(Bak$)
-		CopyFile(FinalPath$, Bak$)
+		CopyFile(BakTemp$, Bak$)
+		If FileType(Bak$) <> 1 Or FileSize(Bak$) <> FinalSize
+			WriteLog(MainLog, "SafeWriteCommit: backup verification failed for " + FinalPath$)
+			Return False
+		EndIf
+		DeleteFile(BakTemp$)
 		DeleteFile(FinalPath$)
 	EndIf
 
 	; Promote the temp into production.
 	CopyFile(TempPath$, FinalPath$)
-	If FileType(FinalPath$) <> 1
+	If FileType(FinalPath$) <> 1 Or FileSize(FinalPath$) <> TempSize
 		; Promotion failed catastrophically — try to roll back from .bak.
 		WriteLog(MainLog, "SafeWriteCommit: promote failed for " + FinalPath$ + ", rolling back from " + Bak$)
-		If FileType(Bak$) = 1 Then CopyFile(Bak$, FinalPath$)
+		If FileType(Bak$) = 1
+			If FileSize(Bak$) = FinalSize Then CopyFile(Bak$, FinalPath$)
+		EndIf
 		Return False
 	EndIf
 	DeleteFile(TempPath$)

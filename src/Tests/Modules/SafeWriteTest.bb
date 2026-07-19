@@ -14,11 +14,13 @@ Global testDir$ = CurrentDir$()
 Global ProductionPath$ = testDir$ + "safewrite_test.dat"
 Global TempPathExpected$ = ProductionPath$ + ".tmp"
 Global BakPath$ = ProductionPath$ + ".bak"
+Global BakTempPath$ = BakPath$ + ".tmp"
 
 Function CleanupTestFiles()
 	If FileType(ProductionPath$) = 1 Then DeleteFile(ProductionPath$)
 	If FileType(TempPathExpected$) = 1 Then DeleteFile(TempPathExpected$)
 	If FileType(BakPath$) = 1 Then DeleteFile(BakPath$)
+	If FileType(BakTempPath$) = 1 Then DeleteFile(BakTempPath$)
 End Function
 
 ; Helper: write payload to path and close the handle. We close locally
@@ -44,6 +46,40 @@ Function ReadFileString$(path$)
 	Local payload$ = ReadString(s)
 	CloseFile(s)
 	Return payload$
+End Function
+
+; Filesystem copy failures are difficult to inject portably in a Blitz test,
+; so bind the fail-closed ordering in the real helper. This must keep the
+; verified backup ahead of production deletion and the verified promotion
+; ahead of temp cleanup.
+Function SafeWriteCommitUsesVerifiedBackupAndPromotion%()
+	Local F.BBStream = ReadFile("Modules\Logging.bb")
+	Local Line$
+	Local Stage%
+	If F = Null Then F = ReadFile("..\Modules\Logging.bb")
+	If F = Null Then F = ReadFile("..\..\Modules\Logging.bb")
+	If F = Null Then Return False
+
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		If Instr(Line$, "Function SafeWriteCommit%(TempPath$, FinalPath$, F)") > 0 Then Stage = 1
+		If Stage = 0 Then Continue
+		If Stage = 1 And Instr(Line$, "Local TempSize = FileSize(TempPath$)") > 0 Then Stage = 2
+		If Stage = 2 And Instr(Line$, "Local FinalSize = FileSize(FinalPath$)") > 0 Then Stage = 3
+		If Stage = 3 And Instr(Line$, "Local BakTemp$ = Bak$ + " + Chr$(34) + ".tmp" + Chr$(34)) > 0 Then Stage = 4
+		If Stage = 4 And Instr(Line$, "CopyFile(FinalPath$, BakTemp$)") > 0 Then Stage = 5
+		If Stage = 5 And Instr(Line$, "If FileType(BakTemp$) <> 1 Or FileSize(BakTemp$) <> FinalSize") > 0 Then Stage = 6
+		If Stage = 6 And Instr(Line$, "CopyFile(BakTemp$, Bak$)") > 0 Then Stage = 7
+		If Stage = 7 And Instr(Line$, "If FileType(Bak$) <> 1 Or FileSize(Bak$) <> FinalSize") > 0 Then Stage = 8
+		If Stage = 8 And Instr(Line$, "DeleteFile(FinalPath$)") > 0 Then Stage = 9
+		If Stage = 9 And Instr(Line$, "CopyFile(TempPath$, FinalPath$)") > 0 Then Stage = 10
+		If Stage = 10 And Instr(Line$, "If FileType(FinalPath$) <> 1 Or FileSize(FinalPath$) <> TempSize") > 0 Then Stage = 11
+		If Stage = 11 And Instr(Line$, "DeleteFile(TempPath$)") > 0 Then Stage = 12
+		If Instr(Line$, "End Function") > 0 Then Exit
+	Wend
+
+	CloseFile(F)
+	Return Stage = 12
 End Function
 
 ; SafeWriteOpen is a pure helper: it just appends .tmp to the final path.
@@ -186,4 +222,8 @@ Test testSafeWriteAbortRemovesTemp()
 	Assert(FileType(temp$) <> 1)
 
 	CleanupTestFiles()
+End Test
+
+Test testSafeWriteCommitVerifiesBackupAndPromotionCopies()
+	Assert(SafeWriteCommitUsesVerifiedBackupAndPromotion() = True)
 End Test
