@@ -1,7 +1,7 @@
 ; Misc ------------------------------------------------------------------------------------------------------------------------------
 
-Const GY_Letters$ = " ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,./\'#?<>[]();:!�$%^&*+-@~=_|
-;��������������������������������"
+Global GY_Letters$ = " ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789,./\'#?<>[]();:!" + Chr$(163) + "$%^&*+-@~=_|"
+; Extended glyphs are not included in the active atlas lookup.
 
 ; Types -----------------------------------------------------------------------------------------------------------------------------
 
