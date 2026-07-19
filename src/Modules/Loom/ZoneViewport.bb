@@ -1002,7 +1002,9 @@ Function Loom_LoadZoneMarkers(Ar.Area)
                     spawnMeshCount = spawnMeshCount + 1
                     PositionEntity sEn, Ar\WaypointX#[waypointIdx], VPSceneYOff# + Ar\WaypointY#[waypointIdx], Ar\WaypointZ#[waypointIdx]
                     Local A2.Actor = ActorList(Ar\SpawnActor[i])
-                    If A2 <> Null And A2\Scale# > 0.0 Then spawnScale# = A2\Scale#
+                    If A2 <> Null Then
+                        If A2\Scale# > 0.0 Then spawnScale# = A2\Scale#
+                    EndIf
                 Else
                     ; Fallback marker cube (centered -> lift by half-size).
                     sEn = CreateCube()
