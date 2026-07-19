@@ -14,7 +14,7 @@ Function ArchitectModalEventDrainUsesAfterCursor%(FunctionMarker$, LegacyFor$, F
 
 	While Not Eof(F)
 		Line$ = ReadLine$(F)
-		If Stage = 0 And Instr(Line$, FunctionMarker$) > 0 Then Stage = 1
+		If Stage = 0 And Left$(Line$, Len(FunctionMarker$)) = FunctionMarker$ Then Stage = 1
 		If Stage > 0 And Instr(Line$, LegacyFor$) > 0 Then
 			CloseFile F
 			Return False
