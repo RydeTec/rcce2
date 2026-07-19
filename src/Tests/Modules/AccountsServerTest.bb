@@ -184,6 +184,32 @@ Function CreateAccountRepliesAfterAtomicSave%(Path$)
 	Return False
 End Function
 
+Function DisconnectReleasesLoginAttempt%(Path$)
+	Local F.BBStream = ReadFile(Path$)
+	Local Stage%
+	Local Line$
+	If F = Null Then F = ReadFile("..\" + Path$)
+	If F = Null Then Return False
+
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		If Instr(Line$, "Case RCE_PlayerTimedOut, RCE_PlayerHasLeft, RCE_PlayerKicked") > 0 Then Stage = 1
+		If Stage = 1 And Instr(Line$, "If (M\MessageType = RCE_PlayerKicked)") > 0 Then Stage = 2
+		If Stage = 2 And Instr(Line$, "M\FromID = RCE_IntFromStr(M\MessageData$)") > 0 Then Stage = 3
+		If Stage = 3 And Trim$(Line$) = "Else" Then Stage = 4
+		If Stage = 4 And Instr(Line$, "M\FromID = RCE_LastDisconnectedPeer()") > 0 Then Stage = 5
+		If Stage = 5 And Trim$(Line$) = "EndIf" Then Stage = 6
+		If Stage = 6 And Instr(Line$, "LoginAttemptForget(M\FromID)") > 0 Then Stage = 7
+		If Stage = 7 And Instr(Line$, "AI.ActorInstance = FindActorInstanceFromRNID(M\FromID)") > 0
+			CloseFile F
+			Return True
+		EndIf
+	Wend
+
+	CloseFile F
+	Return False
+End Function
+
 Test testFindAccountByListIDReturnsMatchingAccount()
 	Local firstAccount.Account = New Account()
 	firstAccount\User$ = "first"
@@ -259,4 +285,49 @@ End Test
 
 Test testCreateAccountSendsFailureWhenAtomicSaveFails()
 	Assert(CreateAccountRepliesAfterAtomicSave%("Modules\ServerNet.bb") = True)
+End Test
+
+Test testLoginAttemptForgetReleasesOnlyTheDisconnectedPeer()
+	LoginAttemptRecord(41, False)
+	LoginAttemptRecord(42, False)
+
+	LoginAttemptForget(41)
+
+	Assert(LoginAttemptFind(41) = Null)
+	Assert(LoginAttemptFind(42) <> Null)
+	Delete Each LoginAttempt
+End Test
+
+Test testLoginAttemptThresholdAndSuccessfulResetRemainUnchanged()
+	Local i%
+	For i = 1 To LoginAttemptMaxFailures
+		LoginAttemptRecord(41, False)
+	Next
+	Assert(LoginAttemptOk(41) = False)
+
+	LoginAttemptRecord(41, True)
+	Assert(LoginAttemptOk(41) = True)
+	Delete Each LoginAttempt
+End Test
+
+Test testLoginAttemptRecordPrunesExpiredRecords()
+	Local expired.LoginAttempt = New LoginAttempt()
+	expired\FromID = 41
+	expired\Failures = LoginAttemptMaxFailures
+	expired\WindowStart = MilliSecs() - LoginAttemptWindowMs
+
+	Local active.LoginAttempt = New LoginAttempt()
+	active\FromID = 42
+	active\Failures = 1
+	active\WindowStart = MilliSecs()
+
+	LoginAttemptRecord(42, False)
+	Assert(LoginAttemptFind(41) = Null)
+	Assert(LoginAttemptFind(42) = active)
+	Assert(active\Failures = 2)
+	Delete Each LoginAttempt
+End Test
+
+Test testDisconnectPathReleasesTheResolvedLoginAttempt()
+	Assert(DisconnectReleasesLoginAttempt%("Modules\ServerNet.bb") = True)
 End Test
