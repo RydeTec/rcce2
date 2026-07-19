@@ -117,6 +117,9 @@ Global VPMarkerDragArH    = 0            ; Handle(Area) of the zone being edited
 ; without breaking the gesture.
 Global VPMarkerDragYMode = False
 Global VPMarkerDragLastMY = 0    ; per-frame Y delta basis
+; Centered cube markers render above their semantic Area Y. Keep that
+; presentation-only lift with the active drag so it never leaks into saves.
+Global VPMarkerDragVisualLift# = 0.0
 ; True once a drag actually committed a coordinate write. The release
 ; handler only toasts "Moved ..." + marks the zone dirty when a write
 ; happened -- an XZ drag whose every pick missed the ground (e.g. the
@@ -415,6 +418,7 @@ Type ZoneViewportMarker
     Field IndexN%      ; sub-entity slot index inside the zone (0..N-1 per kind)
     Field BaseScale#   ; uniform scale applied at marker creation; used by
                        ; highlight system to restore size when un-highlighted
+    Field VisualLift#  ; render-only Y offset above the semantic Area coordinate
 End Type
 
 Function Loom_FreeZoneMarkers()
@@ -968,6 +972,7 @@ Function Loom_LoadZoneMarkers(Ar.Area)
             pm\Kind = "portal"
             pm\IndexN = i
             pm\BaseScale = VP_MARKER_SIZE#
+            pm\VisualLift# = VP_MARKER_SIZE#
             VPCountPortals = VPCountPortals + 1
             If Ar\PortalX#[i] < minX# Then minX# = Ar\PortalX#[i]
             If Ar\PortalX#[i] > maxX# Then maxX# = Ar\PortalX#[i]
@@ -988,6 +993,7 @@ Function Loom_LoadZoneMarkers(Ar.Area)
             If waypointIdx >= 0 And waypointIdx <= 1999
                 Local sEn = 0
                 Local spawnScale# = VP_MARKER_SIZE#
+                Local spawnVisualLift# = 0.0
                 If spawnMeshCount < VP_MAX_SPAWN_MESHES
                     sEn = Loom_LoadSpawnActorMesh(Ar\SpawnActor[i])
                 EndIf
@@ -1003,6 +1009,7 @@ Function Loom_LoadZoneMarkers(Ar.Area)
                     ScaleEntity sEn, VP_MARKER_SIZE#, VP_MARKER_SIZE#, VP_MARKER_SIZE#
                     PositionEntity sEn, Ar\WaypointX#[waypointIdx], VPSceneYOff# + Ar\WaypointY#[waypointIdx] + VP_MARKER_SIZE#, Ar\WaypointZ#[waypointIdx]
                     EntityColor sEn, LOOM_ARCANE_500_R, LOOM_ARCANE_500_G, LOOM_ARCANE_500_B
+                    spawnVisualLift# = VP_MARKER_SIZE#
                 EndIf
                 EntityPickMode sEn, 1
                 Local sm.ZoneViewportMarker = New ZoneViewportMarker
@@ -1010,6 +1017,7 @@ Function Loom_LoadZoneMarkers(Ar.Area)
                 sm\Kind = "spawn"
                 sm\IndexN = i
                 sm\BaseScale = spawnScale#
+                sm\VisualLift# = spawnVisualLift#
                 VPCountSpawns = VPCountSpawns + 1
                 If Ar\WaypointX#[waypointIdx] < minX# Then minX# = Ar\WaypointX#[waypointIdx]
                 If Ar\WaypointX#[waypointIdx] > maxX# Then maxX# = Ar\WaypointX#[waypointIdx]
@@ -1033,6 +1041,7 @@ Function Loom_LoadZoneMarkers(Ar.Area)
             tm\Kind = "trigger"
             tm\IndexN = i
             tm\BaseScale = VP_MARKER_SIZE#
+            tm\VisualLift# = VP_MARKER_SIZE#
             VPCountTriggers = VPCountTriggers + 1
             If Ar\TriggerX#[i] < minX# Then minX# = Ar\TriggerX#[i]
             If Ar\TriggerX#[i] > maxX# Then maxX# = Ar\TriggerX#[i]
@@ -1649,6 +1658,7 @@ Function Loom_DrawZoneViewport(zoneHandle, x, y, w, h)
                         VPMarkerDragKind$ = pm\Kind
                         VPMarkerDragIdx  = pm\IndexN
                         VPMarkerDragArH  = zoneHandle
+                        VPMarkerDragVisualLift# = pm\VisualLift#
                         ; Shift at press = Y-axis drag mode (locked for
                         ; the duration of the drag; user can release
                         ; shift mid-drag and Y mode persists).
@@ -1677,13 +1687,16 @@ Function Loom_DrawZoneViewport(zoneHandle, x, y, w, h)
                 VPMarkerDragLastMY = my
                 If dyPx <> 0
                     Local yDelta# = Float(-dyPx) * (VPDistance# / 200.0)
-                    Local curY# = EntityY#(VPMarkerDragEN)
+                    ; EntityY includes the marker's render-only lift. Move and
+                    ; persist the semantic Area coordinate, then restore that
+                    ; lift only in the displayed entity position.
+                    Local curSemanticY# = EntityY#(VPMarkerDragEN) - VPSceneYOff# - VPMarkerDragVisualLift#
                     Local curX# = EntityX#(VPMarkerDragEN)
                     Local curZ# = EntityZ#(VPMarkerDragEN)
-                    Local newY# = curY# + yDelta#
+                    Local newSemanticY# = curSemanticY# + yDelta#
+                    Local newY# = VPSceneYOff# + newSemanticY# + VPMarkerDragVisualLift#
                     PositionEntity VPMarkerDragEN, curX#, newY#, curZ#
-                    ; Convert to scene-relative Y (subtract VP_SCENE_Y_OFFSET).
-                    Loom_CommitMarkerY(VPMarkerDragArH, VPMarkerDragKind$, VPMarkerDragIdx, newY# - VPSceneYOff#)
+                    Loom_CommitMarkerY(VPMarkerDragArH, VPMarkerDragKind$, VPMarkerDragIdx, newSemanticY#)
                     VPMarkerDragChanged = True
                     VPDirty = True
                 EndIf
@@ -1723,6 +1736,7 @@ Function Loom_DrawZoneViewport(zoneHandle, x, y, w, h)
             VPMarkerDragKind$ = ""
             VPMarkerDragIdx  = -1
             VPMarkerDragYMode = False
+            VPMarkerDragVisualLift# = 0.0
             VPMarkerDragChanged = False
         EndIf
     EndIf
