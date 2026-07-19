@@ -8,6 +8,8 @@ EnableGC
 Function FileContains%(Path$, Needle$)
 	Local F.BBStream = ReadFile(Path$)
 	Local Line$
+	If F = Null Then F = ReadFile("../" + Path$)
+	If F = Null Then F = ReadFile("../../" + Path$)
 	If F = Null Then F = ReadFile("..\\" + Path$)
 	If F = Null Then F = ReadFile("..\\..\\" + Path$)
 	If F = Null Then Return False
@@ -26,6 +28,8 @@ Function FileContainsSequence%(Path$, FirstNeedle$, SecondNeedle$, ThirdNeedle$)
 	Local F.BBStream = ReadFile(Path$)
 	Local Line$
 	Local Stage = 0
+	If F = Null Then F = ReadFile("../" + Path$)
+	If F = Null Then F = ReadFile("../../" + Path$)
 	If F = Null Then F = ReadFile("..\\" + Path$)
 	If F = Null Then F = ReadFile("..\\..\\" + Path$)
 	If F = Null Then Return False
