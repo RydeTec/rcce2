@@ -605,7 +605,10 @@ Function MeshNameDialog$()
 		EndIf
 
 		; Events
-		For E.Event = Each Event
+		E.Event = First Event
+		ENext.Event = Null
+		While E <> Null
+			ENext = After E
 			Select E\EventID
 				; Window closed
 				Case W
@@ -625,7 +628,8 @@ Function MeshNameDialog$()
 					EndIf
 			End Select
 			Delete E
-		Next
+			E = ENext
+		Wend
 
 		; Render
 		FUI_Update()
