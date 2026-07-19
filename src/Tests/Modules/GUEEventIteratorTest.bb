@@ -1,7 +1,7 @@
 Strict
 EnableGC
 
-; GUE consumes F-UI Event objects in two modal loops. The current event must
+; GUE consumes F-UI Event objects in several modal loops. The current event must
 ; save its successor before Delete so a burst of queued events is fully drained.
 
 Function GUEEventDrainUsesAfterCursor%(Path$, FunctionMarker$, LegacyFor$, FirstCursor$, NextDeclaration$, WhileCursor$, Capture$, DeleteEvent$, Advance$)
@@ -45,4 +45,16 @@ End Test
 
 Test testGenerateGamePatchCapturesNextEventBeforeDelete()
 	Assert(GUEEventDrainUsesAfterCursor%("GUE.bb", "Function GenerateGamePatch()", "For E.Event = Each Event", "Local QuitEvent.Event = First Event", "Local NextQuitEvent.Event = Null", "While QuitEvent <> Null", "NextQuitEvent = After QuitEvent", "Delete(QuitEvent)", "QuitEvent = NextQuitEvent") = True)
+End Test
+
+Test testMeshDialogCapturesNextEventBeforeDelete()
+	Assert(GUEEventDrainUsesAfterCursor%("GUE.bb", "Function MeshDialog()", "For E.Event = Each Event", "Local MeshEvent.Event = First Event", "Local NextMeshEvent.Event = Null", "While MeshEvent <> Null", "NextMeshEvent = After MeshEvent", "Delete MeshEvent", "MeshEvent = NextMeshEvent") = True)
+End Test
+
+Test testTextureDialogCapturesNextEventBeforeDelete()
+	Assert(GUEEventDrainUsesAfterCursor%("GUE.bb", "Function TextureDialog()", "For E.Event = Each Event", "Local TextureEvent.Event = First Event", "Local NextTextureEvent.Event = Null", "While TextureEvent <> Null", "NextTextureEvent = After TextureEvent", "Delete TextureEvent", "TextureEvent = NextTextureEvent") = True)
+End Test
+
+Test testSoundDialogCapturesNextEventBeforeDelete()
+	Assert(GUEEventDrainUsesAfterCursor%("GUE.bb", "Function SoundDialog()", "For E.Event = Each Event", "Local SoundEvent.Event = First Event", "Local NextSoundEvent.Event = Null", "While SoundEvent <> Null", "NextSoundEvent = After SoundEvent", "Delete SoundEvent", "SoundEvent = NextSoundEvent") = True)
 End Test
