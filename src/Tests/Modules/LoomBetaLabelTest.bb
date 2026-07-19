@@ -51,3 +51,14 @@ Test testLoomGuidanceIdentifiesTheShippedWorldMode()
 	Assert(FileContains%("docs\\loom\\architecture.md", "Loom cannot render the 3D zone mesh.") = False)
 	Assert(FileContains%("docs\\loom\\roadmap.md", "Out-of-scope items (3D viewport, walk-in playtest, multi-cursor)") = False)
 End Test
+
+Test testLoomAssetPreviewRoadmapReflectsShippedSurfaces()
+	Assert(FileContains%("docs\\loom\\roadmap.md", "**Browser-card thumbnails (Item + Spell)**") = True)
+	Assert(FileContains%("docs\\loom\\roadmap.md", "**Shipped: 3D previews cover the actor base mesh, item `MMeshID`, and mesh-catalog entries.**") = True)
+	Assert(FileContains%("docs\\loom\\roadmap.md", "For actor previews, it applies available male body/face textures and supports drag-to-orbit plus wheel zoom; animation playback remains deferred.") = True)
+	Assert(FileContains%("docs\\loom\\roadmap.md", "First cut applies available male body/face textures, supports drag-to-orbit plus wheel zoom, and leaves animation playback deferred.") = True)
+	Assert(FileContains%("docs\\loom\\roadmap.md", "**Still deferred:** previews for item `FMeshID`, other actor appearance slots, and the full-project texture grid.") = True)
+	Assert(FileContains%("docs\\loom\\roadmap.md", "**Still deferred:** mesh preview (MMeshID / FMeshID on items; MeshIDs on actors), browser-card thumbnails") = False)
+	Assert(FileContains%("docs\\loom\\roadmap.md", "it does not yet apply textures, tick animation, or support manual orbit.") = False)
+	Assert(FileContains%("docs\\loom\\roadmap.md", "First cut: no textures applied to the mesh (face/body texture support is a follow-up), no animation tick, no manual orbit (auto-spin only).") = False)
+End Test
