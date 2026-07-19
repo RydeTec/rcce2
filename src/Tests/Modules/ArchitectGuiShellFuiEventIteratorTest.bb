@@ -7,7 +7,7 @@ EnableGC
 Function ArchitectModalEventDrainUsesAfterCursor%(FunctionMarker$, LegacyFor$, FirstCursor$, NextDeclaration$, WhileCursor$, Capture$, DeleteEvent$, Advance$)
 	Local F.BBStream = ReadFile("Modules\\Architect_Gui_Shell_Fui.bb")
 	Local Line$
-	Local Stage%
+	Local Stage% = 0
 	If F = Null Then F = ReadFile("..\\Modules\\Architect_Gui_Shell_Fui.bb")
 	If F = Null Then F = ReadFile("..\\..\\Modules\\Architect_Gui_Shell_Fui.bb")
 	If F = Null Then Return False
