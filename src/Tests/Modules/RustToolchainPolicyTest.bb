@@ -93,6 +93,12 @@ Test testExplicitRustBuildsRejectMissingCargo()
 	Assert(FileContainsSequenceBefore%("compile.bat", "if errorlevel 1 (", "Cannot build ClientRS.exe/ServerRS.exe.", "exit /b 1", ")") = True)
 End Test
 
+Test testWindowsCIExercisesRustReleasePackaging()
+	Assert(FileContainsSequenceBefore%(".github\workflows\ci.yml", "- name: Package Rust apps for Windows", "call compile.bat -e -t -r", "if errorlevel 1 exit /b %errorlevel%", "- name: Run Rust client tests (logic crates)") = True)
+	Assert(FileContains%(".github\workflows\ci.yml", "if not exist bin\ClientRS.exe (") = True)
+	Assert(FileContains%(".github\workflows\ci.yml", "if not exist bin\ServerRS.exe (") = True)
+End Test
+
 Test testRustServerContainerBuilderKeepsDeclaredToolchainAndLockfile()
 	Assert(FileContains%("server-rs\Dockerfile", "FROM rust:1.85.0-bookworm AS build") = True)
 	Assert(FileContains%("server-rs\Dockerfile", "RUN cargo build --release --locked --bin rcce-server") = True)
