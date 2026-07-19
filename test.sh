@@ -11,6 +11,9 @@
 #                          ItemsTest stack-overflow flake locally)
 set -uo pipefail
 
+# Keep discovery and failure reporting stable across contributor locales.
+export LC_ALL=C
+
 ROOTDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BLITZPATH="${ROOTDIR}/compiler/BlitzForge"
 
@@ -48,6 +51,19 @@ while IFS= read -r -d '' f; do
     FILES+=("${f}")
   fi
 done < <(find "${TESTDIR}" -type f -name '*.bb' -print0)
+
+# Bash 3 (the macOS system shell) has arrays but no mapfile, while BSD sort
+# lacks GNU sort's NUL-delimited mode. Sort the already NUL-safely collected
+# paths in place so names containing whitespace or newlines remain intact.
+for ((i = 1; i < ${#FILES[@]}; i++)); do
+  current="${FILES[i]}"
+  j=$((i - 1))
+  while ((j >= 0)) && [[ "${FILES[j]}" > "${current}" ]]; do
+    FILES[j + 1]="${FILES[j]}"
+    j=$((j - 1))
+  done
+  FILES[j + 1]="${current}"
+done
 
 TOTAL="${#FILES[@]}"
 
