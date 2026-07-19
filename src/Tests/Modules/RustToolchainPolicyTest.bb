@@ -99,6 +99,12 @@ Test testWindowsCIExercisesRustReleasePackaging()
 	Assert(FileContains%(".github\workflows\ci.yml", "if not exist bin\ServerRS.exe (") = True)
 End Test
 
+Test testLinuxCIExercisesRustReleasePackaging()
+	Assert(FileContainsSequenceBefore%(".github\workflows\ci.yml", "- name: Install Linux audio build dependency", "sudo apt-get install --yes libasound2-dev", "- name: Package Rust apps for Linux", "- name: Build + test (server workspace, locked)") = True)
+	Assert(FileContainsSequenceBefore%(".github\workflows\ci.yml", "- name: Package Rust apps for Linux", "./compile.sh -e -t -r", "test -x bin/ClientRS", "- name: Build + test (server workspace, locked)") = True)
+	Assert(FileContains%(".github\workflows\ci.yml", "test -x bin/ServerRS") = True)
+End Test
+
 Test testRustServerContainerBuilderKeepsDeclaredToolchainAndLockfile()
 	Assert(FileContains%("server-rs\Dockerfile", "FROM rust:1.85.0-bookworm AS build") = True)
 	Assert(FileContains%("server-rs\Dockerfile", "RUN cargo build --release --locked --bin rcce-server") = True)
