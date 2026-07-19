@@ -227,7 +227,7 @@ Function KillActor(A.ActorInstance, Killer.ActorInstance)
 		EndIf
 		; Remove from spawn point if attached to one. Same Null guard --
 		; if AInstance is gone, the Spawned counter is already orphaned.
-		If A\SourceSP > -1
+		If A\SourceSP > -1 And A\SourceSP <= 999
 			AInstance.AreaInstance = Object.AreaInstance(A\ServerArea)
 			If AInstance <> Null
 				AInstance\Spawned[A\SourceSP] = AInstance\Spawned[A\SourceSP] - 1
@@ -1346,7 +1346,7 @@ Function SetArea(A.ActorInstance, Ar.Area, Instance, Waypoint = -1, Portal = 0, 
 	; If the new area is different to the old
 	If Ar\Instances[Instance] <> OldAr
 		; If this actor still belongs to a spawnpoint, remove him
-		If A\SourceSP > -1
+		If A\SourceSP > -1 And A\SourceSP <= 999
 			If OldAr <> Null Then OldAr\Spawned[A\SourceSP] = OldAr\Spawned[A\SourceSP] - 1
 			A\SourceSP = -1
 		EndIf

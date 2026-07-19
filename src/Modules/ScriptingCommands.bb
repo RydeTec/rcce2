@@ -1024,7 +1024,7 @@ Function BVM_SETLEADER(Param1%, Param2%)
 				; Skip the spawn-count decrement if the actor's area
 				; lookup is Null (mid-warp / freed zone) -- the counter
 				; is already orphaned in that case.
-				If Actor\SourceSP > -1
+				If Actor\SourceSP > -1 And Actor\SourceSP <= 999
 					AInstance.AreaInstance = Object.AreaInstance(Actor\ServerArea)
 					If AInstance <> Null
 						AInstance\Spawned[Actor\SourceSP] = AInstance\Spawned[Actor\SourceSP] - 1
