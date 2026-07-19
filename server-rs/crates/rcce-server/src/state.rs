@@ -6721,6 +6721,18 @@ impl ServerState {
                 out
             }
             world::P_STANDARD_UPDATE => {
+                let speed_stat = self.speed_stat;
+                let (speed_value, speed_maximum) = self
+                    .player_loc_for_peer(peer_id)
+                    .and_then(|(user, slot)| self.accounts.find(&user).and_then(|a| a.characters.get(slot)))
+                    .map(|rec| {
+                        (
+                            rec.actor.attributes.value.get(speed_stat).copied().unwrap_or(0),
+                            rec.actor.attributes.maximum.get(speed_stat).copied().unwrap_or(0),
+                        )
+                    })
+                    .unwrap_or((0, 0));
+                self.world.set_movement_speed(peer_id, speed_value, speed_maximum);
                 to_sender(world::handle_standard_update(payload, &mut self.world, peer_id, now))
             }
             world::P_CHAT_MESSAGE => self.handle_chat(peer_id, payload),

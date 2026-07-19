@@ -162,6 +162,10 @@ fn clamp_world_coord(v: f32) -> f32 {
 /// the warp, so ~one RTT + the ~9 Hz update cadence bounds them.
 pub const WARP_IGNORE_UPDATE_MS: u64 = 500;
 
+const MOVEMENT_REBASELINE_MS: u64 = 5_000;
+const MOVEMENT_UNITS_PER_MS: f32 = 0.15;
+const MIN_MOVEMENT_DELTA: f32 = 2.0;
+
 /// A logged-in player's live session.
 #[derive(Clone, Debug)]
 pub struct WorldSession {
@@ -177,6 +181,12 @@ pub struct WorldSession {
     pub dest_z: f32,
     pub is_running: u8,
     pub walking_backward: u8,
+    /// Timestamp of the last accepted client position update. `None` accepts
+    /// the next update as a post-login/warp baseline.
+    pub last_pos_update_ms: Option<u64>,
+    /// Current Speed value divided by its maximum, refreshed by `ServerState`
+    /// before each inbound `P_StandardUpdate`.
+    pub movement_speed_ratio: f32,
     /// Last attack time (ms) for the combat-delay gate.
     pub last_attack_ms: u64,
     /// The portal `(area, portalName)` the player currently occupies, if any —
@@ -380,14 +390,32 @@ impl World {
         dest_z: f32,
         is_running: u8,
         walking_backward: u8,
+        now_ms: u64,
     ) -> bool {
         match self.sessions.get_mut(&peer) {
             Some(s) => {
-                s.x = clamp_world_coord(x);
                 s.y = clamp_world_coord(y);
-                s.z = clamp_world_coord(z);
                 s.dest_x = clamp_world_coord(dest_x);
                 s.dest_z = clamp_world_coord(dest_z);
+                let next_x = clamp_world_coord(x);
+                let next_z = clamp_world_coord(z);
+                let accept_position = match s.last_pos_update_ms {
+                    None => true,
+                    Some(last) if now_ms < last || now_ms - last > MOVEMENT_REBASELINE_MS => true,
+                    Some(last) => {
+                        let max_delta = (MOVEMENT_UNITS_PER_MS * (s.movement_speed_ratio + 0.5)
+                            * (now_ms - last) as f32)
+                            .max(MIN_MOVEMENT_DELTA);
+                        let dx = next_x - s.x;
+                        let dz = next_z - s.z;
+                        dx.hypot(dz) <= max_delta
+                    }
+                };
+                if accept_position {
+                    s.x = next_x;
+                    s.z = next_z;
+                }
+                s.last_pos_update_ms = Some(now_ms);
                 // Players cannot run backwards (anti-cheat, `ServerNet.bb:1840`).
                 s.walking_backward = walking_backward;
                 s.is_running = if walking_backward != 0 { 0 } else { is_running };
@@ -488,6 +516,18 @@ impl World {
         }
     }
 
+    /// Refresh the live Speed ratio used by the next client movement update.
+    /// A missing/non-positive maximum matches the Blitz default ratio of 1.0.
+    pub fn set_movement_speed(&mut self, peer: u32, value: i16, maximum: i16) {
+        if let Some(s) = self.sessions.get_mut(&peer) {
+            s.movement_speed_ratio = if maximum > 0 {
+                value as f32 / maximum as f32
+            } else {
+                1.0
+            };
+        }
+    }
+
     /// Warp-completion ack (`AI\IgnoreUpdate = 0`, `ServerNet.bb:730/:737`) —
     /// the client finished applying a `P_ChangeArea` / `P_RepositionActor`, so
     /// its standard updates are trustworthy again.
@@ -518,6 +558,7 @@ impl World {
                 s.dest_z = s.z;
                 s.is_running = 0;
                 s.walking_backward = 0;
+                s.last_pos_update_ms = None;
                 true
             }
             None => false,
@@ -534,6 +575,7 @@ impl World {
         s.z = z;
         s.dest_x = x;
         s.dest_z = z;
+        s.last_pos_update_ms = None;
         Some(s.area.clone())
     }
 
@@ -725,6 +767,8 @@ pub fn handle_start_game(
             dest_z: actor.z,
             is_running: 0,
             walking_backward: 0,
+            last_pos_update_ms: None,
+            movement_speed_ratio: 1.0,
             last_attack_ms: 0,
             in_portal: None,
             mount_rid: 0,
@@ -786,9 +830,6 @@ pub fn handle_start_game(
 /// the peer's authoritative position; no direct reply (the position is relayed
 /// to other players by the per-tick broadcast — next phase).
 ///
-/// Deferred vs. Blitz: the per-packet speed-hack clamp (bounds the position
-/// delta by the actor's Speed attribute × elapsed time) needs per-actor timing
-/// + the Speed stat; for now positions are only `ClampWorldCoord`-sanitised.
 pub fn handle_standard_update(
     payload: &[u8],
     world: &mut World,
@@ -816,7 +857,7 @@ pub fn handle_standard_update(
     let is_running = r.u8().unwrap_or(0);
     let walking_backward = r.u8().unwrap_or(0);
     if let (Some(y), Some(x), Some(z), Some(dx), Some(dz)) = (new_y, new_x, new_z, dest_x, dest_z) {
-        world.update_movement(peer, x, y, z, dx, dz, is_running, walking_backward);
+        world.update_movement(peer, x, y, z, dx, dz, is_running, walking_backward, now_ms);
     }
     // Echo the authoritative position back to the SENDER. The client reconciles
     // its own `me_x`/`me_z` from this echo (`ClientNet`/`on_standard_update`,
@@ -1066,6 +1107,50 @@ mod tests {
         assert_eq!(s.x, 30.0);
         assert_eq!(s.y, 5.0);
         assert_eq!(s.z, 40.0);
+    }
+
+    #[test]
+    fn standard_update_holds_an_in_window_teleport_but_keeps_y_current() {
+        let dir = data_dir();
+        let Some(acct) = account_in_real_area(&dir) else {
+            return;
+        };
+        let mut store = tmp_store("moveclamp");
+        store.push(acct);
+        let mut throttle = LoginThrottle::new();
+        let mut world = World::new();
+        let config = config_for(dir);
+        handle_start_game(&start_packet("hero", MD5, 0), &mut store, &mut throttle, &mut world, &config, 7, 0);
+
+        let packet = |dest_x: f32, dest_z: f32, y: f32, x: f32, z: f32| {
+            let mut p = Vec::new();
+            for f in [dest_x, dest_z, y, x, z] {
+                p.extend_from_slice(&f.to_le_bytes());
+            }
+            p.extend_from_slice(&[0, 0]);
+            p
+        };
+
+        // The first update establishes the timestamp baseline.
+        handle_standard_update(&packet(30.0, 40.0, 5.0, 30.0, 40.0), &mut world, 7, 100);
+        // A missing Speed maximum follows the Blitz default ratio and still
+        // permits normal in-window movement without division by zero.
+        world.set_movement_speed(7, 0, 0);
+        handle_standard_update(&packet(31.0, 40.0, 5.0, 31.0, 40.0), &mut world, 7, 200);
+        assert_eq!((world.session(7).unwrap().x, world.session(7).unwrap().z), (31.0, 40.0));
+        // A valid-shape packet 100 ms later must not teleport the actor across
+        // the map; the Blitz reference still accepts Y/destination/input data.
+        let reply = handle_standard_update(&packet(10_030.0, 10_040.0, 6.0, 10_030.0, 10_040.0), &mut world, 7, 300);
+        let s = world.session(7).unwrap();
+        assert_eq!((s.x, s.z), (31.0, 40.0), "speed clamp holds the prior X/Z");
+        assert_eq!(s.y, 6.0, "the packet's vertical position remains current");
+        let echo = &reply[0].1;
+        assert_eq!(f32::from_le_bytes([echo[2], echo[3], echo[4], echo[5]]), 31.0, "sender echo reconciles to held X");
+        assert_eq!(f32::from_le_bytes([echo[6], echo[7], echo[8], echo[9]]), 40.0, "sender echo reconciles to held Z");
+        // A long stall re-baselines rather than trapping a returning player at
+        // their prior coordinates.
+        handle_standard_update(&packet(10_030.0, 10_040.0, 6.0, 10_030.0, 10_040.0), &mut world, 7, 5_301);
+        assert_eq!((world.session(7).unwrap().x, world.session(7).unwrap().z), (10_030.0, 10_040.0));
     }
 
     #[test]
