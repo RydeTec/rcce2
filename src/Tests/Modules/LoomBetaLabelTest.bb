@@ -51,3 +51,10 @@ Test testLoomGuidanceIdentifiesTheShippedWorldMode()
 	Assert(FileContains%("docs\\loom\\architecture.md", "Loom cannot render the 3D zone mesh.") = False)
 	Assert(FileContains%("docs\\loom\\roadmap.md", "Out-of-scope items (3D viewport, walk-in playtest, multi-cursor)") = False)
 End Test
+
+Test testLoomAssetPreviewRoadmapReflectsShippedSurfaces()
+	Assert(FileContains%("docs\\loom\\roadmap.md", "**Browser-card thumbnails (Item + Spell)**") = True)
+	Assert(FileContains%("docs\\loom\\roadmap.md", "**Shipped: 3D previews cover the actor base mesh, item `MMeshID`, and mesh-catalog entries.**") = True)
+	Assert(FileContains%("docs\\loom\\roadmap.md", "**Still deferred:** previews for item `FMeshID`, other actor appearance slots, and the full-project texture grid.") = True)
+	Assert(FileContains%("docs\\loom\\roadmap.md", "**Still deferred:** mesh preview (MMeshID / FMeshID on items; MeshIDs on actors), browser-card thumbnails") = False)
+End Test
