@@ -20,7 +20,7 @@ Function GubbinEventQueueUsesAfterCursor%()
 				CloseFile F
 				Return False
 			EndIf
-			If Stage < 4 And Instr(Line$, "Delete E") > 0 Then
+			If Stage < 4 And (Instr(Line$, "Delete(E)") > 0 Or Instr(Line$, "Delete E") > 0) Then
 				CloseFile F
 				Return False
 			EndIf
@@ -28,7 +28,7 @@ Function GubbinEventQueueUsesAfterCursor%()
 			If Stage = 1 And Instr(Line$, "ENext.Event = Null") > 0 Then Stage = 2
 			If Stage = 2 And Instr(Line$, "While E <> Null") > 0 Then Stage = 3
 			If Stage = 3 And Instr(Line$, "ENext = After E") > 0 Then Stage = 4
-			If Stage = 4 And Instr(Line$, "Delete E") > 0 Then Stage = 5
+			If Stage = 4 And (Instr(Line$, "Delete(E)") > 0 Or Instr(Line$, "Delete E") > 0) Then Stage = 5
 			If Stage = 5 And Instr(Line$, "E = ENext") > 0 Then Stage = 6
 			If Instr(Line$, "If MouseDown(1) And PreviewMesh <> 0") > 0
 				CloseFile F
