@@ -140,7 +140,10 @@ Const BaseFramerate# = 30.0
 Repeat
 
 	; Process events
-	For E.Event = Each Event
+	E.Event = First Event
+	ENext.Event = Null
+	While E <> Null
+		ENext = After E
 		Select E\EventID
 
 			; Apply all changes
@@ -351,7 +354,8 @@ Repeat
 
 		End Select
 		Delete(E)
-	Next
+		E = ENext
+	Wend
 
 	; Gubbin mesh control
 	If MouseDown(1) And PreviewMesh <> 0
