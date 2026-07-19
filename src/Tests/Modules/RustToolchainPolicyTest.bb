@@ -64,6 +64,33 @@ Function FileContainsSequenceBefore%(Path$, StartNeedle$, FirstNeedle$, SecondNe
 	Return False
 End Function
 
+Function FileContainsOrderedSequence10%(Path$, FirstNeedle$, SecondNeedle$, ThirdNeedle$, FourthNeedle$, FifthNeedle$, SixthNeedle$, SeventhNeedle$, EighthNeedle$, NinthNeedle$, TenthNeedle$)
+	Local F.BBStream = ReadFile(Path$)
+	Local Line$
+	Local Stage = 0
+	If F = Null Then F = ReadFile("..\" + Path$)
+	If F = Null Then F = ReadFile("..\..\" + Path$)
+	If F = Null Then Return False
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		If Stage = 0 And Instr(Line$, FirstNeedle$) > 0 Then Stage = 1
+		If Stage = 1 And Instr(Line$, SecondNeedle$) > 0 Then Stage = 2
+		If Stage = 2 And Instr(Line$, ThirdNeedle$) > 0 Then Stage = 3
+		If Stage = 3 And Instr(Line$, FourthNeedle$) > 0 Then Stage = 4
+		If Stage = 4 And Instr(Line$, FifthNeedle$) > 0 Then Stage = 5
+		If Stage = 5 And Instr(Line$, SixthNeedle$) > 0 Then Stage = 6
+		If Stage = 6 And Instr(Line$, SeventhNeedle$) > 0 Then Stage = 7
+		If Stage = 7 And Instr(Line$, EighthNeedle$) > 0 Then Stage = 8
+		If Stage = 8 And Instr(Line$, NinthNeedle$) > 0 Then Stage = 9
+		If Stage = 9 And Instr(Line$, TenthNeedle$) > 0
+			CloseFile F
+			Return True
+		EndIf
+	Wend
+	CloseFile F
+	Return False
+End Function
+
 Test testDeclaredMSRVIsPinnedWithClippy()
 	Assert(FileContains%("rust-toolchain.toml", "channel = " + Chr$(34) + "1.85.0" + Chr$(34)) = True)
 	Assert(FileContains%("rust-toolchain.toml", "components = [" + Chr$(34) + "clippy" + Chr$(34) + "]") = True)
@@ -100,9 +127,7 @@ Test testWindowsCIExercisesRustReleasePackaging()
 End Test
 
 Test testLinuxCIExercisesRustReleasePackaging()
-	Assert(FileContainsSequenceBefore%(".github\workflows\ci.yml", "- name: Install Linux audio build dependency", "sudo apt-get install --yes libasound2-dev", "- name: Package Rust apps for Linux", "- name: Build + test (server workspace, locked)") = True)
-	Assert(FileContainsSequenceBefore%(".github\workflows\ci.yml", "- name: Package Rust apps for Linux", "./compile.sh -e -t -r", "test -x bin/ClientRS", "test -x bin/ServerRS") = True)
-	Assert(FileContainsSequenceBefore%(".github\workflows\ci.yml", "- name: Package Rust apps for Linux", "test -x bin/ClientRS", "test -x bin/ServerRS", "- name: Build + test (server workspace, locked)") = True)
+	Assert(FileContainsOrderedSequence10%(".github\workflows\ci.yml", "- name: Install Linux audio build dependency", "sudo apt-get install --yes libasound2-dev", "- name: Package Rust apps for Linux", "./compile.sh -e -t -r", "test -x bin/ClientRS", "test -x bin/ServerRS", "- name: Build + test (server workspace, locked)", "- name: Build Rust server Docker image", "- name: Smoke-test Rust server Docker startup", "- name: Clippy (server workspace, -D warnings)") = True)
 End Test
 
 Test testRustServerContainerBuilderKeepsDeclaredToolchainAndLockfile()
