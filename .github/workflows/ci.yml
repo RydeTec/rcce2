@@ -119,6 +119,22 @@ jobs:
           restore-keys: |
             cargo-${{ runner.os }}-
 
+      # Exercise the Windows release wrapper, including its copies to the
+      # shipped bin paths; crate-level tests below cannot cover that contract.
+      - name: Package Rust apps for Windows
+        shell: cmd
+        run: |
+          call compile.bat -e -t -r
+          if errorlevel 1 exit /b %errorlevel%
+          if not exist bin\ClientRS.exe (
+            echo ClientRS.exe missing after Rust packaging
+            exit /b 1
+          )
+          if not exist bin\ServerRS.exe (
+            echo ServerRS.exe missing after Rust packaging
+            exit /b 1
+          )
+
       - name: Run Rust client tests (logic crates)
         shell: bash
         working-directory: client-rs
