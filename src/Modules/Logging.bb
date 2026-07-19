@@ -83,6 +83,10 @@ Function SafeWriteCommit%(TempPath$, FinalPath$, F)
 		EndIf
 		DeleteFile(BakTemp$)
 		DeleteFile(FinalPath$)
+		If FileType(FinalPath$) = 1
+			WriteLog(MainLog, "SafeWriteCommit: production cleanup failed for " + FinalPath$)
+			Return False
+		EndIf
 	EndIf
 
 	; Promote the temp into production.

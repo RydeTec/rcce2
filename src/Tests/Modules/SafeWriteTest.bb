@@ -78,16 +78,17 @@ Function SafeWriteCommitUsesVerifiedBackupAndPromotion%()
 		If Stage = 12 And Instr(Line$, "CopyFile(BakTemp$, Bak$)") > 0 Then Stage = 13
 		If Stage = 13 And Instr(Line$, "If FileType(Bak$) <> 1 Or FileSize(Bak$) <> FinalSize") > 0 Then Stage = 14
 		If Stage = 14 And Instr(Line$, "DeleteFile(FinalPath$)") > 0 Then Stage = 15
-		If Stage = 15 And Instr(Line$, "CopyFile(TempPath$, FinalPath$)") > 0 Then Stage = 16
-		If Stage = 16 And Instr(Line$, "If FileType(FinalPath$) <> 1 Or FileSize(FinalPath$) <> TempSize") > 0 Then Stage = 17
-		If Stage = 17 And Trim$(Line$) = "If FileType(Bak$) = 1" Then Stage = 18
-		If Stage = 18 And Instr(Line$, "If FileSize(Bak$) = FinalSize Then CopyFile(Bak$, FinalPath$)") > 0 Then Stage = 19
-		If Stage = 19 And Instr(Line$, "DeleteFile(TempPath$)") > 0 Then Stage = 20
+		If Stage = 15 And Trim$(Line$) = "If FileType(FinalPath$) = 1" Then Stage = 16
+		If Stage = 16 And Instr(Line$, "CopyFile(TempPath$, FinalPath$)") > 0 Then Stage = 17
+		If Stage = 17 And Instr(Line$, "If FileType(FinalPath$) <> 1 Or FileSize(FinalPath$) <> TempSize") > 0 Then Stage = 18
+		If Stage = 18 And Trim$(Line$) = "If FileType(Bak$) = 1" Then Stage = 19
+		If Stage = 19 And Instr(Line$, "If FileSize(Bak$) = FinalSize Then CopyFile(Bak$, FinalPath$)") > 0 Then Stage = 20
+		If Stage = 20 And Instr(Line$, "DeleteFile(TempPath$)") > 0 Then Stage = 21
 		If Instr(Line$, "End Function") > 0 Then Exit
 	Wend
 
 	CloseFile(F)
-	Return Stage = 20
+	Return Stage = 21
 End Function
 
 ; SafeWriteOpen is a pure helper: it just appends .tmp to the final path.
