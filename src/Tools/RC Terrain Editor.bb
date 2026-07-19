@@ -519,9 +519,13 @@ sceneryID=-1
 
 ;EnableDirectInput 1
 
-For mbr.modelbrush=Each ModelBrush
+mbr.modelbrush=First ModelBrush
+mbrNext.modelbrush=Null
+While mbr<>Null
+	mbrNext=After mbr
 	Delete mbr
-Next
+	mbr=mbrNext
+Wend
 updatemodelbrushlist() 
 POSITIONWINDOWS()
 InitFPS()
@@ -1653,9 +1657,13 @@ Function LOADWORK(sf$="")
 						FreeEntity dm\ent
 						Delete dm
 					Next
-					For au.autoundo=Each autoundo
-						Delete au
-					Next
+						au.autoundo=First autoundo
+						auNext.autoundo=Null
+						While au<>Null
+							auNext=After au
+							Delete au
+							au=auNext
+						Wend
 					unloadtrees(False)
 					loadworkpath$ = ""
 					LoadAreaTE(importmap$)
@@ -1704,9 +1712,13 @@ Function LOADWORK(sf$="")
 				FreeEntity dm\ent
 				Delete dm
 			Next
-			For au.autoundo=Each autoundo
+			au.autoundo=First autoundo
+			auNext.autoundo=Null
+			While au<>Null
+				auNext=After au
 				Delete au
-			Next
+				au=auNext
+			Wend
 			unloadtrees(False)
 		EndIf
 		
@@ -2072,9 +2084,13 @@ Function newmap(sg%,flagit=0,ask=1)
 			Delete dm
 		Next
 		
-		For au.autoundo=Each autoundo
+		au.autoundo=First autoundo
+		auNext.autoundo=Null
+		While au<>Null
+			auNext=After au
 			Delete au
-		Next
+			au=auNext
+		Wend
 		
 		UNLOADAREA()
 		If flagit=0 And layer(1) <> 0
@@ -3108,9 +3124,13 @@ Wend
 End Function
 
 Function RemoveUndoData()
-For au.autoundo=Each autoundo
-Delete au
-Next
+au.autoundo=First autoundo
+auNext.autoundo=Null
+While au<>Null
+	auNext=After au
+	Delete au
+	au=auNext
+Wend
 
 End Function
 
@@ -3165,9 +3185,13 @@ Function SaveAreaRCTE(Name$)
 	ChangeDir thispath$
 	fileExists = FileType(thispath$+"data\areas\"+Name$+".dat")
 	
-	For scn.scenery=Each scenery
+	scn.scenery=First scenery
+	scnNext.scenery=Null
+	While scn<>Null
+		scnNext=After scn
 		Delete scn
-	Next
+		scn=scnNext
+	Wend
 	
 	For dm.dropmodel=Each dropmodel
 		EntityType dm\ent,3
@@ -3216,9 +3240,13 @@ Function SaveAreaRCTE(Name$)
 	
 	
 	Delete Each area
-	For scn.scenery=Each scenery
+	scn.scenery=First scenery
+	scnNext.scenery=Null
+	While scn<>Null
+		scnNext=After scn
 		Delete scn
-	Next
+		scn=scnNext
+	Wend
 
 End Function
 
@@ -4496,9 +4524,13 @@ Next
 ;-------
 Case GUI_MBWIN_ADD 
 checked.window=Null 
-For mbr.modelbrush=Each ModelBrush
-Delete mbr
-Next
+mbr.modelbrush=First ModelBrush
+mbrNext.modelbrush=Null
+While mbr<>Null
+	mbrNext=After mbr
+	Delete mbr
+	mbr=mbrNext
+Wend
 updatemodelbrushlist() 
 
 ;-------
