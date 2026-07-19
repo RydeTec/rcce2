@@ -56,14 +56,26 @@ Function SafeWriteCommit%(TempPath$, FinalPath$, F)
 	If FileType(FinalPath$) = 1
 		; Stage the new backup separately so an old .bak survives until the
 		; replacement has been copied and verified.
-		If FileType(BakTemp$) = 1 Then DeleteFile(BakTemp$)
+		If FileType(BakTemp$) = 1
+			DeleteFile(BakTemp$)
+			If FileType(BakTemp$) = 1
+				WriteLog(MainLog, "SafeWriteCommit: backup staging cleanup failed for " + FinalPath$)
+				Return False
+			EndIf
+		EndIf
 		CopyFile(FinalPath$, BakTemp$)
 		If FileType(BakTemp$) <> 1 Or FileSize(BakTemp$) <> FinalSize
 			WriteLog(MainLog, "SafeWriteCommit: backup staging failed for " + FinalPath$)
 			Return False
 		EndIf
 
-		If FileType(Bak$) = 1 Then DeleteFile(Bak$)
+		If FileType(Bak$) = 1
+			DeleteFile(Bak$)
+			If FileType(Bak$) = 1
+				WriteLog(MainLog, "SafeWriteCommit: backup cleanup failed for " + FinalPath$)
+				Return False
+			EndIf
+		EndIf
 		CopyFile(BakTemp$, Bak$)
 		If FileType(Bak$) <> 1 Or FileSize(Bak$) <> FinalSize
 			WriteLog(MainLog, "SafeWriteCommit: backup verification failed for " + FinalPath$)
