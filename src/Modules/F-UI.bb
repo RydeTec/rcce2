@@ -17750,96 +17750,168 @@ Function FUI_DeleteGadget( ID )
 	EndIf
 	reg.Region = Object.Region( ID )
 	If reg <> Null
-		For reg2.Region = Each Region
-			If reg2\Parent = ID
-				FUI_DeleteGadget( Handle( reg2 ) )
+		Local regionChild.Region = First Region
+		While regionChild <> Null
+			If regionChild\Parent = ID
+				FUI_DeleteGadget( Handle( regionChild ) )
+				regionChild = First Region
+			Else
+				regionChild = After regionChild
 			EndIf
-		Next
-		For Tab.Tab = Each Tab
-			If Tab\Parent = ID
-				FUI_DeleteGadget( Handle( Tab ) )
+		Wend
+		Local regionTab.Tab = First Tab
+		While regionTab <> Null
+			If regionTab\Parent = ID
+				FUI_DeleteGadget( Handle( regionTab ) )
+				regionTab = First Tab
+			Else
+				regionTab = After regionTab
 			EndIf
-		Next
-		For pan.Panel = Each Panel
-			If pan\Parent = ID
-				FUI_DeleteGadget( Handle( pan ) )
+		Wend
+		Local regionPanel.Panel = First Panel
+		While regionPanel <> Null
+			If regionPanel\Parent = ID
+				FUI_DeleteGadget( Handle( regionPanel ) )
+				regionPanel = First Panel
+			Else
+				regionPanel = After regionPanel
 			EndIf
-		Next
-		For btn.Button = Each Button
-			If btn\Parent = ID
-				FUI_DeleteGadget( Handle( btn ) )
+		Wend
+		Local regionButton.Button = First Button
+		While regionButton <> Null
+			If regionButton\Parent = ID
+				FUI_DeleteGadget( Handle( regionButton ) )
+				regionButton = First Button
+			Else
+				regionButton = After regionButton
 			EndIf
-		Next
-		For chk.CheckBox = Each CheckBox
-			If chk\Parent = ID
-				FUI_DeleteGadget( Handle( chk ) )
+		Wend
+		Local regionCheckBox.CheckBox = First CheckBox
+		While regionCheckBox <> Null
+			If regionCheckBox\Parent = ID
+				FUI_DeleteGadget( Handle( regionCheckBox ) )
+				regionCheckBox = First CheckBox
+			Else
+				regionCheckBox = After regionCheckBox
 			EndIf
-		Next
-		For cbo.ComboBox = Each ComboBox
-			If cbo\Parent = ID
-				FUI_DeleteGadget( Handle( cbo ) )
+		Wend
+		Local regionComboBox.ComboBox = First ComboBox
+		While regionComboBox <> Null
+			If regionComboBox\Parent = ID
+				FUI_DeleteGadget( Handle( regionComboBox ) )
+				regionComboBox = First ComboBox
+			Else
+				regionComboBox = After regionComboBox
 			EndIf
-		Next
-		For grp.GroupBox = Each GroupBox
-			If grp\Parent = ID
-				FUI_DeleteGadget( Handle( grp ) )
+		Wend
+		Local regionGroupBox.GroupBox = First GroupBox
+		While regionGroupBox <> Null
+			If regionGroupBox\Parent = ID
+				FUI_DeleteGadget( Handle( regionGroupBox ) )
+				regionGroupBox = First GroupBox
+			Else
+				regionGroupBox = After regionGroupBox
 			EndIf
-		Next
-		For img.ImageBox = Each ImageBox
-			If img\Parent = ID
-				FUI_DeleteGadget( Handle( img ) )
+		Wend
+		Local regionImageBox.ImageBox = First ImageBox
+		While regionImageBox <> Null
+			If regionImageBox\Parent = ID
+				FUI_DeleteGadget( Handle( regionImageBox ) )
+				regionImageBox = First ImageBox
+			Else
+				regionImageBox = After regionImageBox
 			EndIf
-		Next
-		For lbl.Label = Each Label
-			If lbl\Parent = ID
-				FUI_DeleteGadget( Handle( lbl ) )
+		Wend
+		Local regionLabel.Label = First Label
+		While regionLabel <> Null
+			If regionLabel\Parent = ID
+				FUI_DeleteGadget( Handle( regionLabel ) )
+				regionLabel = First Label
+			Else
+				regionLabel = After regionLabel
 			EndIf
-		Next
-		For lst.ListBox = Each ListBox
-			If lst\Parent = ID
-				FUI_DeleteGadget( Handle( lst ) )
+		Wend
+		Local regionListBox.ListBox = First ListBox
+		While regionListBox <> Null
+			If regionListBox\Parent = ID
+				FUI_DeleteGadget( Handle( regionListBox ) )
+				regionListBox = First ListBox
+			Else
+				regionListBox = After regionListBox
 			EndIf
-		Next
-		For prg.ProgressBar = Each ProgressBar
-			If prg\Parent = ID
-				FUI_DeleteGadget( Handle( prg ) )
+		Wend
+		Local regionProgressBar.ProgressBar = First ProgressBar
+		While regionProgressBar <> Null
+			If regionProgressBar\Parent = ID
+				FUI_DeleteGadget( Handle( regionProgressBar ) )
+				regionProgressBar = First ProgressBar
+			Else
+				regionProgressBar = After regionProgressBar
 			EndIf
-		Next
-		For rad.Radio = Each Radio
-			If rad\Parent = ID
-				FUI_DeleteGadget( Handle( rad ) )
+		Wend
+		Local regionRadio.Radio = First Radio
+		While regionRadio <> Null
+			If regionRadio\Parent = ID
+				FUI_DeleteGadget( Handle( regionRadio ) )
+				regionRadio = First Radio
+			Else
+				regionRadio = After regionRadio
 			EndIf
-		Next
-		For scroll.ScrollBar = Each ScrollBar
-			If scroll\Parent = ID
-				FUI_DeleteGadget( Handle( scroll ) )
+		Wend
+		Local regionScrollBar.ScrollBar = First ScrollBar
+		While regionScrollBar <> Null
+			If regionScrollBar\Parent = ID
+				FUI_DeleteGadget( Handle( regionScrollBar ) )
+				regionScrollBar = First ScrollBar
+			Else
+				regionScrollBar = After regionScrollBar
 			EndIf
-		Next
-		For sld.Slider = Each Slider
-			If sld\Parent = ID
-				FUI_DeleteGadget( Handle( sld ) )
+		Wend
+		Local regionSlider.Slider = First Slider
+		While regionSlider <> Null
+			If regionSlider\Parent = ID
+				FUI_DeleteGadget( Handle( regionSlider ) )
+				regionSlider = First Slider
+			Else
+				regionSlider = After regionSlider
 			EndIf
-		Next
-		For spn.Spinner = Each Spinner
-			If spn\Parent = ID
-				FUI_DeleteGadget( Handle( spn ) )
+		Wend
+		Local regionSpinner.Spinner = First Spinner
+		While regionSpinner <> Null
+			If regionSpinner\Parent = ID
+				FUI_DeleteGadget( Handle( regionSpinner ) )
+				regionSpinner = First Spinner
+			Else
+				regionSpinner = After regionSpinner
 			EndIf
-		Next
-		For txt.TextBox = Each TextBox
-			If txt\Parent = ID
-				FUI_DeleteGadget( Handle( txt ) )
+		Wend
+		Local regionTextBox.TextBox = First TextBox
+		While regionTextBox <> Null
+			If regionTextBox\Parent = ID
+				FUI_DeleteGadget( Handle( regionTextBox ) )
+				regionTextBox = First TextBox
+			Else
+				regionTextBox = After regionTextBox
 			EndIf
-		Next
-		For tree.TreeView = Each TreeView
-			If tree\Parent = ID
-				FUI_DeleteGadget( Handle( tree ) )
+		Wend
+		Local regionTreeView.TreeView = First TreeView
+		While regionTreeView <> Null
+			If regionTreeView\Parent = ID
+				FUI_DeleteGadget( Handle( regionTreeView ) )
+				regionTreeView = First TreeView
+			Else
+				regionTreeView = After regionTreeView
 			EndIf
-		Next
-		For view.View = Each View
-			If view\Parent = ID
-				FUI_DeleteGadget( Handle( view ) )
+		Wend
+		Local regionView.View = First View
+		While regionView <> Null
+			If regionView\Parent = ID
+				FUI_DeleteGadget( Handle( regionView ) )
+				regionView = First View
+			Else
+				regionView = After regionView
 			EndIf
-		Next
+		Wend
 		FreeEntity reg\Mesh
 		Delete reg
 		
