@@ -244,10 +244,13 @@ Function FUI_Confirm(msg$,ys$,no$)
     FUI_SendMessage(gui_controlswindow,m_open)
 	TClose = False
 	Repeat
-		 For e.Event = Each Event
-		 	Select e\EventID
+		Local ArchitectEvent.Event = First Event
+		Local ArchitectNextEvent.Event = Null
+		While ArchitectEvent <> Null
+			ArchitectNextEvent = After ArchitectEvent
+			Select ArchitectEvent\EventID
 		 		Case GUI_CONTROLSWINDOW
-		 			Select e\EventData
+				Select ArchitectEvent\EventData
 		 				Case "Closed"
 		 					TClose = True
                             Return  -1
@@ -262,8 +265,9 @@ Function FUI_Confirm(msg$,ys$,no$)
               
                     Return  -1
 		 	End Select
-		 	Delete e
-		 Next
+			Delete ArchitectEvent
+			ArchitectEvent = ArchitectNextEvent
+		Wend
 		 If KeyHit( 1 ) Then TClose = True
 		 ;#Region Rendering	
 			CameraProjMode( App\Cam, False )
@@ -300,18 +304,22 @@ Function ControlsWindow( )
 	FUI_CenterWindow( GUI_CONTROLSWINDOW )
 	TClose = False
 	Repeat
-		 For e.Event = Each Event
-		 	Select e\EventID
+		Local ArchitectEvent.Event = First Event
+		Local ArchitectNextEvent.Event = Null
+		While ArchitectEvent <> Null
+			ArchitectNextEvent = After ArchitectEvent
+			Select ArchitectEvent\EventID
 		 		Case GUI_CONTROLSWINDOW
-		 			Select e\EventData
+				Select ArchitectEvent\EventData
 		 				Case "Closed"
 		 					TClose = True
 		 			End Select
 		 		Case GUI_CONTROLSWINDOW_BUTTON_OK
 		 			tClose = True
 		 	End Select
-		 	Delete e
-		 Next
+			Delete ArchitectEvent
+			ArchitectEvent = ArchitectNextEvent
+		Wend
 		 If KeyHit( 1 ) Then TClose = True
 		 ;#Region Rendering	
 			CameraProjMode( App\Cam, False )
@@ -349,18 +357,22 @@ Function AboutWindow( )
   	    FUI_CenterWindow( GUI_ABOUTWINDOW )
 		TClose = False
 		Repeat
-		 For e.Event = Each Event
-		 	Select e\EventID
+		Local ArchitectEvent.Event = First Event
+		Local ArchitectNextEvent.Event = Null
+		While ArchitectEvent <> Null
+			ArchitectNextEvent = After ArchitectEvent
+			Select ArchitectEvent\EventID
 		 		Case GUI_ABOUTWINDOW
-		 			Select e\EventData
+				Select ArchitectEvent\EventData
 		 			Case "Closed"
 		 			TClose = True
 		 			End Select
 		 		Case GUI_ABOUTWINDOW_BUTTON_OK
 		 			tClose = True
 		 	End Select
-		 	Delete e
-		 Next
+			Delete ArchitectEvent
+			ArchitectEvent = ArchitectNextEvent
+		Wend
 		 If KeyHit( 1 ) Then TClose = True
 		 ;#Region Rendering	
 			CameraProjMode( App\Cam, False )
