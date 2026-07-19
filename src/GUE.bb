@@ -6764,11 +6764,14 @@ Function MeshDialog()
 		FUI_Update()
 		Flip(0)
 
-		For E.Event = Each Event
-			Select E\EventID
+		Local MeshEvent.Event = First Event
+		Local NextMeshEvent.Event = Null
+		While MeshEvent <> Null
+			NextMeshEvent = After MeshEvent
+			Select MeshEvent\EventID
 				; Window closed
 				Case W
-					If Lower$(E\EventData$) = "closed"
+					If Lower$(MeshEvent\EventData$) = "closed"
 						IsAnim = FUI_SendMessage(BAnimated, M_GETCHECKED)
 						IsEncrypted = False;FUI_SendMessage(BEncrypted, M_GETCHECKED)
 						Result = IsAnim Or (IsEncrypted * 2)
@@ -6780,9 +6783,10 @@ Function MeshDialog()
 					IsEncrypted = False;FUI_SendMessage(BEncrypted, M_GETCHECKED)
 					Result = IsAnim Or (IsEncrypted * 2)
 					Closed = True
-			End Select
-			Delete E
-		Next
+				End Select
+			Delete MeshEvent
+			MeshEvent = NextMeshEvent
+		Wend
 	Until Closed = True
 
 	FUI_DeleteGadget(W)
@@ -6813,11 +6817,14 @@ Function TextureDialog()
 		FUI_Update()
 		Flip(0)
 
-		For E.Event = Each Event
-			Select E\EventID
+		Local TextureEvent.Event = First Event
+		Local NextTextureEvent.Event = Null
+		While TextureEvent <> Null
+			NextTextureEvent = After TextureEvent
+			Select TextureEvent\EventID
 				; Window closed
 				Case W
-					If Lower$(E\EventData$) = "closed"
+					If Lower$(TextureEvent\EventData$) = "closed"
 						Result = FUI_SendMessageI(BColour, M_GETCHECKED) + (FUI_SendMessageI(BAlpha, M_GETCHECKED) * 2)
 						Result = Result + (FUI_SendMessageI(BMasked, M_GETCHECKED) * 4)
 						Result = Result + (FUI_SendMessageI(BMipmap, M_GETCHECKED) * 8)
@@ -6834,9 +6841,10 @@ Function TextureDialog()
 					Result = Result + (FUI_SendMessageI(BClampU, M_GETCHECKED) * 16) + (FUI_SendMessageI(BClampV, M_GETCHECKED) * 32)
 					Result = Result + (FUI_SendMessageI(BSphere, M_GETCHECKED) * 64) + (FUI_SendMessageI(BCube, M_GETCHECKED) * 128)
 					Closed = True
-			End Select
-			Delete E
-		Next
+				End Select
+			Delete TextureEvent
+			TextureEvent = NextTextureEvent
+		Wend
 	Until Closed = True
 
 	FUI_DeleteGadget(W)
@@ -6860,11 +6868,14 @@ Function SoundDialog()
 		FUI_Update()
 		Flip(0)
 
-		For E.Event = Each Event
-			Select E\EventID
+		Local SoundEvent.Event = First Event
+		Local NextSoundEvent.Event = Null
+		While SoundEvent <> Null
+			NextSoundEvent = After SoundEvent
+			Select SoundEvent\EventID
 				; Window closed
 				Case W
-					If Lower$(E\EventData$) = "closed"
+					If Lower$(SoundEvent\EventData$) = "closed"
 						Result = FUI_SendMessage(B3D, M_GETCHECKED)
 						Closed = True
 					EndIf
@@ -6872,9 +6883,10 @@ Function SoundDialog()
 				Case BDone
 					Result = FUI_SendMessage(B3D, M_GETCHECKED)
 					Closed = True
-			End Select
-			Delete E
-		Next
+				End Select
+			Delete SoundEvent
+			SoundEvent = NextSoundEvent
+		Wend
 	Until Closed = True
 
 	FUI_DeleteGadget(W)
