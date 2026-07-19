@@ -36,10 +36,39 @@ fn clamp_coord(v: f32) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::ServerState;
+    use crate::config::ServerConfig;
+    use rcce_server_accounts::store::AccountStore;
+    use rcce_server_accounts::throttle::MAX_FAILURES;
+    use rcce_server_core::ActorCatalog;
+    use std::path::PathBuf;
 
     #[test]
     fn missing_defender_resistance_is_neutral() {
         assert_eq!(ServerState::defender_resistance(&[150], 9), 100);
+    }
+
+    #[test]
+    fn disconnect_releases_failed_login_throttle_record() {
+        let config = ServerConfig {
+            port: 25000,
+            allow_account_creation: true,
+            max_account_chars: 4,
+            start_gold: 0,
+            start_reputation: 0,
+            attribute_assignment: 0,
+            data_dir: PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../data"),
+        };
+        let accounts =
+            AccountStore::load(std::env::temp_dir().join("rcce-throttle-disconnect-test.dat")).unwrap();
+        let mut state = ServerState::new(config, accounts, ActorCatalog::default());
+        for _ in 0..MAX_FAILURES {
+            state.throttle.record(7, false, 0);
+        }
+        assert!(!state.throttle.ok(7, 0));
+
+        state.on_disconnect(7);
+
+        assert!(state.throttle.ok(7, 0));
     }
 }
 
@@ -633,6 +662,7 @@ impl ServerState {
     /// the indices.
     pub fn on_disconnect(&mut self, peer_id: u32) -> Vec<(u32, u8, Vec<u8>)> {
         let mut out = Vec::new();
+        self.throttle.forget(peer_id);
         // Leave any party + drop per-peer tick state.
         if let Some(pid) = self.party_of.remove(&peer_id) {
             // Recompute the roster after this peer leaves, then notify survivors.
