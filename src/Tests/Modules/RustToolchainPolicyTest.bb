@@ -101,8 +101,8 @@ End Test
 
 Test testLinuxCIExercisesRustReleasePackaging()
 	Assert(FileContainsSequenceBefore%(".github\workflows\ci.yml", "- name: Install Linux audio build dependency", "sudo apt-get install --yes libasound2-dev", "- name: Package Rust apps for Linux", "- name: Build + test (server workspace, locked)") = True)
-	Assert(FileContainsSequenceBefore%(".github\workflows\ci.yml", "- name: Package Rust apps for Linux", "./compile.sh -e -t -r", "test -x bin/ClientRS", "- name: Build + test (server workspace, locked)") = True)
-	Assert(FileContains%(".github\workflows\ci.yml", "test -x bin/ServerRS") = True)
+	Assert(FileContainsSequenceBefore%(".github\workflows\ci.yml", "- name: Package Rust apps for Linux", "./compile.sh -e -t -r", "test -x bin/ClientRS", "test -x bin/ServerRS") = True)
+	Assert(FileContainsSequenceBefore%(".github\workflows\ci.yml", "- name: Package Rust apps for Linux", "test -x bin/ClientRS", "test -x bin/ServerRS", "- name: Build + test (server workspace, locked)") = True)
 End Test
 
 Test testRustServerContainerBuilderKeepsDeclaredToolchainAndLockfile()
