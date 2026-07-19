@@ -194,9 +194,13 @@ Function DisconnectReleasesLoginAttempt%(Path$)
 	While Not Eof(F)
 		Line$ = ReadLine$(F)
 		If Instr(Line$, "Case RCE_PlayerTimedOut, RCE_PlayerHasLeft, RCE_PlayerKicked") > 0 Then Stage = 1
-		If Stage = 1 And Trim$(Line$) = "EndIf" Then Stage = 2
-		If Stage = 2 And Instr(Line$, "LoginAttemptForget(M\FromID)") > 0 Then Stage = 3
-		If Stage = 3 And Instr(Line$, "AI.ActorInstance = FindActorInstanceFromRNID(M\FromID)") > 0
+		If Stage = 1 And Instr(Line$, "If (M\MessageType = RCE_PlayerKicked)") > 0 Then Stage = 2
+		If Stage = 2 And Instr(Line$, "M\FromID = RCE_IntFromStr(M\MessageData$)") > 0 Then Stage = 3
+		If Stage = 3 And Trim$(Line$) = "Else" Then Stage = 4
+		If Stage = 4 And Instr(Line$, "M\FromID = RCE_LastDisconnectedPeer()") > 0 Then Stage = 5
+		If Stage = 5 And Trim$(Line$) = "EndIf" Then Stage = 6
+		If Stage = 6 And Instr(Line$, "LoginAttemptForget(M\FromID)") > 0 Then Stage = 7
+		If Stage = 7 And Instr(Line$, "AI.ActorInstance = FindActorInstanceFromRNID(M\FromID)") > 0
 			CloseFile F
 			Return True
 		EndIf
