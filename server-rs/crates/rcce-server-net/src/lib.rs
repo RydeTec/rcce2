@@ -28,6 +28,24 @@ use enet_sys::{
 
 /// ENet's `ENET_HOST_ANY` — bind on every local interface.
 const ENET_HOST_ANY: u32 = 0;
+/// Upper bound on ENet service events handled before the server advances its
+/// simulation, scripts, and persistence work for the current tick.
+const MAX_EVENTS_PER_TICK: usize = 128;
+
+/// Collect at most `limit` pending items, preserving their source order.
+///
+/// The caller keeps ownership of anything after the bound, so the next tick
+/// resumes at the first unprocessed item instead of dropping or reordering it.
+fn drain_pending<T>(limit: usize, mut next: impl FnMut() -> Option<T>) -> Vec<T> {
+    let mut out = Vec::with_capacity(limit);
+    for _ in 0..limit {
+        let Some(item) = next() else {
+            break;
+        };
+        out.push(item);
+    }
+    out
+}
 
 /// Stable, host-assigned identifier for a connected client peer.
 ///
@@ -110,29 +128,30 @@ impl EnetHostServer {
         self.peers.len()
     }
 
-    /// Service the host and drain every pending event.
+    /// Service the host and drain up to [`MAX_EVENTS_PER_TICK`] pending events.
     ///
     /// Blocks up to `timeout_ms` for the *first* event (so an idle server can
-    /// park instead of busy-spinning), then drains the rest non-blocking. Pass a
-    /// small timeout (a few ms) from the tick loop so simulation still runs each
-    /// frame.
+    /// park instead of busy-spinning), then drains additional events
+    /// non-blocking. The finite bound ensures a sustained receive queue cannot
+    /// starve the simulation tick; later events remain queued for the next poll.
     pub fn poll(&mut self, timeout_ms: u32) -> Vec<ServerEvent> {
-        let mut out = Vec::new();
         let mut timeout = timeout_ms;
-        loop {
+        drain_pending(MAX_EVENTS_PER_TICK, || {
             let mut ev: ENetEvent = unsafe { std::mem::zeroed() };
             let r = unsafe { enet_host_service(self.host, &mut ev, timeout) };
             // After the first (possibly blocking) service, drain non-blocking.
             timeout = 0;
             if r <= 0 {
                 // 0 = nothing within the timeout; <0 = transient service error.
-                break;
+                return None;
             }
-            if let Some(event) = self.translate(&ev) {
-                out.push(event);
-            }
-        }
-        out
+            // Count every serviced ENet event, including unrecognized events,
+            // so an unknown-event stream cannot bypass the per-tick bound.
+            Some(self.translate(&ev))
+        })
+        .into_iter()
+        .flatten()
+        .collect()
     }
 
     /// Convert a raw ENet event into a [`ServerEvent`], updating peer bookkeeping.
@@ -238,4 +257,25 @@ unsafe fn copy_packet(packet: *const enet_sys::ENetPacket) -> Vec<u8> {
         return Vec::new();
     }
     std::slice::from_raw_parts(p.data, p.data_length).to_vec()
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::VecDeque;
+
+    use super::{drain_pending, MAX_EVENTS_PER_TICK};
+
+    #[test]
+    fn event_budget_preserves_order_across_successive_drains() {
+        let mut pending: VecDeque<_> = (0..=MAX_EVENTS_PER_TICK).collect();
+
+        let first = drain_pending(MAX_EVENTS_PER_TICK, || pending.pop_front());
+        assert_eq!(first.len(), MAX_EVENTS_PER_TICK);
+        assert_eq!(first.first(), Some(&0));
+        assert_eq!(first.last(), Some(&(MAX_EVENTS_PER_TICK - 1)));
+
+        let second = drain_pending(MAX_EVENTS_PER_TICK, || pending.pop_front());
+        assert_eq!(second, vec![MAX_EVENTS_PER_TICK]);
+        assert!(pending.is_empty());
+    }
 }
