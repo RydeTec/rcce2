@@ -17,6 +17,7 @@ use rcce_server_accounts::store::AccountStore;
 use rcce_server_core::record::CharacterRecord;
 use rcce_server_core::ActorCatalog;
 
+use crate::characters::{quest_name_to_bytes, quest_status_to_bytes};
 use crate::spawn::SpawnManager;
 use crate::state::{clamp_attribute_max, Outgoing};
 use crate::world::{self, World};
@@ -288,28 +289,16 @@ impl ScriptHost<'_> {
         }
     }
 
-    /// Send a `P_QuestLog` packet to the actor's player, if online. `'N'`/`'U'`
-    /// carry `[u8 nameLen][name][u16 statusLen][status]`; `'D'` carries the raw
-    /// name (`ScriptingCommands.bb:2211-2213`). The status is a Blitz byte string
-    /// (3 flag bytes + description) held as Latin-1 chars; the wire form is each
-    /// char's low byte (`quest_status_to_bytes`), so the 3 flag bytes + ASCII
-    /// description encode faithfully.
+    /// Send a `P_QuestLog` packet to the actor's player, if online.
     fn send_quest_log(&mut self, rid: u16, sub: u8, name: &str, status: &str) {
         let Some(peer) = self.world.peer_for_runtime(rid) else {
             return;
         };
-        let mut p = vec![sub];
-        if sub == b'D' {
-            p.extend_from_slice(name.as_bytes());
-        } else {
-            let nb = name.as_bytes();
-            let sb = quest_status_to_bytes(status);
-            p.push(nb.len() as u8);
-            p.extend_from_slice(nb);
-            p.extend_from_slice(&(sb.len() as u16).to_le_bytes());
-            p.extend_from_slice(&sb);
-        }
-        self.out.push(Outgoing::peer(peer, world::P_QUEST_LOG, p));
+        self.out.push(Outgoing::peer(
+            peer,
+            world::P_QUEST_LOG,
+            quest_log_payload(sub, name, status),
+        ));
     }
 
     /// Broadcast `P_NameChange` for an actor (`SetName`/`SetTag`,
@@ -568,10 +557,22 @@ impl ScriptHost<'_> {
     }
 }
 
-/// Blitz byte-string form of a quest status — Latin-1 low byte per char, so the
-/// 3 leading flag bytes (0..255) and an ASCII description encode faithfully.
-fn quest_status_to_bytes(s: &str) -> Vec<u8> {
-    s.chars().map(|c| c as u32 as u8).collect()
+/// Build a live `P_QuestLog` payload. `N`/`U` carry a one-byte name length and
+/// `D` carries a raw name, but all forms use the same capped name bytes so a
+/// client can delete exactly the entry it was shown.
+fn quest_log_payload(sub: u8, name: &str, status: &str) -> Vec<u8> {
+    let name = quest_name_to_bytes(name);
+    let mut payload = vec![sub];
+    if sub == b'D' {
+        payload.extend_from_slice(name);
+    } else {
+        let status = quest_status_to_bytes(status);
+        payload.push(name.len() as u8);
+        payload.extend_from_slice(name);
+        payload.extend_from_slice(&(status.len() as u16).to_le_bytes());
+        payload.extend_from_slice(&status);
+    }
+    payload
 }
 
 /// Build a quest status: 3 flag bytes (`Param4/5/6`, Latin-1) + description.
@@ -1422,6 +1423,17 @@ mod tests {
             v.extend_from_slice(&7u32.to_le_bytes());
             v
         });
+    }
+
+    #[test]
+    fn quest_log_wire_payload_caps_delete_name_like_new() {
+        let name = "N".repeat(256);
+        let new = quest_log_payload(b'N', &name, "ok");
+        assert_eq!(new[1], 255);
+        assert_eq!(&new[2..257], &name.as_bytes()[..255]);
+
+        let delete = quest_log_payload(b'D', &name, "");
+        assert_eq!(&delete[1..], &name.as_bytes()[..255]);
     }
 
     #[test]
