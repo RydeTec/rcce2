@@ -2174,9 +2174,12 @@ Type Composer
                 Toast_Show("Save Zone failed (stale handle)", "danger")
                 Return
             EndIf
-            ServerSaveArea(Ar)
-            // ServerSaveArea is void; we trust it. The atomic-write
-            // discipline is owned by the serializer itself.
+            Local okZ% = ServerSaveArea(Ar)
+            If okZ = False
+                WriteLog(LoomLog, "Composer: ServerSaveArea FAILED")
+                Toast_Show("Save Zone FAILED", "danger")
+                Return
+            EndIf
             ZoneSaved = True
             WriteLog(LoomLog, "Composer: saved zone " + Ar\Name$)
             Toast_Show("Saved zone " + Ar\Name$, "success")
