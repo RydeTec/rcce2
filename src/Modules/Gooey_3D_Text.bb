@@ -37,7 +37,8 @@ Function GY_TextWidth#(TextHandle, Dat$)
 	; Font\Font_Width# (corrupt font config). Return 0.0 cleanly --
 	; layout code at the call site already handles 0-width strings.
 	If T\MaxLength <= 0 Then Return 0.0
-	If T\Font = Null Or T\Font\Font_Width# = 0.0 Then Return 0.0
+	If T\Font = Null Then Return 0.0
+	If T\Font\Font_Width# = 0.0 Then Return 0.0
 
 	VX# = 0.0
 	For i = 1 To Len(Dat$)
@@ -102,7 +103,8 @@ Function GY_Set3DText(TextHandle, Dat$)
 	; bottom of this function does `VX# + (1.0 / MaxLength) * (...)` which
 	; crashes on 0 MaxLength or 0 Font_Width.
 	If T\MaxLength <= 0 Then Return False
-	If T\Font = Null Or T\Font\Font_Width# = 0.0 Then Return False
+	If T\Font = Null Then Return False
+	If T\Font\Font_Width# = 0.0 Then Return False
 
 	Surf = GetSurface(T\EN, 1)
 
