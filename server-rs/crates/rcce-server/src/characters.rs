@@ -29,6 +29,20 @@ const Q_FRAGMENT_AT: usize = 700;
 /// S known-spells fragment threshold (`Len(OldPa$ + Pa$) > 1000`).
 const S_FRAGMENT_AT: usize = 1000;
 
+/// Quest names are framed with a one-byte byte count on both live and reload
+/// packets, so retain only the bytes that fit that protocol field.
+pub(crate) fn quest_name_to_bytes(name: &str) -> &[u8] {
+    let bytes = name.as_bytes();
+    &bytes[..bytes.len().min(u8::MAX as usize)]
+}
+
+/// Blitz quest statuses are byte strings, including three leading flag bytes.
+/// Rust stores those flags as Latin-1 chars, so send each char's low byte and
+/// bound the result to the u16 byte count used by the quest wire format.
+pub(crate) fn quest_status_to_bytes(status: &str) -> Vec<u8> {
+    status.chars().take(u16::MAX as usize).map(|c| c as u32 as u8).collect()
+}
+
 fn read_field(r: &mut MsgReader) -> Option<Vec<u8>> {
     let n = r.u8()? as usize;
     Some(r.bytes(n)?.to_vec())
@@ -337,11 +351,13 @@ pub fn handle_fetch_character(
         if q.name.is_empty() {
             continue;
         }
+        let name = quest_name_to_bytes(&q.name);
+        let status = quest_status_to_bytes(&q.status);
         num = num.wrapping_add(1);
-        qbuf.push(q.name.len().min(255) as u8);
-        qbuf.extend_from_slice(q.name.as_bytes());
-        qbuf.extend_from_slice(&(q.status.len() as u16).to_le_bytes());
-        qbuf.extend_from_slice(q.status.as_bytes());
+        qbuf.push(name.len() as u8);
+        qbuf.extend_from_slice(name);
+        qbuf.extend_from_slice(&(status.len() as u16).to_le_bytes());
+        qbuf.extend_from_slice(&status);
         if qbuf.len() > Q_FRAGMENT_AT {
             out.push((P_FETCH_CHARACTER, prefixed(b"Q", &qbuf)));
             qbuf.clear();
@@ -372,6 +388,7 @@ fn prefixed(tag: &[u8], body: &[u8]) -> Vec<u8> {
 mod tests {
     use super::*;
     use rcce_server_accounts::store::Account;
+    use rcce_server_core::character::Character;
     use std::path::PathBuf;
 
     const MD5: &str = "5d41402abc4b2a76b9719d911017c592";
@@ -406,6 +423,25 @@ mod tests {
         let mut v = vec![b.len() as u8];
         v.extend_from_slice(b);
         v
+    }
+
+    fn fetch_quest_packet(name: &str, status: &str) -> Vec<u8> {
+        let mut store = tmp_store("fetchquest");
+        let mut account = Account::new("hero", MD5, "h@x.com").unwrap();
+        let mut record = CharacterRecord::new(Character::blank());
+        record.quests[0].name = name.into();
+        record.quests[0].status = status.into();
+        account.characters.push(record);
+        store.push(account);
+
+        let mut throttle = LoginThrottle::new();
+        let mut fetch = field(b"hero");
+        fetch.extend_from_slice(&field(MD5.as_bytes()));
+        fetch.push(0u8);
+        handle_fetch_character(&fetch, &mut store, &mut throttle, &spell_catalog(), 1, 0)
+            .into_iter()
+            .find_map(|(_, payload)| payload.starts_with(b"Q").then_some(payload))
+            .expect("one quest must produce one Q packet")
     }
 
     fn config_for(dir: PathBuf) -> ServerConfig {
@@ -677,6 +713,47 @@ mod tests {
         assert_eq!(last.1[0], b'F');
         assert_eq!(&last.1[1..3], &[0, 0]); // num quests
         assert_eq!(&last.1[3..5], &[0, 0]); // spells done
+    }
+
+    #[test]
+    fn fetch_character_quest_status_uses_legacy_low_bytes() {
+        let packet = fetch_quest_packet("Flags", "\u{ff}\u{e1}d");
+        let mut offset = 1usize; // Q tag
+        let name_len = packet[offset] as usize;
+        offset += 1 + name_len;
+        let status_len =
+            u16::from_le_bytes(packet[offset..offset + 2].try_into().unwrap()) as usize;
+        offset += 2;
+
+        assert_eq!(status_len, 3, "prefix must describe legacy status bytes");
+        assert_eq!(&packet[offset..offset + status_len], &[0xff, 0xe1, b'd']);
+        assert_eq!(
+            offset + status_len,
+            packet.len(),
+            "Q record must end at its declared status length"
+        );
+    }
+
+    #[test]
+    fn fetch_character_quest_name_payload_matches_u8_prefix() {
+        let name = "N".repeat(256);
+        let packet = fetch_quest_packet(&name, "ok");
+        let mut offset = 1usize; // Q tag
+        let name_len = packet[offset] as usize;
+        offset += 1;
+
+        assert_eq!(name_len, 255);
+        assert_eq!(&packet[offset..offset + name_len], &name.as_bytes()[..255]);
+        offset += name_len;
+        let status_len =
+            u16::from_le_bytes(packet[offset..offset + 2].try_into().unwrap()) as usize;
+        offset += 2;
+        assert_eq!(&packet[offset..offset + status_len], b"ok");
+        assert_eq!(
+            offset + status_len,
+            packet.len(),
+            "Q record must not retain bytes beyond its name prefix"
+        );
     }
 
     /// Byte-exact `S`(spells) sub-packet against the real shipped `Spells.dat`

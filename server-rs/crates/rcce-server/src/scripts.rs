@@ -17,6 +17,7 @@ use rcce_server_accounts::store::AccountStore;
 use rcce_server_core::record::CharacterRecord;
 use rcce_server_core::ActorCatalog;
 
+use crate::characters::{quest_name_to_bytes, quest_status_to_bytes};
 use crate::spawn::SpawnManager;
 use crate::state::{clamp_attribute_max, Outgoing};
 use crate::world::{self, World};
@@ -302,7 +303,7 @@ impl ScriptHost<'_> {
         if sub == b'D' {
             p.extend_from_slice(name.as_bytes());
         } else {
-            let nb = name.as_bytes();
+            let nb = quest_name_to_bytes(name);
             let sb = quest_status_to_bytes(status);
             p.push(nb.len() as u8);
             p.extend_from_slice(nb);
@@ -566,12 +567,6 @@ impl ScriptHost<'_> {
             .map(|a| if banned { a.is_banned } else { a.is_dm })
             .unwrap_or(false)
     }
-}
-
-/// Blitz byte-string form of a quest status — Latin-1 low byte per char, so the
-/// 3 leading flag bytes (0..255) and an ASCII description encode faithfully.
-fn quest_status_to_bytes(s: &str) -> Vec<u8> {
-    s.chars().map(|c| c as u32 as u8).collect()
 }
 
 /// Build a quest status: 3 flag bytes (`Param4/5/6`, Latin-1) + description.
