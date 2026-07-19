@@ -27,30 +27,30 @@ End Function
 Function HasSafeSpawnMarkerScaleGuard%(Path$)
 	Local F.BBStream = ReadFile(Path$)
 	Local Line$
-	Local Step = 0
+	Local Stage = 0
 	If F = Null Then F = ReadFile("..\" + Path$)
 	If F = Null Then F = ReadFile("..\..\" + Path$)
 	If F = Null Then Return False
 
 	While Not Eof(F)
 		Line$ = ReadLine$(F)
-		Select Step
+		Select Stage
 			Case 0
-				If Instr(Line$, "Local spawnScale# = VP_MARKER_SIZE#") > 0 Then Step = 1
+				If Instr(Line$, "Local spawnScale# = VP_MARKER_SIZE#") > 0 Then Stage = 1
 			Case 1
-				If Instr(Line$, "Local A2.Actor = ActorList(Ar\SpawnActor[i])") > 0 Then Step = 2
+				If Instr(Line$, "Local A2.Actor = ActorList(Ar\SpawnActor[i])") > 0 Then Stage = 2
 			Case 2
 				If Trim$(Line$) <> "If A2 <> Null Then"
 					CloseFile F
 					Return False
 				EndIf
-				Step = 3
+				Stage = 3
 			Case 3
 				If Trim$(Line$) <> "If A2\Scale# > 0.0 Then spawnScale# = A2\Scale#"
 					CloseFile F
 					Return False
 				EndIf
-				Step = 4
+				Stage = 4
 			Case 4
 				CloseFile F
 				Return Trim$(Line$) = "EndIf"
