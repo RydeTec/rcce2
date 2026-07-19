@@ -6,9 +6,9 @@ EnableGC
 ; each bounded walk must restart after delete and use After only when it keeps
 ; the current node.
 
-Function WindowChildTeardownUsesRestartWalk%(Path$, LegacyFor$, FirstCursor$, WhileCursor$, OwnerCheck$, DeleteChild$, Restart$, Advance$)
+Function WindowChildTeardownUsesRestartWalk%(Path$, Start$, LegacyFor$, FirstCursor$, WhileCursor$, OwnerCheck$, DeleteChild$, Restart$, Advance$)
 	Local F.BBStream = ReadFile(Path$)
-	Local InWindow%, Stage%
+	Local InWindow%, InWalk%, Stage%
 	Local Line$
 	If F = Null Then F = ReadFile("..\" + Path$)
 	If F = Null Then F = ReadFile("..\..\" + Path$)
@@ -17,8 +17,8 @@ Function WindowChildTeardownUsesRestartWalk%(Path$, LegacyFor$, FirstCursor$, Wh
 	While Not Eof(F)
 		Line$ = ReadLine$(F)
 		If Instr(Line$, "Function FUI_DeleteGadget( ID )") > 0 Then InWindow = True
-		If InWindow = True
-			If Instr(Line$, "mnut.MenuTitle = Object.MenuTitle( ID )") > 0 Then Exit
+		If InWindow = True And InWalk = False And Instr(Line$, Start$) > 0 Then InWalk = True
+		If InWalk = True
 			If Instr(Line$, LegacyFor$) > 0
 				CloseFile F
 				Return False
@@ -46,27 +46,31 @@ Function WindowChildTeardownUsesRestartWalk%(Path$, LegacyFor$, FirstCursor$, Wh
 	Return False
 End Function
 
-Function AssertWindowChildTeardown%(LegacyFor$, FirstCursor$, WhileCursor$, OwnerCheck$, DeleteChild$, Restart$, Advance$)
-	Return WindowChildTeardownUsesRestartWalk%("Modules\F-UI.bb", LegacyFor$, FirstCursor$, WhileCursor$, OwnerCheck$, DeleteChild$, Restart$, Advance$)
+Function AssertWindowChildTeardown%(Start$, LegacyFor$, FirstCursor$, WhileCursor$, OwnerCheck$, DeleteChild$, Restart$, Advance$)
+	Return WindowChildTeardownUsesRestartWalk%("Modules\F-UI.bb", Start$, LegacyFor$, FirstCursor$, WhileCursor$, OwnerCheck$, DeleteChild$, Restart$, Advance$)
 End Function
 
 Test testFUIWindowChildTeardownsRestartAfterRecursiveDelete()
-	Assert(AssertWindowChildTeardown%("For reg.Region = Each Region", "Local reg.Region = First Region", "While reg <> Null", "If reg\Owner = win", "FUI_DeleteGadget( Handle( reg ) )", "reg = First Region", "reg = After reg") = True)
-	Assert(AssertWindowChildTeardown%("For Tab.Tab = Each Tab", "Local Tab.Tab = First Tab", "While Tab <> Null", "If Tab\Owner = win", "FUI_DeleteGadget( Handle( Tab ) )", "Tab = First Tab", "Tab = After Tab") = True)
-	Assert(AssertWindowChildTeardown%("For pan.Panel = Each Panel", "Local pan.Panel = First Panel", "While pan <> Null", "If pan\Owner = win", "FUI_DeleteGadget( Handle( pan ) )", "pan = First Panel", "pan = After pan") = True)
-	Assert(AssertWindowChildTeardown%("For btn.Button = Each Button", "Local btn.Button = First Button", "While btn <> Null", "If btn\Owner = win", "FUI_DeleteGadget( Handle( btn ) )", "btn = First Button", "btn = After btn") = True)
-	Assert(AssertWindowChildTeardown%("For chk.CheckBox = Each CheckBox", "Local chk.CheckBox = First CheckBox", "While chk <> Null", "If chk\Owner = win", "FUI_DeleteGadget( Handle( chk ) )", "chk = First CheckBox", "chk = After chk") = True)
-	Assert(AssertWindowChildTeardown%("For cbo.ComboBox = Each ComboBox", "Local cbo.ComboBox = First ComboBox", "While cbo <> Null", "If cbo\Owner = win", "FUI_DeleteGadget( Handle( cbo ) )", "cbo = First ComboBox", "cbo = After cbo") = True)
-	Assert(AssertWindowChildTeardown%("For grp.GroupBox = Each GroupBox", "Local grp.GroupBox = First GroupBox", "While grp <> Null", "If grp\Owner = win", "FUI_DeleteGadget( Handle( grp ) )", "grp = First GroupBox", "grp = After grp") = True)
-	Assert(AssertWindowChildTeardown%("For img.ImageBox = Each ImageBox", "Local img.ImageBox = First ImageBox", "While img <> Null", "If img\Owner = win", "FUI_DeleteGadget( Handle( img ) )", "img = First ImageBox", "img = After img") = True)
-	Assert(AssertWindowChildTeardown%("For lbl.Label = Each Label", "Local lbl.Label = First Label", "While lbl <> Null", "If lbl\Owner = win", "FUI_DeleteGadget( Handle( lbl ) )", "lbl = First Label", "lbl = After lbl") = True)
-	Assert(AssertWindowChildTeardown%("For lst.ListBox = Each ListBox", "Local lst.ListBox = First ListBox", "While lst <> Null", "If lst\Owner = win", "FUI_DeleteGadget( Handle( lst ) )", "lst = First ListBox", "lst = After lst") = True)
-	Assert(AssertWindowChildTeardown%("For prg.ProgressBar = Each ProgressBar", "Local prg.ProgressBar = First ProgressBar", "While prg <> Null", "If prg\Owner = win", "FUI_DeleteGadget( Handle( prg ) )", "prg = First ProgressBar", "prg = After prg") = True)
-	Assert(AssertWindowChildTeardown%("For rad.Radio = Each Radio", "Local rad.Radio = First Radio", "While rad <> Null", "If rad\Owner = win", "FUI_DeleteGadget( Handle( rad ) )", "rad = First Radio", "rad = After rad") = True)
-	Assert(AssertWindowChildTeardown%("For scroll.ScrollBar = Each ScrollBar", "Local scroll.ScrollBar = First ScrollBar", "While scroll <> Null", "If scroll\Owner = win", "FUI_DeleteGadget( Handle( scroll ) )", "scroll = First ScrollBar", "scroll = After scroll") = True)
-	Assert(AssertWindowChildTeardown%("For sld.Slider = Each Slider", "Local sld.Slider = First Slider", "While sld <> Null", "If sld\Owner = win", "FUI_DeleteGadget( Handle( sld ) )", "sld = First Slider", "sld = After sld") = True)
-	Assert(AssertWindowChildTeardown%("For spn.Spinner = Each Spinner", "Local spn.Spinner = First Spinner", "While spn <> Null", "If spn\Owner = win", "FUI_DeleteGadget( Handle( spn ) )", "spn = First Spinner", "spn = After spn") = True)
-	Assert(AssertWindowChildTeardown%("For txt.TextBox = Each TextBox", "Local txt.TextBox = First TextBox", "While txt <> Null", "If txt\Owner = win", "FUI_DeleteGadget( Handle( txt ) )", "txt = First TextBox", "txt = After txt") = True)
-	Assert(AssertWindowChildTeardown%("For tree.TreeView = Each TreeView", "Local tree.TreeView = First TreeView", "While tree <> Null", "If tree\Owner = win", "FUI_DeleteGadget( Handle( tree ) )", "tree = First TreeView", "tree = After tree") = True)
-	Assert(AssertWindowChildTeardown%("For view.View = Each View", "Local view.View = First View", "While view <> Null", "If view\Owner = win", "FUI_DeleteGadget( Handle( view ) )", "view = First View", "view = After view") = True)
+	Assert(AssertWindowChildTeardown%("win.Window = Object.Window( ID )", "For reg.Region = Each Region", "Local reg.Region = First Region", "While reg <> Null", "If reg\Owner = win", "FUI_DeleteGadget( Handle( reg ) )", "reg = First Region", "reg = After reg") = True)
+	Assert(AssertWindowChildTeardown%("win.Window = Object.Window( ID )", "For Tab.Tab = Each Tab", "Local Tab.Tab = First Tab", "While Tab <> Null", "If Tab\Owner = win", "FUI_DeleteGadget( Handle( Tab ) )", "Tab = First Tab", "Tab = After Tab") = True)
+	Assert(AssertWindowChildTeardown%("win.Window = Object.Window( ID )", "For pan.Panel = Each Panel", "Local pan.Panel = First Panel", "While pan <> Null", "If pan\Owner = win", "FUI_DeleteGadget( Handle( pan ) )", "pan = First Panel", "pan = After pan") = True)
+	Assert(AssertWindowChildTeardown%("win.Window = Object.Window( ID )", "For btn.Button = Each Button", "Local btn.Button = First Button", "While btn <> Null", "If btn\Owner = win", "FUI_DeleteGadget( Handle( btn ) )", "btn = First Button", "btn = After btn") = True)
+	Assert(AssertWindowChildTeardown%("win.Window = Object.Window( ID )", "For chk.CheckBox = Each CheckBox", "Local chk.CheckBox = First CheckBox", "While chk <> Null", "If chk\Owner = win", "FUI_DeleteGadget( Handle( chk ) )", "chk = First CheckBox", "chk = After chk") = True)
+	Assert(AssertWindowChildTeardown%("win.Window = Object.Window( ID )", "For cbo.ComboBox = Each ComboBox", "Local cbo.ComboBox = First ComboBox", "While cbo <> Null", "If cbo\Owner = win", "FUI_DeleteGadget( Handle( cbo ) )", "cbo = First ComboBox", "cbo = After cbo") = True)
+	Assert(AssertWindowChildTeardown%("win.Window = Object.Window( ID )", "For grp.GroupBox = Each GroupBox", "Local grp.GroupBox = First GroupBox", "While grp <> Null", "If grp\Owner = win", "FUI_DeleteGadget( Handle( grp ) )", "grp = First GroupBox", "grp = After grp") = True)
+	Assert(AssertWindowChildTeardown%("win.Window = Object.Window( ID )", "For img.ImageBox = Each ImageBox", "Local img.ImageBox = First ImageBox", "While img <> Null", "If img\Owner = win", "FUI_DeleteGadget( Handle( img ) )", "img = First ImageBox", "img = After img") = True)
+	Assert(AssertWindowChildTeardown%("win.Window = Object.Window( ID )", "For lbl.Label = Each Label", "Local lbl.Label = First Label", "While lbl <> Null", "If lbl\Owner = win", "FUI_DeleteGadget( Handle( lbl ) )", "lbl = First Label", "lbl = After lbl") = True)
+	Assert(AssertWindowChildTeardown%("win.Window = Object.Window( ID )", "For lst.ListBox = Each ListBox", "Local lst.ListBox = First ListBox", "While lst <> Null", "If lst\Owner = win", "FUI_DeleteGadget( Handle( lst ) )", "lst = First ListBox", "lst = After lst") = True)
+	Assert(AssertWindowChildTeardown%("win.Window = Object.Window( ID )", "For prg.ProgressBar = Each ProgressBar", "Local prg.ProgressBar = First ProgressBar", "While prg <> Null", "If prg\Owner = win", "FUI_DeleteGadget( Handle( prg ) )", "prg = First ProgressBar", "prg = After prg") = True)
+	Assert(AssertWindowChildTeardown%("win.Window = Object.Window( ID )", "For rad.Radio = Each Radio", "Local rad.Radio = First Radio", "While rad <> Null", "If rad\Owner = win", "FUI_DeleteGadget( Handle( rad ) )", "rad = First Radio", "rad = After rad") = True)
+	Assert(AssertWindowChildTeardown%("win.Window = Object.Window( ID )", "For scroll.ScrollBar = Each ScrollBar", "Local scroll.ScrollBar = First ScrollBar", "While scroll <> Null", "If scroll\Owner = win", "FUI_DeleteGadget( Handle( scroll ) )", "scroll = First ScrollBar", "scroll = After scroll") = True)
+	Assert(AssertWindowChildTeardown%("win.Window = Object.Window( ID )", "For sld.Slider = Each Slider", "Local sld.Slider = First Slider", "While sld <> Null", "If sld\Owner = win", "FUI_DeleteGadget( Handle( sld ) )", "sld = First Slider", "sld = After sld") = True)
+	Assert(AssertWindowChildTeardown%("win.Window = Object.Window( ID )", "For spn.Spinner = Each Spinner", "Local spn.Spinner = First Spinner", "While spn <> Null", "If spn\Owner = win", "FUI_DeleteGadget( Handle( spn ) )", "spn = First Spinner", "spn = After spn") = True)
+	Assert(AssertWindowChildTeardown%("win.Window = Object.Window( ID )", "For txt.TextBox = Each TextBox", "Local txt.TextBox = First TextBox", "While txt <> Null", "If txt\Owner = win", "FUI_DeleteGadget( Handle( txt ) )", "txt = First TextBox", "txt = After txt") = True)
+	Assert(AssertWindowChildTeardown%("win.Window = Object.Window( ID )", "For tree.TreeView = Each TreeView", "Local tree.TreeView = First TreeView", "While tree <> Null", "If tree\Owner = win", "FUI_DeleteGadget( Handle( tree ) )", "tree = First TreeView", "tree = After tree") = True)
+	Assert(AssertWindowChildTeardown%("win.Window = Object.Window( ID )", "For view.View = Each View", "Local view.View = First View", "While view <> Null", "If view\Owner = win", "FUI_DeleteGadget( Handle( view ) )", "view = First View", "view = After view") = True)
+	Assert(AssertWindowChildTeardown%("mnut.MenuTitle = Object.MenuTitle( ID )", "For mnui.MenuItem = Each MenuItem", "Local mnui.MenuItem = First MenuItem", "While mnui <> Null", "If mnui\Owner = mnut", "FUI_DeleteGadget( Handle( mnui ) )", "mnui = First MenuItem", "mnui = After mnui") = True)
+	Assert(AssertWindowChildTeardown%("mnui.MenuItem = Object.MenuItem( ID )", "For mnui2.MenuItem = Each MenuItem", "Local mnui2.MenuItem = First MenuItem", "While mnui2 <> Null", "If mnui2\Parent = mnui", "FUI_DeleteGadget( Handle( mnui2 ) )", "mnui2 = First MenuItem", "mnui2 = After mnui2") = True)
+	Assert(AssertWindowChildTeardown%("cmnu.ContextMenu = Object.ContextMenu( ID )", "For cmnui.ContextMenuItem = Each ContextMenuItem", "Local cmnui.ContextMenuItem = First ContextMenuItem", "While cmnui <> Null", "If cmnui\Owner = cmnu", "FUI_DeleteGadget( Handle( cmnui ) )", "cmnui = First ContextMenuItem", "cmnui = After cmnui") = True)
+	Assert(AssertWindowChildTeardown%("cmnui.ContextMenuItem = Object.ContextMenuItem( ID )", "For cmnui2.ContextMenuItem = Each ContextMenuItem", "Local cmnui2.ContextMenuItem = First ContextMenuItem", "While cmnui2 <> Null", "If cmnui2\Parent = cmnui", "FUI_DeleteGadget( Handle( cmnui2 ) )", "cmnui2 = First ContextMenuItem", "cmnui2 = After cmnui2") = True)
 End Test

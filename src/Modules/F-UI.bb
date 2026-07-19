@@ -17682,11 +17682,15 @@ Function FUI_DeleteGadget( ID )
 	EndIf
 	mnut.MenuTitle = Object.MenuTitle( ID )
 	If mnut <> Null
-		For mnui.MenuItem = Each MenuItem
+		Local mnui.MenuItem = First MenuItem
+		While mnui <> Null
 			If mnui\Owner = mnut
 				FUI_DeleteGadget( Handle( mnui ) )
+				mnui = First MenuItem
+			Else
+				mnui = After mnui
 			EndIf
-		Next
+		Wend
 		
 		FreeEntity mnut\Mesh
 		Delete mnut
@@ -17695,11 +17699,15 @@ Function FUI_DeleteGadget( ID )
 	EndIf
 	mnui.MenuItem = Object.MenuItem( ID )
 	If mnui <> Null
-		For mnui2.MenuItem = Each MenuItem
+		Local mnui2.MenuItem = First MenuItem
+		While mnui2 <> Null
 			If mnui2\Parent = mnui
 				FUI_DeleteGadget( Handle( mnui2 ) )
+				mnui2 = First MenuItem
+			Else
+				mnui2 = After mnui2
 			EndIf
-		Next
+		Wend
 		
 		FreeEntity mnui\Mesh
 		Delete mnui
@@ -17708,11 +17716,15 @@ Function FUI_DeleteGadget( ID )
 	EndIf
 	cmnu.ContextMenu = Object.ContextMenu( ID )
 	If cmnu <> Null
-		For cmnui.ContextMenuItem = Each ContextMenuItem
+		Local cmnui.ContextMenuItem = First ContextMenuItem
+		While cmnui <> Null
 			If cmnui\Owner = cmnu
 				FUI_DeleteGadget( Handle( cmnui ) )
+				cmnui = First ContextMenuItem
+			Else
+				cmnui = After cmnui
 			EndIf
-		Next
+		Wend
 		
 		FreeEntity cmnu\DropDown
 		Delete cmnu
@@ -17721,11 +17733,15 @@ Function FUI_DeleteGadget( ID )
 	EndIf
 	cmnui.ContextMenuItem = Object.ContextMenuItem( ID )
 	If cmnui <> Null
-		For cmnui2.ContextMenuItem = Each ContextMenuItem
+		Local cmnui2.ContextMenuItem = First ContextMenuItem
+		While cmnui2 <> Null
 			If cmnui2\Parent = cmnui
 				FUI_DeleteGadget( Handle( cmnui2 ) )
+				cmnui2 = First ContextMenuItem
+			Else
+				cmnui2 = After cmnui2
 			EndIf
-		Next
+		Wend
 		
 		FreeEntity cmnui\Mesh
 		Delete cmnui
