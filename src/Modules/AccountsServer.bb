@@ -81,6 +81,25 @@ Function LoginAttemptFind.LoginAttempt(FromID)
 	Return Null
 End Function
 
+; Release the transient throttle record when its peer disconnects.
+Function LoginAttemptForget(FromID)
+	LA.LoginAttempt = LoginAttemptFind(FromID)
+	If LA <> Null Then Delete LA
+End Function
+
+; Drop expired records during later auth activity so disconnected peers cannot
+; accumulate in the per-login lookup list forever.
+Function LoginAttemptPruneExpired()
+	Local LA.LoginAttempt = First LoginAttempt
+	Local LANext.LoginAttempt = Null
+	Local NowMs = MilliSecs()
+	While LA <> Null
+		LANext = After LA
+		If NowMs - LA\WindowStart >= LoginAttemptWindowMs Then Delete LA
+		LA = LANext
+	Wend
+End Function
+
 ; Returns True if a fresh P_VerifyAccount from FromID should be processed.
 ; False if the source has tripped the failure threshold within the window.
 Function LoginAttemptOk%(FromID)
@@ -96,6 +115,7 @@ End Function
 ; failure increments it (creating a fresh entry / opening a new window if
 ; the previous one expired).
 Function LoginAttemptRecord(FromID, Success)
+	LoginAttemptPruneExpired()
 	LA.LoginAttempt = LoginAttemptFind(FromID)
 	If Success
 		If LA <> Null Then Delete LA
