@@ -11,6 +11,7 @@ Function ArchitectModalEventDrainUsesAfterCursor%(FunctionMarker$, LegacyFor$, F
 	If F = Null Then F = ReadFile("..\\Modules\\Architect_Gui_Shell_Fui.bb")
 	If F = Null Then F = ReadFile("..\\..\\Modules\\Architect_Gui_Shell_Fui.bb")
 	If F = Null Then Return False
+	Stage = 0
 
 	While Not Eof(F)
 		Line$ = ReadLine$(F)
