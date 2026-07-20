@@ -59,6 +59,14 @@ Test testFixedAttributeDialogCapturesNextEventBeforeDelete()
 	Assert(GUEEventDrainUsesAfterCursor%("GUE.bb", "Function FixedAttributeDialog()", "For E.Event = Each Event", "Local FixedAttributeEvent.Event = First Event", "Local NextFixedAttributeEvent.Event = Null", "While FixedAttributeEvent <> Null", "NextFixedAttributeEvent = After FixedAttributeEvent", "Delete(FixedAttributeEvent)", "FixedAttributeEvent = NextFixedAttributeEvent") = True)
 End Test
 
+Test testSaveDialogCapturesNextEventBeforeDelete()
+	Assert(GUEEventDrainUsesAfterCursor%("GUE.bb", "Function SaveDialog()", "For E.Event = Each Event", "Local SaveEvent.Event = First Event", "Local NextSaveEvent.Event = Null", "While SaveEvent <> Null", "NextSaveEvent = After SaveEvent", "Delete(SaveEvent)", "SaveEvent = NextSaveEvent") = True)
+End Test
+
+Test testAreaNameDialogCapturesNextEventBeforeDelete()
+	Assert(GUEEventDrainUsesAfterCursor%("GUE.bb", "Function AreaNameDialog$()", "For E.Event = Each Event", "Local AreaNameEvent.Event = First Event", "Local NextAreaNameEvent.Event = Null", "While AreaNameEvent <> Null", "NextAreaNameEvent = After AreaNameEvent", "Delete(AreaNameEvent)", "AreaNameEvent = NextAreaNameEvent") = True)
+End Test
+
 Test testMeshDialogCapturesNextEventBeforeDelete()
 	Assert(GUEEventDrainUsesAfterCursor%("GUE.bb", "Function MeshDialog()", "For E.Event = Each Event", "Local MeshEvent.Event = First Event", "Local NextMeshEvent.Event = Null", "While MeshEvent <> Null", "NextMeshEvent = After MeshEvent", "Delete MeshEvent", "MeshEvent = NextMeshEvent") = True)
 End Test
