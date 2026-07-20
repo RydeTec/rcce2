@@ -86,3 +86,11 @@ Test testDocumentationLandingLinksLoomAsShippedBeta()
 	Assert(FileContains%("docs/index.md", "Client, Server, GUE, Loom (Beta), and Project Manager") = True)
 	Assert(FileContains%("docs/index.md", "Loom replacement for GUE") = False)
 End Test
+
+Test testTopLevelReferencesLinkLoomGuideAlongsideGUE()
+	Assert(FileContains%("ReadMe.md", "[Loom (Beta) Editor Guide](docs/loom/README.md)") = True)
+	Assert(FileContains%("docs/reference.md", "[`src/Loom.bb`](../src/Loom.bb)") = True)
+	Assert(FileContains%("docs/reference.md", "[Loom (Beta) editor guide](loom/README.md)") = True)
+	Assert(FileContains%("docs/reference.md", "Loom (Beta) runs alongside the established GUE workflow") = True)
+	Assert(FileContains%("docs/reference.md", "Loom replacement for GUE") = False)
+End Test
