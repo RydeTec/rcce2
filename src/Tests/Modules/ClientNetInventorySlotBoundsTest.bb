@@ -77,14 +77,14 @@ End Test
 
 Test testInventoryUpdateHAndTValidateBeforeInventoryOrButtonSlots()
 	Local InventoryUpdate$ = Between$(ClientNetSource$(), "Case P_InventoryUpdate", "Case P_StandardUpdate")
-	Local Health$ = Between$(InventoryUpdate$, "Case \"H\"", "Case \"T\"")
-	Local Taken$ = Between$(InventoryUpdate$, "Case \"T\"", "Case \"R\"")
+	Local Health$ = Between$(InventoryUpdate$, "Case " + Chr$(34) + "H" + Chr$(34), "Case " + Chr$(34) + "T" + Chr$(34))
+	Local Taken$ = Between$(InventoryUpdate$, "Case " + Chr$(34) + "T" + Chr$(34), "Case " + Chr$(34) + "R" + Chr$(34))
 	Assert(ContainsInOrder%(Health$, "If Len(M\\MessageData$) < 3", "SlotI = RCE_IntFromStr", "If ClientInventorySlotUsable(SlotI)", "Me\\Inventory\\Items[SlotI]") = True)
 	Assert(ContainsInOrder%(Taken$, "If Len(M\\MessageData$) < 4", "SlotI = RCE_IntFromStr", "If ClientInventorySlotUsable(SlotI)", "BSlots(SlotI)") = True)
 End Test
 
 Test testInventoryUpdateReceiveValidatesSlotBeforeDroppedItemMutation()
 	Local InventoryUpdate$ = Between$(ClientNetSource$(), "Case P_InventoryUpdate", "Case P_StandardUpdate")
-	Local Received$ = Between$(InventoryUpdate$, "Case \"R\"", "Case \"P\"")
+	Local Received$ = Between$(InventoryUpdate$, "Case " + Chr$(34) + "R" + Chr$(34), "Case " + Chr$(34) + "P" + Chr$(34))
 	Assert(ContainsInOrder%(Received$, "If Len(M\\MessageData$) < 6", "i = RCE_IntFromStr", "If ClientInventorySlotUsable(i)", "For DItem.DroppedItem = Each DroppedItem") = True)
 End Test
