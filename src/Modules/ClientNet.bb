@@ -1397,7 +1397,6 @@ Function UpdateNetwork()
 										Delete DItem
 										Exit
 									EndIf
-								EndIf
 								Next
 							Else
 								WriteLog(MainLog, "P_InventoryUpdate R: invalid inventory slot or player, dropping")
