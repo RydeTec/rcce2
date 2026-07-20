@@ -1682,6 +1682,21 @@ Function UpdateNetwork()
 
 			; I have gone into a new area
 			Case P_ChangeArea
+				; The fixed prefix ends with the one-byte area-name length. Do not
+				; let Mid$ zero-fill an incomplete zone transition and tear down the active area.
+				If Len(M\MessageData$) < 25
+					WriteLog(MainLog, "P_ChangeArea: truncated header, dropping")
+					Delete M
+					M = MNext
+					Continue
+				EndIf
+				NameLen = RCE_IntFromStr(Mid$(M\MessageData$, 25, 1))
+				If Len(M\MessageData$) < 25 + NameLen
+					WriteLog(MainLog, "P_ChangeArea: truncated area name, dropping")
+					Delete M
+					M = MNext
+					Continue
+				EndIf
 				; Retrieve info for new zone
 				OldAreaName$ = AreaName$
 				OldAreaID = CurrentAreaID
@@ -1707,29 +1722,24 @@ Function UpdateNetwork()
 				If Gravity# < -2.0 Then Gravity# = -2.0
 				If Gravity# > 2.0 Then Gravity# = 2.0
 				CurrentAreaID = RCE_IntFromStr(Mid$(M\MessageData$, 20, 4))
-				NameLen = RCE_IntFromStr(Mid$(M\MessageData$, 25, 1))
 				AreaName$ = Mid$(M\MessageData$, 26, NameLen)
-				
 				;Actor Shadows Cysis145
 				If AreaName$ <> OldAreaName$
 					For A.ActorInstance = Each ActorInstance
-      					FreeShadowCaster% (A\EN)
-   					Next
+					FreeShadowCaster% (A\EN)
+					Next
 				EndIf
-				
 				If AreaName$ = OldAreaName$
 					For A.ActorInstance = Each ActorInstance
-      					FreeShadowCaster% (A\EN)
-   					Next
+					FreeShadowCaster% (A\EN)
+					Next
 				EndIf
-
 				; Going to new zone or instance
 				If OldAreaID <> CurrentAreaID
 					; Remove scripted emitters
 					For SEm.ScriptedEmitter = Each ScriptedEmitter
 						If SEm\AttachedToPlayer = False Then RP_FreeEmitter(SEm\EN, True, False)
 					Next
-
 					; Remove all in-flight projectiles
 					Local AreaProjI.ProjectileInstance = First ProjectileInstance
 					Local AreaProjINext.ProjectileInstance = Null
@@ -1738,10 +1748,8 @@ Function UpdateNetwork()
 						FreeProjectileInstance(AreaProjI)
 						AreaProjI = AreaProjINext
 					Wend
-
 					; Save radar state
 					If OldAreaName$ <> "" Then Save_Radar_Fog(RadarPath$ + Me\Name$ + "-" + OldAreaName$ + ".rdr")
-
 					; Remove old actor instances
 					; After-cursor walk: SafeFreeActorInstance Deletes A
 					; via FreeActorInstance. The original For-Each form
@@ -1756,7 +1764,6 @@ Function UpdateNetwork()
 						Acac = AcacNext
 					Wend
 				EndIf
-
 				; Remove dropped loot -- After-cursor walk for the same
 				; reason as above.
 				Local DItemR.DroppedItem = First DroppedItem
@@ -1767,7 +1774,6 @@ Function UpdateNetwork()
 					Delete DItemR
 					DItemR = DItemRNext
 				Wend
-
 				; Unload old and load new zone if necessary
 				If AreaName$ <> OldAreaName$
 					UnloadArea()
@@ -1799,7 +1805,6 @@ Function UpdateNetwork()
 					Load_Radar(Me\Name$ + "-" + AreaName$, Radar\X#, Radar\Y#, Radar\Width#, Radar\Height#, Not Outdoors, "Radar_Border.png", "Radar_Player.png")
 					If ShowRadar = False Then Hide_Radar()
 				EndIf
-
 				; Update settings
 				SetWeather(RCE_IntFromStr(Mid$(M\MessageData$, 24, 1)))
 				PlayerTarget = 0
@@ -1807,30 +1812,25 @@ Function UpdateNetwork()
 				PositionEntity(Me\CollisionEN, Me\X#, Y# + 5.0, Me\Z#)
 				RotateEntity(Me\CollisionEN, 0.0, Yaw#, 0.0)
 				ResetEntity(Me\CollisionEN)
-				
 				;Shadow [###]
 				PositionEntity(Cam, 0.0, Y# + 10.0, 0.0)
 				ResetEntity(Cam)
 				;UpdateShadows Cam
-				
-				
 				PositionEntity(Cam, Me\X#, Y# + 10.0, Me\Z#)
 				ResetEntity(Cam)
 				MoveMouse GraphicsWidth() / 2, GraphicsHeight() / 2
 				ZonedMS = MilliSecs()
-
 				; If the new zone is different to the old
 				If AreaName$ <> OldAreaName$
 					WriteLog(MainLog, "Entered zone: " + AreaName$)
 				Else
 					WriteLog(MainLog, "Reloaded current zone")
 				EndIf
-
 				;we are done, let the server know the it can resume paying attention to standard updates for our player actor again
 				;RCE_Send(Connection, RN_Host, P_ChangeArea, M\MessageData$, True)
 				;resume processing standard updates from the server
 				Me\IgnoreUpdate = 0
-	
+
 			; Host disconnected
 			Case P_KickedPlayer
 				RCE_Disconnect()
