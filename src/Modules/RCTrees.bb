@@ -626,10 +626,12 @@ weather_wind_swaymax#(W_WIND,3)=7
 weather_wind_swayspeed#(W_WIND,3)=.2
 
 ;load season settings here
-If FileType(seasoncolor_file$)<>1 Then 
-;create the file, and input defualts
+If FileType(seasoncolor_file$)<>1 Or FileSize(seasoncolor_file$)<>144 Then
+;create or replace an invalid file with defaults
 
- cfile=WriteFile(seasoncolor_file$)
+ TempPath$=SafeWriteOpen$(seasoncolor_file$)
+ cfile=WriteFile(TempPath$)
+ If cfile=0 Then Return
 For i=0 To 11
   scr=(40+Rand(-40,40))
   scg=(150+Rand(-40,10))
@@ -641,7 +643,12 @@ For i=0 To 11
   season_green(i)=scg
   season_blue(i)=scb
  Next
-CloseFile cfile
+ CloseFile cfile
+ If FileSize(TempPath$)<>144
+  SafeWriteAbort(TempPath$)
+  Return
+ EndIf
+ If SafeWriteCommit(TempPath$,seasoncolor_file$,0)=False Then Return
 Else
  cfile=ReadFile(seasoncolor_file$)
   For i=0 To 11
