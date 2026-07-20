@@ -216,6 +216,11 @@ End Function
 ; not directly replayable on the wire.
 Function AddAccount%(User$, Pass$, Email$)
 
+	; Packet-level character checks accept empty strings because their loops do
+	; not execute. Reject them at the flat-file persistence boundary before any
+	; account, UI, count, hash, or atomic-save mutation.
+	If User$ = "" Or Pass$ = "" Or Email$ = "" Then Return False
+
 	; Create account
 	A.Account = New Account
 	A\User$ = User$

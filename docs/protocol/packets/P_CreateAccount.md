@@ -48,13 +48,13 @@ All server-side, since the packet is attacker-controlled. In sequence:
 4. **Password (MD5 hex) character set** ([:2439-2442](../../../src/Modules/ServerNet.bb#L2439)) — same alnum set plus `.` (46), `_` (95), or `>= 192`. (The client always sends 32 lowercase hex chars, which trivially pass; the check guards a hand-rolled packet.)
 5. **Email character set** ([:2444-2447](../../../src/Modules/ServerNet.bb#L2444)) — validated **after** `Encrypt$(..., 1)` de-obfuscation, so the check runs on the plaintext email. Allowed: alnum, `@` (64), `*` (42), `+` (43), `-` (45), `.` (46), `=` (61), `_` (95), or `>= 192`.
 6. **Length caps** ([:2448](../../../src/Modules/ServerNet.bb#L2448)) — `Len(Username$) > 50 Or Len(Password$) > 50 Or Len(Email$) > 200` -> `Valid = False`.
-7. On `Valid = True`, [`AddAccount(Username$, Password$, Email$)`](../../../src/Modules/AccountsServer.bb#L193) creates the record (storing the password as a salted SHA-256 v1 hash via [`HashPassword$`](../../../src/Modules/PasswordHash.bb#L209)) and commits the complete v1 account file atomically. It replies `"Y"` only when that commit succeeds; validation or persistence failure replies `"N"`.
+7. On `Valid = True`, the flat-file [`AddAccount(Username$, Password$, Email$)`](../../../src/Modules/AccountsServer.bb#L193) boundary rejects any empty field before it creates a record, then stores nonempty passwords as salted SHA-256 v1 hashes via [`HashPassword$`](../../../src/Modules/PasswordHash.bb#L209) and commits the complete v1 account file atomically. It replies `"Y"` only when that commit succeeds; validation or persistence failure replies `"N"`.
 
 ### Gaps in the validation (verified against source)
 
 These are **not** defended and are documented here honestly rather than implied:
 
-- **No minimum-length / non-empty check.** A zero-length username passes step 3 (the `For i = 1 To Len(Username$)` loop never runs, so `Valid` stays `True`). The client enforces `Len(Name$) >= 2` ([MainMenu.bb:1195](../../../src/Modules/MainMenu.bb#L1195)) and `Len(Pass$) >= 2` ([:1196](../../../src/Modules/MainMenu.bb#L1196)), but a hand-rolled packet bypasses that — the server will create an empty-username / empty-password account.
+- **No client-equivalent minimum-length check.** A zero-length username still passes step 3 because the character loop does not run. The flat-file `AddAccount` boundary rejects empty username, password, and email values before mutation, but it does not impose the client's two-character username/password minimum; the MySQL branch also remains outside that flat-file guard. The client enforces `Len(Name$) >= 2` ([MainMenu.bb:1195](../../../src/Modules/MainMenu.bb#L1195)) and `Len(Pass$) >= 2` ([:1196](../../../src/Modules/MainMenu.bb#L1196)).
 - **No `LoginAttemptOk` throttle.** Unlike [`P_VerifyAccount`](P_VerifyAccount.md), `P_StartGame`, `P_FetchCharacter`, `P_CreateCharacter`, and `P_DeleteCharacter` (all throttled by PR [#266](https://github.com/RydeTec/rcce2/pull/266) / [#268](https://github.com/RydeTec/rcce2/pull/268)), `P_CreateAccount` has no per-source rate limit. See Anti-cheat surface.
 
 ## Anti-cheat / abuse surface
