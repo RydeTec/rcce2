@@ -1914,10 +1914,11 @@ Function UpdateNetwork()
 			Case P_StandardUpdate ; :)
 				AI.ActorInstance = FindActorInstanceFromRNID(M\FromID)
 				If AI <> Null
-					;only process when client is not currently moving the actor for change area or reposition actor
-					If AI\IgnoreUpdate = 0
-					; Player cannot move himself if he is a mount
-					If AI\Rider = Null
+					If Len(M\MessageData$) = 22
+						;only process when client is not currently moving the actor for change area or reposition actor
+						If AI\IgnoreUpdate = 0
+						; Player cannot move himself if he is a mount
+						If AI\Rider = Null
 						; All four position floats are clamped through
 						; ClampWorldCoord which rejects NaN/Inf and out-of-world
 						; magnitudes by falling back to 0. Track A's original
@@ -1992,8 +1993,11 @@ Function UpdateNetwork()
 							AI\Mount\DestZ# = AI\DestZ#
 							AI\Mount\IsRunning = AI\IsRunning
 							AI\Mount\WalkingBackward = AI\WalkingBackward
-							EndIf
 						EndIf
+						EndIf
+					EndIf
+					Else
+						WriteLog(MainLog, "P_StandardUpdate: malformed payload, dropping")
 					EndIf
 				EndIf
 

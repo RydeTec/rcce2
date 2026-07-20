@@ -62,6 +62,18 @@ Function SwapAddPacketLenOk%(PayloadLen%)
 	Return True
 End Function
 
+; --- Replicated P_StandardUpdate payload-length guard ----------------------
+
+; C-to-S P_StandardUpdate has no opcode: five 4-byte floats and two one-byte
+; flags. It must reject both truncated and oversized payloads so its fixed
+; offsets cannot silently decode absent bytes or ignore trailing data.
+Const StandardUpdatePayloadBytes% = 22
+
+Function StandardUpdatePacketLenOk%(PayloadLen%)
+	If PayloadLen <> StandardUpdatePayloadBytes Then Return False
+	Return True
+End Function
+
 ; --- Replicated nested AreaInstance\Area guard ---------------------------
 
 ; Mirrors the P_AttackActor / BVM_ACTORINTRIGGER / BVM_ACTOROUTDOORS gates.
@@ -152,6 +164,30 @@ Function SectionContains%(Path$, StartMarker$, EndMarker$, Needle$)
 		If InSection = True And Instr(Line$, Needle$) > 0
 			CloseFile F
 			Return True
+		EndIf
+	Wend
+	CloseFile F
+	Return False
+End Function
+
+; Proves a validation marker is encountered before a parse marker inside one
+; bounded handler Case. A guard elsewhere in ServerNet must not satisfy this.
+Function SectionNeedlePrecedes%(Path$, StartMarker$, EndMarker$, FirstNeedle$, SecondNeedle$)
+	Local F.BBStream = ReadFile(Path$)
+	Local InSection%, SawFirst%
+	Local Line$
+	If F = Null Then F = ReadFile("..\\" + Path$)
+	If F = Null Then Return False
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		If Instr(Line$, StartMarker$) > 0 Then InSection = True
+		If InSection = True And Instr(Line$, EndMarker$) > 0 Then Exit
+		If InSection = True
+			If Instr(Line$, FirstNeedle$) > 0 Then SawFirst = True
+			If Instr(Line$, SecondNeedle$) > 0
+				CloseFile F
+				Return SawFirst
+			EndIf
 		EndIf
 	Wend
 	CloseFile F
@@ -340,6 +376,21 @@ Test testSwapAddBoundaryAtSeven()
 	; 7 accepts. A future refactor that widens a field must update both.
 	Assert(SwapAddPacketLenOk%(6) = False)
 	Assert(SwapAddPacketLenOk%(7) = True)
+End Test
+
+; ====================================================================
+; P_StandardUpdate exact payload-length guard
+; ====================================================================
+
+Test testStandardUpdateOnlyAcceptsExactTwentyTwoBytePayload()
+	Assert(StandardUpdatePacketLenOk%(22) = True)
+	Assert(StandardUpdatePacketLenOk%(0) = False)
+	Assert(StandardUpdatePacketLenOk%(21) = False)
+	Assert(StandardUpdatePacketLenOk%(23) = False)
+End Test
+
+Test testStandardUpdateLengthGuardPrecedesFirstFloatParse()
+	Assert(SectionNeedlePrecedes%("Modules\\ServerNet.bb", "Case P_StandardUpdate", "Case RCE_PlayerTimedOut", "If Len(M\\MessageData$) = 22", "RCE_FloatFromStr#(Mid$(M\\MessageData$, 1, 4))") = True)
 End Test
 
 ; ====================================================================
