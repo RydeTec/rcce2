@@ -158,7 +158,7 @@ Function AddAccountRejectsBlankFieldsBeforeMutation%(Path$)
 	While Not Eof(F)
 		Line$ = ReadLine$(F)
 		If Instr(Line$, "Function AddAccount%(User$, Pass$, Email$)") > 0 Then Stage = 1
-		If Stage = 1 And (Instr(Line$, "A.Account = New Account") > 0 Or Instr(Line$, "HashPassword$(Pass$)") > 0 Or Instr(Line$, "AddListBoxItem(") > 0 Or Instr(Line$, "SaveAccounts()") > 0)
+		If Stage = 1 And (Instr(Line$, "A.Account = New Account") > 0 Or Instr(Line$, "HashPassword$(Pass$)") > 0 Or Instr(Line$, "AddListBoxItem(") > 0 Or Instr(Line$, "Accounts\TotalAccounts =") > 0 Or Instr(Line$, "SetGadgetText(Accounts\AccountsLabel") > 0 Or Instr(Line$, "SaveAccounts()") > 0)
 			CloseFile F
 			Return False
 		EndIf
