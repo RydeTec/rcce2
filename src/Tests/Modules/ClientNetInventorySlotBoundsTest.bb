@@ -54,11 +54,27 @@ Function ExpectedSlotUsable%(SlotI, HasPlayer, HasInventory)
 	Return True
 End Function
 
+Function InventoryMember$(Member$)
+	Return "Me" + Chr$(92) + "Inventory" + Chr$(92) + Member$
+End Function
+
+Function PacketLengthGuard$(Length)
+	Return "If Len(M" + Chr$(92) + "MessageData$) < " + Length
+End Function
+
+Function UsableSlotGuard$(SlotName$)
+	Return "If ClientInventorySlotUsable" + Chr$(40) + SlotName$ + Chr$(41)
+End Function
+
+Function ButtonSlot$(SlotName$)
+	Return "BSlots" + Chr$(40) + SlotName$ + Chr$(41)
+End Function
+
 Test testClientInventorySlotGuardRejectsMissingPlayerAndOutOfRangeSlots()
 	Local Source$ = ClientNetSource$()
 	Local Guard$ = Between$(Source$, "Function ClientInventorySlotUsable", "End Function")
 	Assert(Guard$ <> "")
-	Assert(ContainsInOrder%(Guard$, "If Me = Null Then Return False", "If Me\\Inventory = Null Then Return False", "If SlotI < 0 Or SlotI > Slots_Inventory Then Return False", "Return True") = True)
+	Assert(ContainsInOrder%(Guard$, "If Me = Null Then Return False", "If Me" + Chr$(92) + "Inventory = Null Then Return False", "If SlotI < 0 Or SlotI > Slots_Inventory Then Return False", "Return True") = True)
 End Test
 
 Test testClientInventorySlotBoundaries()
@@ -72,19 +88,19 @@ End Test
 
 Test testItemHealthValidatesCompletePacketAndSlotBeforeInventoryDereference()
 	Local Section$ = Between$(ClientNetSource$(), "Case P_ItemHealth", "Case P_SelectScenery")
-	Assert(ContainsInOrder%(Section$, "If Len(M\\MessageData$) < 3", "SlotI = RCE_IntFromStr", "If ClientInventorySlotUsable(SlotI)", "Me\\Inventory\\Items[SlotI]") = True)
+	Assert(ContainsInOrder%(Section$, PacketLengthGuard$(3), "SlotI = RCE_IntFromStr", UsableSlotGuard$("SlotI"), InventoryMember$("Items[SlotI]")) = True)
 End Test
 
 Test testInventoryUpdateHAndTValidateBeforeInventoryOrButtonSlots()
 	Local InventoryUpdate$ = Between$(ClientNetSource$(), "Case P_InventoryUpdate", "Case P_StandardUpdate")
 	Local Health$ = Between$(InventoryUpdate$, "Case " + Chr$(34) + "H" + Chr$(34), "Case " + Chr$(34) + "T" + Chr$(34))
 	Local Taken$ = Between$(InventoryUpdate$, "Case " + Chr$(34) + "T" + Chr$(34), "Case " + Chr$(34) + "R" + Chr$(34))
-	Assert(ContainsInOrder%(Health$, "If Len(M\\MessageData$) < 3", "SlotI = RCE_IntFromStr", "If ClientInventorySlotUsable(SlotI)", "Me\\Inventory\\Items[SlotI]") = True)
-	Assert(ContainsInOrder%(Taken$, "If Len(M\\MessageData$) < 4", "SlotI = RCE_IntFromStr", "If ClientInventorySlotUsable(SlotI)", "BSlots(SlotI)") = True)
+	Assert(ContainsInOrder%(Health$, PacketLengthGuard$(3), "SlotI = RCE_IntFromStr", UsableSlotGuard$("SlotI"), InventoryMember$("Items[SlotI]")) = True)
+	Assert(ContainsInOrder%(Taken$, PacketLengthGuard$(4), "SlotI = RCE_IntFromStr", UsableSlotGuard$("SlotI"), ButtonSlot$("SlotI")) = True)
 End Test
 
 Test testInventoryUpdateReceiveValidatesSlotBeforeDroppedItemMutation()
 	Local InventoryUpdate$ = Between$(ClientNetSource$(), "Case P_InventoryUpdate", "Case P_StandardUpdate")
 	Local Received$ = Between$(InventoryUpdate$, "Case " + Chr$(34) + "R" + Chr$(34), "Case " + Chr$(34) + "P" + Chr$(34))
-	Assert(ContainsInOrder%(Received$, "If Len(M\\MessageData$) < 6", "i = RCE_IntFromStr", "If ClientInventorySlotUsable(i)", "For DItem.DroppedItem = Each DroppedItem") = True)
+	Assert(ContainsInOrder%(Received$, PacketLengthGuard$(6), "i = RCE_IntFromStr", UsableSlotGuard$("i"), "For DItem.DroppedItem = Each DroppedItem") = True)
 End Test
