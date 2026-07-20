@@ -160,7 +160,7 @@ Function UpdateNetwork()
 			; Scripted progress bar
 			Case P_ProgressBar ; :)
 				; Create new
-				If Left$(M\MessageData$, 1) = "C"
+				If Left$(M\MessageData$, 1) = "C" And Len(M\MessageData$) >= 28
 					Red = RCE_IntFromStr(Mid$(M\MessageData$, 2, 1))
 					Green = RCE_IntFromStr(Mid$(M\MessageData$, 3, 1))
 					Blue = RCE_IntFromStr(Mid$(M\MessageData$, 4, 1))
