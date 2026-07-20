@@ -4,8 +4,8 @@ This page is the reference landing map for the documented RCCE modules under
 [`docs/modules/`](modules/). Use it together with the live application
 entrypoints in [`src/Client.bb`](../src/Client.bb),
 [`src/Server.bb`](../src/Server.bb), [`src/GUE.bb`](../src/GUE.bb), and
-[`src/Project Manager.bb`](../src/Project%20Manager.bb) when you are tracing a
-runtime path through the current source tree.
+[`src/Loom.bb`](../src/Loom.bb), and [`src/Project Manager.bb`](../src/Project%20Manager.bb)
+when you are tracing a runtime path through the current source tree.
 
 Not every source module has a matching reference page yet. This index covers
 the modules that already have docs and calls out the largest undocumented
@@ -78,6 +78,12 @@ surfaces so the page reflects the real repository state.
 - Shared runtime plumbing:
   [`Language`](modules/language.md), [`RottNet`](modules/rottnet.md),
   [`Packets`](modules/packets.md), [`Logging`](modules/logging.md)
+
+### Loom (Beta)
+
+Loom is a shipped beta editor at [`src/Loom.bb`](../src/Loom.bb). Loom (Beta) runs alongside the established GUE workflow; see the
+[Loom (Beta) editor guide](loom/README.md) for its current capabilities,
+boundaries, and Project Manager launch flow.
 
 ### Project Manager
 

@@ -134,6 +134,7 @@ rcce2/
 ## Documentation
 
 - **[Getting Started](docs/start.md)** — your first project
+- **[Loom (Beta) Editor Guide](docs/loom/README.md)** — shipped editor overview, capabilities, and beta boundaries
 - **[macOS Apple Silicon Notes](docs/macos-apple-silicon.md)** — source-build steps, release notes, and alpha caveats
 - **[Module Reference](docs/reference.md)** — engine APIs
 - **[Format Reference](docs/formats.md)** — file formats and conventions
