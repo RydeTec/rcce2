@@ -43,6 +43,22 @@ Test testSourceBuildOnboardingDoesNotAdvertiseTheMacOSBootstrapForLinux()
 	Assert(FileContains%("CONTRIBUTING.md", "macOS equivalent") = True)
 End Test
 
+Test testSourceBuildOnboardingDocumentsOptionalRustTargets()
+	Assert(FileContains%("ReadMe.md", "compile.bat -r") = True)
+	Assert(FileContains%("ReadMe.md", "bin\ClientRS.exe") = True)
+	Assert(FileContains%("ReadMe.md", "bin\ServerRS.exe") = True)
+	Assert(FileContains%("ReadMe.md", "optional Rust client and server") = True)
+	Assert(FileContains%("ReadMe.md", "Rust build is required") = False)
+	Assert(FileContains%("ReadMe.md", "only build the Rust server") = False)
+	Assert(FileContains%("docs/start.md", "compile.bat -r") = True)
+	Assert(FileContains%("docs/start.md", "./compile.sh -r") = True)
+	Assert(FileContains%("docs/start.md", "bin/ClientRS") = True)
+	Assert(FileContains%("docs/start.md", "bin/ServerRS") = True)
+	Assert(FileContains%("docs/start.md", "optional Rust client and server") = True)
+	Assert(FileContains%("docs/start.md", "Rust build is required") = False)
+	Assert(FileContains%("docs/start.md", "only build the Rust server") = False)
+End Test
+
 Test testContributorGeneratedDocsGuidanceMatchesCI()
 	Assert(FileContains%("CONTRIBUTING.md", "./scripts/gen_packet_index.sh") = True)
 	Assert(FileContains%("CONTRIBUTING.md", "./scripts/gen_bvm_reference.sh") = True)

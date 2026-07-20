@@ -48,6 +48,7 @@ Use the batch scripts from the repository root:
 ```bat
 compile.bat
 compile.bat -b
+compile.bat -r
 publish.bat
 test.bat
 ```
@@ -60,6 +61,7 @@ Use the shell scripts from the repository root:
 ./scripts/bootstrap_macos.sh
 ./compile.sh
 ./compile.sh -b
+./compile.sh -r
 ./publish.sh
 ./test.sh
 ```
@@ -78,6 +80,7 @@ The build scripts share the same intent:
 - `-b` / `--blitz` rebuild BlitzForge itself
 - `-e` / `--skip-engine` skip the main RCCE engine build
 - `-t` / `--skip-tools` skip the editor/tool builds
+- `-r` / `--rust` also build the optional Rust client and server (requires Cargo), producing `bin/ClientRS` and `bin/ServerRS` (`.exe` on Windows)
 
 ## Run What You Built
 
