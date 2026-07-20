@@ -24,6 +24,16 @@ Function OnLostConnection()
 	RuntimeError(LanguageString$(LS_LostConnection))
 End Function
 
+; A server packet can arrive while the local actor is being replaced or with
+; an out-of-range one-byte slot. Keep every inventory/UI array dereference
+; behind this nested guard; BlitzForge evaluates `Or` eagerly.
+Function ClientInventorySlotUsable(SlotI)
+	If Me = Null Then Return False
+	If Me\Inventory = Null Then Return False
+	If SlotI < 0 Or SlotI > Slots_Inventory Then Return False
+	Return True
+End Function
+
 ; Connects to the server
 Function Connect()
 
@@ -150,7 +160,7 @@ Function UpdateNetwork()
 			; Scripted progress bar
 			Case P_ProgressBar ; :)
 				; Create new
-				If Left$(M\MessageData$, 1) = "C"
+				If Left$(M\MessageData$, 1) = "C" And Len(M\MessageData$) >= 28
 					Red = RCE_IntFromStr(Mid$(M\MessageData$, 2, 1))
 					Green = RCE_IntFromStr(Mid$(M\MessageData$, 3, 1))
 					Blue = RCE_IntFromStr(Mid$(M\MessageData$, 4, 1))
@@ -247,9 +257,17 @@ Function UpdateNetwork()
 
 			; Item health updated
 			Case P_ItemHealth
-				SlotI = RCE_IntFromStr(Left$(M\MessageData$, 1))
-				Health = RCE_IntFromStr(Right$(M\MessageData$, 2))
-				If Me\Inventory\Items[SlotI] <> Null Then Me\Inventory\Items[SlotI]\ItemHealth = Health
+				If Len(M\MessageData$) < 3
+					WriteLog(MainLog, "P_ItemHealth: truncated inventory packet, dropping")
+				Else
+					SlotI = RCE_IntFromStr(Left$(M\MessageData$, 1))
+					Health = RCE_IntFromStr(Right$(M\MessageData$, 2))
+					If ClientInventorySlotUsable(SlotI)
+						If Me\Inventory\Items[SlotI] <> Null Then Me\Inventory\Items[SlotI]\ItemHealth = Health
+					Else
+						WriteLog(MainLog, "P_ItemHealth: invalid inventory slot or player, dropping")
+					EndIf
+				EndIf
 
 			; Owned scenery selected {##}
 			Case P_SelectScenery
@@ -1283,83 +1301,107 @@ Function UpdateNetwork()
 				Select Left$(M\MessageData$, 1)
 					; An item health has changed
 					Case "H"
-						SlotI = RCE_IntFromStr(Mid$(M\MessageData$, 2, 1))
-						Amount = RCE_IntFromStr(Mid$(M\MessageData$, 3, 1))
-						If Me\Inventory\Items[SlotI] <> Null
-							Me\Inventory\Items[SlotI]\ItemHealth = Amount
+						If Len(M\MessageData$) < 3
+							WriteLog(MainLog, "P_InventoryUpdate H: truncated packet, dropping")
+						Else
+							SlotI = RCE_IntFromStr(Mid$(M\MessageData$, 2, 1))
+							Amount = RCE_IntFromStr(Mid$(M\MessageData$, 3, 1))
+							If ClientInventorySlotUsable(SlotI)
+								If Me\Inventory\Items[SlotI] <> Null
+									Me\Inventory\Items[SlotI]\ItemHealth = Amount
+								EndIf
+							Else
+								WriteLog(MainLog, "P_InventoryUpdate H: invalid inventory slot or player, dropping")
+							EndIf
 						EndIf
 					; An item has been taken from my inventory
 					Case "T"
-						SlotI = RCE_IntFromStr(Mid$(M\MessageData$, 2, 1))
-						Amount = RCE_IntFromStr(Mid$(M\MessageData$, 3, 2))
-						If Me\Inventory\Items[SlotI] <> Null
-							Me\Inventory\Amounts[SlotI] = Me\Inventory\Amounts[SlotI] - Amount
-							; All gone
-							If Me\Inventory\Amounts[SlotI] <= 0
-								; Remove item
-								Me\Inventory\Amounts[SlotI] = 0
-								FreeItemInstance(Me\Inventory\Items[SlotI])
+						If Len(M\MessageData$) < 4
+							WriteLog(MainLog, "P_InventoryUpdate T: truncated packet, dropping")
+						Else
+							SlotI = RCE_IntFromStr(Mid$(M\MessageData$, 2, 1))
+							Amount = RCE_IntFromStr(Mid$(M\MessageData$, 3, 2))
+							If ClientInventorySlotUsable(SlotI)
+								If Me\Inventory\Items[SlotI] <> Null
+									Me\Inventory\Amounts[SlotI] = Me\Inventory\Amounts[SlotI] - Amount
+									; All gone
+									If Me\Inventory\Amounts[SlotI] <= 0
+										; Remove item
+										Me\Inventory\Amounts[SlotI] = 0
+										FreeItemInstance(Me\Inventory\Items[SlotI])
 
-								; Visual stuff
-								If InventoryVisible = True
-									GY_SetButtonState(BSlots(SlotI), True)
-									GY_SetButtonLabel(BSlots(SlotI), "")
-									GYG.GY_Gadget = Object.GY_Gadget(BSlots(SlotI))
-									GYB.GY_Button = Object.GY_Button(GYG\TypeHandle)
-									EntityTexture GYB\Gadget\EN, GYB\UserTexture
-									If MouseSlotSource = SlotI Or MouseSlotSource = -1
-										HideEntity MouseSlotEN : MouseSlotItem = Null : MouseSlotAmount = 0 : MouseSlotSource = -1
-										EnableInventoryBlanks(True)
-									Else
-										EnableInventoryBlanks(False)
+										; Visual stuff
+										If InventoryVisible = True
+											GY_SetButtonState(BSlots(SlotI), True)
+											GY_SetButtonLabel(BSlots(SlotI), "")
+											GYG.GY_Gadget = Object.GY_Gadget(BSlots(SlotI))
+											GYB.GY_Button = Object.GY_Button(GYG\TypeHandle)
+											EntityTexture GYB\Gadget\EN, GYB\UserTexture
+											If MouseSlotSource = SlotI Or MouseSlotSource = -1
+												HideEntity MouseSlotEN : MouseSlotItem = Null : MouseSlotAmount = 0 : MouseSlotSource = -1
+												EnableInventoryBlanks(True)
+											Else
+												EnableInventoryBlanks(False)
+											EndIf
+										EndIf
+										UpdateActorItems(Me)
+									; Not all gone but update the amount
+									ElseIf InventoryVisible = True
+										GY_SetButtonLabel(BSlots(SlotI), Me\Inventory\Amounts[SlotI], 100, 255, 0, True)
 									EndIf
 								EndIf
-								UpdateActorItems(Me)
-							; Not all gone but update the amount
-							ElseIf InventoryVisible = True
-								GY_SetButtonLabel(BSlots(SlotI), Me\Inventory\Amounts[SlotI], 100, 255, 0, True)
+							Else
+								WriteLog(MainLog, "P_InventoryUpdate T: invalid inventory slot or player, dropping")
 							EndIf
 						EndIf
 					; I received a dropped item
 					Case "R"
-						For DItem.DroppedItem = Each DroppedItem
-							If DItem\ServerHandle = RCE_IntFromStr(Mid$(M\MessageData$, 2, 4))
-								; Put in slot
-								i = RCE_IntFromStr(Mid$(M\MessageData$, 6, 1))
-								If Me\Inventory\Items[i] <> Null
-									FreeItemInstance(Me\Inventory\Items[i])
-								Else
-									Me\Inventory\Amounts[i] = 0
-								EndIf
-								Me\Inventory\Items[i] = DItem\Item
-								Me\Inventory\Amounts[i] = Me\Inventory\Amounts[i] + DItem\Amount
+						If Len(M\MessageData$) < 6
+							WriteLog(MainLog, "P_InventoryUpdate R: truncated packet, dropping")
+						Else
+							i = RCE_IntFromStr(Mid$(M\MessageData$, 6, 1))
+							If ClientInventorySlotUsable(i)
+								For DItem.DroppedItem = Each DroppedItem
+									If DItem\ServerHandle = RCE_IntFromStr(Mid$(M\MessageData$, 2, 4))
+										; Put in slot
+										If Me\Inventory\Items[i] <> Null
+											FreeItemInstance(Me\Inventory\Items[i])
+										Else
+											Me\Inventory\Amounts[i] = 0
+										EndIf
+										Me\Inventory\Items[i] = DItem\Item
+										Me\Inventory\Amounts[i] = Me\Inventory\Amounts[i] + DItem\Amount
 
-								; Visual stuff
-								If InventoryVisible = True
-									GYG.GY_Gadget = Object.GY_Gadget(BSlots(i))
-									GYB.GY_Button = Object.GY_Button(GYG\TypeHandle)
-									EntityTexture GYB\Gadget\EN, GetTexture(Me\Inventory\Items[i]\Item\ThumbnailTexID)
-									GY_SetButtonState(BSlots(i), False)
-									If Me\Inventory\Amounts[i] > 1
-										GY_SetButtonLabel(BSlots(i), Me\Inventory\Amounts[i], 100, 255, 0, True)
-									Else
-										GY_SetButtonLabel(BSlots(i), "")
+										; Visual stuff
+										If InventoryVisible = True
+											GYG.GY_Gadget = Object.GY_Gadget(BSlots(i))
+											GYB.GY_Button = Object.GY_Button(GYG\TypeHandle)
+											EntityTexture GYB\Gadget\EN, GetTexture(Me\Inventory\Items[i]\Item\ThumbnailTexID)
+											GY_SetButtonState(BSlots(i), False)
+											If Me\Inventory\Amounts[i] > 1
+												GY_SetButtonLabel(BSlots(i), Me\Inventory\Amounts[i], 100, 255, 0, True)
+											Else
+												GY_SetButtonLabel(BSlots(i), "")
+											EndIf
+											GY_LockGadget(BSlots(i), False)
+										EndIf
+										UpdateActorItems(Me)
+
+										; Inform user and delete dropped item
+										If DItem\Amount > 1
+											Output(LanguageString$(LS_PickedUpItem) + " " + DItem\Item\Item\Name$ + " (x" + DItem\Amount + ")", 0, 255, 0)
+										Else
+											Output(LanguageString$(LS_PickedUpItem) + " " + DItem\Item\Item\Name$, 0, 255, 0)
 									EndIf
-									GY_LockGadget(BSlots(i), False)
-								EndIf
-								UpdateActorItems(Me)
-
-								; Inform user and delete dropped item
-								If DItem\Amount > 1
-									Output(LanguageString$(LS_PickedUpItem) + " " + DItem\Item\Item\Name$ + " (x" + DItem\Amount + ")", 0, 255, 0)
-								Else
-									Output(LanguageString$(LS_PickedUpItem) + " " + DItem\Item\Item\Name$, 0, 255, 0)
-								EndIf
-								FreeEntity(DItem\EN)
-								Delete DItem
-								Exit
+										FreeEntity(DItem\EN)
+										Delete DItem
+										Exit
+									EndIf
+								Next
+							Else
+								WriteLog(MainLog, "P_InventoryUpdate R: invalid inventory slot or player, dropping")
 							EndIf
-						Next
+						EndIf
 					; Dropped item has been picked up by someone else
 					Case "P"
 						For DItem.DroppedItem = Each DroppedItem
@@ -1415,9 +1457,9 @@ Function UpdateNetwork()
 						EndIf
 						RotateEntity(DItem\EN, 0.0, Rnd#(-180.0, 180.0), 0.0)
 						NameEntity(DItem\EN, Handle(DItem))
-					; Update for another actor
-					Case "O"
-						RuntimeID = RCE_IntFromStr(Mid$(M\MessageData$, 2, 2))
+					Case "O" : If Len(M\MessageData$) <> 17
+						WriteLog(MainLog, "P_InventoryUpdate O: bad payload length " + Len(M\MessageData$) + ", dropping")
+					Else : RuntimeID = RCE_IntFromStr(Mid$(M\MessageData$, 2, 2))
 						A.ActorInstance = RuntimeIDList(RuntimeID)
 						If A <> Null
 							WeaponID = RCE_IntFromStr(Mid$(M\MessageData$, 4, 2))
@@ -1443,7 +1485,7 @@ Function UpdateNetwork()
 									HideGubbin(A, i)
 								EndIf
 							Next
-						EndIf
+						EndIf : EndIf
 					; Given an item
 					Case "G"
 						ItemID = RCE_IntFromStr(Mid$(M\MessageData$, 6, 2))
@@ -1640,6 +1682,21 @@ Function UpdateNetwork()
 
 			; I have gone into a new area
 			Case P_ChangeArea
+				; The fixed prefix ends with the one-byte area-name length. Do not
+				; let Mid$ zero-fill an incomplete zone transition and tear down the active area.
+				If Len(M\MessageData$) < 25
+					WriteLog(MainLog, "P_ChangeArea: truncated header, dropping")
+					Delete M
+					M = MNext
+					Continue
+				EndIf
+				NameLen = RCE_IntFromStr(Mid$(M\MessageData$, 25, 1))
+				If Len(M\MessageData$) < 25 + NameLen
+					WriteLog(MainLog, "P_ChangeArea: truncated area name, dropping")
+					Delete M
+					M = MNext
+					Continue
+				EndIf
 				; Retrieve info for new zone
 				OldAreaName$ = AreaName$
 				OldAreaID = CurrentAreaID
@@ -1665,29 +1722,24 @@ Function UpdateNetwork()
 				If Gravity# < -2.0 Then Gravity# = -2.0
 				If Gravity# > 2.0 Then Gravity# = 2.0
 				CurrentAreaID = RCE_IntFromStr(Mid$(M\MessageData$, 20, 4))
-				NameLen = RCE_IntFromStr(Mid$(M\MessageData$, 25, 1))
 				AreaName$ = Mid$(M\MessageData$, 26, NameLen)
-				
 				;Actor Shadows Cysis145
 				If AreaName$ <> OldAreaName$
 					For A.ActorInstance = Each ActorInstance
-      					FreeShadowCaster% (A\EN)
-   					Next
+					FreeShadowCaster% (A\EN)
+					Next
 				EndIf
-				
 				If AreaName$ = OldAreaName$
 					For A.ActorInstance = Each ActorInstance
-      					FreeShadowCaster% (A\EN)
-   					Next
+					FreeShadowCaster% (A\EN)
+					Next
 				EndIf
-
 				; Going to new zone or instance
 				If OldAreaID <> CurrentAreaID
 					; Remove scripted emitters
 					For SEm.ScriptedEmitter = Each ScriptedEmitter
 						If SEm\AttachedToPlayer = False Then RP_FreeEmitter(SEm\EN, True, False)
 					Next
-
 					; Remove all in-flight projectiles
 					Local AreaProjI.ProjectileInstance = First ProjectileInstance
 					Local AreaProjINext.ProjectileInstance = Null
@@ -1696,10 +1748,8 @@ Function UpdateNetwork()
 						FreeProjectileInstance(AreaProjI)
 						AreaProjI = AreaProjINext
 					Wend
-
 					; Save radar state
 					If OldAreaName$ <> "" Then Save_Radar_Fog(RadarPath$ + Me\Name$ + "-" + OldAreaName$ + ".rdr")
-
 					; Remove old actor instances
 					; After-cursor walk: SafeFreeActorInstance Deletes A
 					; via FreeActorInstance. The original For-Each form
@@ -1714,7 +1764,6 @@ Function UpdateNetwork()
 						Acac = AcacNext
 					Wend
 				EndIf
-
 				; Remove dropped loot -- After-cursor walk for the same
 				; reason as above.
 				Local DItemR.DroppedItem = First DroppedItem
@@ -1725,7 +1774,6 @@ Function UpdateNetwork()
 					Delete DItemR
 					DItemR = DItemRNext
 				Wend
-
 				; Unload old and load new zone if necessary
 				If AreaName$ <> OldAreaName$
 					UnloadArea()
@@ -1757,7 +1805,6 @@ Function UpdateNetwork()
 					Load_Radar(Me\Name$ + "-" + AreaName$, Radar\X#, Radar\Y#, Radar\Width#, Radar\Height#, Not Outdoors, "Radar_Border.png", "Radar_Player.png")
 					If ShowRadar = False Then Hide_Radar()
 				EndIf
-
 				; Update settings
 				SetWeather(RCE_IntFromStr(Mid$(M\MessageData$, 24, 1)))
 				PlayerTarget = 0
@@ -1765,30 +1812,25 @@ Function UpdateNetwork()
 				PositionEntity(Me\CollisionEN, Me\X#, Y# + 5.0, Me\Z#)
 				RotateEntity(Me\CollisionEN, 0.0, Yaw#, 0.0)
 				ResetEntity(Me\CollisionEN)
-				
 				;Shadow [###]
 				PositionEntity(Cam, 0.0, Y# + 10.0, 0.0)
 				ResetEntity(Cam)
 				;UpdateShadows Cam
-				
-				
 				PositionEntity(Cam, Me\X#, Y# + 10.0, Me\Z#)
 				ResetEntity(Cam)
 				MoveMouse GraphicsWidth() / 2, GraphicsHeight() / 2
 				ZonedMS = MilliSecs()
-
 				; If the new zone is different to the old
 				If AreaName$ <> OldAreaName$
 					WriteLog(MainLog, "Entered zone: " + AreaName$)
 				Else
 					WriteLog(MainLog, "Reloaded current zone")
 				EndIf
-
 				;we are done, let the server know the it can resume paying attention to standard updates for our player actor again
 				;RCE_Send(Connection, RN_Host, P_ChangeArea, M\MessageData$, True)
 				;resume processing standard updates from the server
 				Me\IgnoreUpdate = 0
-	
+
 			; Host disconnected
 			Case P_KickedPlayer
 				RCE_Disconnect()

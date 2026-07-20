@@ -144,6 +144,36 @@ Function AddAccountUsesAtomicSaveAndRollback%(Path$)
 	Return False
 End Function
 
+; Account-creation packet validation has maximum-length checks, but hand-built
+; packets can still supply zero-length fields. AddAccount is the flat-file
+; persistence boundary, so it must reject those values before any account, UI,
+; count, hash, or save mutation begins.
+Function AddAccountRejectsBlankFieldsBeforeMutation%(Path$)
+	Local F.BBStream = ReadFile(Path$)
+	Local Stage%
+	Local Line$
+	If F = Null Then F = ReadFile("..\" + Path$)
+	If F = Null Then Return False
+
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		If Instr(Line$, "Function AddAccount%(User$, Pass$, Email$)") > 0 Then Stage = 1
+		If Stage = 1 And (Instr(Line$, "A.Account = New Account") > 0 Or Instr(Line$, "HashPassword$(Pass$)") > 0 Or Instr(Line$, "AddListBoxItem(") > 0 Or Instr(Line$, "Accounts\TotalAccounts =") > 0 Or Instr(Line$, "SetGadgetText(Accounts\AccountsLabel") > 0 Or Instr(Line$, "SaveAccounts()") > 0)
+			CloseFile F
+			Return False
+		EndIf
+		If Stage = 1 And Instr(Line$, "If User$ = " + Chr$(34) + Chr$(34) + " Or Pass$ = " + Chr$(34) + Chr$(34) + " Or Email$ = " + Chr$(34) + Chr$(34) + " Then Return False") > 0 Then Stage = 2
+		If Stage = 2 And Instr(Line$, "A.Account = New Account") > 0
+			CloseFile F
+			Return True
+		EndIf
+		If Stage > 0 And Instr(Line$, "Function SaveAccounts()") > 0 Then Exit
+	Wend
+
+	CloseFile F
+	Return False
+End Function
+
 Function CreateAccountRepliesAfterAtomicSave%(Path$)
 	Local F.BBStream = ReadFile(Path$)
 	Local FailureReply%, GuardIndent%, InCase%, Stage%
@@ -281,6 +311,10 @@ End Test
 
 Test testAddAccountUsesAtomicSaveAndRollsBackOnFailure()
 	Assert(AddAccountUsesAtomicSaveAndRollback%("Modules\AccountsServer.bb") = True)
+End Test
+
+Test testAddAccountRejectsBlankFieldsBeforeMutation()
+	Assert(AddAccountRejectsBlankFieldsBeforeMutation%("Modules\AccountsServer.bb") = True)
 End Test
 
 Test testCreateAccountSendsFailureWhenAtomicSaveFails()

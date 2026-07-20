@@ -30,6 +30,7 @@ The main source entrypoints live under `src/`:
 - `src/Client.bb` - game client
 - `src/Server.bb` - game server
 - `src/GUE.bb` - Game Unified Editor
+- `src/Loom.bb` - Loom (Beta) editor
 - `src/Project Manager.bb` - launcher and packaging entrypoint
 - `src/Modules/` - shared engine and editor modules
 - `src/Tests/` - Blitz test sources compiled by the test runners
@@ -47,6 +48,7 @@ Use the batch scripts from the repository root:
 ```bat
 compile.bat
 compile.bat -b
+compile.bat -r
 publish.bat
 test.bat
 ```
@@ -59,6 +61,7 @@ Use the shell scripts from the repository root:
 ./scripts/bootstrap_macos.sh
 ./compile.sh
 ./compile.sh -b
+./compile.sh -r
 ./publish.sh
 ./test.sh
 ```
@@ -77,6 +80,7 @@ The build scripts share the same intent:
 - `-b` / `--blitz` rebuild BlitzForge itself
 - `-e` / `--skip-engine` skip the main RCCE engine build
 - `-t` / `--skip-tools` skip the editor/tool builds
+- `-r` / `--rust` also build the optional Rust client and server (requires Cargo), producing `bin/ClientRS` and `bin/ServerRS` (`.exe` on Windows)
 
 ## Run What You Built
 
@@ -86,9 +90,12 @@ Successful builds produce the main applications from the repo root:
 - `bin/Client(.exe)`
 - `bin/Server(.exe)`
 - `bin/GUE(.exe)`
+- `bin/Loom(.exe)`
 
 Use Project Manager when you want the normal launcher flow. Use the binaries in
-`bin/` when you want to run the client, server, or editor directly.
+`bin/` when you want to run the client, server, or editor directly. To launch
+Loom (Beta), open Project Manager, choose a project, switch to the Engine tab,
+and select **Loom (Beta)**.
 
 ## Run Tests
 

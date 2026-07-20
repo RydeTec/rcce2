@@ -64,6 +64,56 @@ Function FileContainsSequenceBefore%(Path$, StartNeedle$, FirstNeedle$, SecondNe
 	Return False
 End Function
 
+Function FileContainsOrderedSequence10%(Path$, FirstNeedle$, SecondNeedle$, ThirdNeedle$, FourthNeedle$, FifthNeedle$, SixthNeedle$, SeventhNeedle$, EighthNeedle$, NinthNeedle$, TenthNeedle$)
+	Local F.BBStream = ReadFile(Path$)
+	Local Line$
+	Local Stage = 0
+	If F = Null Then F = ReadFile("..\" + Path$)
+	If F = Null Then F = ReadFile("..\..\" + Path$)
+	If F = Null Then Return False
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		If Stage = 0 And Instr(Line$, FirstNeedle$) > 0
+			Stage = 1
+		ElseIf Stage = 1 And Instr(Line$, SecondNeedle$) > 0
+			Stage = 2
+		ElseIf Stage = 2 And Instr(Line$, ThirdNeedle$) > 0
+			Stage = 3
+		ElseIf Stage = 3 And Instr(Line$, FourthNeedle$) > 0
+			Stage = 4
+		ElseIf Stage = 4 And Instr(Line$, FifthNeedle$) > 0
+			Stage = 5
+		ElseIf Stage = 5 And Instr(Line$, SixthNeedle$) > 0
+			Stage = 6
+		ElseIf Stage = 6 And Instr(Line$, SeventhNeedle$) > 0
+			Stage = 7
+		ElseIf Stage = 7 And Instr(Line$, EighthNeedle$) > 0
+			Stage = 8
+		ElseIf Stage = 8 And Instr(Line$, NinthNeedle$) > 0
+			Stage = 9
+		ElseIf Stage = 9 And Instr(Line$, TenthNeedle$) > 0
+			CloseFile F
+			Return True
+		EndIf
+	Wend
+	CloseFile F
+	Return False
+End Function
+
+Global OrderedSequenceTestPath$ = CurrentDir$() + "rust_toolchain_policy_ordered_sequence.tmp"
+
+Test testOrderedSequenceRejectsMultipleStagesOnOneLine()
+	If FileType(OrderedSequenceTestPath$) = 1 Then DeleteFile(OrderedSequenceTestPath$)
+	Local F.BBStream = WriteFile(OrderedSequenceTestPath$)
+	Assert(F <> Null)
+	If F <> Null
+		WriteLine F, "first second third fourth fifth sixth seventh eighth ninth tenth"
+		CloseFile F
+		Assert(FileContainsOrderedSequence10%(OrderedSequenceTestPath$, "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth") = False)
+	EndIf
+	If FileType(OrderedSequenceTestPath$) = 1 Then DeleteFile(OrderedSequenceTestPath$)
+End Test
+
 Test testDeclaredMSRVIsPinnedWithClippy()
 	Assert(FileContains%("rust-toolchain.toml", "channel = " + Chr$(34) + "1.85.0" + Chr$(34)) = True)
 	Assert(FileContains%("rust-toolchain.toml", "components = [" + Chr$(34) + "clippy" + Chr$(34) + "]") = True)
@@ -97,6 +147,10 @@ Test testWindowsCIExercisesRustReleasePackaging()
 	Assert(FileContainsSequenceBefore%(".github\workflows\ci.yml", "- name: Package Rust apps for Windows", "call compile.bat -e -t -r", "if errorlevel 1 exit /b %errorlevel%", "- name: Run Rust client tests (logic crates)") = True)
 	Assert(FileContains%(".github\workflows\ci.yml", "if not exist bin\ClientRS.exe (") = True)
 	Assert(FileContains%(".github\workflows\ci.yml", "if not exist bin\ServerRS.exe (") = True)
+End Test
+
+Test testLinuxCIExercisesRustReleasePackaging()
+	Assert(FileContainsOrderedSequence10%(".github\workflows\ci.yml", "- name: Install Linux audio build dependency", "sudo apt-get install --yes libasound2-dev", "- name: Package Rust apps for Linux", "./compile.sh -e -t -r", "test -x bin/ClientRS", "test -x bin/ServerRS", "- name: Build + test (server workspace, locked)", "- name: Build Rust server Docker image", "- name: Smoke-test Rust server Docker startup", "- name: Clippy (server workspace, -D warnings)") = True)
 End Test
 
 Test testRustServerContainerBuilderKeepsDeclaredToolchainAndLockfile()

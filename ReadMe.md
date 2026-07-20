@@ -96,6 +96,7 @@ git submodule update --init --recursive
 ```bat
 compile.bat            :: build engine + tools
 compile.bat -b         :: also rebuild the BlitzForge toolchain
+compile.bat -r         :: also build optional Rust client + server (bin\ClientRS.exe + bin\ServerRS.exe; requires Cargo)
 publish.bat            :: produce a redistributable release
 ```
 
@@ -109,13 +110,17 @@ publish.bat            :: produce a redistributable release
 ./publish.sh                    # produce a redistributable release
 ```
 
-Useful flags (both platforms): `-b` rebuild BlitzForge, `-e` skip engine, `-t` skip tools.
+Useful flags (both platforms): `-b` rebuild BlitzForge, `-e` skip engine, `-t` skip tools, and `-r` / `--rust` also build the optional Rust client and server (requires Cargo).
+
+The standard engine build also compiles `src/Loom.bb` to `bin/Loom(.exe)`.
+Launch Loom (Beta) from Project Manager: choose a project, switch to the Engine
+tab, and select **Loom (Beta)**.
 
 ## Repository layout
 
 ```
 rcce2/
-├── src/                        # Engine source (BlitzBasic): Client, Server, GUE, Project Manager, Tests
+├── src/                        # Engine source (BlitzBasic): Client, Server, GUE, Loom (Beta), Project Manager, Tests
 ├── data/                       # Default game project (worlds, scripts, assets)
 ├── compiler/BlitzForge/        # Modernized Blitz3D compiler + runtime (submodule)
 ├── extras/vscode-blitz-forge/  # VS Code language extension (submodule)
@@ -129,6 +134,7 @@ rcce2/
 ## Documentation
 
 - **[Getting Started](docs/start.md)** — your first project
+- **[Loom (Beta) Editor Guide](docs/loom/README.md)** — shipped editor overview, capabilities, and beta boundaries
 - **[macOS Apple Silicon Notes](docs/macos-apple-silicon.md)** — source-build steps, release notes, and alpha caveats
 - **[Module Reference](docs/reference.md)** — engine APIs
 - **[Format Reference](docs/formats.md)** — file formats and conventions
