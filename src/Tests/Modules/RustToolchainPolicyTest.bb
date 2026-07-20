@@ -74,15 +74,15 @@ Function FileContainsOrderedSequence10%(Path$, FirstNeedle$, SecondNeedle$, Thir
 	While Not Eof(F)
 		Line$ = ReadLine$(F)
 		If Stage = 0 And Instr(Line$, FirstNeedle$) > 0 Then Stage = 1
-		If Stage = 1 And Instr(Line$, SecondNeedle$) > 0 Then Stage = 2
-		If Stage = 2 And Instr(Line$, ThirdNeedle$) > 0 Then Stage = 3
-		If Stage = 3 And Instr(Line$, FourthNeedle$) > 0 Then Stage = 4
-		If Stage = 4 And Instr(Line$, FifthNeedle$) > 0 Then Stage = 5
-		If Stage = 5 And Instr(Line$, SixthNeedle$) > 0 Then Stage = 6
-		If Stage = 6 And Instr(Line$, SeventhNeedle$) > 0 Then Stage = 7
-		If Stage = 7 And Instr(Line$, EighthNeedle$) > 0 Then Stage = 8
-		If Stage = 8 And Instr(Line$, NinthNeedle$) > 0 Then Stage = 9
-		If Stage = 9 And Instr(Line$, TenthNeedle$) > 0
+		Else If Stage = 1 And Instr(Line$, SecondNeedle$) > 0 Then Stage = 2
+		Else If Stage = 2 And Instr(Line$, ThirdNeedle$) > 0 Then Stage = 3
+		Else If Stage = 3 And Instr(Line$, FourthNeedle$) > 0 Then Stage = 4
+		Else If Stage = 4 And Instr(Line$, FifthNeedle$) > 0 Then Stage = 5
+		Else If Stage = 5 And Instr(Line$, SixthNeedle$) > 0 Then Stage = 6
+		Else If Stage = 6 And Instr(Line$, SeventhNeedle$) > 0 Then Stage = 7
+		Else If Stage = 7 And Instr(Line$, EighthNeedle$) > 0 Then Stage = 8
+		Else If Stage = 8 And Instr(Line$, NinthNeedle$) > 0 Then Stage = 9
+		Else If Stage = 9 And Instr(Line$, TenthNeedle$) > 0
 			CloseFile F
 			Return True
 		EndIf
@@ -90,6 +90,20 @@ Function FileContainsOrderedSequence10%(Path$, FirstNeedle$, SecondNeedle$, Thir
 	CloseFile F
 	Return False
 End Function
+
+Global OrderedSequenceTestPath$ = CurrentDir$() + "rust_toolchain_policy_ordered_sequence.tmp"
+
+Test testOrderedSequenceRejectsMultipleStagesOnOneLine()
+	If FileType(OrderedSequenceTestPath$) = 1 Then DeleteFile(OrderedSequenceTestPath$)
+	Local F.BBStream = WriteFile(OrderedSequenceTestPath$)
+	Assert(F <> Null)
+	If F <> Null
+		WriteLine F, "first second third fourth fifth sixth seventh eighth ninth tenth"
+		CloseFile F
+		Assert(FileContainsOrderedSequence10%(OrderedSequenceTestPath$, "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth") = False)
+	EndIf
+	If FileType(OrderedSequenceTestPath$) = 1 Then DeleteFile(OrderedSequenceTestPath$)
+End Test
 
 Test testDeclaredMSRVIsPinnedWithClippy()
 	Assert(FileContains%("rust-toolchain.toml", "channel = " + Chr$(34) + "1.85.0" + Chr$(34)) = True)
