@@ -31,11 +31,13 @@ Function RCTreesSeasonSettingsUseAtomicPersistence%(Path$)
 			If Stage = 7 And Trimmed$ = "SafeWriteAbort(TempPath$)" Then Stage = 8
 			If Stage = 8 And Trimmed$ = "EndIf" Then Stage = 9
 			If Stage = 9 And Trimmed$ = "If SafeWriteCommit(TempPath$,seasoncolor_file$,0)=False Then Return" Then Stage = 10
-			If Stage = 10 And Trimmed$ = "Else"
+			If Stage = 10 And Trimmed$ = "Else" Then Stage = 11
+			If Stage = 11 And Trimmed$ = "cfile=ReadFile(seasoncolor_file$)" Then Stage = 12
+			If Stage = 12 And Trimmed$ = "EndIf" Then Stage = 13
+			If Stage = 13 And Trimmed$ = "End Function"
 				CloseFile F
 				Return True
 			EndIf
-			If Trimmed$ = "End Function" Then Exit
 		EndIf
 	Wend
 
@@ -66,6 +68,33 @@ Test testRCTreesPersistenceScannerRejectsDirectFinalWrite()
 		WriteLine F, "EndIf"
 		WriteLine F, "If SafeWriteCommit(TempPath$,seasoncolor_file$,0)=False Then Return"
 		WriteLine F, "Else"
+		WriteLine F, "EndIf"
+		WriteLine F, "End Function"
+		CloseFile F
+		Assert(RCTreesSeasonSettingsUseAtomicPersistence%(RCTreesPersistenceFixture$) = False)
+	EndIf
+	If FileType(RCTreesPersistenceFixture$) = 1 Then DeleteFile(RCTreesPersistenceFixture$)
+End Test
+
+Test testRCTreesPersistenceScannerRejectsFinalWriteInValidBranch()
+	If FileType(RCTreesPersistenceFixture$) = 1 Then DeleteFile(RCTreesPersistenceFixture$)
+	Local F.BBStream = WriteFile(RCTreesPersistenceFixture$)
+	Assert(F <> Null)
+	If F <> Null
+		WriteLine F, "Function tree_setvalues()"
+		WriteLine F, "If FileType(seasoncolor_file$)<>1 Or FileSize(seasoncolor_file$)<>144 Then"
+		WriteLine F, "TempPath$=SafeWriteOpen$(seasoncolor_file$)"
+		WriteLine F, "cfile=WriteFile(TempPath$)"
+		WriteLine F, "For i=0 To 11"
+		WriteLine F, "Next"
+		WriteLine F, "CloseFile cfile"
+		WriteLine F, "If FileSize(TempPath$)<>144"
+		WriteLine F, "SafeWriteAbort(TempPath$)"
+		WriteLine F, "EndIf"
+		WriteLine F, "If SafeWriteCommit(TempPath$,seasoncolor_file$,0)=False Then Return"
+		WriteLine F, "Else"
+		WriteLine F, "cfile=ReadFile(seasoncolor_file$)"
+		WriteLine F, "WriteFile(seasoncolor_file$)"
 		WriteLine F, "EndIf"
 		WriteLine F, "End Function"
 		CloseFile F
