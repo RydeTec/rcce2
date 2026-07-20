@@ -50,16 +50,55 @@ Function MockSlaveUnlink(Slave.MockActor)
 	If Leader = Null Then Return
 	If Leader\FirstSlave = Slave
 		Leader\FirstSlave = Slave\NextSlave
+		Slave\NextSlave = Null
+		Slave\Leader = Null
+		Leader\NumberOfSlaves = Leader\NumberOfSlaves - 1
+		Return
 	Else
 		Local Prev.MockActor = Leader\FirstSlave
-		While Prev <> Null And Prev\NextSlave <> Slave
+		While Prev <> Null
+			If Prev\NextSlave = Slave
+				Prev\NextSlave = Slave\NextSlave
+				Slave\NextSlave = Null
+				Slave\Leader = Null
+				Leader\NumberOfSlaves = Leader\NumberOfSlaves - 1
+				Return
+			EndIf
 			Prev = Prev\NextSlave
 		Wend
-		If Prev <> Null Then Prev\NextSlave = Slave\NextSlave
 	EndIf
 	Slave\NextSlave = Null
 	Slave\Leader = Null
-	Leader\NumberOfSlaves = Leader\NumberOfSlaves - 1
+End Function
+
+; Actors.bb cannot be included by this focused test because it pulls in the
+; server/world graph. Keep the behavioral model above, and also bind the
+; production helper's stale-chain guard shape below.
+Function ProductionSlaveUnlinkGuardsStaleChains%(Path$)
+	Local F.BBStream = ReadFile(Path$)
+	Local Line$
+	Local InUnlink%, SawMemberCheck%, SawSplice%, SawConditionalDecrement%
+	If F = Null Then F = ReadFile("..\" + Path$)
+	If F = Null Then F = ReadFile("..\..\" + Path$)
+	If F = Null Then Return False
+
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		If Instr(Line$, "Function SlaveUnlink(Slave.ActorInstance)") > 0 Then InUnlink = True
+		If InUnlink = True
+			If Instr(Line$, "While Prev <> Null And Prev\NextSlave <> Slave") > 0
+				CloseFile F
+				Return False
+			EndIf
+			If Instr(Line$, "If Prev\NextSlave = Slave") > 0 Then SawMemberCheck = True
+			If SawMemberCheck = True And Instr(Line$, "Prev\NextSlave = Slave\NextSlave") > 0 Then SawSplice = True
+			If SawMemberCheck = True And Instr(Line$, "Leader\NumberOfSlaves = Leader\NumberOfSlaves - 1") > 0 Then SawConditionalDecrement = True
+			If Instr(Line$, "End Function") > 0 Then Exit
+		EndIf
+	Wend
+
+	CloseFile F
+	Return SawMemberCheck And SawSplice And SawConditionalDecrement
 End Function
 
 Function ChainLen%(L.MockActor)
@@ -250,6 +289,41 @@ Test testUnlinkNullIsNoOp()
 	ResetPool()
 	MockSlaveUnlink(Null)
 	; No crash, no error.
+End Test
+
+Test testUnlinkStaleSlaveWithEmptyLeaderChainPreservesCount()
+	ResetPool()
+	Local L.MockActor = New MockActor() : L\Name = "L"
+	Local S.MockActor = New MockActor() : S\Name = "S"
+	S\Leader = L
+	S\NextSlave = New MockActor()
+	MockSlaveUnlink(S)
+	Assert(L\FirstSlave = Null)
+	Assert(L\NumberOfSlaves = 0)
+	Assert(S\Leader = Null)
+	Assert(S\NextSlave = Null)
+End Test
+
+Test testUnlinkStaleNonMemberPreservesValidLeaderChain()
+	ResetPool()
+	Local L.MockActor = New MockActor() : L\Name = "L"
+	Local Member.MockActor = New MockActor() : Member\Name = "Member"
+	Local Stale.MockActor = New MockActor() : Stale\Name = "Stale"
+	Member\Leader = L
+	L\FirstSlave = Member
+	L\NumberOfSlaves = 1
+	Stale\Leader = L
+	Stale\NextSlave = Member
+	MockSlaveUnlink(Stale)
+	Assert(L\FirstSlave = Member)
+	Assert(Member\NextSlave = Null)
+	Assert(L\NumberOfSlaves = 1)
+	Assert(Stale\Leader = Null)
+	Assert(Stale\NextSlave = Null)
+End Test
+
+Test testProductionSlaveUnlinkGuardsStaleChains()
+	Assert(ProductionSlaveUnlinkGuardsStaleChains%("Modules\Actors.bb") = True)
 End Test
 
 ; ====================================================================
