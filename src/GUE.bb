@@ -8532,28 +8532,31 @@ Function PreciseEditSelected()
 	Repeat
 
 		; Events
-		For E.Event = Each Event
-			Select E\EventID
+		Local PreciseEvent.Event = First Event
+		Local NextPreciseEvent.Event = Null
+		While PreciseEvent <> Null
+			NextPreciseEvent = After PreciseEvent
+			Select PreciseEvent\EventID
 				; Position
 				Case SPosX
 					CreateTransformUndo("K_Move", SelectedEN, EntityX#(SelectedEN), EntityY#(SelectedEN), EntityZ#(SelectedEN))
-					PositionEntity SelectedEN, E\EventData, EntityY#(SelectedEN), EntityZ#(SelectedEN) : ZoneSaved = False
+					PositionEntity SelectedEN, PreciseEvent\EventData, EntityY#(SelectedEN), EntityZ#(SelectedEN) : ZoneSaved = False
 				Case SPosY
 					CreateTransformUndo("K_Move", SelectedEN, EntityX#(SelectedEN), EntityY#(SelectedEN), EntityZ#(SelectedEN))
-					PositionEntity SelectedEN, EntityX#(SelectedEN), E\EventData, EntityZ#(SelectedEN) : ZoneSaved = False
+					PositionEntity SelectedEN, EntityX#(SelectedEN), PreciseEvent\EventData, EntityZ#(SelectedEN) : ZoneSaved = False
 				Case SPosZ
 					CreateTransformUndo("K_Move", SelectedEN, EntityX#(SelectedEN), EntityY#(SelectedEN), EntityZ#(SelectedEN))
-					PositionEntity SelectedEN, EntityX#(SelectedEN), EntityY#(SelectedEN), E\EventData : ZoneSaved = False
+					PositionEntity SelectedEN, EntityX#(SelectedEN), EntityY#(SelectedEN), PreciseEvent\EventData : ZoneSaved = False
 				; Rotation
 				Case SRotX
 					CreateTransformUndo("K_Rotate", SelectedEN, EntityPitch#(SelectedEN), EntityYaw#(SelectedEN), EntityRoll#(SelectedEN))
-					RotateEntity SelectedEN, E\EventData, EntityYaw#(SelectedEN), EntityRoll#(SelectedEN) : ZoneSaved = False
+					RotateEntity SelectedEN, PreciseEvent\EventData, EntityYaw#(SelectedEN), EntityRoll#(SelectedEN) : ZoneSaved = False
 				Case SRotY
 					CreateTransformUndo("K_Rotate", SelectedEN, EntityPitch#(SelectedEN), EntityYaw#(SelectedEN), EntityRoll#(SelectedEN))
-					RotateEntity SelectedEN, EntityPitch#(SelectedEN), E\EventData, EntityRoll#(SelectedEN) : ZoneSaved = False
+					RotateEntity SelectedEN, EntityPitch#(SelectedEN), PreciseEvent\EventData, EntityRoll#(SelectedEN) : ZoneSaved = False
 				Case SRotZ
 					CreateTransformUndo("K_Rotate", SelectedEN, EntityPitch#(SelectedEN), EntityYaw#(SelectedEN), EntityRoll#(SelectedEN))
-					RotateEntity SelectedEN, EntityPitch#(SelectedEN), EntityYaw#(SelectedEN), E\EventData : ZoneSaved = False
+					RotateEntity SelectedEN, EntityPitch#(SelectedEN), EntityYaw#(SelectedEN), PreciseEvent\EventData : ZoneSaved = False
 				; Scale
 				Case SSclX, SSclY, SSclZ
 					ScaleX# = FUI_SendMessageF(SSclX, M_GETVALUE)
@@ -8565,8 +8568,9 @@ Function PreciseEditSelected()
 				Case BDone
 					Done = True
 			End Select
-			Delete E
-		Next
+			Delete(PreciseEvent)
+			PreciseEvent = NextPreciseEvent
+		Wend
 
 		; Render
 		FUI_Update()
@@ -9991,15 +9995,19 @@ Function EmitterNameDialog$()
 		EndIf
 
 		; Events
-		For E.Event = Each Event
-			Select E\EventID
+		Local EmitterEvent.Event = First Event
+		Local NextEmitterEvent.Event = Null
+		While EmitterEvent <> Null
+			NextEmitterEvent = After EmitterEvent
+			Select EmitterEvent\EventID
 				; OK clicked
 				Case BDone
 					Result$ = FUI_SendMessage(TEmitterName, M_GETCAPTION)
 					Done = True
 			End Select
-			Delete E
-		Next
+			Delete(EmitterEvent)
+			EmitterEvent = NextEmitterEvent
+		Wend
 
 		; Render
 		FUI_Update()
@@ -10084,8 +10092,11 @@ Function FixedAttributeDialog()
 	Repeat
 
 		; Events
-		For E.Event = Each Event
-			Select E\EventID
+		Local FixedAttributeEvent.Event = First Event
+		Local NextFixedAttributeEvent.Event = Null
+		While FixedAttributeEvent <> Null
+			NextFixedAttributeEvent = After FixedAttributeEvent
+			Select FixedAttributeEvent\EventID
 				; Cancel
 				Case BCancel
 					Done = True
@@ -10127,8 +10138,9 @@ Function FixedAttributeDialog()
 				Case CSpeed
 					SpeedStat = FUI_SendMessage(FUI_SendMessage(CSpeed, M_GETSELECTED), M_GETDATA)
 			End Select
-			Delete E
-		Next
+			Delete(FixedAttributeEvent)
+			FixedAttributeEvent = NextFixedAttributeEvent
+		Wend
 
 		; Render
 		FUI_Update()
