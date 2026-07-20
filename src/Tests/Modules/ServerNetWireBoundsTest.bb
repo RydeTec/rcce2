@@ -390,7 +390,7 @@ Test testStandardUpdateOnlyAcceptsExactTwentyTwoBytePayload()
 End Test
 
 Test testStandardUpdateLengthGuardPrecedesFirstFloatParse()
-	Assert(SectionNeedlePrecedes%("Modules\\ServerNet.bb", "Case P_StandardUpdate", "Case RCE_PlayerTimedOut", "If Len(M\\MessageData$) = 22", "RCE_FloatFromStr#(Mid$(M\\MessageData$, 1, 4))") = True)
+	Assert(SectionNeedlePrecedes%("Modules\ServerNet.bb", "Case P_StandardUpdate", "Case RCE_PlayerTimedOut", "If Len(M\MessageData$) = 22", "RCE_FloatFromStr#(Mid$(M\MessageData$, 1, 4))") = True)
 End Test
 
 ; ====================================================================
