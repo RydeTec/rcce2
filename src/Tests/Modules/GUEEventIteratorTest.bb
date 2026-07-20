@@ -47,6 +47,18 @@ Test testGenerateGamePatchCapturesNextEventBeforeDelete()
 	Assert(GUEEventDrainUsesAfterCursor%("GUE.bb", "Function GenerateGamePatch()", "For E.Event = Each Event", "Local QuitEvent.Event = First Event", "Local NextQuitEvent.Event = Null", "While QuitEvent <> Null", "NextQuitEvent = After QuitEvent", "Delete(QuitEvent)", "QuitEvent = NextQuitEvent") = True)
 End Test
 
+Test testPreciseEditSelectedCapturesNextEventBeforeDelete()
+	Assert(GUEEventDrainUsesAfterCursor%("GUE.bb", "Function PreciseEditSelected()", "For E.Event = Each Event", "Local PreciseEvent.Event = First Event", "Local NextPreciseEvent.Event = Null", "While PreciseEvent <> Null", "NextPreciseEvent = After PreciseEvent", "Delete(PreciseEvent)", "PreciseEvent = NextPreciseEvent") = True)
+End Test
+
+Test testEmitterNameDialogCapturesNextEventBeforeDelete()
+	Assert(GUEEventDrainUsesAfterCursor%("GUE.bb", "Function EmitterNameDialog$()", "For E.Event = Each Event", "Local EmitterEvent.Event = First Event", "Local NextEmitterEvent.Event = Null", "While EmitterEvent <> Null", "NextEmitterEvent = After EmitterEvent", "Delete(EmitterEvent)", "EmitterEvent = NextEmitterEvent") = True)
+End Test
+
+Test testFixedAttributeDialogCapturesNextEventBeforeDelete()
+	Assert(GUEEventDrainUsesAfterCursor%("GUE.bb", "Function FixedAttributeDialog()", "For E.Event = Each Event", "Local FixedAttributeEvent.Event = First Event", "Local NextFixedAttributeEvent.Event = Null", "While FixedAttributeEvent <> Null", "NextFixedAttributeEvent = After FixedAttributeEvent", "Delete(FixedAttributeEvent)", "FixedAttributeEvent = NextFixedAttributeEvent") = True)
+End Test
+
 Test testMeshDialogCapturesNextEventBeforeDelete()
 	Assert(GUEEventDrainUsesAfterCursor%("GUE.bb", "Function MeshDialog()", "For E.Event = Each Event", "Local MeshEvent.Event = First Event", "Local NextMeshEvent.Event = Null", "While MeshEvent <> Null", "NextMeshEvent = After MeshEvent", "Delete MeshEvent", "MeshEvent = NextMeshEvent") = True)
 End Test

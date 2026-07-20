@@ -30,6 +30,7 @@ The main source entrypoints live under `src/`:
 - `src/Client.bb` - game client
 - `src/Server.bb` - game server
 - `src/GUE.bb` - Game Unified Editor
+- `src/Loom.bb` - Loom (Beta) editor
 - `src/Project Manager.bb` - launcher and packaging entrypoint
 - `src/Modules/` - shared engine and editor modules
 - `src/Tests/` - Blitz test sources compiled by the test runners
@@ -86,9 +87,12 @@ Successful builds produce the main applications from the repo root:
 - `bin/Client(.exe)`
 - `bin/Server(.exe)`
 - `bin/GUE(.exe)`
+- `bin/Loom(.exe)`
 
 Use Project Manager when you want the normal launcher flow. Use the binaries in
-`bin/` when you want to run the client, server, or editor directly.
+`bin/` when you want to run the client, server, or editor directly. To launch
+Loom (Beta), open Project Manager, choose a project, switch to the Engine tab,
+and select **Loom (Beta)**.
 
 ## Run Tests
 

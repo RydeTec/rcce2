@@ -5,6 +5,7 @@ Const W_Snow  = 2
 Const W_Fog   = 3
 Const W_Storm = 4
 Const W_Wind  = 5
+Const SunRecordBytes = 78
 
 Dim SeasonName$(11)
 Dim SeasonStartDay(11)
@@ -234,37 +235,63 @@ End Function
 
 ; Loads and creates all suns
 Function LoadSuns()
+	Return LoadSunsFromFile("Data\Game Data\Suns.dat")
 
-	F = ReadFile("Data\Game Data\Suns.dat")
+End Function
+
+; Reject malformed Suns.dat before its count can allocate Sun entries.
+; SaveSuns writes a 4-byte count followed by fixed 78-byte records.
+Function LoadSunsFromFile(Filename$)
+
+	F = ReadFile(Filename$)
 	If F = 0 Then Return False
+	Local FileBytes = FileSize(Filename$)
+	If FileBytes < 4
+		CloseFile(F)
+		Return False
+	EndIf
 
-		Suns = ReadInt(F)
-		For i = 1 To Suns
-			S.Sun = New Sun
+	Suns = ReadInt(F)
+	If Suns < 0
+		CloseFile(F)
+		Return False
+	EndIf
+	Local RecordBytes = FileBytes - 4
+	If RecordBytes Mod SunRecordBytes <> 0
+		CloseFile(F)
+		Return False
+	EndIf
+	If Suns <> RecordBytes / SunRecordBytes
+		CloseFile(F)
+		Return False
+	EndIf
+
+	For i = 1 To Suns
+		S.Sun = New Sun
 			
 		
-			;S\TexID = ReadShort(F)
+		;S\TexID = ReadShort(F)
 
-			For j = 0 To 7
-				S\TexID[j] = ReadShort(F)
-			Next
+		For j = 0 To 7
+			S\TexID[j] = ReadShort(F)
+		Next
 			
-			S\ShowPhases = ReadByte(F)
-			S\Phase_Length = ReadByte(F)
-			S\CurrentPhase = 0
+		S\ShowPhases = ReadByte(F)
+		S\Phase_Length = ReadByte(F)
+		S\CurrentPhase = 0
 			
-			S\Size# = ReadFloat#(F)
-			S\LightR = ReadByte(F)
-			S\LightG = ReadByte(F)
-			S\LightB = ReadByte(F)
-			S\PathAngle# = ReadFloat#(F)
-			For j = 0 To 11
-				S\StartH[j] = ReadByte(F)
-				S\StartM[j] = ReadByte(F)
-				S\EndH[j] = ReadByte(F)
-				S\EndM[j] = ReadByte(F)
-			Next
-			S\ShowFlares = ReadByte(F)
+		S\Size# = ReadFloat#(F)
+		S\LightR = ReadByte(F)
+		S\LightG = ReadByte(F)
+		S\LightB = ReadByte(F)
+		S\PathAngle# = ReadFloat#(F)
+		For j = 0 To 11
+			S\StartH[j] = ReadByte(F)
+			S\StartM[j] = ReadByte(F)
+			S\EndH[j] = ReadByte(F)
+			S\EndM[j] = ReadByte(F)
+		Next
+		S\ShowFlares = ReadByte(F)
 		Next
 
 	CloseFile(F)

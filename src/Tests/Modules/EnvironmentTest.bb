@@ -31,6 +31,74 @@ End Function
 
 Include "Modules\Environment.bb"
 
+Global SunLoadTestFile$ = CurrentDir$() + "environment_suns_test.dat"
+
+Function ClearSunLoadTestState()
+	If FileType(SunLoadTestFile$) = 1 Then DeleteFile(SunLoadTestFile$)
+	Local S.Sun = First Sun
+	Local NextS.Sun
+	While S <> Null
+		NextS = After S
+		Delete S
+		S = NextS
+	Wend
+End Function
+
+Function SunLoadTestCount()
+	Local Count = 0
+	For S.Sun = Each Sun
+		Count = Count + 1
+	Next
+	Return Count
+End Function
+
+Function WriteSunLoadTestRecord(F.BBStream)
+	Local i
+	For i = 0 To 7
+		WriteShort F, 0
+	Next
+	WriteByte F, 0
+	WriteByte F, 1
+	WriteFloat F, 1.0
+	WriteByte F, 255
+	WriteByte F, 255
+	WriteByte F, 255
+	WriteFloat F, 0.0
+	For i = 0 To 11
+		WriteByte F, 0
+		WriteByte F, 0
+		WriteByte F, 0
+		WriteByte F, 0
+	Next
+	WriteByte F, 0
+End Function
+
+Function WriteSunLoadTestFile%(Count, Records, TrailingBytes = 0)
+	Local F.BBStream = WriteFile(SunLoadTestFile$)
+	Local i
+	If F = Null Then Return False
+	WriteInt F, Count
+	For i = 1 To Records
+		WriteSunLoadTestRecord(F)
+	Next
+	For i = 1 To TrailingBytes
+		WriteByte F, 0
+	Next
+	CloseFile F
+	Return True
+End Function
+
+Function WriteSunLoadTestHeaderBytes%(Bytes)
+	Local F.BBStream = WriteFile(SunLoadTestFile$)
+	Local i
+	If F = Null Then Return False
+	For i = 1 To Bytes
+		WriteByte F, 0
+	Next
+	CloseFile F
+	Return True
+End Function
+
 ; TimeDelta is pure arithmetic over hour/minute pairs. The function has three
 ; branches (same-hour, forward-in-day, wraps-past-midnight); pin each one so
 ; later refactors of the day-cycle math can't drift the wall-clock delta the
@@ -58,3 +126,43 @@ Test testTimeDeltaSpansMidnightWhenEndHourBeforeStartHour()
 	Assert(TimeDelta(22, 0, 1, 0) = 180)
 End Test
 
+Test testLoadSunsRejectsMissingOrUndersizedHeadersBeforeAllocation()
+	ClearSunLoadTestState()
+	Assert(WriteSunLoadTestHeaderBytes(0) = True)
+	Assert(LoadSunsFromFile(SunLoadTestFile$) = False)
+	Assert(SunLoadTestCount() = 0)
+	Assert(WriteSunLoadTestHeaderBytes(3) = True)
+	Assert(LoadSunsFromFile(SunLoadTestFile$) = False)
+	Assert(SunLoadTestCount() = 0)
+	ClearSunLoadTestState()
+End Test
+
+Test testLoadSunsRejectsNegativeAndOverclaimedCountsBeforeAllocation()
+	ClearSunLoadTestState()
+	Assert(WriteSunLoadTestFile(-1, 0) = True)
+	Assert(LoadSunsFromFile(SunLoadTestFile$) = False)
+	Assert(SunLoadTestCount() = 0)
+	Assert(WriteSunLoadTestFile(1, 0) = True)
+	Assert(LoadSunsFromFile(SunLoadTestFile$) = False)
+	Assert(SunLoadTestCount() = 0)
+	ClearSunLoadTestState()
+End Test
+
+Test testLoadSunsRejectsTruncatedAndTrailingRecordsBeforeAllocation()
+	ClearSunLoadTestState()
+	Assert(WriteSunLoadTestFile(1, 0, 77) = True)
+	Assert(LoadSunsFromFile(SunLoadTestFile$) = False)
+	Assert(SunLoadTestCount() = 0)
+	Assert(WriteSunLoadTestFile(1, 1, 1) = True)
+	Assert(LoadSunsFromFile(SunLoadTestFile$) = False)
+	Assert(SunLoadTestCount() = 0)
+	ClearSunLoadTestState()
+End Test
+
+Test testLoadSunsLoadsTheExactDeclaredRecordCount()
+	ClearSunLoadTestState()
+	Assert(WriteSunLoadTestFile(1, 1) = True)
+	Assert(LoadSunsFromFile(SunLoadTestFile$) = True)
+	Assert(SunLoadTestCount() = 1)
+	ClearSunLoadTestState()
+End Test
