@@ -1027,7 +1027,9 @@ Function BVM_SETLEADER(Param1%, Param2%)
 				If Actor\SourceSP > -1
 					AInstance.AreaInstance = Object.AreaInstance(Actor\ServerArea)
 					If AInstance <> Null
-						AInstance\Spawned[Actor\SourceSP] = AInstance\Spawned[Actor\SourceSP] - 1
+						If Actor\SourceSP <= 999
+							AInstance\Spawned[Actor\SourceSP] = AInstance\Spawned[Actor\SourceSP] - 1
+						EndIf
 					EndIf
 					Actor\SourceSP = -1
 				EndIf

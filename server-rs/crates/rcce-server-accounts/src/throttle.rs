@@ -33,6 +33,11 @@ impl LoginThrottle {
         Self::default()
     }
 
+    /// Drop a peer's history when its connection ends.
+    pub fn forget(&mut self, peer: u32) {
+        self.entries.remove(&peer);
+    }
+
     /// `LoginAttemptOk%` — true if a fresh attempt from `peer` should be
     /// processed. False once the peer has tripped the failure threshold inside
     /// the current window.
@@ -51,8 +56,10 @@ impl LoginThrottle {
     /// counter; failure increments it (opening a fresh window if the prior one
     /// closed).
     pub fn record(&mut self, peer: u32, success: bool, now_ms: u64) {
+        self.entries
+            .retain(|_, entry| now_ms.saturating_sub(entry.window_start_ms) < WINDOW_MS);
         if success {
-            self.entries.remove(&peer);
+            self.forget(peer);
             return;
         }
         match self.entries.get_mut(&peer) {
@@ -131,5 +138,15 @@ mod tests {
         }
         assert!(!t.ok(1, 0));
         assert!(t.ok(2, 0));
+    }
+
+    #[test]
+    fn later_failure_prunes_expired_peer_entries() {
+        let mut t = LoginThrottle::new();
+        t.record(1, false, 0);
+        t.record(2, false, WINDOW_MS);
+
+        assert!(!t.entries.contains_key(&1));
+        assert!(t.entries.contains_key(&2));
     }
 }

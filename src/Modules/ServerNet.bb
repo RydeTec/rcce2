@@ -2004,6 +2004,7 @@ Function UpdateNetwork()
 				Else
 					M\FromID = RCE_LastDisconnectedPeer()	
 				EndIf
+				LoginAttemptForget(M\FromID)
 				; Find which actor instance he was
 				AI.ActorInstance = FindActorInstanceFromRNID(M\FromID)
 				If AI <> Null

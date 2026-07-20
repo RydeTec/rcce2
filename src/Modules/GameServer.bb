@@ -230,7 +230,9 @@ Function KillActor(A.ActorInstance, Killer.ActorInstance)
 		If A\SourceSP > -1
 			AInstance.AreaInstance = Object.AreaInstance(A\ServerArea)
 			If AInstance <> Null
-				AInstance\Spawned[A\SourceSP] = AInstance\Spawned[A\SourceSP] - 1
+				If A\SourceSP <= 999
+					AInstance\Spawned[A\SourceSP] = AInstance\Spawned[A\SourceSP] - 1
+				EndIf
 			EndIf
 		EndIf
 		FreeActorScripts(A)
@@ -1347,7 +1349,9 @@ Function SetArea(A.ActorInstance, Ar.Area, Instance, Waypoint = -1, Portal = 0, 
 	If Ar\Instances[Instance] <> OldAr
 		; If this actor still belongs to a spawnpoint, remove him
 		If A\SourceSP > -1
-			If OldAr <> Null Then OldAr\Spawned[A\SourceSP] = OldAr\Spawned[A\SourceSP] - 1
+			If A\SourceSP <= 999
+				If OldAr <> Null Then OldAr\Spawned[A\SourceSP] = OldAr\Spawned[A\SourceSP] - 1
+			EndIf
 			A\SourceSP = -1
 		EndIf
 
