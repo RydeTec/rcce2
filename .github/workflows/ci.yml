@@ -215,6 +215,22 @@ jobs:
           restore-keys: |
             cargo-server-${{ runner.os }}-
 
+      # The Unix wrapper is the release-facing contract: it builds both Rust
+      # apps with their lockfiles and copies the shipped binaries into bin/.
+      # rcce-client links CPAL's native ALSA backend on Linux, so install its
+      # development metadata before exercising that real release path.
+      - name: Install Linux audio build dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libasound2-dev
+
+      - name: Package Rust apps for Linux
+        shell: bash
+        run: |
+          ./compile.sh -e -t -r
+          test -x bin/ClientRS
+          test -x bin/ServerRS
+
       - name: Build + test (server workspace, locked)
         working-directory: server-rs
         run: cargo test --workspace --locked
