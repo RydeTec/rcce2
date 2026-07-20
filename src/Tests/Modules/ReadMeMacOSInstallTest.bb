@@ -80,3 +80,9 @@ Test testPublicSourceBuildOnboardingListsLoomAsShippedBeta()
 	Assert(FileContains%("ReadMe.md", "Loom replacement for GUE") = False)
 	Assert(FileContains%("docs/start.md", "Loom replacement for GUE") = False)
 End Test
+
+Test testDocumentationLandingLinksLoomAsShippedBeta()
+	Assert(FileContains%("docs/index.md", "[`loom/README.md`](loom/README.md) - Loom (Beta) editor guide") = True)
+	Assert(FileContains%("docs/index.md", "Client, Server, GUE, Loom (Beta), and Project Manager") = True)
+	Assert(FileContains%("docs/index.md", "Loom replacement for GUE") = False)
+End Test

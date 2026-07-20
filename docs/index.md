@@ -8,13 +8,14 @@ behavior, or finding module-level details.
 ## Start Here
 
 - [`start.md`](start.md) - contributor/source-build quick start
+- [`loom/README.md`](loom/README.md) - Loom (Beta) editor guide
 - [`reference.md`](reference.md) - module-by-module engine reference
 - [`formats.md`](formats.md) - on-disk data format notes
 - [`scripting/language.md`](scripting/language.md) - the RSL scripting language for content authors
 
 ## What These Docs Cover
 
-- `src/` application entrypoints such as Client, Server, GUE, and Project Manager
+- `src/` application entrypoints such as Client, Server, GUE, Loom (Beta), and Project Manager
 - `src/Modules/` engine and editor modules
 - file formats and scripting-adjacent data surfaces
 
