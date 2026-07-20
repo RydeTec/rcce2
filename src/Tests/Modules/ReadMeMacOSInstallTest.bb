@@ -51,3 +51,16 @@ Test testContributorGeneratedDocsGuidanceMatchesCI()
 	Assert(FileContains%(".github\workflows\ci.yml", "bash scripts/gen_packet_index.sh --check") = True)
 	Assert(FileContains%(".github\workflows\ci.yml", "bash scripts/gen_bvm_reference.sh --check") = True)
 End Test
+
+Test testPublicSourceBuildOnboardingListsLoomAsShippedBeta()
+	Assert(FileContains%("ReadMe.md", "src/Loom.bb") = True)
+	Assert(FileContains%("ReadMe.md", "bin/Loom(.exe)") = True)
+	Assert(FileContains%("ReadMe.md", "Loom (Beta)") = True)
+	Assert(FileContains%("ReadMe.md", "Launch Loom (Beta) from Project Manager") = True)
+	Assert(FileContains%("docs/start.md", "src/Loom.bb") = True)
+	Assert(FileContains%("docs/start.md", "bin/Loom(.exe)") = True)
+	Assert(FileContains%("docs/start.md", "Loom (Beta)") = True)
+	Assert(FileContains%("docs/start.md", "Loom (Beta), open Project Manager") = True)
+	Assert(FileContains%("ReadMe.md", "Loom replacement for GUE") = False)
+	Assert(FileContains%("docs/start.md", "Loom replacement for GUE") = False)
+End Test
