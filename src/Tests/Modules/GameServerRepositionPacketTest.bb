@@ -61,11 +61,11 @@ Function FileSectionContainsSequence%(Path$, StartNeedle$, EndNeedle$, FirstNeed
 End Function
 
 Test testSameAreaSetAreaUsesMoveFrame()
-	Assert(FileSectionContainsSequence%("Modules\\GameServer.bb", "; If he's warped to the same area he was already in, tell players he has changed position", "; Removes an actor instance from a party", "Pa$ = \"M\" + RCE_StrFromInt$(A\\RuntimeID, 2)", "RCE_StrFromFloat$(A\\X#)", "RCE_Send(Host, A2\\RNID, P_RepositionActor, Pa$, True)") = True)
+	Assert(FileSectionContainsSequence%("Modules\\GameServer.bb", "; If he's warped to the same area he was already in, tell players he has changed position", "; Removes an actor instance from a party", "Pa$ = " + Chr$(34) + "M" + Chr$(34) + " + RCE_StrFromInt$(A\\RuntimeID, 2)", "RCE_StrFromFloat$(A\\X#)", "RCE_Send(Host, A2\\RNID, P_RepositionActor, Pa$, True)") = True)
 	Assert(FileSectionContains%("Modules\\GameServer.bb", "; If he's warped to the same area he was already in, tell players he has changed position", "; Removes an actor instance from a party", "Pa$ = RCE_StrFromInt$(A\\RuntimeID, 2)") = False)
 End Test
 
 Test testClientRepositionMoveDecoderRequiresMoveSubCode()
-	Assert(FileSectionContains%("Modules\\ClientNet.bb", "Case P_RepositionActor", "; Floating number", "If Left$(M\\MessageData$, 1) = \"M\"") = True)
+	Assert(FileSectionContains%("Modules\\ClientNet.bb", "Case P_RepositionActor", "; Floating number", "If Left$(M\\MessageData$, 1) = " + Chr$(34) + "M" + Chr$(34)) = True)
 	Assert(FileSectionContains%("Modules\\ClientNet.bb", "Case P_RepositionActor", "; Floating number", "RuntimeID = RCE_IntFromStr(Mid$(M\\MessageData$, 2, 2))") = True)
 End Test
