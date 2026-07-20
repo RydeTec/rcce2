@@ -19,6 +19,10 @@ Function GUEEventDrainUsesAfterCursor%(Path$, FunctionMarker$, LegacyFor$, First
 			CloseFile F
 			Return False
 		EndIf
+		If Stage > 0 And Instr(Line$, "E\\Event") > 0 Then
+			CloseFile F
+			Return False
+		EndIf
 		If Stage = 1 And Instr(Line$, FirstCursor$) > 0 Then Stage = 2
 		If Stage = 2 And Instr(Line$, NextDeclaration$) > 0 Then Stage = 3
 		If Stage = 3 And Instr(Line$, WhileCursor$) > 0 Then Stage = 4

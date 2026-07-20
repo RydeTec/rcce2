@@ -9801,7 +9801,7 @@ Function SaveDialog()
 
 				; Window closed
 				Case W
-					If Lower$(E\EventData$) = "closed" Then Result = False
+					If Lower$(SaveEvent\EventData$) = "closed" Then Result = False
 				; Cancel hit
 				Case BCancel
 					Result = False
