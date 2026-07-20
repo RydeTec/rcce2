@@ -719,16 +719,27 @@ Function SlaveUnlink(Slave.ActorInstance)
 	; Walk-to-find-predecessor splice on the leader's chain.
 	If Leader\FirstSlave = Slave
 		Leader\FirstSlave = Slave\NextSlave
+		Slave\NextSlave = Null
+		Slave\Leader = Null
+		Leader\NumberOfSlaves = Leader\NumberOfSlaves - 1
+		Return
 	Else
 		Local Prev.ActorInstance = Leader\FirstSlave
-		While Prev <> Null And Prev\NextSlave <> Slave
+		While Prev <> Null
+			If Prev\NextSlave = Slave
+				Prev\NextSlave = Slave\NextSlave
+				Slave\NextSlave = Null
+				Slave\Leader = Null
+				Leader\NumberOfSlaves = Leader\NumberOfSlaves - 1
+				Return
+			EndIf
 			Prev = Prev\NextSlave
 		Wend
-		If Prev <> Null Then Prev\NextSlave = Slave\NextSlave
 	EndIf
+	; A stale leader pointer can outlive its leader's membership chain. Clear
+	; only the detached slave state: do not alter a valid leader chain/count.
 	Slave\NextSlave = Null
 	Slave\Leader = Null
-	Leader\NumberOfSlaves = Leader\NumberOfSlaves - 1
 
 End Function
 
