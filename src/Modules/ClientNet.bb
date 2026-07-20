@@ -1457,9 +1457,9 @@ Function UpdateNetwork()
 						EndIf
 						RotateEntity(DItem\EN, 0.0, Rnd#(-180.0, 180.0), 0.0)
 						NameEntity(DItem\EN, Handle(DItem))
-					; Update for another actor
-					Case "O"
-						RuntimeID = RCE_IntFromStr(Mid$(M\MessageData$, 2, 2))
+					Case "O" : If Len(M\MessageData$) <> 17
+						WriteLog(MainLog, "P_InventoryUpdate O: bad payload length " + Len(M\MessageData$) + ", dropping")
+					Else : RuntimeID = RCE_IntFromStr(Mid$(M\MessageData$, 2, 2))
 						A.ActorInstance = RuntimeIDList(RuntimeID)
 						If A <> Null
 							WeaponID = RCE_IntFromStr(Mid$(M\MessageData$, 4, 2))
@@ -1485,7 +1485,7 @@ Function UpdateNetwork()
 									HideGubbin(A, i)
 								EndIf
 							Next
-						EndIf
+						EndIf : EndIf
 					; Given an item
 					Case "G"
 						ItemID = RCE_IntFromStr(Mid$(M\MessageData$, 6, 2))
