@@ -73,16 +73,25 @@ Function FileContainsOrderedSequence10%(Path$, FirstNeedle$, SecondNeedle$, Thir
 	If F = Null Then Return False
 	While Not Eof(F)
 		Line$ = ReadLine$(F)
-		If Stage = 0 And Instr(Line$, FirstNeedle$) > 0 Then Stage = 1
-		Else If Stage = 1 And Instr(Line$, SecondNeedle$) > 0 Then Stage = 2
-		Else If Stage = 2 And Instr(Line$, ThirdNeedle$) > 0 Then Stage = 3
-		Else If Stage = 3 And Instr(Line$, FourthNeedle$) > 0 Then Stage = 4
-		Else If Stage = 4 And Instr(Line$, FifthNeedle$) > 0 Then Stage = 5
-		Else If Stage = 5 And Instr(Line$, SixthNeedle$) > 0 Then Stage = 6
-		Else If Stage = 6 And Instr(Line$, SeventhNeedle$) > 0 Then Stage = 7
-		Else If Stage = 7 And Instr(Line$, EighthNeedle$) > 0 Then Stage = 8
-		Else If Stage = 8 And Instr(Line$, NinthNeedle$) > 0 Then Stage = 9
-		Else If Stage = 9 And Instr(Line$, TenthNeedle$) > 0
+		If Stage = 0 And Instr(Line$, FirstNeedle$) > 0
+			Stage = 1
+		ElseIf Stage = 1 And Instr(Line$, SecondNeedle$) > 0
+			Stage = 2
+		ElseIf Stage = 2 And Instr(Line$, ThirdNeedle$) > 0
+			Stage = 3
+		ElseIf Stage = 3 And Instr(Line$, FourthNeedle$) > 0
+			Stage = 4
+		ElseIf Stage = 4 And Instr(Line$, FifthNeedle$) > 0
+			Stage = 5
+		ElseIf Stage = 5 And Instr(Line$, SixthNeedle$) > 0
+			Stage = 6
+		ElseIf Stage = 6 And Instr(Line$, SeventhNeedle$) > 0
+			Stage = 7
+		ElseIf Stage = 7 And Instr(Line$, EighthNeedle$) > 0
+			Stage = 8
+		ElseIf Stage = 8 And Instr(Line$, NinthNeedle$) > 0
+			Stage = 9
+		ElseIf Stage = 9 And Instr(Line$, TenthNeedle$) > 0
 			CloseFile F
 			Return True
 		EndIf
