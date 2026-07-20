@@ -33,7 +33,7 @@ The shipped beta implements **five of these directly** (threads, conscience ribb
 
 A full-featured GUE replacement with thread navigation, search, and a custom-drawn aesthetic. Specifically:
 
-- **Browser** with seven categories (actors / items / spells / zones / factions / anim sets / tools) — each card is clickable; arrow keys + Enter for keyboard nav; live filter input above the grid.
+- **Browser** with 18 categories: Actors / Items / Spells / Projectiles / Particles / Zones / Factions / Animation Sets / Tools / Scripts / Textures / Meshes / Sounds / Music / Stats / Days & Seasons / Interface / Settings. Content and asset categories use clickable card grids; Tools launches companion editors, while Stats, Days & Seasons, Interface, and Settings expose project-level surfaces. Arrow keys + Enter navigate; card grids have live filter input.
 - **Composer** panel for the focused entity — ~40 editable fields across every kind; Save / Discard / Delete buttons (arm-confirm on the destructive ones); per-field range clamps so typos can't poison data.
 - **Thread chips** for every reference between entities — left-click jumps + pushes back stack (Esc walks back); right-click opens the **palette as a picker** filtered to that chip's kind so you can swap the referent without leaving the composer. Broken refs render danger-red.
 - **Conscience Ribbon** at the top — per-kind dirty badges (click to Save), broken-reference count (click → modal that enumerates each dangling ref with click-to-jump), total entity counts.
