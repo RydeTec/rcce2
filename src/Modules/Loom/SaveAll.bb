@@ -62,26 +62,67 @@ End Function
 // Actually it doesn't matter here -- ServerSaveArea reads focus via
 // composer\threads\focusID but Composer::commitSaveForKind for "zone"
 // pulls the Area from focusID directly; if the user is on a different
-// kind when Save All fires, the zone branch becomes a no-op (logs
-// "stale handle"). Acceptable: the focused kind is whatever the user
-// was last on, and Save All from any tab still saves every OTHER kind.
+// kind when Save All fires, the zone branch fails without clearing its dirty
+// flag. Save All preserves every other successful save, reports the failure,
+// and the exit modal remains open so the user can return to the zone instead
+// of losing the unsaved edit.
 // =============================================================================
-Function SaveAll_Persist(composer.Composer)
-    If composer = Null Then Return
+Function SaveAll_Persist%(composer.Composer)
+    If composer = Null Then Return False
 
-    // Count what we save so the trailing toast is informative
+    // Count only successful saves so the trailing toast cannot report a
+    // failed serializer as persisted.
     Local count% = 0
-    If ActorsSaved = False   Then Composer::commitSaveForKind(composer, "actor")   : count = count + 1
-    If ItemsSaved = False    Then Composer::commitSaveForKind(composer, "item")    : count = count + 1
-    If SpellsSaved = False   Then Composer::commitSaveForKind(composer, "spell")   : count = count + 1
-    If FactionsSaved = False Then Composer::commitSaveForKind(composer, "faction") : count = count + 1
-    If AnimsSaved = False    Then Composer::commitSaveForKind(composer, "animset") : count = count + 1
-    If ProjectilesSaved = False Then Composer::commitSaveForKind(composer, "projectile") : count = count + 1
-    If ParticlesSaved = False Then Composer::commitSaveForKind(composer, "particle") : count = count + 1
-    If ZoneSaved = False     Then Composer::commitSaveForKind(composer, "zone")    : count = count + 1
-    If SettingsSaved = False Then Composer::commitSaveForKind(composer, "settings"): count = count + 1
-    If EnvironmentSaved = False Then Composer::commitSaveForKind(composer, "environment"): count = count + 1
-    If InterfaceSaved = False Then Composer::commitSaveForKind(composer, "interface"): count = count + 1
+    If ActorsSaved = False
+        Composer::commitSaveForKind(composer, "actor")
+        If ActorsSaved = True Then count = count + 1
+    EndIf
+    If ItemsSaved = False
+        Composer::commitSaveForKind(composer, "item")
+        If ItemsSaved = True Then count = count + 1
+    EndIf
+    If SpellsSaved = False
+        Composer::commitSaveForKind(composer, "spell")
+        If SpellsSaved = True Then count = count + 1
+    EndIf
+    If FactionsSaved = False
+        Composer::commitSaveForKind(composer, "faction")
+        If FactionsSaved = True Then count = count + 1
+    EndIf
+    If AnimsSaved = False
+        Composer::commitSaveForKind(composer, "animset")
+        If AnimsSaved = True Then count = count + 1
+    EndIf
+    If ProjectilesSaved = False
+        Composer::commitSaveForKind(composer, "projectile")
+        If ProjectilesSaved = True Then count = count + 1
+    EndIf
+    If ParticlesSaved = False
+        Composer::commitSaveForKind(composer, "particle")
+        If ParticlesSaved = True Then count = count + 1
+    EndIf
+    If ZoneSaved = False
+        Composer::commitSaveForKind(composer, "zone")
+        If ZoneSaved = True Then count = count + 1
+    EndIf
+    If SettingsSaved = False
+        Composer::commitSaveForKind(composer, "settings")
+        If SettingsSaved = True Then count = count + 1
+    EndIf
+    If EnvironmentSaved = False
+        Composer::commitSaveForKind(composer, "environment")
+        If EnvironmentSaved = True Then count = count + 1
+    EndIf
+    If InterfaceSaved = False
+        Composer::commitSaveForKind(composer, "interface")
+        If InterfaceSaved = True Then count = count + 1
+    EndIf
+
+    If SaveAll_AnyDirty() = True
+        Toast_Show("Save All: persistence failed", "danger")
+        WriteLog(LoomLog, "SaveAll: persistence failed after " + Str(count) + " successful saves")
+        Return False
+    EndIf
 
     // Each commitSaveForKind already fires its own per-kind success
     // toast; the Save All summary kicks in only when there's more than
@@ -93,6 +134,7 @@ Function SaveAll_Persist(composer.Composer)
     EndIf
 
     WriteLog(LoomLog, "SaveAll: persisted " + Str(count) + " dirty kinds")
+    Return True
 End Function
 
 
@@ -102,8 +144,9 @@ End Function
 // State machine:
 //   closed                 -- normal Loom session
 //   open, undecided        -- waiting for user click
-//   open, save-clicked     -- transient; SaveAll_Persist invoked, modal
-//                             closes, exitConfirmed = True
+//   open, save-clicked     -- transient; SaveAll_Persist invoked. The modal
+//                             closes and exitConfirmed = True only when every
+//                             dirty kind persists successfully.
 //   open, discard-clicked  -- modal closes, exitConfirmed = True
 //   open, cancel-clicked   -- modal closes, exitConfirmed stays False
 //
@@ -235,9 +278,10 @@ Type ExitPrompt
 
         If hovered And clicked
             If action = "save"
-                SaveAll_Persist(self\composer)
-                self\exitConfirmed = True
-                ExitPrompt::closeModal(self)
+                If SaveAll_Persist(self\composer) = True
+                    self\exitConfirmed = True
+                    ExitPrompt::closeModal(self)
+                EndIf
             Else If action = "discard"
                 self\exitConfirmed = True
                 ExitPrompt::closeModal(self)
