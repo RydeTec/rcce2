@@ -24,6 +24,16 @@ Function OnLostConnection()
 	RuntimeError(LanguageString$(LS_LostConnection))
 End Function
 
+; A server packet can arrive while the local actor is being replaced or with
+; an out-of-range one-byte slot. Keep every inventory/UI array dereference
+; behind this nested guard; BlitzForge evaluates `Or` eagerly.
+Function ClientInventorySlotUsable(SlotI)
+	If Me = Null Then Return False
+	If Me\Inventory = Null Then Return False
+	If SlotI < 0 Or SlotI > Slots_Inventory Then Return False
+	Return True
+End Function
+
 ; Connects to the server
 Function Connect()
 
@@ -247,9 +257,17 @@ Function UpdateNetwork()
 
 			; Item health updated
 			Case P_ItemHealth
-				SlotI = RCE_IntFromStr(Left$(M\MessageData$, 1))
-				Health = RCE_IntFromStr(Right$(M\MessageData$, 2))
-				If Me\Inventory\Items[SlotI] <> Null Then Me\Inventory\Items[SlotI]\ItemHealth = Health
+				If Len(M\MessageData$) < 3
+					WriteLog(MainLog, "P_ItemHealth: truncated inventory packet, dropping")
+				Else
+					SlotI = RCE_IntFromStr(Left$(M\MessageData$, 1))
+					Health = RCE_IntFromStr(Right$(M\MessageData$, 2))
+					If ClientInventorySlotUsable(SlotI)
+						If Me\Inventory\Items[SlotI] <> Null Then Me\Inventory\Items[SlotI]\ItemHealth = Health
+					Else
+						WriteLog(MainLog, "P_ItemHealth: invalid inventory slot or player, dropping")
+					EndIf
+				EndIf
 
 			; Owned scenery selected {##}
 			Case P_SelectScenery
@@ -1283,83 +1301,108 @@ Function UpdateNetwork()
 				Select Left$(M\MessageData$, 1)
 					; An item health has changed
 					Case "H"
-						SlotI = RCE_IntFromStr(Mid$(M\MessageData$, 2, 1))
-						Amount = RCE_IntFromStr(Mid$(M\MessageData$, 3, 1))
-						If Me\Inventory\Items[SlotI] <> Null
-							Me\Inventory\Items[SlotI]\ItemHealth = Amount
+						If Len(M\MessageData$) < 3
+							WriteLog(MainLog, "P_InventoryUpdate H: truncated packet, dropping")
+						Else
+							SlotI = RCE_IntFromStr(Mid$(M\MessageData$, 2, 1))
+							Amount = RCE_IntFromStr(Mid$(M\MessageData$, 3, 1))
+							If ClientInventorySlotUsable(SlotI)
+								If Me\Inventory\Items[SlotI] <> Null
+									Me\Inventory\Items[SlotI]\ItemHealth = Amount
+								EndIf
+							Else
+								WriteLog(MainLog, "P_InventoryUpdate H: invalid inventory slot or player, dropping")
+							EndIf
 						EndIf
 					; An item has been taken from my inventory
 					Case "T"
-						SlotI = RCE_IntFromStr(Mid$(M\MessageData$, 2, 1))
-						Amount = RCE_IntFromStr(Mid$(M\MessageData$, 3, 2))
-						If Me\Inventory\Items[SlotI] <> Null
-							Me\Inventory\Amounts[SlotI] = Me\Inventory\Amounts[SlotI] - Amount
-							; All gone
-							If Me\Inventory\Amounts[SlotI] <= 0
-								; Remove item
-								Me\Inventory\Amounts[SlotI] = 0
-								FreeItemInstance(Me\Inventory\Items[SlotI])
+						If Len(M\MessageData$) < 4
+							WriteLog(MainLog, "P_InventoryUpdate T: truncated packet, dropping")
+						Else
+							SlotI = RCE_IntFromStr(Mid$(M\MessageData$, 2, 1))
+							Amount = RCE_IntFromStr(Mid$(M\MessageData$, 3, 2))
+							If ClientInventorySlotUsable(SlotI)
+								If Me\Inventory\Items[SlotI] <> Null
+									Me\Inventory\Amounts[SlotI] = Me\Inventory\Amounts[SlotI] - Amount
+									; All gone
+									If Me\Inventory\Amounts[SlotI] <= 0
+										; Remove item
+										Me\Inventory\Amounts[SlotI] = 0
+										FreeItemInstance(Me\Inventory\Items[SlotI])
 
-								; Visual stuff
-								If InventoryVisible = True
-									GY_SetButtonState(BSlots(SlotI), True)
-									GY_SetButtonLabel(BSlots(SlotI), "")
-									GYG.GY_Gadget = Object.GY_Gadget(BSlots(SlotI))
-									GYB.GY_Button = Object.GY_Button(GYG\TypeHandle)
-									EntityTexture GYB\Gadget\EN, GYB\UserTexture
-									If MouseSlotSource = SlotI Or MouseSlotSource = -1
-										HideEntity MouseSlotEN : MouseSlotItem = Null : MouseSlotAmount = 0 : MouseSlotSource = -1
-										EnableInventoryBlanks(True)
-									Else
-										EnableInventoryBlanks(False)
+										; Visual stuff
+										If InventoryVisible = True
+											GY_SetButtonState(BSlots(SlotI), True)
+											GY_SetButtonLabel(BSlots(SlotI), "")
+											GYG.GY_Gadget = Object.GY_Gadget(BSlots(SlotI))
+											GYB.GY_Button = Object.GY_Button(GYG\TypeHandle)
+											EntityTexture GYB\Gadget\EN, GYB\UserTexture
+											If MouseSlotSource = SlotI Or MouseSlotSource = -1
+												HideEntity MouseSlotEN : MouseSlotItem = Null : MouseSlotAmount = 0 : MouseSlotSource = -1
+												EnableInventoryBlanks(True)
+											Else
+												EnableInventoryBlanks(False)
+											EndIf
+										EndIf
+										UpdateActorItems(Me)
+									; Not all gone but update the amount
+									ElseIf InventoryVisible = True
+										GY_SetButtonLabel(BSlots(SlotI), Me\Inventory\Amounts[SlotI], 100, 255, 0, True)
 									EndIf
 								EndIf
-								UpdateActorItems(Me)
-							; Not all gone but update the amount
-							ElseIf InventoryVisible = True
-								GY_SetButtonLabel(BSlots(SlotI), Me\Inventory\Amounts[SlotI], 100, 255, 0, True)
+							Else
+								WriteLog(MainLog, "P_InventoryUpdate T: invalid inventory slot or player, dropping")
 							EndIf
 						EndIf
 					; I received a dropped item
 					Case "R"
-						For DItem.DroppedItem = Each DroppedItem
-							If DItem\ServerHandle = RCE_IntFromStr(Mid$(M\MessageData$, 2, 4))
-								; Put in slot
-								i = RCE_IntFromStr(Mid$(M\MessageData$, 6, 1))
-								If Me\Inventory\Items[i] <> Null
-									FreeItemInstance(Me\Inventory\Items[i])
-								Else
-									Me\Inventory\Amounts[i] = 0
-								EndIf
-								Me\Inventory\Items[i] = DItem\Item
-								Me\Inventory\Amounts[i] = Me\Inventory\Amounts[i] + DItem\Amount
+						If Len(M\MessageData$) < 6
+							WriteLog(MainLog, "P_InventoryUpdate R: truncated packet, dropping")
+						Else
+							i = RCE_IntFromStr(Mid$(M\MessageData$, 6, 1))
+							If ClientInventorySlotUsable(i)
+								For DItem.DroppedItem = Each DroppedItem
+									If DItem\ServerHandle = RCE_IntFromStr(Mid$(M\MessageData$, 2, 4))
+										; Put in slot
+										If Me\Inventory\Items[i] <> Null
+											FreeItemInstance(Me\Inventory\Items[i])
+										Else
+											Me\Inventory\Amounts[i] = 0
+										EndIf
+										Me\Inventory\Items[i] = DItem\Item
+										Me\Inventory\Amounts[i] = Me\Inventory\Amounts[i] + DItem\Amount
 
-								; Visual stuff
-								If InventoryVisible = True
-									GYG.GY_Gadget = Object.GY_Gadget(BSlots(i))
-									GYB.GY_Button = Object.GY_Button(GYG\TypeHandle)
-									EntityTexture GYB\Gadget\EN, GetTexture(Me\Inventory\Items[i]\Item\ThumbnailTexID)
-									GY_SetButtonState(BSlots(i), False)
-									If Me\Inventory\Amounts[i] > 1
-										GY_SetButtonLabel(BSlots(i), Me\Inventory\Amounts[i], 100, 255, 0, True)
-									Else
-										GY_SetButtonLabel(BSlots(i), "")
+										; Visual stuff
+										If InventoryVisible = True
+											GYG.GY_Gadget = Object.GY_Gadget(BSlots(i))
+											GYB.GY_Button = Object.GY_Button(GYG\TypeHandle)
+											EntityTexture GYB\Gadget\EN, GetTexture(Me\Inventory\Items[i]\Item\ThumbnailTexID)
+											GY_SetButtonState(BSlots(i), False)
+											If Me\Inventory\Amounts[i] > 1
+												GY_SetButtonLabel(BSlots(i), Me\Inventory\Amounts[i], 100, 255, 0, True)
+											Else
+												GY_SetButtonLabel(BSlots(i), "")
+											EndIf
+											GY_LockGadget(BSlots(i), False)
+										EndIf
+										UpdateActorItems(Me)
+
+										; Inform user and delete dropped item
+										If DItem\Amount > 1
+											Output(LanguageString$(LS_PickedUpItem) + " " + DItem\Item\Item\Name$ + " (x" + DItem\Amount + ")", 0, 255, 0)
+										Else
+											Output(LanguageString$(LS_PickedUpItem) + " " + DItem\Item\Item\Name$, 0, 255, 0)
 									EndIf
-									GY_LockGadget(BSlots(i), False)
+										FreeEntity(DItem\EN)
+										Delete DItem
+										Exit
+									EndIf
 								EndIf
-								UpdateActorItems(Me)
-
-								; Inform user and delete dropped item
-								If DItem\Amount > 1
-									Output(LanguageString$(LS_PickedUpItem) + " " + DItem\Item\Item\Name$ + " (x" + DItem\Amount + ")", 0, 255, 0)
-								Else
-									Output(LanguageString$(LS_PickedUpItem) + " " + DItem\Item\Item\Name$, 0, 255, 0)
-								EndIf
-								FreeEntity(DItem\EN)
-								Delete DItem
-								Exit
+								Next
+							Else
+								WriteLog(MainLog, "P_InventoryUpdate R: invalid inventory slot or player, dropping")
 							EndIf
-						Next
+						EndIf
 					; Dropped item has been picked up by someone else
 					Case "P"
 						For DItem.DroppedItem = Each DroppedItem
