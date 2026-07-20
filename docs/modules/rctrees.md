@@ -105,15 +105,15 @@ The freed-but-still-referenced texture/brush is the classic refcount edge — `F
 
 ### Season system
 
-`Tree_SetSeason(sn)` recolors every non-evergreen `Tree` and `RcGrass` to the season's RGB triple from `season_red(0..11)` / `season_green(0..11)` / `season_blue(0..11)`. The 12 seasons (the engine has more than 4) are loaded from `Data\Game Data\RCTE.dat` by `tree_setvalues` — or generated with random defaults and persisted if the file is missing.
+`Tree_SetSeason(sn)` recolors every non-evergreen `Tree` and `RcGrass` to the season's RGB triple from `season_red(0..11)` / `season_green(0..11)` / `season_blue(0..11)`. The 12 seasons (the engine has more than 4) are loaded from `Data\Game Data\RCTE.dat` by `tree_setvalues` — or generated with random defaults and persisted when the file is missing or malformed.
 
-Persistence shape: 12 × 3 × `Int = 144 bytes`. **Plain `WriteFile`, not `SafeWriteOpen` / `SafeWriteCommit`.** A crash during write leaves a truncated file; subsequent `ReadInt` past EOF zero-fills (Blitz3D doesn't error on past-EOF reads), so missing seasons get `0,0,0` (black). This is a SafeWrite migration candidate — same pattern as `RP_SaveEmitterConfig` in [`RottParticles.bb`](rottparticles.md).
+Persistence shape: 12 × 3 × `Int = 144 bytes`. `tree_setvalues` accepts only that exact size for reads; missing or malformed files are regenerated through `SafeWriteOpen` / `SafeWriteCommit`, so a failed promotion preserves the previous file rather than replacing it with a partial table.
 
 ## Conventions for new code touching this module
 
 - **Branch surfaces are identified by texture-name substring `"branch"`.** Authoring a tree mesh where branches don't have "branch" in the texture name collapses the whole tree into a trunk-only entity with no sway. This is undocumented in the source and a future content-pipeline rewrite should formalize the contract.
 - **`Tree\swingstyle` field stores `1` or `4`, NOT the input arg's value.** Input value space is `0..2` (the `Select Case` at line 275-282 picks `CenterMesh` / `HangMesh` / `StandMesh`). Don't compare `rt\swingstyle` against the input arg's range — they're different semantically.
-- **`tree_setvalues` writes `Data\Game Data\RCTE.dat` via plain `WriteFile`.** Atomic-write migration is a candidate; the file is small (144 bytes) and a corrupt write only loses the random defaults, so the impact is low.
+- **`tree_setvalues` treats `Data\Game Data\RCTE.dat` as exactly 144 bytes.** Missing or malformed files are regenerated atomically; do not bypass `SafeWriteOpen` / `SafeWriteCommit` when changing this fixed-size table.
 - **`updatetrees` reads engine globals `currentseason`, `currentweather`, `fogfarnow`** — added at module scope by the broader engine. Not declared in this file. If the engine ever stops setting them, `updatetrees` silently degrades (zero everywhere).
 - **`distance(e1, e2)` is XZ-only** (2D ground-plane distance, ignoring Y) — not Euclidean. Documented by the function body's `Sqr#((EntityX - EntityX)^2 + (EntityZ - EntityZ)^2)`. Aerial trees would compute "near" distances even when far above/below the camera.
 - **Maxbranches = 400 is a `Const` per-tree cap.** A tree with > 400 branch surfaces silently drops the overflow (the surface loop continues but `RT\Branchent[bcount]` indexes past the field's declared size 0..400, which Blitz3D doesn't bounds-check — writing past the field's `[400]` allocates more slots dynamically, but cap-aware code in `updatetrees` only loops `For bn = 1 To rt\maxbranches`).
@@ -129,7 +129,7 @@ Persistence shape: 12 × 3 × `Int = 144 bytes`. **Plain `WriteFile`, not `SafeW
 
 ## See also
 
-- CLAUDE.md → "Atomic writes" — `tree_setvalues`' `WriteFile` on `RCTE.dat` is a migration candidate.
+- CLAUDE.md → "Atomic writes" — `tree_setvalues` follows the repository safe-write convention for `RCTE.dat`.
 - CLAUDE.md → "Gotchas" → "Blitz3D array semantics" — `Dim X(N)` allocates `N+1` slots; relevant for `Dim weather_wind_swaymax#(7, 3)` (8 × 4 slots).
 - [`rottparticles.md`](rottparticles.md) — sibling-style "graphics subsystem with a non-atomic save format" with the same migration-candidate flag.
 
