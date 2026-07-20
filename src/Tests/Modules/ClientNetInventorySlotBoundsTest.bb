@@ -70,6 +70,16 @@ Function ButtonSlot$(SlotName$)
 	Return "BSlots" + Chr$(40) + SlotName$ + Chr$(41)
 End Function
 
+Const EquipmentVisualPayloadBytes% = 17
+
+Function EquipmentVisualPayloadExact%(PayloadLen%)
+	Return PayloadLen = EquipmentVisualPayloadBytes
+End Function
+
+Function EquipmentVisualLengthGuard$()
+	Return "If Len(M" + Chr$(92) + "MessageData$) <> " + EquipmentVisualPayloadBytes
+End Function
+
 Test testClientInventorySlotGuardRejectsMissingPlayerAndOutOfRangeSlots()
 	Local Source$ = ClientNetSource$()
 	Local Guard$ = Between$(Source$, "Function ClientInventorySlotUsable", "End Function")
@@ -103,4 +113,17 @@ Test testInventoryUpdateReceiveValidatesSlotBeforeDroppedItemMutation()
 	Local InventoryUpdate$ = Between$(ClientNetSource$(), "Case P_InventoryUpdate", "Case P_StandardUpdate")
 	Local Received$ = Between$(InventoryUpdate$, "Case " + Chr$(34) + "R" + Chr$(34), "Case " + Chr$(34) + "P" + Chr$(34))
 	Assert(ContainsInOrder%(Received$, PacketLengthGuard$(6), "i = RCE_IntFromStr", UsableSlotGuard$("i"), "For DItem.DroppedItem = Each DroppedItem") = True)
+End Test
+
+Test testEquipmentVisualPayloadRequiresExactly17Bytes()
+	Assert(EquipmentVisualPayloadExact%(0) = False)
+	Assert(EquipmentVisualPayloadExact%(16) = False)
+	Assert(EquipmentVisualPayloadExact%(17) = True)
+	Assert(EquipmentVisualPayloadExact%(18) = False)
+End Test
+
+Test testEquipmentVisualLengthGuardPrecedesParseAndVisualMutation()
+	Local InventoryUpdate$ = Between$(ClientNetSource$(), "Case P_InventoryUpdate", "Case P_StandardUpdate")
+	Local Equipment$ = Between$(InventoryUpdate$, "Case " + Chr$(34) + "O" + Chr$(34), "Case " + Chr$(34) + "G" + Chr$(34))
+	Assert(ContainsInOrder%(Equipment$, EquipmentVisualLengthGuard$(), "RuntimeID = RCE_IntFromStr", "FreeItemInstance(A" + Chr$(92) + "Inventory" + Chr$(92) + "Items[SlotI_Weapon])", "UpdateActorItems(A)") = True)
 End Test
