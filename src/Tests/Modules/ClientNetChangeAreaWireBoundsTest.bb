@@ -20,18 +20,18 @@ End Function
 Function ChangeAreaStateMutation%(Line$)
 	If Instr(Line$, "OldAreaName$ = AreaName$") > 0 Then Return True
 	If Instr(Line$, "OldAreaID = CurrentAreaID") > 0 Then Return True
-	If Instr(Line$, "Me\\") > 0 Then Return True
+	If Instr(Line$, "Me\") > 0 Then Return True
 	If Instr(Line$, "Y# = RCE_FloatFromStr#") > 0 Then Return True
 	If Instr(Line$, "Yaw# = RCE_FloatFromStr#") > 0 Then Return True
 	If Instr(Line$, "PvPEnabled =") > 0 Then Return True
 	If Instr(Line$, "Grav =") > 0 Then Return True
 	If Instr(Line$, "CurrentAreaID =") > 0 Then Return True
-	If Instr(Line$, "AreaName$ = Mid$(M\\MessageData$") > 0 Then Return True
+	If Instr(Line$, "AreaName$ = Mid$(M\MessageData$") > 0 Then Return True
 	If Instr(Line$, "FreeShadowCaster%") > 0 Then Return True
 	If Instr(Line$, "RP_FreeEmitter(") > 0 Then Return True
 	If Instr(Line$, "FreeProjectileInstance(") > 0 Then Return True
 	If Instr(Line$, "SafeFreeActorInstance(") > 0 Then Return True
-	If Instr(Line$, "FreeEntity DItemR\\EN") > 0 Then Return True
+	If Instr(Line$, "FreeEntity DItemR\EN") > 0 Then Return True
 	If Instr(Line$, "Delete DItemR") > 0 Then Return True
 	If Instr(Line$, "UnloadArea()") > 0 Then Return True
 	If Instr(Line$, "LoadArea(AreaName$") > 0 Then Return True
@@ -49,7 +49,7 @@ Function ChangeAreaGuardsPrecedeStateMutation%(Path$)
 	Local F.BBStream = ReadFile(Path$)
 	Local InCase%, Stage%
 	Local Line$
-	If F = Null Then F = ReadFile("..\\" + Path$)
+	If F = Null Then F = ReadFile("..\" + Path$)
 	If F = Null Then Return False
 
 	While Not Eof(F)
@@ -61,15 +61,15 @@ Function ChangeAreaGuardsPrecedeStateMutation%(Path$)
 				CloseFile F
 				Return False
 			EndIf
-			If Stage = 0 And Instr(Line$, "If Len(M\\MessageData$) < 25") > 0
+			If Stage = 0 And Instr(Line$, "If Len(M\MessageData$) < 25") > 0
 				Stage = 1
 			EndIf
 			If Stage = 1 And Instr(Line$, "P_ChangeArea: truncated header, dropping") > 0 Then Stage = 2
 			If Stage = 2 And Trim$(Line$) = "Delete M" Then Stage = 3
 			If Stage = 3 And Trim$(Line$) = "M = MNext" Then Stage = 4
 			If Stage = 4 And Trim$(Line$) = "Continue" Then Stage = 5
-			If Stage = 5 And Instr(Line$, "NameLen = RCE_IntFromStr(Mid$(M\\MessageData$, 25, 1))") > 0 Then Stage = 6
-			If Stage = 6 And Instr(Line$, "If Len(M\\MessageData$) < 25 + NameLen") > 0 Then Stage = 7
+			If Stage = 5 And Instr(Line$, "NameLen = RCE_IntFromStr(Mid$(M\MessageData$, 25, 1))") > 0 Then Stage = 6
+			If Stage = 6 And Instr(Line$, "If Len(M\MessageData$) < 25 + NameLen") > 0 Then Stage = 7
 			If Stage = 7 And Instr(Line$, "P_ChangeArea: truncated area name, dropping") > 0 Then Stage = 8
 			If Stage = 8 And Trim$(Line$) = "Delete M" Then Stage = 9
 			If Stage = 9 And Trim$(Line$) = "M = MNext" Then Stage = 10
@@ -97,5 +97,5 @@ Test testChangeAreaRejectsTruncatedDeclaredName()
 End Test
 
 Test testChangeAreaGuardsPrecedeZoneStateMutation()
-	Assert(ChangeAreaGuardsPrecedeStateMutation%("Modules\\ClientNet.bb") = True)
+	Assert(ChangeAreaGuardsPrecedeStateMutation%("Modules\ClientNet.bb") = True)
 End Test
