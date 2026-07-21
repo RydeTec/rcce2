@@ -7,9 +7,10 @@ compile/runtime feasibility branch, not approval to migrate the production
 renderer or select a UI framework.
 
 The spike moves `rcce-render` from wgpu 22 to exact wgpu 26.0.1 without changing
-its device topology, requested feature set, downlevel limits, texture formats,
-or error propagation. Cargo continues to resolve wgpu 22.1.0 for `rcce-client`;
-no client manifest or call site was changed.
+its device topology, requested feature set, downlevel limits, or texture
+formats. Result-based failure handling is preserved, and errors newly returned
+by wgpu 26 are propagated. Cargo continues to resolve wgpu 22.1.0 for
+`rcce-client`; no client manifest or call site was changed.
 
 ## Evidence summary
 

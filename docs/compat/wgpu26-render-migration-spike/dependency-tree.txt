@@ -155,4 +155,3 @@ wgpu v22.1.0
 └── rcce-client v0.1.0 (/home/ryan/.codex/worktrees/super-editor/m1-p06-wgpu26-feasibility/client-rs/crates/rcce-client)
 wgpu v26.0.1
 └── rcce-render v0.1.0 (/home/ryan/.codex/worktrees/super-editor/m1-p06-wgpu26-feasibility/client-rs/crates/rcce-render)
-
