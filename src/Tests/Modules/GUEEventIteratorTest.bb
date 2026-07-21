@@ -7,6 +7,7 @@ EnableGC
 Function GUEEventDrainUsesAfterCursor%(Path$, FunctionMarker$, LegacyFor$, FirstCursor$, NextDeclaration$, WhileCursor$, Capture$, DeleteEvent$, Advance$)
 	Local F.BBStream = ReadFile(Path$)
 	Local Stage%
+	Local LoopDepth%
 	Local Line$
 	If F = Null Then F = ReadFile("..\\" + Path$)
 	If F = Null Then F = ReadFile("..\\..\\" + Path$)
@@ -60,26 +61,41 @@ Function GUEMainQueueUsesAfterCursor%(Path$)
 			CloseFile F
 			Return False
 		EndIf
-		If Stage > 0 And Stage < 5 And Instr(Line$, "Delete E") > 0
+		If Stage > 0 And Stage < 6 And Instr(Line$, "Delete E") > 0
 			CloseFile F
 			Return False
 		EndIf
+		If Stage >= 6 And Stage < 8
+			If Left$(Trim$(Line$), 6) = "While " Then LoopDepth = LoopDepth + 1
+			If Trim$(Line$) = "Wend"
+				LoopDepth = LoopDepth - 1
+				If LoopDepth = 0
+					CloseFile F
+					Return False
+				EndIf
+			EndIf
+		EndIf
 		If Stage = 0
-			If Instr(Line$, "; Process events") > 0 Then Stage = 1
+			If Instr(Line$, "Local E.Event") > 0 Then Stage = 1
 		ElseIf Stage = 1
-			If Instr(Line$, "Local E.Event") > 0 Then Stage = 2
+			If Instr(Line$, "Local ENext.Event") > 0 Then Stage = 2
 		ElseIf Stage = 2
-			If Instr(Line$, "Local ENext.Event") > 0 Then Stage = 3
+			If Instr(Line$, "; Process events") > 0 Then Stage = 3
 		ElseIf Stage = 3
 			If Instr(Line$, "E = First Event") > 0 Then Stage = 4
 		ElseIf Stage = 4
-			If Instr(Line$, "While E <> Null") > 0 Then Stage = 5
+			If Instr(Line$, "While E <> Null") > 0
+				LoopDepth = 1
+				Stage = 5
+			EndIf
 		ElseIf Stage = 5
 			If Instr(Line$, "ENext = After E") > 0 Then Stage = 6
 		ElseIf Stage = 6
 			If Instr(Line$, "Delete E") > 0 Then Stage = 7
 		ElseIf Stage = 7
-			If Instr(Line$, "E = ENext") > 0
+			If Instr(Line$, "E = ENext") > 0 Then Stage = 8
+		ElseIf Stage = 8
+			If Trim$(Line$) = "Wend" And LoopDepth = 1
 				CloseFile F
 				Return True
 			EndIf
