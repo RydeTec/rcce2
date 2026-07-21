@@ -4,6 +4,7 @@ setlocal
 set "ROOTDIR=%~dp0"
 if "%ROOTDIR:~-1%"=="\" set "ROOTDIR=%ROOTDIR:~0,-1%"
 
+set "HELP_ARG="
 for %%A in (%*) do (
     if "%%~A"=="-h" set "HELP_ARG=%%~A"
     if "%%~A"=="--help" set "HELP_ARG=%%~A"
