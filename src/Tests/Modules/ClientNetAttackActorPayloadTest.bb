@@ -7,7 +7,7 @@ EnableGC
 
 Function AttackActorPayloadGuards%(Path$)
 	Local F.BBStream = ReadFile(Path$)
-	Local InHandler%, SawH%, SawY%, SawO%, SawFailClosed%, SawDecode%
+	Local InHandler%, SawH%, SawY%, SawO%, SawFailClosed%, SawGuardElse%, SawDecode%
 	Local Frame$, Line$
 	If F = Null Then F = ReadFile("..\" + Path$)
 	If F = Null Then Return False
@@ -28,8 +28,31 @@ Function AttackActorPayloadGuards%(Path$)
 				If Instr(Line$, "If Len(M\MessageData$) = 5 Then AttackFrameValid = True") > 0 Then SawO = True
 			EndIf
 			If Instr(Line$, "If AttackFrameValid = False") > 0 Then SawFailClosed = True
+			If SawFailClosed = True And Trim$(Line$) = "Else" Then SawGuardElse = True
+			If SawGuardElse = False
+				If Instr(Line$, "RCE_IntFromStr") > 0
+					CloseFile F
+					Return False
+				EndIf
+				If Instr(Line$, "RuntimeIDList") > 0
+					CloseFile F
+					Return False
+				EndIf
+				If Instr(Line$, "AnimateActor") > 0
+					CloseFile F
+					Return False
+				EndIf
+				If Instr(Line$, "CombatDamageOutput") > 0
+					CloseFile F
+					Return False
+				EndIf
+				If Instr(Line$, "Attributes\Value[HealthStat]") > 0
+					CloseFile F
+					Return False
+				EndIf
+			EndIf
 			If Instr(Line$, "RuntimeID = RCE_IntFromStr(Mid$(M\MessageData$, 2, 2))") > 0
-				If SawFailClosed = False
+				If SawGuardElse = False
 					CloseFile F
 					Return False
 				EndIf
@@ -39,7 +62,7 @@ Function AttackActorPayloadGuards%(Path$)
 	Wend
 
 	CloseFile F
-	Return SawH And SawY And SawO And SawFailClosed And SawDecode
+	Return SawH And SawY And SawO And SawFailClosed And SawGuardElse And SawDecode
 End Function
 
 Test testAttackActorRejectsMalformedFramesBeforeDecode()
