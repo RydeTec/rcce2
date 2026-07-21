@@ -24,7 +24,7 @@ Function FileContains%(Path$, Needle$)
 	Return False
 End Function
 
-Function FileContainsOrderedNonComment%(Path$, FirstNeedle$, SecondNeedle$, ThirdNeedle$)
+Function FileContainsOrderedNonComment%(Path$, StartNeedle$, FirstNeedle$, SecondNeedle$, ThirdNeedle$)
 	Local F.BBStream = ReadFile(Path$)
 	Local Line$
 	Local Stage = 0
@@ -37,10 +37,12 @@ Function FileContainsOrderedNonComment%(Path$, FirstNeedle$, SecondNeedle$, Thir
 		Line$ = Trim$(ReadLine$(F))
 		If Left$(Line$, 1) <> "#"
 			If Stage = 0
-				If Instr(Line$, FirstNeedle$) > 0 Then Stage = 1
+				If Instr(Line$, StartNeedle$) > 0 Then Stage = 1
 			ElseIf Stage = 1
-				If Instr(Line$, SecondNeedle$) > 0 Then Stage = 2
+				If Instr(Line$, FirstNeedle$) > 0 Then Stage = 2
 			ElseIf Stage = 2
+				If Instr(Line$, SecondNeedle$) > 0 Then Stage = 3
+			ElseIf Stage = 3
 				If Instr(Line$, ThirdNeedle$) > 0
 					CloseFile F
 					Return True
@@ -57,5 +59,5 @@ Test testLinuxCISyntaxGateCoversUnixEntrypoints()
 End Test
 
 Test testLinuxCISyntaxGateRunsBeforeRustSetup()
-	Assert(FileContainsOrderedNonComment%(".github/workflows/ci.yml", "- name: Validate Unix shell syntax", "bash -n compile.sh test.sh scripts/*.sh", "- name: Set up Rust 1.85.0 (server)") = True)
+	Assert(FileContainsOrderedNonComment%(".github/workflows/ci.yml", "rust-server:", "- name: Validate Unix shell syntax", "bash -n compile.sh test.sh scripts/*.sh", "- name: Set up Rust 1.85.0 (server)") = True)
 End Test
