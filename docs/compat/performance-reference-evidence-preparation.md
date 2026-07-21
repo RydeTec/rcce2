@@ -33,7 +33,9 @@ python3 scripts/materialize_performance_fixtures.py \
 
 The output directory, manifest, and metadata are staged independently and
 promoted as one owned transaction; a failure at any promotion boundary removes
-all targets created by that attempt. Publication uses atomic no-replace
+only targets whose no-follow filesystem identity still matches the identity
+captured at publication. A concurrently replaced target is preserved and the
+rollback is reported incomplete. Publication uses atomic no-replace
 semantics and fails closed when the platform or filesystem cannot provide them;
 a concurrently created target is preserved. Before staging, free space must
 cover the exact default-tree byte count plus a documented 64 MiB safety margin.

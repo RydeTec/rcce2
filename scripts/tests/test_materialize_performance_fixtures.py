@@ -35,7 +35,9 @@ def _tree_digest(files: list[dict[str, object]]) -> str:
 
 class MaterializerTest(unittest.TestCase):
     def setUp(self) -> None:
-        self.temp = tempfile.TemporaryDirectory(dir="/home/ryan/.codex/tmp")
+        self.temp = tempfile.TemporaryDirectory(
+            dir=None if os.name == "nt" else "/home/ryan/.codex/tmp"
+        )
         self.root = Path(self.temp.name)
         self.repo = self.root / "repo"
         self.repo.mkdir()
@@ -234,6 +236,34 @@ class MaterializerTest(unittest.TestCase):
                 self.assertEqual((conflict / "external.txt").read_text(encoding="utf-8"), "external")
             for earlier in targets[: conflict_at - 1]:
                 self.assertFalse(earlier.exists())
+
+    def test_replaced_published_output_is_preserved_when_later_publication_fails(self) -> None:
+        output = self.root / "replaced-output"
+        manifest = self.root / "replaced-manifest.json"
+        metadata = self.root / "replaced-metadata.json"
+        real_publish = materializer._publish_noreplace
+        calls = 0
+
+        def replace_after_output_identity(source: Path, target: Path) -> None:
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                output.rename(self.root / "concurrently-moved-original")
+                output.mkdir()
+                (output / "external.txt").write_text("replacement", encoding="utf-8")
+                raise OSError("later manifest publication failed")
+            real_publish(source, target)
+
+        with mock.patch.object(materializer, "_publish_noreplace", side_effect=replace_after_output_identity):
+            with self.assertRaisesRegex(MaterializationError, "rollback incomplete"):
+                materialize_fixture(
+                    repo=self.repo, revision=self.revision, source_tree="data", tier="default",
+                    output=output, manifest_path=manifest, metadata_path=metadata,
+                    captured_at="2026-07-21T12:00:00Z",
+                )
+        self.assertEqual((output / "external.txt").read_text(encoding="utf-8"), "replacement")
+        self.assertFalse(manifest.exists())
+        self.assertFalse(metadata.exists())
 
     @unittest.skipUnless(hasattr(os, "symlink"), "symlinks unavailable")
     def test_rejects_symlink_entries_without_materializing_any_bytes(self) -> None:

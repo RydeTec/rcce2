@@ -21,6 +21,7 @@ from pathlib import Path, PurePosixPath
 import re
 import shlex
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -310,6 +311,33 @@ def _remove_owned(path: Path) -> None:
         path.unlink()
 
 
+def _stable_identity(path: Path) -> tuple[int, int, int]:
+    try:
+        metadata = os.stat(path, follow_symlinks=False)
+    except (OSError, TypeError) as exc:
+        raise MaterializationError(f"reliable no-follow target identity is unavailable for {path}: {exc}") from None
+    file_type = stat.S_IFMT(metadata.st_mode)
+    if stat.S_ISLNK(metadata.st_mode) or not metadata.st_ino or file_type not in {stat.S_IFREG, stat.S_IFDIR}:
+        raise MaterializationError(f"reliable no-follow target identity is unavailable for {path}")
+    return metadata.st_dev, metadata.st_ino, file_type
+
+
+def _rollback_published(promoted: list[tuple[Path, tuple[int, int, int]]]) -> list[Path]:
+    incomplete: list[Path] = []
+    for target, published_identity in reversed(promoted):
+        try:
+            current_identity = _stable_identity(target)
+        except MaterializationError:
+            if target.exists() or target.is_symlink():
+                incomplete.append(target)
+            continue
+        if current_identity != published_identity:
+            incomplete.append(target)
+            continue
+        _remove_owned(target)
+    return incomplete
+
+
 def _publish_noreplace(source: Path, target: Path) -> None:
     """Atomically publish one staged path without replacing a concurrent target."""
     if sys.platform.startswith("linux"):
@@ -458,14 +486,22 @@ def materialize_fixture(
         manifest_stage = _stage_json(manifest_path, artifact)
         metadata_stage = _stage_json(metadata_path, metadata)
         promotions = [(stage, output), (manifest_stage, manifest_path), (metadata_stage, metadata_path)]
-        promoted: list[Path] = []
+        promoted: list[tuple[Path, tuple[int, int, int]]] = []
         try:
             for staged, target in promotions:
+                staged_identity = _stable_identity(staged)
                 _publish_noreplace(staged, target)
-                promoted.append(target)
+                published_identity = _stable_identity(target)
+                if published_identity != staged_identity:
+                    raise MaterializationError(
+                        f"publication identity changed before ownership capture; rollback incomplete and target preserved: {target}"
+                    )
+                promoted.append((target, published_identity))
         except (OSError, MaterializationError) as exc:
-            for target in reversed(promoted):
-                _remove_owned(target)
+            incomplete = _rollback_published(promoted)
+            if incomplete:
+                preserved = ", ".join(str(path) for path in incomplete)
+                raise MaterializationError(f"{exc}; rollback incomplete; concurrent targets preserved: {preserved}") from None
             if isinstance(exc, MaterializationError):
                 raise
             raise MaterializationError(f"promotion failed; all owned targets rolled back: {exc}") from None
