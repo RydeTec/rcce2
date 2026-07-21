@@ -7,7 +7,6 @@ EnableGC
 Function GUEEventDrainUsesAfterCursor%(Path$, FunctionMarker$, LegacyFor$, FirstCursor$, NextDeclaration$, WhileCursor$, Capture$, DeleteEvent$, Advance$)
 	Local F.BBStream = ReadFile(Path$)
 	Local Stage%
-	Local LoopDepth%
 	Local Line$
 	If F = Null Then F = ReadFile("..\\" + Path$)
 	If F = Null Then F = ReadFile("..\\..\\" + Path$)
@@ -50,6 +49,7 @@ End Function
 Function GUEMainQueueUsesAfterCursor%(Path$)
 	Local F.BBStream = ReadFile(Path$)
 	Local Stage%
+	Local LoopDepth%
 	Local Line$
 	If F = Null Then F = ReadFile("..\\" + Path$)
 	If F = Null Then F = ReadFile("..\\..\\" + Path$)
