@@ -6,7 +6,7 @@
 - **Requirements authority**: [`../plan/rust-super-editor-engine-migration.md`](../plan/rust-super-editor-engine-migration.md)
 - **Packet/dependency authority**: [`../plan/rust-super-editor-implementation.md`](../plan/rust-super-editor-implementation.md)
 - **Current base**: `origin/develop` at `ee0977405cdee6591e6facdb9b88794d21ba65d3`; accepted packet worktrees were authored from `23ef44f6` and the intervening upstream delta is disjoint
-- **Program status**: M0 independently accepted at exact pushed head `52c5decea47aa7843213336e8759a001015dcbc2`; M1 packet assignment is ready
+- **Program status**: M0 independently accepted; M1-P01 is accepted and integrated at exact pushed head `e1460ae7fbb3ac0fe0fb6fd3167a878d20a1ad20`; M1-P02 and M1-P06 are implementing in disjoint worktrees
 
 This ledger records execution state. It does not weaken packet acceptance, compatibility, safety, or retirement gates in the authorities above.
 
@@ -87,7 +87,7 @@ Completed implementation lanes:
 | Milestone | Status | Accepted packets | Next gate |
 |---|---|---|---|
 | M0 | Accepted | P01, P02, P03, P04, P05, P06, P07 | Exact-head CI and independent exit review passed at `52c5dece` |
-| M1 | Ready | — | Assign dependency-ready read-only project-platform packets |
+| M1 | In progress | P01 | Independently accept P02 and P06; P03 starts only after accepted P02 integration |
 | M2 | Planned | — | M1 accepted |
 | M3 | Planned | — | M2 accepted |
 | M4 | Planned | — | M3 accepted |
@@ -127,9 +127,11 @@ Completed implementation lanes:
 - `2026-07-20` — Draft PR `#833` preserves the program branch. Exact-head CI passed at `51ef6317`; later integrated heads require their own refreshed checks before any merge claim.
 - `2026-07-20` — Independent M0 exit review requested four evidence-control corrections. P01 citation delta `86dbfd5f` changed the current format-matrix SHA-256 to `dc810973198bd483f59a1d795529a4077aaf4c0bb33c071f1a8f92921f73ce60` while preserving 82 row IDs and support levels; the original packet-acceptance hash above remains historical evidence. Master-spec delta `f22f33ca` removed the nonexistent Loom feedback citation and retained only current source-bounded claims. P03/runtime-evidence delta `cba88a23` changed the current `rust-baselines.md` Git blob to `f9c1fb694ef7e6717106d3548e6f4fee7520f850`, left dependency-ledger blob `c2bc9c87b874d8df18e89218c29ba508234641d8` unchanged, and added durable Windows evidence SHA-256 `63cadc72d985d1826af829af989bd63558b139afcd8751f6d72cd22cb0419e60`. The independent exit rereview confirmed all four substantive findings resolved and independently re-executed the preserved native Windows 25/0, Clippy, build, capability, and expected exit-2 gates; final M0 acceptance remains gated on this ledger delta and terminal exact-head CI.
 - `2026-07-21` — Fresh independent M0 exit reviewer returned `M0 ACCEPT` at exact integrated/pushed head `52c5decea47aa7843213336e8759a001015dcbc2`. The branch was clean and synchronized with origin; `git diff --check`, the 95/11 plan checker, P07 validation, Linux scanner 36/0 plus strict Clippy/build, all matrix/dependency counts, and no-M1/project-mutation boundaries passed. Draft PR `#833` matched the exact head and both required checks were terminal `SUCCESS`: `Build and test` 6m58s and `Rust server (Linux)` 3m58s.
+- `2026-07-21` — M1-P01 passed fresh specification review, different fresh quality review, and final specification-delta confirmation at aggregate SHA-256 `91346c44f4130eb4c43f250c16d4f3add777006ec134dd10d68ae516e8dd338a`. Source `1bcc39e4` integrated and pushed as `e1460ae7`; exact Rust 1.85 tests, strict Clippy, build, metadata, CLI behavior, and the 95/11 plan checker passed. Exact Rust 1.85 rustfmt remains unavailable because that installed toolchain lacks `cargo-fmt`; stable rustfmt passed and is not relabeled exact.
+- `2026-07-21` — M1-P02 root capability and M1-P06 disposable UI/render spike started from exact accepted head `e1460ae7` in disjoint worktrees. P02 owns the shared confined-root capability plus the minimum scanner consumer refactor; P06 owns spike/evidence paths only and cannot select a production framework without all ADR-0006 gates. M1-P03 is read-only implementation research until P02 is accepted and integrated.
 
 ## Next actions
 
-1. Assign dependency-ready M1 read-only project-platform child packets with disjoint path leases.
-2. Preserve M0 matrices, schema, canaries, and scanner as release-control inputs to every M1 packet.
-3. Accept M1 child packets independently before the production shell/lens subincrement starts.
+1. Complete independent spec, quality, and final-delta review for M1-P02 and M1-P06 before integration.
+2. Start M1-P03 only from the accepted integrated P02 head; keep P04 serialized behind P02's shared manifest/module edits.
+3. Preserve M0 matrices, schema, canaries, and scanner as release-control inputs to every M1 packet.
