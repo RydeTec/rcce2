@@ -87,7 +87,7 @@ Completed implementation lanes:
 | Milestone | Status | Accepted packets | Next gate |
 |---|---|---|---|
 | M0 | Accepted | P01, P02, P03, P04, P05, P06, P07 | Exact-head CI and independent exit review passed at `52c5dece` |
-| M1 | In progress | P01 | Independently accept P02 and P06; P03 starts only after accepted P02 integration |
+| M1 | In progress | P01, P02 | Execute P03 inventory; correct M0 performance prerequisites; P06 selection remains blocked |
 | M2 | Planned | — | M1 accepted |
 | M3 | Planned | — | M2 accepted |
 | M4 | Planned | — | M3 accepted |
@@ -129,9 +129,13 @@ Completed implementation lanes:
 - `2026-07-21` — Fresh independent M0 exit reviewer returned `M0 ACCEPT` at exact integrated/pushed head `52c5decea47aa7843213336e8759a001015dcbc2`. The branch was clean and synchronized with origin; `git diff --check`, the 95/11 plan checker, P07 validation, Linux scanner 36/0 plus strict Clippy/build, all matrix/dependency counts, and no-M1/project-mutation boundaries passed. Draft PR `#833` matched the exact head and both required checks were terminal `SUCCESS`: `Build and test` 6m58s and `Rust server (Linux)` 3m58s.
 - `2026-07-21` — M1-P01 passed fresh specification review, different fresh quality review, and final specification-delta confirmation at aggregate SHA-256 `91346c44f4130eb4c43f250c16d4f3add777006ec134dd10d68ae516e8dd338a`. Source `1bcc39e4` integrated and pushed as `e1460ae7`; exact Rust 1.85 tests, strict Clippy, build, metadata, CLI behavior, and the 95/11 plan checker passed. Exact Rust 1.85 rustfmt remains unavailable because that installed toolchain lacks `cargo-fmt`; stable rustfmt passed and is not relabeled exact.
 - `2026-07-21` — M1-P02 root capability and M1-P06 disposable UI/render spike started from exact accepted head `e1460ae7` in disjoint worktrees. P02 owns the shared confined-root capability plus the minimum scanner consumer refactor; P06 owns spike/evidence paths only and cannot select a production framework without all ADR-0006 gates. M1-P03 is read-only implementation research until P02 is accepted and integrated.
+- `2026-07-21` — Ledger-only head `c4660b39159798a2a5e288d7ca624d40452157df` passed both required draft-PR checks: `Build and test` 6m51s and `Rust server (Linux)` 3m50s.
+- `2026-07-21` — M1-P02 passed three adversarial correction rounds, fresh specification review, different fresh quality review, and final specification-delta confirmation at aggregate SHA-256 `f2f6f44f36833f4c1be555efd711f432694c1ca4e49e291c4064c842dd6f52c1`. Source `af1a36a7` integrated as `194cabb6`. The sole descriptor-relative backend now belongs to `rcce-project`; scanner policy consumes it. Linux editor 36/0 and scanner 23/0, native Windows editor/scanner gates, strict Clippy/build, platform assurance, alias, retained-root, plan, and hygiene gates passed. Integrated Linux editor/scanner tests and the exact aggregate reproduced.
+- `2026-07-21` — M1-P06's first egui candidate remains rejected and unselected. Revision 2 records a full 29-row gate table and six native Windows release cases; all six observed p95 frame times were about 50 ms and failed the inherited 16.67 ms gate. The failed-candidate evidence remains under provenance correction before preservation; the bounded next experiment is an iced 0.13.1 shared-device seam probe, then Slint only if required.
+- `2026-07-21` — Corrective packet `SE-M0-C01` started after review confirmed M0 lacked approved content-addressed performance workloads, a complete reference machine, raw memory budgets, and a representative commit-duration path. It defines a closed reference-evidence contract and moves real commit-duration measurement to the pre-write M2 gate; acceptance remains pending independent quality corrections.
 
 ## Next actions
 
-1. Complete independent spec, quality, and final-delta review for M1-P02 and M1-P06 before integration.
-2. Start M1-P03 only from the accepted integrated P02 head; keep P04 serialized behind P02's shared manifest/module edits.
-3. Preserve M0 matrices, schema, canaries, and scanner as release-control inputs to every M1 packet.
+1. Start M1-P03 from accepted integrated P02 head `194cabb6`; assign the canonical fingerprint type there.
+2. Accept the M0-C01 reference-evidence correction before any UI framework selection or performance-pass claim.
+3. Preserve the rejected egui evidence after provenance review, then execute the bounded iced shared-device seam experiment; keep P04 serialized behind accepted P03 fingerprint ownership.
