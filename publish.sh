@@ -8,6 +8,15 @@ set -euo pipefail
 ROOTDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RELEASE_DIR="${ROOTDIR}/release"
 
+for arg in "$@"; do
+  case "$arg" in
+    -h|--help)
+      "${ROOTDIR}/compile.sh" "$arg"
+      exit 0
+      ;;
+  esac
+done
+
 "${ROOTDIR}/compile.sh" "$@"
 
 cd "${ROOTDIR}"
