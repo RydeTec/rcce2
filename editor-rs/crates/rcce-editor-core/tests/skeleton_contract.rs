@@ -15,7 +15,7 @@ const EXPECTED_CRATES: [&str; 8] = [
     "rcce-validation",
 ];
 
-const EXPECTED_FILES: [&str; 29] = [
+const EXPECTED_FILES: [&str; 32] = [
     ".gitignore",
     "Cargo.lock",
     "Cargo.toml",
@@ -34,11 +34,14 @@ const EXPECTED_FILES: [&str; 29] = [
     "crates/rcce-project/Cargo.toml",
     "crates/rcce-project/src/classification.rs",
     "crates/rcce-project/src/fingerprint.rs",
+    "crates/rcce-project/src/identity.rs",
     "crates/rcce-project/src/inventory.rs",
+    "crates/rcce-project/src/legacy.rs",
     "crates/rcce-project/src/lib.rs",
     "crates/rcce-project/src/root/backend.rs",
     "crates/rcce-project/src/root/mod.rs",
     "crates/rcce-project/src/snapshot.rs",
+    "crates/rcce-project/tests/identity_provenance.rs",
     "crates/rcce-project/tests/inventory.rs",
     "crates/rcce-project/tests/root_confinement.rs",
     "crates/rcce-storage/Cargo.toml",
@@ -178,6 +181,11 @@ fn expected_targets() -> BTreeMap<&'static str, BTreeSet<(&'static str, &'static
             "rcce-project",
             BTreeSet::from([
                 ("rcce_project", "lib", "crates/rcce-project/src/lib.rs"),
+                (
+                    "identity_provenance",
+                    "test",
+                    "crates/rcce-project/tests/identity_provenance.rs",
+                ),
                 (
                     "inventory",
                     "test",
