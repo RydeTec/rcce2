@@ -1,0 +1,14 @@
+e52267f4ae74cbfafcc562e3e97a5a402e488c97d2bc3393e8f071e6d5053eca  docs/compat/ui-render-spike-evidence/next-candidate-plan.md
+77b03c4abffa4665f06769dc0a50b135f2d5470b907c540dfb16a1c7da850bca  docs/compat/ui-render-spike-evidence/slint-seam/dependency-tree.txt
+491a4471c39b337b4f1e43b030e1820c10b4f47e0e1bd5671e1b2dfb2dec1351  docs/compat/ui-render-spike-evidence/slint-seam/seam-report.md
+506b58e0695f31a3afa08373a82ae1417bc64bc56f870a6767afba45494b1455  docs/compat/ui-render-spike-evidence/slint-seam/source-api-proof.md
+3f175a3b71dfba66249cdc3b45a750b4287a19bd30ab31b2669dbf6abc3d2235  docs/compat/ui-render-spike-evidence/slint-seam/verification.txt
+b916bcfb95e18972e5247e618795f330b7dca2e9dd5a5937d3bb4bb2cbe0ba2b  docs/compat/ui-render-spike.md
+4f00074c2ba6eb7e3f3e86f268172ecb6791f86907042c442162423b8d4ea0e3  editor-rs/spikes/ui-render-slint-seam/.gitignore
+3bbae1b7ab93d4710947f066be20eb05433a3e3551005107b4d6c939c4ecd1d0  editor-rs/spikes/ui-render-slint-seam/Cargo.lock
+cb69b2ea585faa97e0b3763fae17a69ac638093a261928ab5707a092b7df7134  editor-rs/spikes/ui-render-slint-seam/Cargo.toml
+18b11117edb126970bb2110a52c6c56f8c0f49debe694533d7aaa7102a73e939  editor-rs/spikes/ui-render-slint-seam/README.md
+b9c13502ddcfc03f0dbcd9e43aa70c46221897454114c7ae936ba68ff6f9dc8a  editor-rs/spikes/ui-render-slint-seam/src/lib.rs
+bd0ae9aa668460803d61992d3ed6ab995e66a9f58193709fad3685aa61553e19  editor-rs/spikes/ui-render-slint-seam/tests/seam_contract.rs
+0ddd0c71b2161124515d1bd0a9c081e8284a05d85e1dafd92e577eee42def607  editor-rs/spikes/ui-render-slint-seam/tests/ui/wgpu22_shared_resources.rs
+3d1b0cc6002dbb815ce0b625cbf795cdf4d6b5480ac9d3276541a79fa1587c6e  editor-rs/spikes/ui-render-slint-seam/tests/ui/wgpu22_shared_resources.stderr

@@ -1,9 +1,10 @@
-# Next-candidate experiment plan
+# Candidate seam experiment disposition
 
-The egui 0.29.1 and iced 0.13.1 candidates are rejected. Iced failed its compile-time one-device
-seam: its iced_wgpu 0.13.5 renderer uses wgpu 0.19.4 and cannot accept rcce-render's wgpu 22.1.0
-adapter, device, queue, or texture view. The next bounded experiment is the Slint 1.13.1 seam.
-This order is an experiment order, not a framework preference.
+The egui 0.29.1, iced 0.13.1, and Slint 1.13.1 candidates are rejected. Iced failed its
+compile-time one-device seam on wgpu 0.19.4. Slint failed the same bounded contract because its
+supported winit/FemtoVG-wgpu `BackendSelector::require_wgpu_26` and texture-import APIs require wgpu 26.0.1 rather than
+`rcce-render`'s wgpu 22.1.0 resources. With both fallback candidates rejected, the next step is
+architecture review, not an implicit renderer migration or another unbounded framework trial.
 
 ## Iced 0.13.1 go/no-go seam
 
@@ -29,11 +30,12 @@ may be borrowed.
 
 ## Slint 1.13.1 fallback
 
-If iced is rejected at the seam, run the same compile-only test with Slint 1.13.1 and its
-`unstable-wgpu-26` surface. Slint supports Rust 1.85 but its renderer aliases wgpu 26, so the same
-single-device and no-production-migration stop conditions apply. Its declared license choices also
-require a project policy decision before any production selection, but license policy does not
-substitute for executable gates.
+**Completed: no-go.** See `slint-seam/seam-report.md`. With winit, FemtoVG-wgpu, and accessibility
+enabled, the supported backend-selector path rejects the existing instance, adapter, device, and
+queue, and the image conversion rejects the existing texture. The stop rule was applied before a
+full harness. The wgpu 26 API is explicitly unstable and exact to 1.13.1. Slint's declared license choices would
+still require a project policy decision before production selection, but that policy question
+does not substitute for the failed executable gate.
 
 ## Evidence and stopping rule
 
@@ -41,5 +43,6 @@ Each seam probe records exact versions, dependency tree, compiler output, source
 whether a second GPU owner was created. A candidate that passes the seam gets the full release
 one/two-viewport, 100/150/200 scaling, warm/cold, memory, UIA/Narrator, keyboard, docking, dialog,
 contrast, reduced-motion, project-operation budget, and renderer-regression matrix. A candidate
-with any Fail or NotRun remains unselected. If both alternatives fail the one-device seam, P06
-returns to architecture review rather than migrating the production renderer implicitly.
+with any Fail or NotRun remains unselected. Both alternatives failed the one-device seam, so P06
+returns to architecture review rather than migrating the production renderer implicitly. No
+further candidate is selected by this document.

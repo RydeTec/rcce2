@@ -8,6 +8,15 @@ passes. This revision contains Fail and NotRun results, including a measured fra
 missing docking, incomplete device-loss evidence, and unexecuted assistive-technology and real
 project-operation gates.
 
+The subsequent compile-only seams also rejected iced 0.13.1 and Slint 1.13.1. Iced's supported
+renderer requires wgpu 0.19 resources; Slint's supported winit/FemtoVG-wgpu backend selector and
+texture import require wgpu 26 resources. Neither accepts the existing `rcce-render` wgpu 22 instance/device
+family without an excluded second GPU owner, bridge, or production renderer migration. P06 now
+returns to architecture review; no fallback framework was selected.
+
+Slint explicitly marks this wgpu 26 API unstable and subject to change in a future minor release;
+the seam result is bound to the exact 1.13.1 source and lock rather than generalized permanently.
+
 This remains a disposable spike under `editor-rs/spikes/ui-render/`. It imports the existing
 `rcce-render::WorldView`; it does not change production renderer or client source.
 
@@ -130,11 +139,9 @@ The current WSL Wayland rerun selected llvmpipe, wrote ten frames, printed its c
 then terminated with exit 139 after EGL DRI2/ZINK errors. Linux runtime remains Fail. Exact output
 is retained in `linux-runtime.txt`.
 
-## Next experiment
+## Candidate seam disposition
 
-The concrete bounded next-candidate plan is in `ui-render-spike-evidence/next-candidate-plan.md`.
-It begins with an iced 0.13.1 single-device seam probe because its wgpu 0.19 types differ from the
-current renderer's wgpu 22 types. If that cannot share the exact device/queue without unsafe raw
-handles, hidden second-device ownership, or production migration, iced is rejected at the seam and
-the same probe moves to Slint 1.13.1/wgpu 26. Any candidate that passes the seam receives this exact
-immutable trace and complete ADR-0006 matrix; no egui result is borrowed.
+The bounded fallback results are in `ui-render-spike-evidence/next-candidate-plan.md`, with compiler
+evidence under `iced-seam/` and `slint-seam/`. Both candidates failed the shared-resource seam, so
+the program returns to architecture review. The full trace and ADR-0006 matrix remain available
+for any future candidate that first passes the one-device contract; no egui result is borrowed.

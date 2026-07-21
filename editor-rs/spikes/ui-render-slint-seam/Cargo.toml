@@ -1,0 +1,20 @@
+[workspace]
+
+[package]
+name = "rcce-ui-render-slint-seam"
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.85"
+license = "MIT"
+publish = false
+
+[dependencies]
+rcce-render = { path = "../../../client-rs/crates/rcce-render" }
+slint = { version = "=1.13.1", default-features = false, features = ["accessibility", "backend-winit", "compat-1-2", "renderer-femtovg-wgpu", "std", "unstable-wgpu-26"] }
+wgpu22 = { package = "wgpu", version = "=22.1.0" }
+
+[dev-dependencies]
+trybuild = "=1.0.116"
+
+[lints.rust]
+unsafe_code = "deny"

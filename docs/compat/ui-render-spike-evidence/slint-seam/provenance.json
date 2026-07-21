@@ -1,0 +1,59 @@
+{
+  "base_revision": "dbb122a109ec73d4fa7e6be8a40b08a2479741fc",
+  "candidate": "Slint 1.13.1",
+  "renderer_surface": "unstable-wgpu-26",
+  "toolchain": "rustc 1.85.0 (4d91de4e4 2025-02-17)",
+  "lock_adjustments_for_rust_1_85": {
+    "icu_collections": "2.1.1",
+    "icu_locale_core": "2.1.1",
+    "icu_normalizer": "2.1.1",
+    "icu_normalizer_data": "2.1.1",
+    "icu_properties": "2.1.2",
+    "icu_properties_data": "2.1.2",
+    "icu_provider": "2.1.1",
+    "idna": "1.0.3",
+    "idna_adapter": "1.2.1",
+    "image": "0.25.9",
+    "moxcms": "0.7.11",
+    "smol_str": "0.3.2",
+    "typed-index-collections": "3.2.3",
+    "url": "2.5.4",
+    "wayland-protocols": "0.32.12",
+    "zbus": "5.7.1",
+    "zbus_macros": "5.7.1",
+    "zbus_names": "4.2.0",
+    "zbus_xml": "5.0.2",
+    "zvariant": "5.5.2",
+    "zvariant_derive": "5.5.2",
+    "zvariant_utils": "3.2.0"
+  },
+  "subject_tree": {
+    "path": "docs/compat/ui-render-spike-evidence/slint-seam/subject-tree.sha256",
+    "sha256": "6f0c7f2f64efc115b502181d20a3375aa7340dda6fafda35246b91906030c07b",
+    "file_count": 14,
+    "excludes": [
+      "docs/compat/ui-render-spike-evidence/slint-seam/provenance.json",
+      "docs/compat/ui-render-spike-evidence/slint-seam/subject-tree.sha256"
+    ]
+  },
+  "registry_source_inputs": {
+    "i-slint-backend-selector-1.13.1/api.rs": "c6a24ecf9f090f27d99f57fc8752f33256ccc7058ff3955bc390a5c33c8277f3",
+    "i-slint-backend-winit-1.13.1/Cargo.toml": "6ff14d8cc73043eebb19a8e2e5fd560f37e0591595c3353e5fbaf99340a26edb",
+    "i-slint-backend-winit-1.13.1/lib.rs": "2a64d617cef7ee9a4b00b15e0e915df3383ab96eeece2811e06d7a539a017354",
+    "i-slint-core-1.13.1/graphics/wgpu_26.rs": "23b9cb4f41a92fd13bf22d4a2d48c8496181a878123ec6ed97c32fd53543a91b",
+    "slint-1.13.1/Cargo.toml": "f780cdaa40348fd52957e466af869c3a3b78d2d4e9467b651dc4463d8625cafa",
+    "slint-1.13.1/lib.rs": "2379e0ae0ec1cd5bec8a9420ff6df23970e50ac669eb0196eaac570d772244cb",
+    "wgpu-22.1.0/Cargo.toml": "52c1906d42f5a1ff88e8ab4572d1767252ba6bd0e2f832f3975384ca2c4c4ed2",
+    "wgpu-26.0.1/Cargo.toml": "43194571cdb19b3ec0fca3a6087beafce25183858f7abd7be3af4e7f790b3a69"
+  },
+  "production_source_input": {
+    "client-rs/crates/rcce-render/src/world_view.rs": "0b00639860b398a7eac5e1f468f136e7d15da5c8bd9c16ef5d2f0f1f4b311038"
+  },
+  "cargo_lock_sha256": "3bbae1b7ab93d4710947f066be20eb05433a3e3551005107b4d6c939c4ecd1d0",
+  "outcome": "rejected_at_compile_time_seam",
+  "test_process_executed": true,
+  "gpu_runtime_executed": false,
+  "second_device_created": false,
+  "unsafe_bridge_used": false,
+  "production_renderer_changed": false
+}

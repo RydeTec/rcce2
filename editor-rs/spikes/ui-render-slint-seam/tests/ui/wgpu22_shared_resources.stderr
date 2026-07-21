@@ -1,0 +1,95 @@
+error[E0308]: mismatched types
+ --> tests/ui/wgpu22_shared_resources.rs:9:9
+  |
+9 |         instance,
+  |         ^^^^^^^^ expected `slint::wgpu_26::wgpu::Instance`, found `wgpu::Instance`
+  |
+  = note: `wgpu::Instance` and `slint::wgpu_26::wgpu::Instance` have similar names, but are actually distinct types
+note: `wgpu::Instance` is defined in crate `wgpu`
+ --> $CARGO/wgpu-$VERSION/src/lib.rs
+  |
+  | pub struct Instance {
+  | ^^^^^^^^^^^^^^^^^^^
+note: `slint::wgpu_26::wgpu::Instance` is defined in crate `wgpu`
+ --> $CARGO/wgpu-$VERSION/src/api/instance.rs
+  |
+  | pub struct Instance {
+  | ^^^^^^^^^^^^^^^^^^^
+
+error[E0308]: mismatched types
+  --> tests/ui/wgpu22_shared_resources.rs:10:9
+   |
+10 |         adapter,
+   |         ^^^^^^^ expected `slint::wgpu_26::wgpu::Adapter`, found `wgpu::Adapter`
+   |
+   = note: `wgpu::Adapter` and `slint::wgpu_26::wgpu::Adapter` have similar names, but are actually distinct types
+note: `wgpu::Adapter` is defined in crate `wgpu`
+  --> $CARGO/wgpu-$VERSION/src/lib.rs
+   |
+   | pub struct Adapter {
+   | ^^^^^^^^^^^^^^^^^^
+note: `slint::wgpu_26::wgpu::Adapter` is defined in crate `wgpu`
+  --> $CARGO/wgpu-$VERSION/src/api/adapter.rs
+   |
+   | pub struct Adapter {
+   | ^^^^^^^^^^^^^^^^^^
+
+error[E0308]: mismatched types
+  --> tests/ui/wgpu22_shared_resources.rs:11:9
+   |
+11 |         device,
+   |         ^^^^^^ expected `slint::wgpu_26::wgpu::Device`, found `wgpu::Device`
+   |
+   = note: `wgpu::Device` and `slint::wgpu_26::wgpu::Device` have similar names, but are actually distinct types
+note: `wgpu::Device` is defined in crate `wgpu`
+  --> $CARGO/wgpu-$VERSION/src/lib.rs
+   |
+   | pub struct Device {
+   | ^^^^^^^^^^^^^^^^^
+note: `slint::wgpu_26::wgpu::Device` is defined in crate `wgpu`
+  --> $CARGO/wgpu-$VERSION/src/api/device.rs
+   |
+   | pub struct Device {
+   | ^^^^^^^^^^^^^^^^^
+
+error[E0308]: mismatched types
+  --> tests/ui/wgpu22_shared_resources.rs:12:9
+   |
+12 |         queue,
+   |         ^^^^^ expected `slint::wgpu_26::wgpu::Queue`, found `wgpu::Queue`
+   |
+   = note: `wgpu::Queue` and `slint::wgpu_26::wgpu::Queue` have similar names, but are actually distinct types
+note: `wgpu::Queue` is defined in crate `wgpu`
+  --> $CARGO/wgpu-$VERSION/src/lib.rs
+   |
+   | pub struct Queue {
+   | ^^^^^^^^^^^^^^^^
+note: `slint::wgpu_26::wgpu::Queue` is defined in crate `wgpu`
+  --> $CARGO/wgpu-$VERSION/src/api/queue.rs
+   |
+   | pub struct Queue {
+   | ^^^^^^^^^^^^^^^^
+
+error[E0277]: the trait bound `slint::Image: TryFrom<wgpu::Texture>` is not satisfied
+  --> tests/ui/wgpu22_shared_resources.rs:16:38
+   |
+16 |     let _: Result<slint::Image, _> = slint::Image::try_from(caller_owned_texture);
+   |                                      ^^^^^^^^^^^^ the trait `From<wgpu::Texture>` is not implemented for `slint::Image`
+   |
+   = help: the trait `From<wgpu::Texture>` is not implemented for `slint::Image`
+           but trait `From<ImageInner>` is implemented for it
+   = help: for that trait implementation, expected `ImageInner`, found `wgpu::Texture`
+   = note: required for `wgpu::Texture` to implement `Into<slint::Image>`
+   = note: required for `slint::Image` to implement `TryFrom<wgpu::Texture>`
+
+error[E0277]: the trait bound `slint::Image: From<wgpu::Texture>` is not satisfied
+  --> tests/ui/wgpu22_shared_resources.rs:16:38
+   |
+16 |     let _: Result<slint::Image, _> = slint::Image::try_from(caller_owned_texture);
+   |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `From<wgpu::Texture>` is not implemented for `slint::Image`
+   |
+   = help: the trait `From<wgpu::Texture>` is not implemented for `slint::Image`
+           but trait `From<ImageInner>` is implemented for it
+   = help: for that trait implementation, expected `ImageInner`, found `wgpu::Texture`
+   = note: required for `wgpu::Texture` to implement `Into<slint::Image>`
+   = note: required for `slint::Image` to implement `TryFrom<wgpu::Texture>`
