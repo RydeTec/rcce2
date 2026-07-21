@@ -1380,7 +1380,7 @@ Function SetArea(A.ActorInstance, Ar.Area, Instance, Waypoint = -1, Portal = 0, 
 		EndIf
 	; If he's warped to the same area he was already in, tell players he has changed position
 	Else
-		Pa$ = RCE_StrFromInt$(A\RuntimeID, 2) + RCE_StrFromFloat$(A\X#) + RCE_StrFromFloat$(A\Y#) + RCE_StrFromFloat$(A\Z#) + RCE_StrFromInt$(0, 1)
+		Pa$ = "M" + RCE_StrFromInt$(A\RuntimeID, 2) + RCE_StrFromFloat$(A\X#) + RCE_StrFromFloat$(A\Y#) + RCE_StrFromFloat$(A\Z#) + RCE_StrFromInt$(0, 1)
 		A2.ActorInstance = Ar\Instances[Instance]\FirstInZone
 		While A2 <> Null
 			If A2\RNID > 0
