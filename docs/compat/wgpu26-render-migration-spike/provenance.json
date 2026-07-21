@@ -1,0 +1,16 @@
+{
+  "schema": "rcce2-wgpu26-render-migration-spike-v1",
+  "base_commit": "94ed5adbd9adf94d88f8ff6b0e9432285af8d925",
+  "migration_commit": "01361496e3fc8847cab7702cdffde44a817fecec",
+  "rust_toolchain": "1.85.0-x86_64-unknown-linux-gnu",
+  "renderer_wgpu": "26.0.1",
+  "client_wgpu": "22.1.0",
+  "disposition": "Stage1Feasible",
+  "production_migration_approved": false,
+  "windows_runtime": "NotRun",
+  "windows_i686_compile": "NotRun",
+  "linux_runtime_adapter": "llvmpipe (LLVM 20.1.2, 256 bits)",
+  "source_subject_aggregate_sha256": "5c9531a9574267771feace87bbf9635eeb0d7871aa8cddad9960a98f01569a4e",
+  "comparison_png_sha256": "7afed19d0e8d847083386c1b4433fc32e63c6e90e1ab094285a20bf90f555a2c",
+  "comparison_absolute_error_pixels": 0
+}

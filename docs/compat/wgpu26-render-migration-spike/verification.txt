@@ -1,0 +1,58 @@
+base=94ed5adbd9adf94d88f8ff6b0e9432285af8d925
+migration_commit=01361496e3fc8847cab7702cdffde44a817fecec
+toolchain=rustc 1.85.0
+
+BASELINE: pass, 10 tests
+command: /home/ryan/.cargo/bin/rustup run 1.85.0 cargo test -p rcce-render --all-targets --locked
+result: test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+
+RED: 80 compiler errors after rcce-render was pinned to exact wgpu 26.0.1
+command: /home/ryan/.cargo/bin/rustup run 1.85.0 cargo check -p rcce-render --all-targets --locked
+categories: renamed texel-copy types; PollType; adapter Result; device trace; optional entry points; color depth_slice; Rc bind-group coercions
+
+GREEN compile
+command: /home/ryan/.cargo/bin/rustup run 1.85.0 cargo check -p rcce-render --all-targets --locked
+result: Finished `dev` profile [unoptimized + debuginfo] target(s)
+
+GREEN tests
+command: /home/ryan/.cargo/bin/rustup run 1.85.0 cargo test -p rcce-render --all-targets --locked
+result: test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
+
+GREEN strict clippy
+command: /home/ryan/.cargo/bin/rustup run 1.85.0 cargo clippy -p rcce-render --all-targets --locked -- -D warnings
+result: Finished `dev` profile [unoptimized + debuginfo] target(s)
+
+GREEN GPU probe
+command: /home/ryan/.cargo/bin/rustup run 1.85.0 cargo run -p rcce-render --bin gpu-probe --locked
+result: [gpu-probe] OK — adapter='llvmpipe (LLVM 20.1.2, 256 bits)' backend=Vulkan type=Cpu driver='llvmpipe'
+
+BASELINE wgpu22 capture (run from exact-base program-integration/client-rs)
+command: /home/ryan/.cargo/bin/rustup run 1.85.0 cargo run -p rcce-render --bin model-view --locked -- ../data/Meshes/Props/houses_single.b3d /tmp/wgpu22-model-94ed.png
+result: [model-view] rendered via llvmpipe (LLVM 20.1.2, 256 bits) -> /tmp/wgpu22-model-94ed.png
+
+GREEN wgpu26 capture (run from spike/client-rs)
+command: /home/ryan/.cargo/bin/rustup run 1.85.0 cargo run -p rcce-render --bin model-view --locked -- ../data/Meshes/Props/houses_single.b3d /tmp/wgpu26-model-94ed.png
+result: [model-view] rendered via llvmpipe (LLVM 20.1.2, 256 bits) -> /tmp/wgpu26-model-94ed.png
+
+capture comparison
+command: sha256sum /tmp/wgpu22-model-94ed.png /tmp/wgpu26-model-94ed.png
+result: both 7afed19d0e8d847083386c1b4433fc32e63c6e90e1ab094285a20bf90f555a2c
+command: cmp -s /tmp/wgpu22-model-94ed.png /tmp/wgpu26-model-94ed.png
+result: byte_identical_exit=0
+command: compare -metric AE /tmp/wgpu22-model-94ed.png /tmp/wgpu26-model-94ed.png null:
+result: 0; pixel_compare_exit=0
+
+source hygiene
+command: git diff --check
+result: exit 0
+
+UNVERIFIED - exact Rust 1.85 formatting
+command: /home/ryan/.cargo/bin/rustup run 1.85.0 cargo fmt --all -- --check
+result: cargo-fmt is not installed for toolchain 1.85.0-x86_64-unknown-linux-gnu
+
+UNVERIFIED - Windows 32-bit build/runtime
+reason: i686-pc-windows-msvc is not installed; WSL proof used CPU llvmpipe
+
+UNVERIFIED - full rcce-client integration
+command: /home/ryan/.cargo/bin/rustup run 1.85.0 cargo check -p rcce-client --locked
+result: stopped before client type checking because alsa.pc is absent from the WSL environment

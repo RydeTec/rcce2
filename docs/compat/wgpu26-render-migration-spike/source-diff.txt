@@ -1,0 +1,17 @@
+commit 01361496e3fc8847cab7702cdffde44a817fecec
+base 94ed5adbd9adf94d88f8ff6b0e9432285af8d925
+subject spike(renderer): migrate rcce-render to wgpu 26
+
+404 26 client-rs/Cargo.lock
+1 1 client-rs/crates/rcce-render/Cargo.toml
+3 2 client-rs/crates/rcce-render/src/bloom.rs
+20 20 client-rs/crates/rcce-render/src/gpu.rs
+2 2 client-rs/crates/rcce-render/src/lib.rs
+9 8 client-rs/crates/rcce-render/src/overlay.rs
+11 8 client-rs/crates/rcce-render/src/render.rs
+13 10 client-rs/crates/rcce-render/src/render3d.rs
+19 13 client-rs/crates/rcce-render/src/scene.rs
+14 11 client-rs/crates/rcce-render/src/world_view.rs
+
+The production patch is deliberately isolated in the migration commit. Evidence
+is a second commit so it can be integrated without the disposable source delta.
