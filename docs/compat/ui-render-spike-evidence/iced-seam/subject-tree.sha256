@@ -1,0 +1,13 @@
+cd6111fb3730bef25809d5e350a42c8107b55aad7d4190bb78370bf74308d48d  docs/compat/ui-render-spike-evidence/iced-seam/dependency-tree.txt
+96e841e50c08a430fed02f50b3063823f7f5e0e403ed939b1659c280232fc576  docs/compat/ui-render-spike-evidence/iced-seam/seam-report.md
+265057081ca40b03042be98a8cb013b07cb558a5a290a1f9b50247fd88a65e87  docs/compat/ui-render-spike-evidence/iced-seam/source-api-proof.md
+6eb46ba9dd31352262aebb7d32d19a3939ebe283b89b9c81ed5c0b0f6c600ff6  docs/compat/ui-render-spike-evidence/iced-seam/verification.txt
+299d97a8fdafd444cfaa3a914fc1f9e52697f8189bcc35261fe168cc6bf88ae0  docs/compat/ui-render-spike-evidence/next-candidate-plan.md
+4f00074c2ba6eb7e3f3e86f268172ecb6791f86907042c442162423b8d4ea0e3  editor-rs/spikes/ui-render-iced-seam/.gitignore
+08a94b21399455fddb8559c7332dd9c74da7c39bc524ae3f8afb5e89e11d98a6  editor-rs/spikes/ui-render-iced-seam/Cargo.lock
+1db925c0d94e3023202913d6137ffcf07f4212b7a61b5326ae3b913da8a12851  editor-rs/spikes/ui-render-iced-seam/Cargo.toml
+a2aabbeb520772640717b4e0e37117006406ee64c6fc2131bf1fb0d4c7384136  editor-rs/spikes/ui-render-iced-seam/README.md
+49a8ed7a28e8f9d72c1385b5e65c571821c8146ffc172b4ac46dfc9f7ba021b3  editor-rs/spikes/ui-render-iced-seam/src/lib.rs
+580db4dcf7c331911701e8f2c5afc136c4f7b6aab18fac0dbeb7cdb3e92868c6  editor-rs/spikes/ui-render-iced-seam/tests/seam_contract.rs
+6908e84e8dd250d9c4a60c561f783594e7d7843a0c7a285d85d1184257fe2396  editor-rs/spikes/ui-render-iced-seam/tests/ui/wgpu22_shared_resources.rs
+e455800724c049e075613e4547e2f6eeb946481b82464f47166202fd72b06d92  editor-rs/spikes/ui-render-iced-seam/tests/ui/wgpu22_shared_resources.stderr

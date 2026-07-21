@@ -1,0 +1,172 @@
+error[E0308]: arguments to this function are incorrect
+  --> tests/ui/wgpu22_shared_resources.rs:11:23
+   |
+11 |     let _new_engine = iced_wgpu::Engine::new(
+   |                       ^^^^^^^^^^^^^^^^^^^^^^
+12 |         adapter,
+   |         ------- expected `iced_wgpu::wgpu::Adapter`, found `wgpu::Adapter`
+13 |         device,
+   |         ------ expected `iced_wgpu::wgpu::Device`, found `wgpu::Device`
+14 |         queue,
+   |         ----- expected `iced_wgpu::wgpu::Queue`, found `wgpu::Queue`
+   |
+note: two different versions of crate `wgpu` are being used; two types coming from two different versions of the same crate are different types even if they look the same
+  --> $CARGO/wgpu-$VERSION/src/lib.rs
+   |
+   | pub struct Adapter {
+   | ^^^^^^^^^^^^^^^^^^ this is the expected type `iced_wgpu::wgpu::Adapter`
+   |
+  ::: $CARGO/wgpu-$VERSION/src/lib.rs
+   |
+   | pub struct Adapter {
+   | ^^^^^^^^^^^^^^^^^^ this is the found type `wgpu::Adapter`
+   |
+  ::: tests/ui/wgpu22_shared_resources.rs:2:20
+   |
+2  |     renderer: &mut iced_wgpu::Renderer,
+   |                    --------- one version of crate `wgpu` used here, as a dependency of crate `iced_wgpu`
+3  |     engine: &mut iced_wgpu::Engine,
+4  |     adapter: &wgpu22::Adapter,
+   |               ------ one version of crate `wgpu` used here, as a direct dependency of the current crate
+   = help: you can use `cargo tree` to explore your dependency tree
+note: two different versions of crate `wgpu` are being used; two types coming from two different versions of the same crate are different types even if they look the same
+  --> $CARGO/wgpu-$VERSION/src/lib.rs
+   |
+   | pub struct Device {
+   | ^^^^^^^^^^^^^^^^^ this is the expected type `iced_wgpu::wgpu::Device`
+   |
+  ::: $CARGO/wgpu-$VERSION/src/lib.rs
+   |
+   | pub struct Device {
+   | ^^^^^^^^^^^^^^^^^ this is the found type `wgpu::Device`
+   |
+  ::: tests/ui/wgpu22_shared_resources.rs:2:20
+   |
+2  |     renderer: &mut iced_wgpu::Renderer,
+   |                    --------- one version of crate `wgpu` used here, as a dependency of crate `iced_wgpu`
+3  |     engine: &mut iced_wgpu::Engine,
+4  |     adapter: &wgpu22::Adapter,
+   |               ------ one version of crate `wgpu` used here, as a direct dependency of the current crate
+   = help: you can use `cargo tree` to explore your dependency tree
+note: two different versions of crate `wgpu` are being used; two types coming from two different versions of the same crate are different types even if they look the same
+  --> $CARGO/wgpu-$VERSION/src/lib.rs
+   |
+   | pub struct Queue {
+   | ^^^^^^^^^^^^^^^^ this is the expected type `iced_wgpu::wgpu::Queue`
+   |
+  ::: $CARGO/wgpu-$VERSION/src/lib.rs
+   |
+   | pub struct Queue {
+   | ^^^^^^^^^^^^^^^^ this is the found type `wgpu::Queue`
+   |
+  ::: tests/ui/wgpu22_shared_resources.rs:2:20
+   |
+2  |     renderer: &mut iced_wgpu::Renderer,
+   |                    --------- one version of crate `wgpu` used here, as a dependency of crate `iced_wgpu`
+3  |     engine: &mut iced_wgpu::Engine,
+4  |     adapter: &wgpu22::Adapter,
+   |               ------ one version of crate `wgpu` used here, as a direct dependency of the current crate
+   = help: you can use `cargo tree` to explore your dependency tree
+note: associated function defined here
+  --> $CARGO/iced_wgpu-$VERSION/src/engine.rs
+   |
+   |     pub fn new(
+   |            ^^^
+
+error[E0308]: arguments to this method are incorrect
+  --> tests/ui/wgpu22_shared_resources.rs:19:14
+   |
+19 |     renderer.present::<&str>(
+   |              ^^^^^^^^^^^^^^^
+20 |         engine,
+21 |         device,
+   |         ------ expected `iced_wgpu::wgpu::Device`, found `wgpu::Device`
+22 |         queue,
+   |         ----- expected `iced_wgpu::wgpu::Queue`, found `wgpu::Queue`
+23 |         encoder,
+   |         ------- expected `iced_wgpu::wgpu::CommandEncoder`, found `wgpu::CommandEncoder`
+...
+26 |         caller_owned_view,
+   |         ----------------- expected `iced_wgpu::wgpu::TextureView`, found `wgpu::TextureView`
+   |
+note: two different versions of crate `wgpu` are being used; two types coming from two different versions of the same crate are different types even if they look the same
+  --> $CARGO/wgpu-$VERSION/src/lib.rs
+   |
+   | pub struct Device {
+   | ^^^^^^^^^^^^^^^^^ this is the expected type `iced_wgpu::wgpu::Device`
+   |
+  ::: $CARGO/wgpu-$VERSION/src/lib.rs
+   |
+   | pub struct Device {
+   | ^^^^^^^^^^^^^^^^^ this is the found type `wgpu::Device`
+   |
+  ::: tests/ui/wgpu22_shared_resources.rs:2:20
+   |
+2  |     renderer: &mut iced_wgpu::Renderer,
+   |                    --------- one version of crate `wgpu` used here, as a dependency of crate `iced_wgpu`
+3  |     engine: &mut iced_wgpu::Engine,
+4  |     adapter: &wgpu22::Adapter,
+   |               ------ one version of crate `wgpu` used here, as a direct dependency of the current crate
+   = help: you can use `cargo tree` to explore your dependency tree
+note: two different versions of crate `wgpu` are being used; two types coming from two different versions of the same crate are different types even if they look the same
+  --> $CARGO/wgpu-$VERSION/src/lib.rs
+   |
+   | pub struct Queue {
+   | ^^^^^^^^^^^^^^^^ this is the expected type `iced_wgpu::wgpu::Queue`
+   |
+  ::: $CARGO/wgpu-$VERSION/src/lib.rs
+   |
+   | pub struct Queue {
+   | ^^^^^^^^^^^^^^^^ this is the found type `wgpu::Queue`
+   |
+  ::: tests/ui/wgpu22_shared_resources.rs:2:20
+   |
+2  |     renderer: &mut iced_wgpu::Renderer,
+   |                    --------- one version of crate `wgpu` used here, as a dependency of crate `iced_wgpu`
+3  |     engine: &mut iced_wgpu::Engine,
+4  |     adapter: &wgpu22::Adapter,
+   |               ------ one version of crate `wgpu` used here, as a direct dependency of the current crate
+   = help: you can use `cargo tree` to explore your dependency tree
+note: two different versions of crate `wgpu` are being used; two types coming from two different versions of the same crate are different types even if they look the same
+  --> $CARGO/wgpu-$VERSION/src/lib.rs
+   |
+   | pub struct CommandEncoder {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ this is the expected type `iced_wgpu::wgpu::CommandEncoder`
+   |
+  ::: $CARGO/wgpu-$VERSION/src/lib.rs
+   |
+   | pub struct CommandEncoder {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^ this is the found type `wgpu::CommandEncoder`
+   |
+  ::: tests/ui/wgpu22_shared_resources.rs:2:20
+   |
+2  |     renderer: &mut iced_wgpu::Renderer,
+   |                    --------- one version of crate `wgpu` used here, as a dependency of crate `iced_wgpu`
+3  |     engine: &mut iced_wgpu::Engine,
+4  |     adapter: &wgpu22::Adapter,
+   |               ------ one version of crate `wgpu` used here, as a direct dependency of the current crate
+   = help: you can use `cargo tree` to explore your dependency tree
+note: two different versions of crate `wgpu` are being used; two types coming from two different versions of the same crate are different types even if they look the same
+  --> $CARGO/wgpu-$VERSION/src/lib.rs
+   |
+   | pub struct TextureView {
+   | ^^^^^^^^^^^^^^^^^^^^^^ this is the expected type `iced_wgpu::wgpu::TextureView`
+   |
+  ::: $CARGO/wgpu-$VERSION/src/lib.rs
+   |
+   | pub struct TextureView {
+   | ^^^^^^^^^^^^^^^^^^^^^^ this is the found type `wgpu::TextureView`
+   |
+  ::: tests/ui/wgpu22_shared_resources.rs:2:20
+   |
+2  |     renderer: &mut iced_wgpu::Renderer,
+   |                    --------- one version of crate `wgpu` used here, as a dependency of crate `iced_wgpu`
+3  |     engine: &mut iced_wgpu::Engine,
+4  |     adapter: &wgpu22::Adapter,
+   |               ------ one version of crate `wgpu` used here, as a direct dependency of the current crate
+   = help: you can use `cargo tree` to explore your dependency tree
+note: method defined here
+  --> $CARGO/iced_wgpu-$VERSION/src/lib.rs
+   |
+   |     pub fn present<T: AsRef<str>>(
+   |            ^^^^^^^

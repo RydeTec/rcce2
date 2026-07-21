@@ -1,10 +1,14 @@
 # Next-candidate experiment plan
 
-The egui 0.29.1 candidate remains rejected. The next bounded experiment is iced 0.13.1 because it
-supports Rust 1.85, followed by Slint 1.13.1 only if iced cannot satisfy the protocol. This order
-is an experiment order, not a framework preference.
+The egui 0.29.1 and iced 0.13.1 candidates are rejected. Iced failed its compile-time one-device
+seam: its iced_wgpu 0.13.5 renderer uses wgpu 0.19.4 and cannot accept rcce-render's wgpu 22.1.0
+adapter, device, queue, or texture view. The next bounded experiment is the Slint 1.13.1 seam.
+This order is an experiment order, not a framework preference.
 
 ## Iced 0.13.1 go/no-go seam
+
+**Completed: no-go.** See `iced-seam/seam-report.md`. The preserved compiler contract rejects the
+shared Adapter, Device, Queue, and TextureView, so the stop rule was applied before a full harness.
 
 The first task is a compile-only, disposable seam probe under a sibling spike directory. Iced's
 `iced_wgpu` 0.13.5 declares wgpu 0.19 while `rcce-render` currently exposes wgpu 22 types. The
