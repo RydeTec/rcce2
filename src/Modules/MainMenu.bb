@@ -264,33 +264,33 @@ Function UpdateFiles()
 	; Go through each file to make sure that I have it
 	ThisFile = 0
 	GY_UpdateLabel(TStatus, LanguageString$(LS_CheckingFiles))
-	Local U.UpdateFile = First UpdateFile
-	Local UNext.UpdateFile = Null
-	While U <> Null
-		UNext = After U
+	Local CurrentUpdate.UpdateFile = First UpdateFile
+	Local NextUpdate.UpdateFile = Null
+	While CurrentUpdate <> Null
+		NextUpdate = After CurrentUpdate
 		; Skip entries the announcement path already rejected as unsafe.
-		If U\Name$ = "" Then NeedFile = False : Goto skipUpdateApply
+		If CurrentUpdate\Name$ = "" Then NeedFile = False : Goto skipUpdateApply
 
 		NeedFile = False
 		; I don't have it at all
-		If FileType(U\Name$) = 0
+		If FileType(CurrentUpdate\Name$) = 0
 			NeedFile = True
 		Else
 			; I have it but it's the wrong version
-			If U\Checksum <> CountChecksum(U\Name$) Then NeedFile = True
+			If CurrentUpdate\Checksum <> CountChecksum(CurrentUpdate\Name$) Then NeedFile = True
 		EndIf
 
 		; If it's music, and the skip music option is enabled, then skip it
 		If UpdateMusic = False
-			If Instr(Upper$(U\Name$), "DATA\MUSIC") Then NeedFile = False
+			If Instr(Upper$(CurrentUpdate\Name$), "DATA\MUSIC") Then NeedFile = False
 		EndIf
 
 		; If file is required
 		If NeedFile = True
-			GY_UpdateLabel(LFile, LanguageString$(LS_UpdateFile) + " " + U\Name$)
+			GY_UpdateLabel(LFile, LanguageString$(LS_UpdateFile) + " " + CurrentUpdate\Name$)
 
 			; Download it
-			SafeFileName$ = Replace$(U\Name$, "\", "!!")
+			SafeFileName$ = Replace$(CurrentUpdate\Name$, "\", "!!")
 			SafeFileName$ = Replace$(SafeFileName$, " ", "!!!")
 			Result = DownloadFile(UpdateHost$ + Upper$(SafeFileName$) + ".DAT", "Temp.dat", GDLBar)
 			If Result = 0 Then RuntimeError(LanguageString$(LS_CouldNotDownload) + " " + UpdateHost$)
@@ -305,16 +305,16 @@ Function UpdateFiles()
 			; pinned key + SHA-256. Until that lands, at least refuse to apply
 			; a bz2 that decompressed to something other than what the server
 			; said it would. See docs/UPDATE-CHANNEL-HARDENING.md.
-			If CountChecksum("Temp2.dat") <> U\Checksum
+			If CountChecksum("Temp2.dat") <> CurrentUpdate\Checksum
 				DeleteFile("Temp2.dat")
-				WriteLog(MainLog, "Update for " + U\Name$ + " failed post-download checksum; refusing to apply.")
+				WriteLog(MainLog, "Update for " + CurrentUpdate\Name$ + " failed post-download checksum; refusing to apply.")
 				Goto skipUpdateApply
 			EndIf
 
 			; Ensure that the folder tree for the file actually exists
-			For i = 2 To Len(U\Name$)
-				If Mid$(U\Name$, i, 1) = "\"
-					Folder$ = Left$(U\Name$, i - 1)
+			For i = 2 To Len(CurrentUpdate\Name$)
+				If Mid$(CurrentUpdate\Name$, i, 1) = "\"
+					Folder$ = Left$(CurrentUpdate\Name$, i - 1)
 					; Belt-and-braces: never create a directory whose path
 					; contains a `..` segment, regardless of how the file
 					; name reached this point.
@@ -323,20 +323,20 @@ Function UpdateFiles()
 			Next
 ;---------------------------------------------
 			; Special case for client executable as it is currently running!
-			If Upper$(U\Name$) = Upper$(GameName$) + ".EXE"
+			If Upper$(CurrentUpdate\Name$) = Upper$(GameName$) + ".EXE"
 				DeInitExt
 				;multithreading ???
 				;FreeThread(Thread1)
 				EndGraphics()
 				ExecFile("Data\Patch.exe " + GameName$)
 				End
-			; Copy file to overwrite old version. (U\Name without the
+			; Copy file to overwrite old version. (CurrentUpdate\Name without the
 			; sigil resolved to a different/zero handle field; both calls
 			; here used to mis-target their path on the first apply cycle
 			; until subsequent Mid$ access populated the field.)
 			Else
-				If FileType(U\Name$) = 1 Then DeleteFile(U\Name$)
-				CopyFile("Temp2.dat", U\Name$)
+				If FileType(CurrentUpdate\Name$) = 1 Then DeleteFile(CurrentUpdate\Name$)
+				CopyFile("Temp2.dat", CurrentUpdate\Name$)
 				Delay(40)
 				DeleteFile("Temp2.dat")
 			EndIf
@@ -345,14 +345,14 @@ Function UpdateFiles()
 		EndIf
 		.skipUpdateApply
 
-		Delete(U)
+		Delete(CurrentUpdate)
 		ThisFile = ThisFile + 1
 		GY_UpdateProgressBar(GOverall, Int((Float#(ThisFile) / Float#(CreatedFiles)) * 100.0))
 		GY_Update()
 		RenderWorld()
 		Flip()
 		If KeyHit(1) Then End
-		U = UNext
+		CurrentUpdate = NextUpdate
 	Wend
 
 	FreeEntity(Background)

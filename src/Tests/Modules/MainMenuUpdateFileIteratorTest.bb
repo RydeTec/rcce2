@@ -18,17 +18,17 @@ Function UpdateFileApplyUsesAfterCursor%()
 			CloseFile F
 			Return False
 		EndIf
-		If Stage = 0 And Instr(Line$, "U.UpdateFile = First UpdateFile") > 0 Then Stage = 1
-		If Stage = 1 And Instr(Line$, "UNext.UpdateFile = Null") > 0 Then Stage = 2
-		If Stage = 2 And Instr(Line$, "While U <> Null") > 0 Then Stage = 3
-		If Stage = 3 And Instr(Line$, "UNext = After U") > 0 Then Stage = 4
-		If Stage < 4 And Instr(Line$, "Delete(U)") > 0
+		If Stage = 0 And Instr(Line$, "CurrentUpdate.UpdateFile = First UpdateFile") > 0 Then Stage = 1
+		If Stage = 1 And Instr(Line$, "NextUpdate.UpdateFile = Null") > 0 Then Stage = 2
+		If Stage = 2 And Instr(Line$, "While CurrentUpdate <> Null") > 0 Then Stage = 3
+		If Stage = 3 And Instr(Line$, "NextUpdate = After CurrentUpdate") > 0 Then Stage = 4
+		If Stage < 4 And Instr(Line$, "Delete(CurrentUpdate)") > 0
 			CloseFile F
 			Return False
 		EndIf
 		If Stage = 4 And Instr(Line$, "DownloadFile(") > 0 Then Stage = 5
-		If Stage = 5 And Instr(Line$, "Delete(U)") > 0 Then Stage = 6
-		If Stage = 6 And Instr(Line$, "U = UNext") > 0
+		If Stage = 5 And Instr(Line$, "Delete(CurrentUpdate)") > 0 Then Stage = 6
+		If Stage = 6 And Instr(Line$, "CurrentUpdate = NextUpdate") > 0
 			CloseFile F
 			Return True
 		EndIf
