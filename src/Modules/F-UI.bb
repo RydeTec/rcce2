@@ -1339,7 +1339,13 @@ End Function
 ; Rebuild the GUI projection after any window size change so pointer picking
 ; and layout scaling stay aligned with the resized client area.
 Function FUI_UpdateProjection()
-	If app = Null Or app\Cam = Null Or app\Pivot = Null
+	If app = Null
+		Return
+	EndIf
+	If app\Cam = Null
+		Return
+	EndIf
+	If app\Pivot = Null
 		Return
 	EndIf
 	If app\W <= 0 Or app\H <= 0

@@ -41,7 +41,7 @@ Dim weather_wind_swayspeed#(7, 3)   ; per-weather × per-axis speed
 
 `Dim X(7, 3)` allocates `8 × 4` slots — but only `(0..5, 1..3)` are populated. The six used weather indices are the `W_Sun = 0` through `W_Wind = 5` `Const`s declared in [`Environment.bb:2-7`](../../src/Modules/Environment.bb#L2); slots 6 and 7 of the first dimension and slot 0 of the second dimension are unused (Blitz3D `Dim X(N)` is inclusive — see CLAUDE.md → "Gotchas" → "Blitz3D array semantics").
 
-`tree_setvalues()` ([RCTrees.bb:583-657](../../src/Modules/RCTrees.bb#L583)) populates the 2D table with hard-coded per-weather wind profiles. Some samples:
+`tree_setvalues()` ([RCTrees.bb:583-664](../../src/Modules/RCTrees.bb#L583)) populates the 2D table with hard-coded per-weather wind profiles. Some samples:
 
 | Weather | X sway max / speed | Y / speed | Z / speed |
 |---|---|---|---|
@@ -82,7 +82,7 @@ The `Tree\swingstyle` field stores either `1` or `4` (note: NOT the input `swing
 
 The spring oscillator state machine per axis: `swaydir` is 1 (positive) or 2 (negative); `swayvalue#` accumulates `±swaypower#` per frame; on hitting `±TreeSwayMax#`, `swaydir` flips. Output rotation is `(swayvalue / swingstyle) * tdelta`.
 
-`updategrass(Gdelta, Grasswind)` ([RCTrees.bb:811-820](../../src/Modules/RCTrees.bb#L811)) is much simpler: maintains a global `GrassPos` angle (mod 3600 = 10-degree resolution full revolution), looks up `lcos#(GrassPos) * .015 * 360` from the pre-computed cosine table, calls `TransTex` on every distinct grass texture to rotate it. No per-instance per-frame work — texture rotation is global.
+`updategrass(Gdelta, Grasswind)` ([RCTrees.bb:818-827](../../src/Modules/RCTrees.bb#L818)) is much simpler: maintains a global `GrassPos` angle (mod 3600 = 10-degree resolution full revolution), looks up `lcos#(GrassPos) * .015 * 360` from the pre-computed cosine table, calls `TransTex` on every distinct grass texture to rotate it. No per-instance per-frame work — texture rotation is global.
 
 ### Pre-computed trig LUTs
 
@@ -99,21 +99,21 @@ Next
 
 ### Grass deduplication: `clumpgrass`
 
-[RCTrees.bb:668-705](../../src/Modules/RCTrees.bb#L668). Walks every `RcGrass` and builds a `GrassTextures` cache keyed by texture name. After: every `RcGrass` whose texture name matches an existing cache entry shares the cache entry's `Brush` handle (via `PaintMesh rcg\ent, gt\brush`). Closes a real perf issue: pre-clump, a zone with 200 grass tufts using 10 unique textures would issue 200 brush-swap calls per frame; post-clump, 10.
+[RCTrees.bb:675-712](../../src/Modules/RCTrees.bb#L675). Walks every `RcGrass` and builds a `GrassTextures` cache keyed by texture name. After: every `RcGrass` whose texture name matches an existing cache entry shares the cache entry's `Brush` handle (via `PaintMesh rcg\ent, gt\brush`). Closes a real perf issue: pre-clump, a zone with 200 grass tufts using 10 unique textures would issue 200 brush-swap calls per frame; post-clump, 10.
 
 The freed-but-still-referenced texture/brush is the classic refcount edge — `FreeBrush rcg\brush` / `FreeTexture rcg\tex` on the per-grass handle is safe because the cached `gt\brush` / `gt\tex` is a fresh `GetBrushTexture` lookup, not an alias.
 
 ### Season system
 
-`Tree_SetSeason(sn)` recolors every non-evergreen `Tree` and `RcGrass` to the season's RGB triple from `season_red(0..11)` / `season_green(0..11)` / `season_blue(0..11)`. The 12 seasons (the engine has more than 4) are loaded from `Data\Game Data\RCTE.dat` by `tree_setvalues` — or generated with random defaults and persisted if the file is missing.
+`Tree_SetSeason(sn)` recolors every non-evergreen `Tree` and `RcGrass` to the season's RGB triple from `season_red(0..11)` / `season_green(0..11)` / `season_blue(0..11)`. The 12 seasons (the engine has more than 4) are loaded from `Data\Game Data\RCTE.dat` by `tree_setvalues` — or generated with random defaults and persisted when the file is missing or malformed.
 
-Persistence shape: 12 × 3 × `Int = 144 bytes`. **Plain `WriteFile`, not `SafeWriteOpen` / `SafeWriteCommit`.** A crash during write leaves a truncated file; subsequent `ReadInt` past EOF zero-fills (Blitz3D doesn't error on past-EOF reads), so missing seasons get `0,0,0` (black). This is a SafeWrite migration candidate — same pattern as `RP_SaveEmitterConfig` in [`RottParticles.bb`](rottparticles.md).
+Persistence shape: 12 × 3 × `Int = 144 bytes`. `tree_setvalues` accepts only that exact size for reads; missing or malformed files are regenerated through `SafeWriteOpen` / `SafeWriteCommit`, so a failed promotion preserves the previous file rather than replacing it with a partial table.
 
 ## Conventions for new code touching this module
 
 - **Branch surfaces are identified by texture-name substring `"branch"`.** Authoring a tree mesh where branches don't have "branch" in the texture name collapses the whole tree into a trunk-only entity with no sway. This is undocumented in the source and a future content-pipeline rewrite should formalize the contract.
 - **`Tree\swingstyle` field stores `1` or `4`, NOT the input arg's value.** Input value space is `0..2` (the `Select Case` at line 275-282 picks `CenterMesh` / `HangMesh` / `StandMesh`). Don't compare `rt\swingstyle` against the input arg's range — they're different semantically.
-- **`tree_setvalues` writes `Data\Game Data\RCTE.dat` via plain `WriteFile`.** Atomic-write migration is a candidate; the file is small (144 bytes) and a corrupt write only loses the random defaults, so the impact is low.
+- **`tree_setvalues` treats `Data\Game Data\RCTE.dat` as exactly 144 bytes.** Missing or malformed files are regenerated atomically; do not bypass `SafeWriteOpen` / `SafeWriteCommit` when changing this fixed-size table.
 - **`updatetrees` reads engine globals `currentseason`, `currentweather`, `fogfarnow`** — added at module scope by the broader engine. Not declared in this file. If the engine ever stops setting them, `updatetrees` silently degrades (zero everywhere).
 - **`distance(e1, e2)` is XZ-only** (2D ground-plane distance, ignoring Y) — not Euclidean. Documented by the function body's `Sqr#((EntityX - EntityX)^2 + (EntityZ - EntityZ)^2)`. Aerial trees would compute "near" distances even when far above/below the camera.
 - **Maxbranches = 400 is a `Const` per-tree cap.** A tree with > 400 branch surfaces silently drops the overflow (the surface loop continues but `RT\Branchent[bcount]` indexes past the field's declared size 0..400, which Blitz3D doesn't bounds-check — writing past the field's `[400]` allocates more slots dynamically, but cap-aware code in `updatetrees` only loops `For bn = 1 To rt\maxbranches`).
@@ -129,7 +129,7 @@ Persistence shape: 12 × 3 × `Int = 144 bytes`. **Plain `WriteFile`, not `SafeW
 
 ## See also
 
-- CLAUDE.md → "Atomic writes" — `tree_setvalues`' `WriteFile` on `RCTE.dat` is a migration candidate.
+- CLAUDE.md → "Atomic writes" — `tree_setvalues` follows the repository safe-write convention for `RCTE.dat`.
 - CLAUDE.md → "Gotchas" → "Blitz3D array semantics" — `Dim X(N)` allocates `N+1` slots; relevant for `Dim weather_wind_swaymax#(7, 3)` (8 × 4 slots).
 - [`rottparticles.md`](rottparticles.md) — sibling-style "graphics subsystem with a non-atomic save format" with the same migration-candidate flag.
 
@@ -140,9 +140,9 @@ The legacy function-by-function reference for this module has not been generated
 The module exports 25 functions. Notable groups:
 
 - **Tree lifecycle:** `LoadTree` ([RCTrees.bb:128](../../src/Modules/RCTrees.bb#L128)), `Deletetree` ([:480](../../src/Modules/RCTrees.bb#L480)), `UnloadTrees` ([:490](../../src/Modules/RCTrees.bb#L490)), `Droptree` ([:441](../../src/Modules/RCTrees.bb#L441)) — drop-via-LinePick onto terrain.
-- **Per-frame:** `updatetrees` ([:301](../../src/Modules/RCTrees.bb#L301)), `updategrass` ([:811](../../src/Modules/RCTrees.bb#L811)).
+- **Per-frame:** `updatetrees` ([:301](../../src/Modules/RCTrees.bb#L301)), `updategrass` ([:818](../../src/Modules/RCTrees.bb#L818)).
 - **Anchor helpers:** `CenterMesh` ([:461](../../src/Modules/RCTrees.bb#L461)), `StandMesh` ([:465](../../src/Modules/RCTrees.bb#L465)), `HangMesh` ([:469](../../src/Modules/RCTrees.bb#L469)) — anchor a branch mesh's pivot.
-- **Season/weather:** `Tree_SetSeason` ([:512](../../src/Modules/RCTrees.bb#L512)), `Tree_Changeweather` ([:659](../../src/Modules/RCTrees.bb#L659)), `tree_setvalues` ([:583](../../src/Modules/RCTrees.bb#L583)).
-- **Grass:** `LoadGrass` ([:562](../../src/Modules/RCTrees.bb#L562)), `clumpgrass` ([:668](../../src/Modules/RCTrees.bb#L668)), `ColorGrass` ([:762](../../src/Modules/RCTrees.bb#L762)), `Lightmapgrass` ([:822](../../src/Modules/RCTrees.bb#L822)), `TransTex` ([:803](../../src/Modules/RCTrees.bb#L803)).
+- **Season/weather:** `Tree_SetSeason` ([:512](../../src/Modules/RCTrees.bb#L512)), `Tree_Changeweather` ([:666](../../src/Modules/RCTrees.bb#L666)), `tree_setvalues` ([:583](../../src/Modules/RCTrees.bb#L583)).
+- **Grass:** `LoadGrass` ([:562](../../src/Modules/RCTrees.bb#L562)), `clumpgrass` ([:675](../../src/Modules/RCTrees.bb#L675)), `ColorGrass` ([:769](../../src/Modules/RCTrees.bb#L769)), `Lightmapgrass` ([:829](../../src/Modules/RCTrees.bb#L829)), `TransTex` ([:810](../../src/Modules/RCTrees.bb#L810)).
 - **Visibility:** `SetTreePickmode`, `Tree_Hideall`, `Tree_Showall`, `tree_autofade`.
 - **Utility:** `CountTrees`, `fps`, `distance`, `xForm`.

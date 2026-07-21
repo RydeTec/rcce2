@@ -836,9 +836,10 @@ If FileSize(TmpPath$) <> offset
 	FreeBank thisbank
 	Return -1
 EndIf
-DeleteFile(fname$)
-CopyFile TmpPath$, fname$
-DeleteFile(TmpPath$)
+If SafeWriteCommit%(TmpPath$, fname$, 0) = False
+	FreeBank thisbank
+	Return -1
+EndIf
 
 ; WriteBytes thisbank,newf,0,ts
 ; CloseFile newf

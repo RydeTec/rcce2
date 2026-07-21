@@ -160,7 +160,7 @@ Function UpdateNetwork()
 			; Scripted progress bar
 			Case P_ProgressBar ; :)
 				; Create new
-				If Left$(M\MessageData$, 1) = "C"
+				If Left$(M\MessageData$, 1) = "C" And Len(M\MessageData$) >= 28
 					Red = RCE_IntFromStr(Mid$(M\MessageData$, 2, 1))
 					Green = RCE_IntFromStr(Mid$(M\MessageData$, 3, 1))
 					Blue = RCE_IntFromStr(Mid$(M\MessageData$, 4, 1))
@@ -1487,8 +1487,8 @@ Function UpdateNetwork()
 							Next
 						EndIf : EndIf
 					; Given an item
-					Case "G"
-						ItemID = RCE_IntFromStr(Mid$(M\MessageData$, 6, 2))
+					Case "G" : If Len(M\MessageData$) <> 9 : WriteLog(MainLog, "P_InventoryUpdate G: bad payload length " + Len(M\MessageData$) + ", dropping")
+					Else : ItemID = RCE_IntFromStr(Mid$(M\MessageData$, 6, 2))
 						Amount = RCE_IntFromStr(Mid$(M\MessageData$, 8, 2))
 						; ItemList is Dim'd 65534. A wire ItemID outside
 						; 0..65534 or pointing at a Null slot would crash
@@ -1535,9 +1535,9 @@ Function UpdateNetwork()
 						If Found = False
 							FreeItemInstance(II)
 							RCE_Send(Connection, PeerToHost, P_InventoryUpdate, "GN" + Mid$(M\MessageData$, 2, 4), True)
-						EndIf
-						EndIf
-				End Select
+							EndIf
+						EndIf : EndIf
+					End Select
 
 			; A standard update for an actor instance
 			Case P_StandardUpdate

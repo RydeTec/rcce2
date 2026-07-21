@@ -318,7 +318,9 @@ End Function
 ; Loads the server data for an area
 Function ServerLoadArea.Area(Name$)
 
-	F = ReadFile("Data\Server Data\Areas\" + Name$ + ".dat")
+	Local AreaWaterRecordBytes = 24
+	Local AreaPath$ = "Data\Server Data\Areas\" + Name$ + ".dat"
+	F = ReadFile(AreaPath$)
 	If F = 0 Then Return Null
 
 		A.Area = New Area
@@ -387,6 +389,7 @@ Function ServerLoadArea.Area(Name$)
 			A\SpawnRange#[i]       = ReadFloat#(F)
 		Next
 		Waters = ReadShort(F)
+		If Waters < 0 Or Waters > (FileSize(AreaPath$) - FilePos(F)) / AreaWaterRecordBytes Then Waters = 0
 		For i = 1 To Waters
 			W.ServerWater = New ServerWater
 			W\X# = ReadFloat#(F)
