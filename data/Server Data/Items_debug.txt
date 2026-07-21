@@ -1,6 +1,0 @@
-Item ID: 0
-Item Name: Sword
-
-Item ID: 1
-Item Name: Shield
-
