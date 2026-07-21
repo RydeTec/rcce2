@@ -1,0 +1,38 @@
+[
+  {
+    "frame": 3,
+    "viewport": 0,
+    "x": 97,
+    "y": 317,
+    "actual": 101,
+    "expected": 101,
+    "duration_ms": 0.2659
+  },
+  {
+    "frame": 3,
+    "viewport": 0,
+    "x": 291,
+    "y": 317,
+    "actual": 102,
+    "expected": 102,
+    "duration_ms": 0.31770000000000004
+  },
+  {
+    "frame": 3,
+    "viewport": 1,
+    "x": 97,
+    "y": 317,
+    "actual": 201,
+    "expected": 201,
+    "duration_ms": 0.23900000000000002
+  },
+  {
+    "frame": 3,
+    "viewport": 1,
+    "x": 291,
+    "y": 317,
+    "actual": 202,
+    "expected": 202,
+    "duration_ms": 0.1263
+  }
+]

@@ -1,0 +1,29 @@
+Recorded 2026-07-21 from crates.io package metadata, normalized registry Cargo.toml files, and the
+locked spike dependency tree. This file records package facts only; it does not select a UI.
+
+Command family:
+  cargo info <package>@<version>
+  rustup run 1.85.0 cargo tree --manifest-path editor-rs/spikes/ui-render/Cargo.toml \
+    --locked --depth 1 -p egui -p egui-wgpu -p egui-winit -p wgpu -p winit
+
+Direct candidate used by the executable:
+- egui 0.29.1: rust-version 1.76; license MIT OR Apache-2.0.
+- egui-wgpu 0.29.1: rust-version 1.76; license MIT OR Apache-2.0; locked direct renderer
+  dependency wgpu 22.1.0.
+- egui-winit 0.29.1: rust-version 1.76; license MIT OR Apache-2.0; locked direct window dependency
+  winit 0.30.13.
+- The executable built on native Windows and Linux with rustc 1.85.0.
+
+Next candidates inspected but not executed:
+- iced 0.13.1: rust-version 1.80; license MIT. Its iced_wgpu 0.13.5 normalized Cargo.toml declares
+  wgpu 0.19, so a comparable experiment needs an explicit adapter or separate rendering seam.
+- iced 0.14.0: rust-version 1.88; license MIT. Its iced_wgpu 0.14.0 normalized Cargo.toml declares
+  wgpu 27.0, outside the current Rust 1.85 / wgpu 22 envelope.
+- Slint 1.12.1: rust-version 1.82; license GPL-3.0-only OR Slint royalty-free/software licenses.
+  Its feature is named unstable-wgpu-24 and aliases package wgpu at version 24.
+- Slint 1.13.1: rust-version 1.85; same declared license family. Its feature is named
+  unstable-wgpu-26 and aliases package wgpu at version 26.
+
+The package facts support the experiment ordering, not a claim that alternatives fail product
+requirements. Iced and Slint still require executable runs under the same ADR-0006 rubric before
+any comparative selection.

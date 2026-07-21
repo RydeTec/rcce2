@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "candidate": "egui/egui-winit/egui-wgpu 0.29.1",
+  "rust_version": "1.85.0",
+  "os": "windows",
+  "arch": "x86_64",
+  "adapter_name": "NVIDIA GeForce GTX 1660 Ti",
+  "adapter_backend": "Vulkan",
+  "adapter_driver": "NVIDIA",
+  "surface_format": "Bgra8Unorm",
+  "physical_size": [
+    1024,
+    768
+  ],
+  "scale_factor": 1.0,
+  "scale_override_percent": 200,
+  "viewport_count": 1,
+  "cache_state": "warm",
+  "trace_path": "C:\\Users\\dyanr\\AppData\\Local\\Temp\\rcce-ui-standard-v1-r3.json",
+  "trace_seed": 1380143941,
+  "warmup_frames": 300,
+  "measured_frames": 1800,
+  "device_generations": 1,
+  "device_loss_callback_observed": false,
+  "frame_count": 2100,
+  "executable_source_sha256": "8de40bf480449196f1ffa8c52d674646f07637a9fc7c2a537bf434e4de3eab48",
+  "cargo_lock_sha256": "c55eca8575eb1646598c04dc8b2b1f6c9333e24de0b45ec905ab0c9d035826f4",
+  "trace_sha256": "01d3cdae1a416cf1abb0a8f1dd3de93e7a0a340ab28713ed27af1f2538d10301"
+}

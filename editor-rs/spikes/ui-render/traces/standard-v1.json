@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "seed": 1380143941,
+  "catalog_rows": 100000,
+  "viewport_counts": [1, 2],
+  "dpi_percent": [100, 150, 200],
+  "warmup_frames": 300,
+  "measured_frames": 1800
+}

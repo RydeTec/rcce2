@@ -1,0 +1,20 @@
+[
+  {
+    "frame": 3,
+    "viewport": 0,
+    "x": 167,
+    "y": 259,
+    "actual": 101,
+    "expected": 101,
+    "duration_ms": 0.4243
+  },
+  {
+    "frame": 3,
+    "viewport": 0,
+    "x": 501,
+    "y": 259,
+    "actual": 102,
+    "expected": 102,
+    "duration_ms": 0.1661
+  }
+]
