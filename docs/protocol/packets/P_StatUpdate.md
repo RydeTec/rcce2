@@ -3,7 +3,7 @@
 **Direction:** S → C only (no client-emitted form)
 **Numeric ID:** 22
 **Server emit helpers:** [`UpdateAttribute`](../../../src/Server.bb#L969), [`UpdateAttributeMax`](../../../src/Server.bb#L988), [`UpdateReputation`](../../../src/Server.bb#L1005) (all in [Server.bb](../../../src/Server.bb))
-**Client handler:** [ClientNet.bb:990](../../../src/Modules/ClientNet.bb#L990)
+**Client handler:** [ClientNet.bb:1030](../../../src/Modules/ClientNet.bb#L1030)
 
 ## Purpose
 
@@ -42,11 +42,12 @@ The dispatching `If Attribute = HealthStat Or Attribute = SpeedStat Or Attribute
 2. **`Attribute > -1`** — `FindAttribute(name$)` returns -1 on unknown name. **Critical**: must bail before the array index. The pre-fix bug in `BVM_CHANGEMAXATTRIBUTE` had the `If Attribute > -1` guard around only the read; the unconditional write at `Actor\Attributes\Maximum[Attribute] = ...` OOB'd at `[-1]` when the attribute name was mistyped. See audit comment at [ScriptingCommands.bb:2319-2324](../../../src/Modules/ScriptingCommands.bb#L2319).
 3. **`AInstance <> Null`** — the broadcast helpers in `Server.bb` do `AInstance.AreaInstance = Object.AreaInstance(AI\ServerArea) : If AInstance <> Null Then ...` before walking `FirstInZone`. An actor mid-warp (`SetArea` rebinding zones) returns Null from `Object.AreaInstance(...)`; the stat update for that tick simply doesn't broadcast — the actor's `Attributes\Value[]` was already updated locally and the next tick after `SetArea` settles will reach everyone. PRs [#154](https://github.com/RydeTec/RCCE2/pull/154) / [#155](https://github.com/RydeTec/rcce2/pull/155) / [#176](https://github.com/RydeTec/rcce2/pull/176) / [#182](https://github.com/RydeTec/rcce2/pull/182)–[#188](https://github.com/RydeTec/rcce2/pull/188) covered this discipline.
 
-### Client-side (decode) — [ClientNet.bb:990-1011](../../../src/Modules/ClientNet.bb#L990)
+### Client-side (decode) — [ClientNet.bb:1030-1063](../../../src/Modules/ClientNet.bb#L1030)
 
-1. **`A <> Null`** — `RuntimeIDList(RuntimeID)` returns Null if the server names a `RuntimeID` the client hasn't created an `ActorInstance` for yet (race on actor spawn — server's `P_NewActor` and `P_StatUpdate` may arrive in either order). Bare `A\Attributes\Value[...]` deref would crash; the guard at [:997](../../../src/Modules/ClientNet.bb#L997) drops the packet instead.
-2. **`Attribute >= 0 And Attribute < 40`** — the wire byte holds 0..255 but `A\Attributes\Value` / `Maximum` are `Field[39]` (40 slots). A wild attribute index would OOB the Field. The bounds check is at [:1000](../../../src/Modules/ClientNet.bb#L1000) (for "A") and [:1005](../../../src/Modules/ClientNet.bb#L1005) (for "M"). The "R" sub-code has no attribute byte and writes a single scalar (`A\Reputation`).
-3. **Unknown sub-code → silent drop** — the `ElseIf` chain has no `Else` branch; a malformed first byte just no-ops.
+1. **Exact sub-code frame length** — `"A"` / `"M"` must be exactly 6 bytes and `"R"` exactly 5 bytes. The client drops every other length before actor lookup, numeric decode, or actor mutation; this prevents RCEnet's zero-filled short conversions from resetting a known actor's stat or reputation.
+2. **`A <> Null`** — `RuntimeIDList(RuntimeID)` returns Null if the server names a `RuntimeID` the client hasn't created an `ActorInstance` for yet (race on actor spawn — server's `P_NewActor` and `P_StatUpdate` may arrive in either order). Bare `A\Attributes\Value[...]` deref would crash; the guard drops the packet instead.
+3. **`Attribute >= 0 And Attribute < 40`** — the wire byte holds 0..255 but `A\Attributes\Value` / `Maximum` are `Field[39]` (40 slots). A wild attribute index would OOB the Field. The "R" sub-code has no attribute byte and writes a single scalar (`A\Reputation`).
+4. **Unknown sub-code → silent drop** — the `Select` has no `Case Else` branch; a malformed first byte just no-ops.
 
 ## Anti-cheat surface
 
