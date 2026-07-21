@@ -1,0 +1,11 @@
+RCCE-P07-SYNTHETIC-CANARY-V1
+registry_id=rcce-p07-canaries
+registry_version=1
+fixture_id=p07-policy-seed-v1
+canary_id=p07-dynamic-private-runtime-sentinel-v1
+state_class=DynamicPrivate
+role=runtime-private-sentinel
+marker=RCCE_CANARY_V1__DYNAMIC_PRIVATE__p07-policy-seed-v1__p07-dynamic-private-runtime-sentinel-v1__0134e1fa8bfe173aac3d984cc39a9dde48d4a82343f44804ed3c51650534c837
+runtime_authority=NONE
+service_endpoint=fixture.invalid:0
+operational=false

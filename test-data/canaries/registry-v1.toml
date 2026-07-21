@@ -1,0 +1,391 @@
+schema_version = 1
+registry_id = "rcce-p07-canaries"
+registry_version = 1
+token_domain = "RCCE-P07-CANARY-V1"
+token_algorithm = "sha256"
+state_class_order = ["PublicClient", "ServerConfig", "Secret", "DynamicPrivate", "EditorMetadata", "AuthoringSource", "Unknown"]
+operation_order = ["clone", "backup", "client-package", "server-package", "diagnostics", "migration", "playtest-snapshot", "publication"]
+
+[classification_contract]
+rule_id = "rcce-state-classification"
+rule_version = 1
+primary_source = "versioned-inventory-rule"
+required_primary_count = 1
+constraint_mode = "additive"
+missing_primary = "reject"
+multiple_primary = "reject"
+conflicting_primary = "reject"
+
+[[support_files]]
+path = "registry-v1.toml"
+role = "registry"
+version = 1
+
+[[support_files]]
+path = "validate_registry.py"
+role = "validator"
+version = 1
+
+[[operations]]
+id = "clone"
+description = "A new authoring tree; optional sensitive, private, metadata, and opaque state is disclosed separately."
+
+[operations.rules.PublicClient]
+disposition = "include"
+
+[operations.rules.ServerConfig]
+disposition = "include"
+
+[operations.rules.Secret]
+disposition = "conditional"
+option = "include-secret"
+
+[operations.rules.DynamicPrivate]
+disposition = "conditional"
+option = "include-dynamic-private"
+
+[operations.rules.EditorMetadata]
+disposition = "conditional"
+option = "include-editor-metadata"
+
+[operations.rules.AuthoringSource]
+disposition = "include"
+
+[operations.rules.Unknown]
+disposition = "conditional"
+option = "preserve-unknown"
+
+[[operations]]
+id = "backup"
+description = "A recoverable authoring copy; omitted conditional classes make the result explicitly partial."
+
+[operations.rules.PublicClient]
+disposition = "include"
+
+[operations.rules.ServerConfig]
+disposition = "include"
+
+[operations.rules.Secret]
+disposition = "conditional"
+option = "include-secret"
+
+[operations.rules.DynamicPrivate]
+disposition = "conditional"
+option = "include-dynamic-private"
+
+[operations.rules.EditorMetadata]
+disposition = "conditional"
+option = "include-editor-metadata"
+
+[operations.rules.AuthoringSource]
+disposition = "include"
+
+[operations.rules.Unknown]
+disposition = "conditional"
+option = "preserve-unknown"
+
+[[operations]]
+id = "client-package"
+description = "The public client runtime projection."
+
+[operations.rules.PublicClient]
+disposition = "include"
+
+[operations.rules.ServerConfig]
+disposition = "deny"
+
+[operations.rules.Secret]
+disposition = "deny"
+
+[operations.rules.DynamicPrivate]
+disposition = "deny"
+
+[operations.rules.EditorMetadata]
+disposition = "deny"
+
+[operations.rules.AuthoringSource]
+disposition = "deny"
+
+[operations.rules.Unknown]
+disposition = "deny"
+
+[[operations]]
+id = "server-package"
+description = "The server runtime projection; runtime-required authoring source and sensitive state require separate choices."
+
+[operations.rules.PublicClient]
+disposition = "include"
+
+[operations.rules.ServerConfig]
+disposition = "include"
+
+[operations.rules.Secret]
+disposition = "conditional"
+option = "include-secret"
+
+[operations.rules.DynamicPrivate]
+disposition = "conditional"
+option = "include-dynamic-private"
+
+[operations.rules.EditorMetadata]
+disposition = "deny"
+
+[operations.rules.AuthoringSource]
+disposition = "conditional"
+option = "include-runtime-authoring-source"
+
+[operations.rules.Unknown]
+disposition = "deny"
+
+[[operations]]
+id = "diagnostics"
+description = "A diagnostic bundle contains only newly derived, reviewed output; no source-class bytes are copied directly."
+
+[operations.rules.PublicClient]
+disposition = "derive-only"
+
+[operations.rules.ServerConfig]
+disposition = "derive-only"
+
+[operations.rules.Secret]
+disposition = "deny"
+
+[operations.rules.DynamicPrivate]
+disposition = "derive-only"
+
+[operations.rules.EditorMetadata]
+disposition = "derive-only"
+
+[operations.rules.AuthoringSource]
+disposition = "derive-only"
+
+[operations.rules.Unknown]
+disposition = "deny"
+
+[[operations]]
+id = "migration"
+description = "A separate destination preserving authoring meaning; sensitive/private/opaque bytes require independent disclosure choices."
+
+[operations.rules.PublicClient]
+disposition = "include"
+
+[operations.rules.ServerConfig]
+disposition = "include"
+
+[operations.rules.Secret]
+disposition = "conditional"
+option = "include-secret"
+
+[operations.rules.DynamicPrivate]
+disposition = "conditional"
+option = "include-dynamic-private"
+
+[operations.rules.EditorMetadata]
+disposition = "conditional"
+option = "include-editor-metadata"
+
+[operations.rules.AuthoringSource]
+disposition = "include"
+
+[operations.rules.Unknown]
+disposition = "conditional"
+option = "preserve-unknown"
+
+[[operations]]
+id = "playtest-snapshot"
+description = "A disposable runtime snapshot; private runtime state starts empty and editor metadata stays out."
+
+[operations.rules.PublicClient]
+disposition = "include"
+
+[operations.rules.ServerConfig]
+disposition = "include"
+
+[operations.rules.Secret]
+disposition = "deny"
+
+[operations.rules.DynamicPrivate]
+disposition = "deny"
+
+[operations.rules.EditorMetadata]
+disposition = "deny"
+
+[operations.rules.AuthoringSource]
+disposition = "conditional"
+option = "include-runtime-authoring-source"
+
+[operations.rules.Unknown]
+disposition = "deny"
+
+[[operations]]
+id = "publication"
+description = "A dispatch boundary, not a third package shape; callers must choose client-package or server-package."
+
+[operations.rules.PublicClient]
+disposition = "dispatch"
+
+[operations.rules.ServerConfig]
+disposition = "dispatch"
+
+[operations.rules.Secret]
+disposition = "dispatch"
+
+[operations.rules.DynamicPrivate]
+disposition = "dispatch"
+
+[operations.rules.EditorMetadata]
+disposition = "dispatch"
+
+[operations.rules.AuthoringSource]
+disposition = "dispatch"
+
+[operations.rules.Unknown]
+disposition = "dispatch"
+
+[[permission_policies]]
+id = "secret-never-project"
+state_class = "Secret"
+description = "P04-compatible synthetic Secret marker: absent by default and from every outward or derived surface."
+
+[[permission_policies.assertions]]
+operation = "clone"
+options = []
+expected = "absent"
+
+[[permission_policies.assertions]]
+operation = "clone"
+options = ["include-secret"]
+expected = "present"
+
+[[permission_policies.assertions]]
+operation = "backup"
+options = []
+expected = "absent"
+
+[[permission_policies.assertions]]
+operation = "backup"
+options = ["include-secret"]
+expected = "present"
+
+[[permission_policies.assertions]]
+operation = "client-package"
+options = []
+expected = "absent"
+
+[[permission_policies.assertions]]
+operation = "server-package"
+options = []
+expected = "absent"
+
+[[permission_policies.assertions]]
+operation = "server-package"
+options = ["include-secret"]
+expected = "present"
+
+[[permission_policies.assertions]]
+operation = "diagnostics"
+options = []
+expected = "absent"
+
+[[permission_policies.assertions]]
+operation = "migration"
+options = []
+expected = "absent"
+
+[[permission_policies.assertions]]
+operation = "migration"
+options = ["include-secret"]
+expected = "present"
+
+[[permission_policies.assertions]]
+operation = "playtest-snapshot"
+options = []
+expected = "absent"
+
+[[permission_policies.assertions]]
+operation = "publication"
+options = []
+expected = "absent"
+
+[[permission_policies]]
+id = "dynamic-private-explicit-internal"
+state_class = "DynamicPrivate"
+description = "Synthetic runtime-private marker: eligible only in explicitly selected internal copies or server state."
+
+[[permission_policies.assertions]]
+operation = "clone"
+options = []
+expected = "absent"
+
+[[permission_policies.assertions]]
+operation = "clone"
+options = ["include-dynamic-private"]
+expected = "present"
+
+[[permission_policies.assertions]]
+operation = "backup"
+options = []
+expected = "absent"
+
+[[permission_policies.assertions]]
+operation = "backup"
+options = ["include-dynamic-private"]
+expected = "present"
+
+[[permission_policies.assertions]]
+operation = "client-package"
+options = []
+expected = "absent"
+
+[[permission_policies.assertions]]
+operation = "server-package"
+options = []
+expected = "absent"
+
+[[permission_policies.assertions]]
+operation = "server-package"
+options = ["include-dynamic-private"]
+expected = "present"
+
+[[permission_policies.assertions]]
+operation = "diagnostics"
+options = []
+expected = "absent"
+
+[[permission_policies.assertions]]
+operation = "migration"
+options = []
+expected = "absent"
+
+[[permission_policies.assertions]]
+operation = "migration"
+options = ["include-dynamic-private"]
+expected = "present"
+
+[[permission_policies.assertions]]
+operation = "playtest-snapshot"
+options = []
+expected = "absent"
+
+[[permission_policies.assertions]]
+operation = "publication"
+options = []
+expected = "absent"
+
+[[canaries]]
+id = "p07-secret-credential-sentinel-v1"
+fixture_id = "p07-policy-seed-v1"
+fixture_path = "fixtures/secret-credential-sentinel-v1.txt"
+state_class = "Secret"
+role = "credential-sentinel"
+permission_policy_id = "secret-never-project"
+expected_occurrences = 1
+
+[[canaries]]
+id = "p07-dynamic-private-runtime-sentinel-v1"
+fixture_id = "p07-policy-seed-v1"
+fixture_path = "fixtures/dynamic-private-runtime-sentinel-v1.txt"
+state_class = "DynamicPrivate"
+role = "runtime-private-sentinel"
+permission_policy_id = "dynamic-private-explicit-internal"
+expected_occurrences = 1
