@@ -35,18 +35,23 @@ this namespace while legacy compatibility is supported.
 
 Descriptive metadata—including ownership markers, journal fields, history,
 paths, identities, names, manifests, diagnostics, and logs—never contains secret
-values. The sole exception is exact source bytes retained as protected recovery
-material under ADR-0005 when the user explicitly authorizes mutation of a
-`Secret`-class target. Secret-bearing original bytes live only in an opaque
-artifact under `recovery/`; they are forbidden from journal payloads. Secret-
-bearing replacement bytes may exist only in an equivalently protected opaque
-temporary artifact until canonical promotion. Both artifact classes use
-restrictive platform permissions, are never rendered by ordinary metadata
-inspection, and are excluded from clone, publication, diagnostics, playtest
-snapshots, and other outputs by default. Completion, rollback, abandonment, and
-retention expiry run the documented secure-cleanup procedure and report any
-cleanup failure or platform physical-erasure limitation without leaking names
-or content.
+values; there is no Secret exception inside descriptive metadata or journal
+payloads. When the user explicitly authorizes mutation of a `Secret`-class
+target, exact original bytes may persist outside the pre-replacement canonical
+target only in an opaque protected artifact under `recovery/`. Exact replacement
+bytes may persist only in an equivalently protected opaque temporary artifact
+and, after promotion, the canonical target.
+
+Transient exact Secret bytes may exist only under ADR-0005's authorized,
+bounded `SecretMemoryAuthority`: one locked and non-pageable, dump-excluded,
+single-owner, non-copying, zeroizing process-private buffer. They never enter
+metadata, journal frames, logs, callbacks/plugins, caches, diagnostics, reports,
+names, or manifests. Both persistent artifact classes use restrictive platform
+permissions, are never rendered by ordinary metadata inspection, and are
+excluded from clone, publication, diagnostics, playtest snapshots, and other
+outputs by default. Completion, rollback, abandonment, and retention expiry run
+the documented secure-cleanup procedure and report any cleanup failure or
+platform physical-erasure limitation without leaking names or content.
 
 Reservation occurs only when the candidate path is absent. A pre-existing file,
 unowned or nonempty directory, link/reparse point, malformed marker, newer
@@ -89,9 +94,14 @@ class allowlists. Legacy and Rust runtimes ignore the namespace.
 - Recovery journals are durable, non-cache state governed by ADR-0005.
 - Secret values are prohibited from descriptive metadata, history, journal
   payloads/fields, paths, names, manifests, reports, diagnostics, and logs.
-  Exact secret-bearing source bytes are permitted only in explicitly authorized,
-  protected recovery artifacts governed by ADR-0005; replacement bytes are
-  permitted only in equivalently protected temp artifacts and canonical targets.
+  Outside the canonical target, exact original bytes may persist only in an
+  explicitly authorized protected recovery artifact governed by ADR-0005;
+  replacement bytes may persist only in an equivalently protected temp artifact
+  and canonical target. Transient exact bytes may exist only under ADR-0005's
+  authorized, bounded, locked and non-pageable, dump-excluded, single-owner,
+  non-copying, zeroizing `SecretMemoryAuthority`; they never enter metadata,
+  journals, callbacks/plugins, caches, names/manifests, reports, diagnostics, or
+  logs.
 - Secret-bearing recovery and temp artifacts use restrictive permissions,
   opaque identities, default inspection/output exclusion, bounded retention,
   and documented secure cleanup.
@@ -111,11 +121,17 @@ diagnostic outputs exclude disallowed metadata.
 Secret-canary fixtures additionally prove denial without explicit mutation
 authorization, exact-byte recovery when authorized, restrictive permissions,
 opaque names/identities, absence from every journal payload, descriptive field,
-log, diagnostic, manifest, and output, and presence only in authorized temp,
-recovery, and canonical target bytes. They exercise denial, success, rollback,
-abandonment, expiry, cleanup failure, redacted failure reporting, and default
-inspection/projection exclusion. Tests disclose when the underlying platform
-cannot guarantee physical erasure.
+log, callback/plugin, cache, diagnostic, report, name/manifest, and output.
+Persistent canaries occur only in authorized recovery, temp, and canonical
+target bytes as appropriate. Instrumented transient canaries occur only under
+ADR-0005 `SecretMemoryAuthority`; fixtures prove authorization, bounds,
+locking/non-pageability, dump exclusion, single non-copying ownership, and
+normal/error/cancellation/unwind zeroization, and deny Secret mutation if any
+capability is unavailable. They exercise denial, success, rollback, abandonment,
+expiry, cleanup failure, redacted failure reporting, and default inspection/
+projection exclusion. Forced-termination and power-loss reports preserve
+ADR-0005's truthful residual physical-memory limitation rather than claiming
+hook execution or guaranteed erasure.
 
 ## Dependencies
 

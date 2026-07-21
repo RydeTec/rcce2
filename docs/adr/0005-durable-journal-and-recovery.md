@@ -44,12 +44,42 @@ failure/interruption observations. `RecoveryDurable` has one recorded mode:
   precondition are durably recorded for a create operation.
 
 A `Secret`-class target never uses `InlineOriginalDurable`: neither original nor
-replacement secret bytes may appear in the journal. Its original bytes exist
-only in an opaque, restrictively permissioned `RecoveryCopyDurable` artifact;
-the journal contains only its opaque identity, length, and checksum. Its staged
-temporary output is also opaque-named, restrictively permissioned, excluded
-from inspection and every projection, and governed by the same bounded
-retention, cleanup, and cleanup-failure reporting as the recovery artifact.
+replacement secret bytes may appear in the journal. Outside the canonical
+target before replacement, its original bytes exist as an additional durable/
+persistent exact-byte copy only in an opaque, restrictively permissioned
+`RecoveryCopyDurable` artifact; the journal contains only its opaque identity,
+length, and checksum. This persistent-copy restriction permits exact original
+bytes in transient memory only under a proven `SecretMemoryAuthority`. That
+authority is granted after mutation authorization and size preflight and owns
+one bounded, single-owner, non-copying, zeroizing buffer. The buffer is locked
+and non-pageable and excluded from core and application/OS crash dumps using tested
+platform primitives; cloning, implicit copies, serialization, formatting, and
+access outside its narrow construction API are forbidden. If the selected
+platform cannot prove memory locking/non-pageability, dump exclusion, the size
+bound, single ownership, and normal/unwind zeroization hooks, Secret mutation is
+unsupported rather than silently degraded.
+
+ADR-0003's `SpeculativeReadGate` fills the complete bounded Secret buffer, runs
+all applicable post-read checks, and either rejects and zeroizes it or returns an
+accepted buffer. No recovery/temp filesystem artifact is opened, created, or
+written from those bytes before successful gate completion. Only afterward may
+the still-authorized accepted buffer construct the protected recovery artifact
+and compute its checksum. After the artifact is durably written, the owner
+zeroizes the original buffer; readback verification reuses the same zeroizing
+owner and compares a cryptographic digest, so no second process-memory copy is
+introduced. The buffer is never journaled, logged, named, cached, rendered,
+placed in a manifest, sent through a callback/plugin, or retained for reuse.
+
+The staged Secret replacement output is also opaque-named, restrictively
+permissioned, excluded from inspection and every projection, and governed by
+the same bounded retention, cleanup, and cleanup-failure reporting as the
+recovery artifact. Transient process-private Secret bytes used to construct or
+verify it follow the same authorization, bounds, prohibited-sink, and
+`SecretMemoryAuthority` lifecycle. Forced termination, kernel failure, or power
+loss cannot run a userspace zeroization hook; non-pageable/dump-excluded storage
+prevents sanctioned swap/pagefile and dump copies, but residual physical-memory,
+firmware, hypervisor, or forensic recovery limits are disclosed rather than
+claimed erased.
 
 Journal updates use one crash-consistent format: an append-only sequence of
 checksummed frames. The immutable header identifies format version, journal and
@@ -83,14 +113,18 @@ Ordering is:
 
 1. create the journal/plan, durably flush its file data and metadata, then
    durably flush the journal containing directory;
-2. read the original through the confined handle and capture exact original
-   bytes, or record that the target is absent;
+2. after Secret-target mutation authorization, size preflight, and proven
+   `SecretMemoryAuthority`, let ADR-0003's applicable read gate capture the
+   complete original into its bounded buffer, finish post-read checks, and
+   accept the buffer; on rejection, zeroize and stop, or record target absence;
 3. for a non-`Secret` target, durably embed and flush those bytes in the journal
    payload, including directory durability if its entry is created or replaced;
-   for a `Secret` target, create, byte-verify, durably flush the recovery file's
-   data and metadata, durably flush the recovery-copy containing directory, and
-   record only its opaque identity, length, and checksum in the journal; only
-   then persist `RecoveryDurable`;
+   only after a `Secret` buffer is accepted, create and write the protected
+   recovery artifact, zeroize/reuse the sole owner for digest readback
+   verification, durably flush the recovery file's data and metadata, durably
+   flush the recovery-copy containing directory, and record only its opaque
+   identity, length, and checksum in the journal; only then persist
+   `RecoveryDurable`;
 4. write, validate, and durably flush same-volume temporary output;
 5. acquire `ReplaceAuthority`, then recheck target identity and fingerprint
    through the confined handle while holding that authority;
@@ -122,9 +156,12 @@ External operations never enter this journal as rollback-guaranteed filesystem
 steps; their audit links to reconciliation and explicit compensation metadata.
 Descriptive journal fields, paths, command descriptions, reports, manifests,
 identities, and logs never contain secret values. Exact original bytes from a
-`Secret`-class target may exist only in the protected recovery artifact when the
-user explicitly authorized that target's mutation; exact replacement bytes may
-exist only in its protected temporary artifact and eventual canonical target.
+`Secret`-class target may persist outside the pre-replacement canonical target
+only in the protected recovery artifact when the user explicitly authorized
+that target's mutation; exact replacement bytes may persist only in its
+protected temporary artifact and eventual canonical target. Authorized bounded
+process-private scratch is transient, side-effect-free, and zeroized as defined
+above; it is not another durable copy.
 Both artifacts use restrictive platform permissions, opaque/redacted names and
 identities, default inspection/projection/output exclusion, and the documented
 secure cleanup and retention procedure after durable completion or explicit
@@ -174,9 +211,14 @@ storage, and SSDs are disclosed rather than overclaimed.
 - Completion is persisted only after required file and parent-directory
   durability steps.
 - Cross-authority external effects are never described as filesystem rollback.
-- Secret values appear only in explicitly authorized protected recovery,
-  temporary, and canonical target bytes, never in journal payloads or
-  descriptive fields, names, manifests, reports, diagnostics, or logs.
+- Secret values appear persistently only in explicitly authorized protected
+  recovery, temporary, and canonical target bytes. They may exist transiently
+  only under `SecretMemoryAuthority` in one authorized bounded, locked and
+  non-pageable, dump-excluded, non-copying process-private owner. Normal return,
+  rejection, error, cancellation, and unwind paths invoke and verify zeroization;
+  abrupt termination/power-loss residual physical-memory limits are disclosed.
+  Secret values never enter journal payloads or descriptive fields, names,
+  manifests, callbacks/plugins, caches, reports, diagnostics, or logs.
 
 ## Verification and exit evidence
 
@@ -203,9 +245,23 @@ actions are offered. Secret-canary tests verify authorization,
 restrictive permissions, opaque naming, and absence of secret bytes from every
 journal frame, descriptive field, log, diagnostic, manifest, and output.
 Canaries verify secret bytes occur only in the authorized temp, recovery, and
-canonical target artifacts; exercise denial, success, rollback, abandonment,
-retention expiry, and injected cleanup failure; and prove failed cleanup remains
-reported without leaking the canary. Torn writes at every frame offset recover
+canonical target artifacts plus instrumented authorized transient buffers;
+prove capability denial when locking/non-pageability, dump exclusion, bounded
+allocation, single ownership, non-copying construction, or zeroization hooks are
+unavailable. Successful fixtures prove allocation occurs only after authorization
+and size preflight, the complete read and postchecks finish before any recovery/
+temp artifact is opened or written, and only the accepted buffer constructs the
+artifact. Instrumented ownership/copy checks and heap/scratch inspection prove
+no duplicate process-memory buffer. Zeroization hooks are observed on success,
+gate rejection, authorization denial after preflight, verification failure,
+cancellation, ordinary error, unwind, rollback, abandonment, retention expiry,
+and injected cleanup failure. Journal frames, logs, callbacks/plugins,
+caches, names/manifests, diagnostics, and cleanup-failure reports never receive
+the canary. Crash-dump configuration tests prove exclusion or deny the capability;
+swap/pagefile tests prove the selected locking primitive or deny it. Forced-kill
+and power-loss reports do not claim hook execution or physical-memory erasure.
+Failed persistent-artifact cleanup remains reported without leaking the canary.
+Torn writes at every frame offset recover
 only the last valid chain. A hostile writer holding an old handle and another
 opening during transition flushes must either be excluded by `ReplaceAuthority`
 or cause promotion to remain unsupported; the final bytes may never silently
