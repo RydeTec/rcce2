@@ -2,7 +2,10 @@
 
 mod backend;
 
-pub use backend::{WalkBudget, WalkFile, WalkResult};
+pub use backend::{
+    MetadataBudget, MetadataEntry, MetadataKind, MetadataLocation, MetadataResult, UnavailableKind,
+    WalkBudget, WalkFile, WalkResult,
+};
 use std::fmt;
 use std::path::{Path, PathBuf};
 use unicode_normalization::UnicodeNormalization;
@@ -96,6 +99,12 @@ pub enum ReadAssurance {
     StrongNoRead,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RootControl {
+    Continue,
+    Cancel,
+}
+
 /// Ceiling for one accepted content read.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ReadBudget {
@@ -115,6 +124,24 @@ impl AcceptedBytes {
     #[must_use]
     pub fn into_vec(self) -> Vec<u8> {
         self.0
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AcceptedFile {
+    bytes: AcceptedBytes,
+    observed_size: u64,
+}
+
+impl AcceptedFile {
+    #[must_use]
+    pub fn bytes(&self) -> &AcceptedBytes {
+        &self.bytes
+    }
+
+    #[must_use]
+    pub fn observed_size(&self) -> u64 {
+        self.observed_size
     }
 }
 
@@ -201,6 +228,67 @@ impl ProjectRoot {
             .map_err(RootError::from_backend)
     }
 
+    /// Enumerate the entire held root without following unsafe entries.
+    pub fn metadata(
+        &self,
+        budget: MetadataBudget,
+        assurance: ReadAssurance,
+    ) -> Result<MetadataResult, RootError> {
+        self.require_assurance(assurance)?;
+        self.backend
+            .metadata(budget, &mut || true)
+            .map_err(RootError::from_backend)
+    }
+
+    /// Enumerate with cancellation checkpoints inside the descriptor-relative walk.
+    pub fn metadata_controlled(
+        &self,
+        budget: MetadataBudget,
+        assurance: ReadAssurance,
+        mut control: impl FnMut() -> RootControl,
+    ) -> Result<MetadataResult, RootError> {
+        self.require_assurance(assurance)?;
+        self.backend
+            .metadata(budget, &mut || control() == RootControl::Continue)
+            .map_err(RootError::from_backend)
+    }
+
+    /// Read one entry retained from this root's metadata enumeration. Content
+    /// is released only after identity, exact-size, and post-read checks.
+    pub fn read_enumerated_controlled(
+        &self,
+        entry: &MetadataEntry,
+        budget: ReadBudget,
+        assurance: ReadAssurance,
+        mut control: impl FnMut() -> RootControl,
+    ) -> Result<AcceptedFile, RootError> {
+        self.require_assurance(assurance)?;
+        let (MetadataLocation::Portable(path), MetadataKind::File { size }, Some(token)) =
+            (&entry.location, entry.kind, entry.token.as_ref())
+        else {
+            return Err(RootError::new(RootErrorCode::UnsafeObject));
+        };
+        if size > budget.max_bytes {
+            return Err(RootError::new(RootErrorCode::ResourceLimit));
+        }
+        let bytes = self
+            .backend
+            .read_bound(path, token, budget.max_bytes, &mut || {
+                control() == RootControl::Continue
+            })
+            .map_err(RootError::from_backend)?
+            .ok_or_else(|| RootError::new(RootErrorCode::Cancelled))?;
+        let observed_size =
+            u64::try_from(bytes.len()).map_err(|_| RootError::new(RootErrorCode::ResourceLimit))?;
+        if observed_size != size {
+            return Err(RootError::new(RootErrorCode::Integrity));
+        }
+        Ok(AcceptedFile {
+            bytes: AcceptedBytes(bytes),
+            observed_size,
+        })
+    }
+
     /// Fail closed before content access when an assurance is unavailable for
     /// this opened root's backend and filesystem.
     pub fn require_assurance(&self, assurance: ReadAssurance) -> Result<(), RootError> {
@@ -229,6 +317,7 @@ pub enum RootErrorCode {
     UnsafeObject,
     ResourceLimit,
     Integrity,
+    Cancelled,
 }
 
 /// A centralized non-echoing root-capability error.
@@ -250,6 +339,7 @@ impl RootError {
             BackendError::UnsafeObject { .. } => RootErrorCode::UnsafeObject,
             BackendError::ResourceLimit { .. } => RootErrorCode::ResourceLimit,
             BackendError::Integrity { .. } => RootErrorCode::Integrity,
+            BackendError::Cancelled => RootErrorCode::Cancelled,
         };
         Self::new(code)
     }
@@ -271,6 +361,7 @@ impl fmt::Display for RootError {
             RootErrorCode::UnsafeObject => "unsafe project filesystem object rejected",
             RootErrorCode::ResourceLimit => "project read resource ceiling exceeded",
             RootErrorCode::Integrity => "project read integrity check failed",
+            RootErrorCode::Cancelled => "project read cancelled",
         };
         output.write_str(message)
     }
@@ -342,6 +433,7 @@ enum BackendError {
         path: String,
         reason: &'static str,
     },
+    Cancelled,
 }
 
 impl BackendError {
@@ -376,6 +468,7 @@ impl fmt::Display for BackendError {
                 write!(output, "{reason} at {path}")
             }
             Self::ResourceLimit { path, limit } => write!(output, "{limit} at {path}"),
+            Self::Cancelled => output.write_str("project read cancelled"),
         }
     }
 }

@@ -4,6 +4,16 @@ use std::collections::BTreeSet;
 use std::io::Read;
 use std::path::Path;
 
+const MAX_SAFE_RECURSION_DEPTH: u64 = 64;
+
+const fn effective_max_depth(requested: u64) -> u64 {
+    if requested < MAX_SAFE_RECURSION_DEPTH {
+        requested
+    } else {
+        MAX_SAFE_RECURSION_DEPTH
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct WalkBudget {
     pub max_bytes: u64,
@@ -27,6 +37,122 @@ pub struct WalkResult {
     pub files: Vec<WalkFile>,
     pub directories: u64,
     pub bytes: u64,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct MetadataBudget {
+    pub max_entries: u64,
+    pub max_directories: u64,
+    pub max_depth: u64,
+    pub max_path_bytes: u64,
+    pub max_component_bytes: u64,
+    pub max_declared_bytes: u64,
+    pub max_single_file_bytes: u64,
+}
+
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum MetadataLocation {
+    Portable(String),
+    Opaque(Vec<Vec<u8>>),
+}
+
+impl std::fmt::Debug for MetadataLocation {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Portable(path) => formatter.debug_tuple("Portable").field(path).finish(),
+            Self::Opaque(parts) => formatter
+                .debug_struct("Opaque")
+                .field("components", &parts.len())
+                .field("bytes", &parts.iter().map(Vec::len).sum::<usize>())
+                .finish(),
+        }
+    }
+}
+
+fn check_opaque_path_budget(
+    parent: &[Vec<u8>],
+    component: &[u8],
+    budget: &MetadataBudget,
+) -> Result<(), BackendError> {
+    let component_limit = || BackendError::ResourceLimit {
+        path: "<opaque>".to_owned(),
+        limit: "max_component_bytes",
+    };
+    let path_limit = || BackendError::ResourceLimit {
+        path: "<opaque>".to_owned(),
+        limit: "max_path_bytes",
+    };
+    let component_bytes = u64::try_from(component.len()).map_err(|_| component_limit())?;
+    if component_bytes > budget.max_component_bytes {
+        return Err(component_limit());
+    }
+    let mut path_bytes = component_bytes;
+    for part in parent {
+        let part_bytes = u64::try_from(part.len()).map_err(|_| component_limit())?;
+        if part_bytes > budget.max_component_bytes {
+            return Err(component_limit());
+        }
+        path_bytes = path_bytes
+            .checked_add(part_bytes)
+            .and_then(|total| total.checked_add(1))
+            .ok_or_else(path_limit)?;
+    }
+    if path_bytes > budget.max_path_bytes {
+        return Err(path_limit());
+    }
+    Ok(())
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UnavailableKind {
+    NonPortableName,
+    AliasCollision,
+    LinkOrReparsePoint,
+    MultiplyLinkedFile,
+    SpecialFile,
+    MountBoundary,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MetadataKind {
+    Directory,
+    File { size: u64 },
+    Unavailable(UnavailableKind),
+}
+
+#[derive(Debug)]
+pub struct MetadataEntry {
+    pub location: MetadataLocation,
+    pub kind: MetadataKind,
+    pub(crate) token: Option<EntryToken>,
+}
+
+#[derive(Debug)]
+pub(crate) enum EntryToken {
+    #[cfg(unix)]
+    Unix {
+        device: u64,
+        inode: u64,
+        size: u64,
+        change_seconds: i64,
+        change_nanoseconds: i64,
+    },
+    #[cfg(windows)]
+    Windows {
+        volume: u64,
+        file: u64,
+        size: u64,
+        modified_seconds: u64,
+        modified_nanoseconds: u32,
+        opened: cap_std::fs::File,
+    },
+}
+
+#[derive(Debug)]
+pub struct MetadataResult {
+    pub entries: Vec<MetadataEntry>,
+    pub directories: u64,
+    pub declared_bytes: u64,
 }
 
 fn validate_component(component: &str) -> Result<(), BackendError> {
@@ -118,6 +244,48 @@ impl Backend {
         }
     }
 
+    pub(crate) fn metadata(
+        &self,
+        budget: MetadataBudget,
+        control: &mut dyn FnMut() -> bool,
+    ) -> Result<MetadataResult, BackendError> {
+        #[cfg(unix)]
+        {
+            self.inner.metadata(budget, control)
+        }
+        #[cfg(windows)]
+        {
+            self.inner.metadata(budget, control)
+        }
+        #[cfg(not(any(unix, windows)))]
+        {
+            let _ = (budget, control);
+            Err(BackendError::UnsupportedPlatform("no safe backend"))
+        }
+    }
+
+    pub(crate) fn read_bound(
+        &self,
+        path: &str,
+        token: &EntryToken,
+        max_bytes: u64,
+        control: &mut dyn FnMut() -> bool,
+    ) -> Result<Option<Vec<u8>>, BackendError> {
+        #[cfg(unix)]
+        {
+            self.inner.read_bound(path, token, max_bytes, control)
+        }
+        #[cfg(windows)]
+        {
+            self.inner.read_bound(path, token, max_bytes, control)
+        }
+        #[cfg(not(any(unix, windows)))]
+        {
+            let _ = (path, token, max_bytes, control);
+            Err(BackendError::UnsupportedPlatform("no safe backend"))
+        }
+    }
+
     pub(crate) fn read_fixture_file(
         &self,
         fixture: &str,
@@ -171,6 +339,8 @@ mod windows {
     use super::*;
     use cap_fs_ext::{DirExt, FollowSymlinks, MetadataExt, OpenOptionsFollowExt};
     use cap_std::fs::{Dir, File, OpenOptions};
+    use std::os::windows::ffi::OsStrExt;
+    use std::os::windows::fs::FileExt as WindowsFileExt;
     use std::os::windows::fs::OpenOptionsExt;
     use windows_sys::Win32::Storage::FileSystem::{
         FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT,
@@ -187,6 +357,22 @@ mod windows {
             volume: metadata.dev(),
             file: metadata.ino(),
         }
+    }
+
+    fn modified_token(
+        metadata: &cap_std::fs::Metadata,
+        path: &str,
+    ) -> Result<(u64, u32), BackendError> {
+        let modified = metadata
+            .modified()
+            .map_err(|error| BackendError::io("read file modification time", path, error))?;
+        let duration = modified
+            .duration_since(cap_std::time::SystemTime::from_std(std::time::UNIX_EPOCH))
+            .map_err(|_| BackendError::Integrity {
+                path: path.to_owned(),
+                reason: "file modification time predates supported epoch",
+            })?;
+        Ok((duration.as_secs(), duration.subsec_nanos()))
     }
 
     #[derive(Debug)]
@@ -285,6 +471,166 @@ mod windows {
             budget: WalkBudget,
         ) -> Result<WalkResult, BackendError> {
             self.inventory_with_before_hash(component, budget, || {})
+        }
+
+        pub(super) fn metadata(
+            &self,
+            budget: MetadataBudget,
+            control: &mut dyn FnMut() -> bool,
+        ) -> Result<MetadataResult, BackendError> {
+            let mut result = MetadataResult {
+                entries: Vec::new(),
+                directories: 0,
+                declared_bytes: 0,
+            };
+            enumerate_metadata_windows(
+                &self.dir,
+                &mut Vec::new(),
+                &mut Vec::new(),
+                &mut result,
+                &budget,
+                self.identity.volume,
+                control,
+            )?;
+            result.entries.sort_by(|a, b| a.location.cmp(&b.location));
+            Ok(result)
+        }
+
+        pub(super) fn read_bound(
+            &self,
+            path: &str,
+            token: &EntryToken,
+            max_bytes: u64,
+            control: &mut dyn FnMut() -> bool,
+        ) -> Result<Option<Vec<u8>>, BackendError> {
+            let EntryToken::Windows {
+                volume,
+                file,
+                size,
+                modified_seconds,
+                modified_nanoseconds,
+                opened: retained,
+            } = token;
+            let components = path.split('/').collect::<Vec<_>>();
+            if components.is_empty() {
+                return Err(BackendError::Semantic("empty bound path".to_owned()));
+            }
+            for component in &components {
+                validate_component(component)?;
+            }
+            let mut current = self
+                .dir
+                .open_dir_nofollow(".")
+                .map_err(|error| BackendError::io("duplicate project root", path, error))?;
+            for component in &components[..components.len().saturating_sub(1)] {
+                ensure_unique_portable_alias(&current, component, path)?;
+                current = current
+                    .open_dir_nofollow(component)
+                    .map_err(|error| BackendError::io("open bound parent", path, error))?;
+                let metadata = current
+                    .dir_metadata()
+                    .map_err(|error| BackendError::io("stat bound parent", path, error))?;
+                if identity(&metadata).volume != self.identity.volume {
+                    return Err(BackendError::UnsafeObject {
+                        path: path.to_owned(),
+                        reason: "bound parent crosses a volume boundary",
+                    });
+                }
+            }
+            let name = components.last().expect("checked non-empty");
+            ensure_unique_portable_alias(&current, name, path)?;
+            let before = current
+                .symlink_metadata(name)
+                .map_err(|error| BackendError::io("lstat bound file", path, error))?;
+            if !before.is_file() || before.nlink() != 1 {
+                return Err(BackendError::Integrity {
+                    path: path.to_owned(),
+                    reason: "enumerated file is no longer a singly linked regular file",
+                });
+            }
+            if identity(&before)
+                != (Identity {
+                    volume: *volume,
+                    file: *file,
+                })
+                || before.len() != *size
+                || modified_token(&before, path)? != (*modified_seconds, *modified_nanoseconds)
+            {
+                return Err(BackendError::Integrity {
+                    path: path.to_owned(),
+                    reason:
+                        "enumerated file identity, size, or modification time changed before read",
+                });
+            }
+            if *size > max_bytes {
+                return Err(BackendError::ResourceLimit {
+                    path: path.to_owned(),
+                    limit: "max_single_file_bytes",
+                });
+            }
+            let opened_metadata = checked_file_metadata(retained, path, self.identity.volume)?;
+            if identity(&opened_metadata)
+                != (Identity {
+                    volume: *volume,
+                    file: *file,
+                })
+                || opened_metadata.len() != *size
+                || modified_token(&opened_metadata, path)?
+                    != (*modified_seconds, *modified_nanoseconds)
+            {
+                return Err(BackendError::Integrity {
+                    path: path.to_owned(),
+                    reason: "enumerated file identity changed while opening",
+                });
+            }
+            let opened = retained
+                .try_clone()
+                .map_err(|error| BackendError::io("clone retained bound file", path, error))?
+                .into_std();
+            let mut bytes = Vec::with_capacity(usize::try_from(*size).unwrap_or(0));
+            let mut buffer = [0_u8; 64 * 1024];
+            let mut offset = 0_u64;
+            loop {
+                if !control() {
+                    return Ok(None);
+                }
+                let count = opened
+                    .seek_read(&mut buffer, offset)
+                    .map_err(|error| BackendError::io("read bound file chunk", path, error))?;
+                if count == 0 {
+                    break;
+                }
+                bytes.extend_from_slice(&buffer[..count]);
+                offset = offset.checked_add(count as u64).ok_or_else(|| {
+                    BackendError::ResourceLimit {
+                        path: path.to_owned(),
+                        limit: "observed byte overflow",
+                    }
+                })?;
+                if bytes.len() as u64 > max_bytes {
+                    return Err(BackendError::ResourceLimit {
+                        path: path.to_owned(),
+                        limit: "max_single_file_bytes",
+                    });
+                }
+            }
+            let after = checked_file_metadata(retained, path, self.identity.volume)?;
+            if identity(&after)
+                != (Identity {
+                    volume: *volume,
+                    file: *file,
+                })
+                || after.len() != *size
+                || modified_token(&after, path)? != (*modified_seconds, *modified_nanoseconds)
+                || bytes.len() as u64 != *size
+            {
+                return Err(BackendError::Integrity {
+                    path: path.to_owned(),
+                    reason:
+                        "enumerated file identity, size, or modification time changed during read",
+                });
+            }
+            Ok(Some(bytes))
         }
 
         fn inventory_with_before_hash(
@@ -450,14 +796,12 @@ mod windows {
             let entry = entry.map_err(|error| {
                 BackendError::io("read selected path parent entry", path, error)
             })?;
-            let name = entry
-                .file_name()
-                .into_string()
-                .map_err(|_| BackendError::UnsafeObject {
-                    path: path.to_owned(),
-                    reason: "non-UTF-8 path component in selected path parent",
-                })?;
-            validate_component(&name)?;
+            let Ok(name) = entry.file_name().into_string() else {
+                continue;
+            };
+            if validate_component(&name).is_err() {
+                continue;
+            }
             if portable_alias_key(&name) == selected_key {
                 matching = matching.saturating_add(1);
                 if name == selected {
@@ -631,7 +975,9 @@ mod windows {
                 )?;
             } else if kind.is_file() {
                 let file = open_file_nofollow(dir, &name, &path)?;
-                let metadata = checked_file_metadata(&file, &path, root_volume)?;
+                let metadata = file
+                    .metadata()
+                    .map_err(|error| BackendError::io("stat opened project file", &path, error))?;
                 let size = metadata.len();
                 if size > budget.max_single_file_bytes {
                     return Err(BackendError::ResourceLimit {
@@ -674,12 +1020,208 @@ mod windows {
         Ok(())
     }
 
+    fn enumerate_metadata_windows(
+        dir: &Dir,
+        portable: &mut Vec<String>,
+        opaque: &mut Vec<Vec<u8>>,
+        result: &mut MetadataResult,
+        budget: &MetadataBudget,
+        root_volume: u64,
+        control: &mut dyn FnMut() -> bool,
+    ) -> Result<(), BackendError> {
+        let entries = dir
+            .entries()
+            .map_err(|error| BackendError::io("enumerate project root", "<root>", error))?;
+        let mut rows = Vec::new();
+        for entry in entries {
+            if !control() {
+                return Err(BackendError::Cancelled);
+            }
+            if (result.entries.len() + rows.len()) as u64 >= budget.max_entries {
+                return Err(BackendError::ResourceLimit {
+                    path: "<root>".to_owned(),
+                    limit: "max_entries",
+                });
+            }
+            let entry =
+                entry.map_err(|error| BackendError::io("read project entry", "<root>", error))?;
+            let os = entry.file_name();
+            let raw = os
+                .encode_wide()
+                .flat_map(u16::to_le_bytes)
+                .collect::<Vec<_>>();
+            let valid = os
+                .to_str()
+                .filter(|value| validate_component(value).is_ok())
+                .map(str::to_owned);
+            rows.push((entry, raw, valid));
+        }
+        let mut counts = std::collections::BTreeMap::new();
+        for (_, _, valid) in &rows {
+            if let Some(name) = valid {
+                *counts.entry(portable_alias_key(name)).or_insert(0_u64) += 1;
+            }
+        }
+        for (entry, raw, valid) in rows {
+            if !control() {
+                return Err(BackendError::Cancelled);
+            }
+            if result.entries.len() as u64 >= budget.max_entries {
+                return Err(BackendError::ResourceLimit {
+                    path: "<root>".to_owned(),
+                    limit: "max_entries",
+                });
+            }
+            let collision = valid.as_ref().is_some_and(|name| {
+                counts.get(&portable_alias_key(name)).copied().unwrap_or(0) > 1
+            });
+            if valid.is_none() {
+                check_opaque_path_budget(opaque, &raw, budget)?;
+                let mut parts = opaque.clone();
+                parts.push(raw);
+                result.entries.push(MetadataEntry {
+                    location: MetadataLocation::Opaque(parts),
+                    kind: MetadataKind::Unavailable(UnavailableKind::NonPortableName),
+                    token: None,
+                });
+                continue;
+            }
+            let name = valid.expect("checked above");
+            portable.push(name.clone());
+            opaque.push(raw);
+            let path = portable.join("/");
+            if path.len() as u64 > budget.max_path_bytes
+                || name.len() as u64 > budget.max_component_bytes
+            {
+                return Err(BackendError::ResourceLimit {
+                    path,
+                    limit: "path budget",
+                });
+            }
+            if collision {
+                result.entries.push(MetadataEntry {
+                    location: MetadataLocation::Portable(path),
+                    kind: MetadataKind::Unavailable(UnavailableKind::AliasCollision),
+                    token: None,
+                });
+                portable.pop();
+                opaque.pop();
+                continue;
+            }
+            let kind = entry
+                .file_type()
+                .map_err(|error| BackendError::io("inspect project entry", &path, error))?;
+            if kind.is_symlink() {
+                result.entries.push(MetadataEntry {
+                    location: MetadataLocation::Portable(path),
+                    kind: MetadataKind::Unavailable(UnavailableKind::LinkOrReparsePoint),
+                    token: None,
+                });
+            } else if kind.is_dir() {
+                result.directories += 1;
+                if result.directories > budget.max_directories
+                    || portable.len() as u64 > effective_max_depth(budget.max_depth)
+                {
+                    return Err(BackendError::ResourceLimit {
+                        path,
+                        limit: "directory budget",
+                    });
+                }
+                let child = dir
+                    .open_dir_nofollow(&name)
+                    .map_err(|error| BackendError::io("open project directory", &path, error))?;
+                let metadata = child
+                    .dir_metadata()
+                    .map_err(|error| BackendError::io("stat project directory", &path, error))?;
+                if identity(&metadata).volume != root_volume {
+                    result.entries.push(MetadataEntry {
+                        location: MetadataLocation::Portable(path),
+                        kind: MetadataKind::Unavailable(UnavailableKind::MountBoundary),
+                        token: None,
+                    });
+                } else {
+                    result.entries.push(MetadataEntry {
+                        location: MetadataLocation::Portable(path),
+                        kind: MetadataKind::Directory,
+                        token: None,
+                    });
+                    enumerate_metadata_windows(
+                        &child,
+                        portable,
+                        opaque,
+                        result,
+                        budget,
+                        root_volume,
+                        control,
+                    )?;
+                }
+            } else if kind.is_file() {
+                let file = open_file_nofollow(dir, &name, &path)?;
+                let metadata = file
+                    .metadata()
+                    .map_err(|error| BackendError::io("stat opened project file", &path, error))?;
+                let size = metadata.len();
+                let unavailable = if metadata.nlink() != 1 {
+                    Some(UnavailableKind::MultiplyLinkedFile)
+                } else if identity(&metadata).volume != root_volume {
+                    Some(UnavailableKind::MountBoundary)
+                } else {
+                    None
+                };
+                if unavailable.is_none() {
+                    if size > budget.max_single_file_bytes {
+                        return Err(BackendError::ResourceLimit {
+                            path,
+                            limit: "max_single_file_bytes",
+                        });
+                    }
+                    result.declared_bytes =
+                        result.declared_bytes.checked_add(size).ok_or_else(|| {
+                            BackendError::ResourceLimit {
+                                path: path.clone(),
+                                limit: "declared byte overflow",
+                            }
+                        })?;
+                    if result.declared_bytes > budget.max_declared_bytes {
+                        return Err(BackendError::ResourceLimit {
+                            path,
+                            limit: "max_declared_bytes",
+                        });
+                    }
+                }
+                let (modified_seconds, modified_nanoseconds) = modified_token(&metadata, &path)?;
+                result.entries.push(MetadataEntry {
+                    location: MetadataLocation::Portable(path),
+                    kind: unavailable
+                        .map_or(MetadataKind::File { size }, MetadataKind::Unavailable),
+                    token: unavailable.is_none().then_some(EntryToken::Windows {
+                        volume: identity(&metadata).volume,
+                        file: identity(&metadata).file,
+                        size,
+                        modified_seconds,
+                        modified_nanoseconds,
+                        opened: file,
+                    }),
+                });
+            } else {
+                result.entries.push(MetadataEntry {
+                    location: MetadataLocation::Portable(path),
+                    kind: MetadataKind::Unavailable(UnavailableKind::SpecialFile),
+                    token: None,
+                });
+            }
+            portable.pop();
+            opaque.pop();
+        }
+        Ok(())
+    }
+
     fn check_path_budget(
         components: &[String],
         path: &str,
         budget: &WalkBudget,
     ) -> Result<(), BackendError> {
-        if components.len() as u64 > budget.max_depth {
+        if components.len() as u64 > effective_max_depth(budget.max_depth) {
             return Err(BackendError::ResourceLimit {
                 path: path.to_owned(),
                 limit: "max_depth",
@@ -722,6 +1264,18 @@ mod windows {
             }
         }
 
+        fn metadata_budget() -> MetadataBudget {
+            MetadataBudget {
+                max_entries: 32,
+                max_directories: 8,
+                max_depth: 8,
+                max_path_bytes: 512,
+                max_component_bytes: 128,
+                max_declared_bytes: 1024 * 1024,
+                max_single_file_bytes: 1024 * 1024,
+            }
+        }
+
         fn junction(link: &Path, target: &Path) {
             let link = link.display().to_string().replace('\'', "''");
             let target = target.display().to_string().replace('\'', "''");
@@ -736,6 +1290,32 @@ mod windows {
                 output.status.success(),
                 "PowerShell junction creation failed: {}",
                 String::from_utf8_lossy(&output.stderr)
+            );
+        }
+
+        #[test]
+        fn tolerant_metadata_continues_past_windows_hardlinks_and_junctions() {
+            let root = tempfile::tempdir().unwrap();
+            let outside = tempfile::tempdir().unwrap();
+            fs::write(root.path().join("safe.bin"), b"safe").unwrap();
+            fs::write(root.path().join("hard-a.bin"), b"hard").unwrap();
+            fs::hard_link(
+                root.path().join("hard-a.bin"),
+                root.path().join("hard-b.bin"),
+            )
+            .unwrap();
+            fs::write(outside.path().join("canary"), b"outside-secret").unwrap();
+            junction(&root.path().join("junction"), outside.path());
+            let backend = Backend::open(root.path()).unwrap();
+            let result = backend.metadata(metadata_budget(), &mut || true).unwrap();
+            assert!(result.entries.iter().any(|entry| matches!(&entry.location, MetadataLocation::Portable(path) if path == "safe.bin") && matches!(entry.kind, MetadataKind::File { .. })));
+            assert_eq!(
+                result
+                    .entries
+                    .iter()
+                    .filter(|entry| matches!(entry.kind, MetadataKind::Unavailable(_)))
+                    .count(),
+                3
             );
         }
 
@@ -1042,6 +1622,170 @@ mod unix {
             budget: WalkBudget,
         ) -> Result<WalkResult, BackendError> {
             self.inventory_with_hooks(component, budget, || {}, || {})
+        }
+
+        pub(super) fn metadata(
+            &self,
+            budget: MetadataBudget,
+            control: &mut dyn FnMut() -> bool,
+        ) -> Result<MetadataResult, BackendError> {
+            let mut result = MetadataResult {
+                entries: Vec::new(),
+                directories: 0,
+                declared_bytes: 0,
+            };
+            enumerate_metadata_unix(
+                &self.fd,
+                &mut Vec::new(),
+                &mut Vec::new(),
+                &mut result,
+                &budget,
+                self.identity.device,
+                self.mount_id,
+                control,
+            )?;
+            result.entries.sort_by(|a, b| a.location.cmp(&b.location));
+            Ok(result)
+        }
+
+        #[cfg(unix)]
+        pub(super) fn read_bound(
+            &self,
+            path: &str,
+            token: &EntryToken,
+            max_bytes: u64,
+            control: &mut dyn FnMut() -> bool,
+        ) -> Result<Option<Vec<u8>>, BackendError> {
+            let EntryToken::Unix {
+                device,
+                inode,
+                size,
+                change_seconds,
+                change_nanoseconds,
+            } = token;
+            let components = path.split('/').collect::<Vec<_>>();
+            if components.is_empty() {
+                return Err(BackendError::Semantic("empty bound path".to_owned()));
+            }
+            for component in &components {
+                validate_component(component)?;
+            }
+            let mut current = openat(
+                &self.fd,
+                ".",
+                OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC,
+                Mode::empty(),
+            )
+            .map_err(|error| BackendError::io("duplicate project root", path, error))?;
+            for component in &components[..components.len().saturating_sub(1)] {
+                ensure_unique_portable_alias(&current, component, path)?;
+                let next = openat(
+                    &current,
+                    *component,
+                    OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+                    Mode::empty(),
+                )
+                .map_err(|error| BackendError::io("open bound parent", path, error))?;
+                let metadata = fstat(&next)
+                    .map_err(|error| BackendError::io("stat bound parent", path, error))?;
+                if metadata.st_dev != self.identity.device
+                    || crosses_mount(self.mount_id, mount_id(&next)?)
+                {
+                    return Err(BackendError::UnsafeObject {
+                        path: path.to_owned(),
+                        reason: "bound parent crosses a mount boundary",
+                    });
+                }
+                current = next;
+            }
+            let name = components.last().expect("checked non-empty");
+            ensure_unique_portable_alias(&current, name, path)?;
+            let before = statat(&current, *name, AtFlags::SYMLINK_NOFOLLOW)
+                .map_err(|error| BackendError::io("lstat bound file", path, error))?;
+            ensure_regular_single_link(path, &before)?;
+            let expected_identity = Identity {
+                device: *device,
+                inode: *inode,
+            };
+            let expected_change = ChangeStamp {
+                seconds: *change_seconds,
+                nanoseconds: *change_nanoseconds,
+            };
+            if Identity::from_stat(&before) != expected_identity
+                || u64::try_from(before.st_size).ok() != Some(*size)
+                || change_stamp(&before) != expected_change
+            {
+                return Err(BackendError::Integrity {
+                    path: path.to_owned(),
+                    reason: "enumerated file identity, size, or change stamp changed before read",
+                });
+            }
+            if *size > max_bytes {
+                return Err(BackendError::ResourceLimit {
+                    path: path.to_owned(),
+                    limit: "max_single_file_bytes",
+                });
+            }
+            let fd = openat(
+                &current,
+                *name,
+                OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+                Mode::empty(),
+            )
+            .map_err(|error| BackendError::io("open bound file", path, error))?;
+            let opened =
+                fstat(&fd).map_err(|error| BackendError::io("fstat bound file", path, error))?;
+            ensure_regular_single_link(path, &opened)?;
+            if Identity::from_stat(&opened) != expected_identity
+                || u64::try_from(opened.st_size).ok() != Some(*size)
+                || change_stamp(&opened) != expected_change
+                || opened.st_dev != self.identity.device
+                || crosses_mount(self.mount_id, mount_id(&fd)?)
+            {
+                return Err(BackendError::Integrity {
+                    path: path.to_owned(),
+                    reason: "enumerated file changed while opening",
+                });
+            }
+            let mut file = File::from(fd);
+            let mut bytes = Vec::with_capacity(usize::try_from(*size).unwrap_or(0));
+            let mut buffer = [0_u8; 64 * 1024];
+            loop {
+                if !control() {
+                    return Ok(None);
+                }
+                let count = file
+                    .read(&mut buffer)
+                    .map_err(|error| BackendError::io("read bound file chunk", path, error))?;
+                if count == 0 {
+                    break;
+                }
+                bytes.extend_from_slice(&buffer[..count]);
+                if bytes.len() as u64 > max_bytes {
+                    return Err(BackendError::ResourceLimit {
+                        path: path.to_owned(),
+                        limit: "max_single_file_bytes",
+                    });
+                }
+            }
+            let after = file
+                .metadata()
+                .map_err(|error| BackendError::io("restat bound file", path, error))?;
+            use std::os::unix::fs::MetadataExt;
+            if after.nlink() != 1
+                || after.dev() != *device
+                || after.ino() != *inode
+                || after.size() != *size
+                || after.ctime() != *change_seconds
+                || after.ctime_nsec() != *change_nanoseconds
+                || bytes.len() as u64 != *size
+            {
+                return Err(BackendError::Integrity {
+                    path: path.to_owned(),
+                    reason: "enumerated file identity or size changed during read",
+                });
+            }
+            Ok(Some(bytes))
         }
 
         #[cfg(test)]
@@ -1472,11 +2216,12 @@ mod unix {
             if name_bytes == b"." || name_bytes == b".." {
                 continue;
             }
-            let name = std::str::from_utf8(name_bytes).map_err(|_| BackendError::UnsafeObject {
-                path: path.to_owned(),
-                reason: "non-UTF-8 path component in selected path parent",
-            })?;
-            validate_component(name)?;
+            let Ok(name) = std::str::from_utf8(name_bytes) else {
+                continue;
+            };
+            if validate_component(name).is_err() {
+                continue;
+            }
             if portable_alias_key(name) == selected_key {
                 matching = matching.saturating_add(1);
                 if name == selected {
@@ -1563,7 +2308,9 @@ mod unix {
                         limit: "max_directories",
                     });
                 }
-                if u64::try_from(components.len()).unwrap_or(u64::MAX) > budget.max_depth {
+                if u64::try_from(components.len()).unwrap_or(u64::MAX)
+                    > effective_max_depth(budget.max_depth)
+                {
                     return Err(BackendError::ResourceLimit {
                         path,
                         limit: "max_depth",
@@ -1647,6 +2394,215 @@ mod unix {
                 });
             }
             components.pop();
+        }
+        Ok(())
+    }
+
+    fn enumerate_metadata_unix(
+        fd: &OwnedFd,
+        portable: &mut Vec<String>,
+        raw_parent: &mut Vec<Vec<u8>>,
+        result: &mut MetadataResult,
+        budget: &MetadataBudget,
+        root_device: u64,
+        root_mount: u64,
+        control: &mut dyn FnMut() -> bool,
+    ) -> Result<(), BackendError> {
+        let mut dir = Dir::read_from(fd)
+            .map_err(|error| BackendError::io("enumerate project root", "<root>", error))?;
+        let mut rows = Vec::new();
+        while let Some(entry) = dir.read() {
+            if !control() {
+                return Err(BackendError::Cancelled);
+            }
+            if (result.entries.len() + rows.len()) as u64 >= budget.max_entries {
+                return Err(BackendError::ResourceLimit {
+                    path: "<root>".to_owned(),
+                    limit: "max_entries",
+                });
+            }
+            let entry =
+                entry.map_err(|error| BackendError::io("read project entry", "<root>", error))?;
+            let raw = entry.file_name().to_bytes().to_vec();
+            if raw == b"." || raw == b".." {
+                continue;
+            }
+            let valid = std::str::from_utf8(&raw)
+                .ok()
+                .filter(|value| validate_component(value).is_ok())
+                .map(str::to_owned);
+            rows.push((raw, valid));
+        }
+        let mut counts = std::collections::BTreeMap::new();
+        for (_, valid) in &rows {
+            if let Some(name) = valid {
+                *counts.entry(portable_alias_key(name)).or_insert(0_u64) += 1;
+            }
+        }
+        for (raw, valid) in rows {
+            if !control() {
+                return Err(BackendError::Cancelled);
+            }
+            if result.entries.len() as u64 >= budget.max_entries {
+                return Err(BackendError::ResourceLimit {
+                    path: "<root>".to_owned(),
+                    limit: "max_entries",
+                });
+            }
+            let collision = valid.as_ref().is_some_and(|name| {
+                counts.get(&portable_alias_key(name)).copied().unwrap_or(0) > 1
+            });
+            if valid.is_none() {
+                check_opaque_path_budget(raw_parent, &raw, budget)?;
+                let mut components = raw_parent.clone();
+                components.push(raw);
+                result.entries.push(MetadataEntry {
+                    location: MetadataLocation::Opaque(components),
+                    kind: MetadataKind::Unavailable(UnavailableKind::NonPortableName),
+                    token: None,
+                });
+                continue;
+            }
+            let name = valid.expect("checked above");
+            portable.push(name.clone());
+            raw_parent.push(raw.clone());
+            let path = portable.join("/");
+            if path.len() as u64 > budget.max_path_bytes
+                || name.len() as u64 > budget.max_component_bytes
+            {
+                return Err(BackendError::ResourceLimit {
+                    path,
+                    limit: "path budget",
+                });
+            }
+            if collision {
+                result.entries.push(MetadataEntry {
+                    location: MetadataLocation::Portable(path),
+                    kind: MetadataKind::Unavailable(UnavailableKind::AliasCollision),
+                    token: None,
+                });
+                portable.pop();
+                raw_parent.pop();
+                continue;
+            }
+            let cname = std::ffi::CString::new(raw).map_err(|_| BackendError::UnsafeObject {
+                path: path.clone(),
+                reason: "NUL in filesystem name",
+            })?;
+            let stat = statat(fd, cname.as_c_str(), AtFlags::SYMLINK_NOFOLLOW)
+                .map_err(|error| BackendError::io("lstat project entry", &path, error))?;
+            let kind = FileType::from_raw_mode(stat.st_mode);
+            if kind.is_symlink() {
+                result.entries.push(MetadataEntry {
+                    location: MetadataLocation::Portable(path),
+                    kind: MetadataKind::Unavailable(UnavailableKind::LinkOrReparsePoint),
+                    token: None,
+                });
+            } else if kind.is_dir() {
+                result.directories += 1;
+                if result.directories > budget.max_directories
+                    || portable.len() as u64 > effective_max_depth(budget.max_depth)
+                {
+                    return Err(BackendError::ResourceLimit {
+                        path,
+                        limit: "directory budget",
+                    });
+                }
+                let child = openat(
+                    fd,
+                    cname.as_c_str(),
+                    OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+                    Mode::empty(),
+                )
+                .map_err(|error| BackendError::io("open project directory", &path, error))?;
+                let opened = fstat(&child)
+                    .map_err(|error| BackendError::io("fstat project directory", &path, error))?;
+                if Identity::from_stat(&opened) != Identity::from_stat(&stat) {
+                    return Err(BackendError::Integrity {
+                        path,
+                        reason: "directory identity changed during metadata enumeration",
+                    });
+                }
+                let child_mount = mount_id(&child)?;
+                if opened.st_dev != root_device || crosses_mount(root_mount, child_mount) {
+                    result.entries.push(MetadataEntry {
+                        location: MetadataLocation::Portable(path),
+                        kind: MetadataKind::Unavailable(UnavailableKind::MountBoundary),
+                        token: None,
+                    });
+                } else {
+                    result.entries.push(MetadataEntry {
+                        location: MetadataLocation::Portable(path),
+                        kind: MetadataKind::Directory,
+                        token: None,
+                    });
+                    enumerate_metadata_unix(
+                        &child,
+                        portable,
+                        raw_parent,
+                        result,
+                        budget,
+                        root_device,
+                        root_mount,
+                        control,
+                    )?;
+                }
+            } else if kind.is_file() {
+                let size =
+                    u64::try_from(stat.st_size).map_err(|_| BackendError::ResourceLimit {
+                        path: path.clone(),
+                        limit: "negative file size",
+                    })?;
+                let entry_kind = if stat.st_nlink != 1 {
+                    MetadataKind::Unavailable(UnavailableKind::MultiplyLinkedFile)
+                } else if stat.st_dev != root_device {
+                    MetadataKind::Unavailable(UnavailableKind::MountBoundary)
+                } else {
+                    MetadataKind::File { size }
+                };
+                if matches!(entry_kind, MetadataKind::File { .. }) {
+                    if size > budget.max_single_file_bytes {
+                        return Err(BackendError::ResourceLimit {
+                            path,
+                            limit: "max_single_file_bytes",
+                        });
+                    }
+                    result.declared_bytes =
+                        result.declared_bytes.checked_add(size).ok_or_else(|| {
+                            BackendError::ResourceLimit {
+                                path: path.clone(),
+                                limit: "declared byte overflow",
+                            }
+                        })?;
+                    if result.declared_bytes > budget.max_declared_bytes {
+                        return Err(BackendError::ResourceLimit {
+                            path,
+                            limit: "max_declared_bytes",
+                        });
+                    }
+                }
+                result.entries.push(MetadataEntry {
+                    location: MetadataLocation::Portable(path),
+                    kind: entry_kind,
+                    token: matches!(entry_kind, MetadataKind::File { .. }).then_some(
+                        EntryToken::Unix {
+                            device: stat.st_dev,
+                            inode: stat.st_ino,
+                            size,
+                            change_seconds: stat.st_ctime,
+                            change_nanoseconds: stat.st_ctime_nsec as i64,
+                        },
+                    ),
+                });
+            } else {
+                result.entries.push(MetadataEntry {
+                    location: MetadataLocation::Portable(path),
+                    kind: MetadataKind::Unavailable(UnavailableKind::SpecialFile),
+                    token: None,
+                });
+            }
+            portable.pop();
+            raw_parent.pop();
         }
         Ok(())
     }

@@ -104,6 +104,28 @@ evidence, not an AST analysis, syscall sandbox, or complete security proof.
 Write-capable APIs remain an M2-or-later concern and require command, journal,
 recovery, and authorization contracts.
 
+`rcce-project` also exposes a read-only, root-confined inventory and immutable
+snapshot. Ordinary unknown files remain visible, unsafe objects remain
+content-inaccessible metadata, and accepted files receive source and
+path-keyed tree fingerprints. Classification uses an explicit versioned rule
+table; `Game/` and `Server/` projections are never authoring inputs.
+Cancellation returns no partial authoritative snapshot. Metadata enumeration
+does not read file bodies; on Windows it retains the already validated file
+handle so the later cancellable snapshot read consumes each accepted body once.
+Retained-handle reads use positional offsets, so success-success, cancel-retry,
+and concurrent reads of the same enumerated entry all start at byte zero without
+sharing a mutable cursor.
+Namespace replacements are rejected against that retained object identity. On
+Windows, an in-place change to the same object before its read can be the
+point-in-time body captured by the snapshot when the platform timestamp is
+unchanged; Unix change-stamp evidence rejects it. Size, link, identity, and
+timestamp changes during the read are rejected before bytes are accepted.
+Caller-supplied depth budgets are additionally capped at 64 levels to keep the
+recursive descriptor/handle walk within a fixed stack-safety envelope. State
+class ordering follows the explicit P07 registry order rather than Rust enum
+declaration order, and tree identity canonicalizes path order while rejecting
+duplicate accepted paths.
+
 The installed binary name `rcce-project` is reserved by the
 `rcce-project-cli` package. In this packet it accepts only no arguments,
 `--help`/`-h`, and `--version`/`-V`; every other argument fails without opening
