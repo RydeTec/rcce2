@@ -6,7 +6,7 @@
 - **Requirements authority**: [`../plan/rust-super-editor-engine-migration.md`](../plan/rust-super-editor-engine-migration.md)
 - **Packet/dependency authority**: [`../plan/rust-super-editor-implementation.md`](../plan/rust-super-editor-implementation.md)
 - **Current base**: `origin/develop` at `ee0977405cdee6591e6facdb9b88794d21ba65d3`; accepted packet worktrees were authored from `23ef44f6` and the intervening upstream delta is disjoint
-- **Program status**: M0 in progress; P01 and P02 accepted and integrated on the program branch
+- **Program status**: M0 in progress; P01, P02, P03, P04, and P06 accepted and integrated; P05 and P07 implementing in parallel
 
 This ledger records execution state. It does not weaken packet acceptance, compatibility, safety, or retirement gates in the authorities above.
 
@@ -64,13 +64,26 @@ Prepared integration lane:
 - worktree `/home/ryan/.codex/worktrees/super-editor/program-integration`;
 - branch `coreyrdean/super-editor-program`;
 - based on `ee0977405cdee6591e6facdb9b88794d21ba65d3`;
-- P01/P02 integrated as `a6e562fa` and `db8e4439`; worktree clean after cherry-pick.
+- accepted packets integrated as P01 `a6e562fa`, P02 `db8e4439`, P03 `b77ef1bc`, P06 `a24baf89`, and P04 `a33cb8cb`; worktree clean after cherry-pick.
+
+### Accepted foundation packets
+
+| Packet | Status | Accepted evidence | Integration |
+|---|---|---|---|
+| `SE-M0-P03` Rust baselines | `Accepted and integrated` | Two-document spec/quality acceptance; client full-workspace gates truthfully blocked on ALSA, server `267/0`, diagnostic subset `147/0`, 48 dependency rows; blobs `01ae6358...` and `c2bc9c87...` | Source `3e348a96`; program `b77ef1bc` |
+| `SE-M0-P04` Corpus policy | `Accepted and integrated` | Spec/quality/final-delta acceptance; closed Draft 2020-12 schema, permanent-history consent, withdrawal limits, pre-open ceilings; four frozen SHA-256 hashes recorded in review | Source `e0b04c6e`; program `a33cb8cb` |
+| `SE-M0-P06` ADR set | `Accepted and integrated` | Spec/quality/final-delta acceptance; nine decisions, aggregate SHA-256 `3cdddc66cc475829917bdae0d0a8ad90bc77514c2b63709674589d265df0677e` | Source `04384d97`; program `a24baf89` |
+
+Active implementation lanes:
+
+- `SE-M0-P05`: `/home/ryan/.codex/worktrees/super-editor/m0-p05-safe-scanner`, branch `coreyrdean/super-editor-m0-p05`, base `a33cb8cb`;
+- `SE-M0-P07`: `/home/ryan/.codex/worktrees/super-editor/m0-p07-state-classes`, branch `coreyrdean/super-editor-m0-p07`, fast-forwarded to `a33cb8cb`.
 
 ## Milestone register
 
 | Milestone | Status | Accepted packets | Next gate |
 |---|---|---|---|
-| M0 | In progress | P01, P02 (integration pending) | Integrate P01/P02, then assign P03/P04/P06/P07 |
+| M0 | In progress | P01, P02, P03, P04, P06 | Accept and integrate P05/P07, then run the M0 exit-gate review |
 | M1 | Planned | — | M0 accepted |
 | M2 | Planned | — | M1 accepted |
 | M3 | Planned | — | M2 accepted |
@@ -101,9 +114,13 @@ Prepared integration lane:
 - `2026-07-20` — Executed/observed upstream drift: `origin/develop` advanced to `ee097740`; the four intervening commits touch only `src/GUE.bb` and `src/Tests/Modules/GUEEventIteratorTest.bb`, disjoint from accepted P01/P02 paths.
 - `2026-07-20` — Prepared clean integration worktree `coreyrdean/super-editor-program` at exact current base `ee097740`. Initial checkout timed out at 98%; no Git process remained, the zero-byte stale lock was moved recoverably to `/tmp/rcce2-super-editor-program-index.lock-20260720-2000`, and the missing index/worktree were reconstructed exactly from HEAD with `git read-tree HEAD` plus `git checkout-index -a -f`. Final status was clean with 4,153 tracked paths.
 - `2026-07-20` — User established resending the active goal as standing authorization for normal in-scope implementation actions. P01 and P02 were committed independently (`200e3e28`, `687f51ab`) and cherry-picked cleanly onto the current-base program branch (`a6e562fa`, `db8e4439`). No push or PR occurred at this integration step.
+- `2026-07-20` — P03 passed fresh specification and different fresh quality review after corrections to evidence labels and the endian contradiction census; committed as `3e348a96` and integrated as `b77ef1bc` with exact blobs preserved.
+- `2026-07-20` — P06 passed specification, quality, and final specification-delta review after strengthening recovery durability, journal torn-write handling, replacement authority, hardlink confinement, external-operation lifecycle, plugin isolation, and UI measurement. Committed as `04384d97` and integrated as `a24baf89`; aggregate hash reproduced after integration.
+- `2026-07-20` — P04 passed specification, quality, and final specification-delta review after adding a closed machine-readable schema, permanent-public-history consent semantics, withdrawal limits, and pre-open traversal ceilings. Committed as `e0b04c6e` and integrated as `a33cb8cb`; all four accepted hashes reproduced.
+- `2026-07-20` — Dependency-ready P05 and P07 implementation worktrees started from exact accepted program head `a33cb8cb`; owned paths are disjoint and neither may mutate a real project corpus.
 
 ## Next actions
 
-1. Integrate the accepted canonical specification, implementation workbooks, checker, and execution ledger so new packet worktrees inherit their authority.
-2. Assign dependency-ready P03, P04, P06, and P07 without overlapping owned paths.
-3. Execute P05 after P04 and the root ADR draft are accepted, then close the M0 gate.
+1. Complete independent specification and quality review for P05 and P07.
+2. Integrate accepted P05/P07 and run the complete M0 exit-gate review against tasks 1–8.
+3. Start the M1 read-only project-platform child packets only after M0 is accepted.
