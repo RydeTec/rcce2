@@ -181,6 +181,44 @@ current packaged Rust application smoke test. Source and artifact discovery in
 the two accepted compatibility matrices remains the baseline for those
 surfaces.
 
+### Complete 19-application executable observation
+
+M0 exit inspection refreshed the executable/artifact census at repository head
+`ed715767661da61dc657a294a0dc0ed362019815`. IDs and names below are exactly the
+19 rows in the [editor capability matrix](editor-capability-matrix.md#mechanical-19-by-12-census).
+Presence was inspected with non-following regular-file checks and `stat`; no
+legacy application was launched. The source-built output paths for IDs 1–9 are
+the paths declared by [`compile.bat`](../../compile.bat#L82) and its `src/Tools`
+filename loop ([line 119](../../compile.bat#L119)). `compiler/BlitzForge/bin/blitzcc`
+was also absent, so this packet did not attempt to manufacture those outputs.
+
+| ID | Application | Inspected executable/artifact | Present at head | Execution evidence | Runnability evidence |
+|---:|---|---|:---:|---|---|
+| 1 | Project Manager | `Project Manager.exe` | Absent | **Not run** | Not runnable from this checkout: expected executable and `blitzcc` compiler binary absent. |
+| 2 | GUE | `bin/GUE.exe` | Absent | **Not run** | Not runnable from this checkout: expected executable and `blitzcc` compiler binary absent. |
+| 3 | Loom | `bin/Loom.exe` | Absent | **Not run** | Not runnable from this checkout: expected executable and `blitzcc` compiler binary absent. |
+| 4 | Gubbin Tool | `bin/tools/Gubbin Tool.exe` | Absent | **Not run** | Not runnable from this checkout: expected executable and `blitzcc` compiler binary absent. |
+| 5 | RC Architect | `bin/tools/RC Architect.exe` | Absent | **Not run** | Not runnable from this checkout: expected executable and `blitzcc` compiler binary absent. |
+| 6 | RC Caves Editor | `bin/tools/RC Caves Editor.exe` | Absent | **Not run** | Not runnable from this checkout: expected executable and `blitzcc` compiler binary absent. |
+| 7 | RC Rock Editor | `bin/tools/RC Rock Editor.exe` | Absent | **Not run** | Not runnable from this checkout: expected executable and `blitzcc` compiler binary absent. |
+| 8 | RC Terrain Editor | `bin/tools/RC Terrain Editor.exe` | Absent | **Not run** | Not runnable from this checkout: expected executable and `blitzcc` compiler binary absent. |
+| 9 | RC Tree Editor | `bin/tools/RC Tree Editor.exe` | Absent | **Not run** | Not runnable from this checkout: expected executable and `blitzcc` compiler binary absent. |
+| 10 | RC Spell Wizard | `bin/tools/RC Spell Wizard/RC Spell Wizard.exe` (`261632` bytes) | Present | **Not run** | File presence only; Windows loading, prerequisites, safe project selection, and mutation behavior were not assessed. |
+| 11 | Script Crafters Workshop | `bin/tools/Script Crafters Workshop/Script Crafters Workshop.exe` (`911360` bytes) | Present | **Not run** | File presence only; runnability and project-write behavior were intentionally not exercised. |
+| 12 | RC Scriptorama | `bin/tools/RC Scriptorama/RC Scriptorama.exe` (`878592` bytes) | Present | **Not run** | File presence only; runnability and multi-project mutation behavior were intentionally not exercised. |
+| 13 | Font Generator | `bin/tools/FontGen/Font Generator.exe` (`1331200` bytes) | Present | **Not run** | File presence only; runnability and output-generation behavior were not assessed. |
+| 14 | Freemake Audio Converter | `extras/Freemake/Freemake Audio Converter/FreemakeAudioConverter.exe` (`2097544` bytes) | Present | **Not run** | File presence only; third-party prerequisites, license/UI, codec behavior, and runnability were not assessed. |
+| 15 | Plant Life | `bin/tools/Plant Life/Plant Life.exe` (`3313664` bytes) | Present | **Not run** | File presence only; runnability and generated-asset behavior were not assessed. |
+| 16 | Tree Magik | `bin/tools/Tree Magik/Tree Magik.exe` (`2646016` bytes) | Present | **Not run** | File presence only; runnability and generated-asset behavior were not assessed. |
+| 17 | RC Script Generator | `bin/tools/RC Script Generator/RCScriptGenerator.jar` (`68759` bytes) | Present | **Not run** | Archive presence only; JVM availability, launchability, clipboard behavior, and generated text were not assessed. |
+| 18 | RC SkinCrafter | `bin/tools/RC SkinCrafter/RC SkinCrafter.exe` (`83968` bytes) | Present | **Not run** | File presence only; effective capability and runnability remain Unknown as recorded in the capability matrix. |
+| 19 | MySQL Configure | `extras/MySQL Server/MySQL Configure.exe` (`204800` bytes) | Present | **Not run** | File presence only; deliberately not launched because it can write configuration and mutate accounts/database state. |
+
+This table is a complete presence/runnability baseline, not behavioral parity:
+`Present` never means runnable, safe, supported, or characterized. Exact native
+Windows execution evidence belongs only to the read-only project scanner and is
+recorded in [`WINDOWS-EVIDENCE.md`](../../tools/project-scanner/WINDOWS-EVIDENCE.md).
+
 ## Reproduction and refresh protocol
 
 1. Use the repository commit and exact `rustup run 1.85.0` commands above.
