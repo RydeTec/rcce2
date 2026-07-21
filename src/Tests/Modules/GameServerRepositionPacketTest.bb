@@ -30,7 +30,7 @@ Function FileSectionContains%(Path$, StartNeedle$, EndNeedle$, Needle$)
 	Return False
 End Function
 
-Function FileSectionContainsSequence%(Path$, StartNeedle$, EndNeedle$, FirstNeedle$, SecondNeedle$, ThirdNeedle$)
+Function FileSectionContainsSequence%(Path$, StartNeedle$, EndNeedle$, FirstNeedle$, SecondNeedle$)
 	Local F.BBStream = ReadFile(Path$)
 	Local Line$
 	Local InSection = False
@@ -49,8 +49,6 @@ Function FileSectionContainsSequence%(Path$, StartNeedle$, EndNeedle$, FirstNeed
 			If Stage = 0 And Instr(Line$, FirstNeedle$) > 0
 				Stage = 1
 			ElseIf Stage = 1 And Instr(Line$, SecondNeedle$) > 0
-				Stage = 2
-			ElseIf Stage = 2 And Instr(Line$, ThirdNeedle$) > 0
 				CloseFile F
 				Return True
 			EndIf
@@ -61,7 +59,7 @@ Function FileSectionContainsSequence%(Path$, StartNeedle$, EndNeedle$, FirstNeed
 End Function
 
 Test testSameAreaSetAreaUsesMoveFrame()
-	Assert(FileSectionContainsSequence%("Modules\GameServer.bb", "; If he's warped to the same area he was already in, tell players he has changed position", "; Removes an actor instance from a party", "Pa$ = " + Chr$(34) + "M" + Chr$(34) + " + RCE_StrFromInt$(A\RuntimeID, 2)", "RCE_StrFromFloat$(A\X#)", "RCE_Send(Host, A2\RNID, P_RepositionActor, Pa$, True)") = True)
+	Assert(FileSectionContainsSequence%("Modules\GameServer.bb", "; If he's warped to the same area he was already in, tell players he has changed position", "; Removes an actor instance from a party", "Pa$ = " + Chr$(34) + "M" + Chr$(34) + " + RCE_StrFromInt$(A\RuntimeID, 2) + RCE_StrFromFloat$(A\X#) + RCE_StrFromFloat$(A\Y#) + RCE_StrFromFloat$(A\Z#) + RCE_StrFromInt$(0, 1)", "RCE_Send(Host, A2\RNID, P_RepositionActor, Pa$, True)") = True)
 	Assert(FileSectionContains%("Modules\GameServer.bb", "; If he's warped to the same area he was already in, tell players he has changed position", "; Removes an actor instance from a party", "Pa$ = RCE_StrFromInt$(A\RuntimeID, 2)") = False)
 End Test
 
