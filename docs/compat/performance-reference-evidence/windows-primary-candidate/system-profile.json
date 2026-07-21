@@ -1,0 +1,43 @@
+{
+  "capture_utc": "2026-07-21T06:46:10Z",
+  "capture_kind": "read-only-candidate-profile",
+  "commands": [
+    "Get-CimInstance Win32_OperatingSystem",
+    "Get-CimInstance Win32_Processor | Select-Object -First 1",
+    "Get-CimInstance Win32_ComputerSystem",
+    "Get-CimInstance Win32_VideoController | Select-Object -First 1",
+    "Get-CimInstance Win32_DiskDrive | Select-Object -First 1",
+    "Get-Volume -DriveLetter C",
+    "powercfg /getactivescheme",
+    "rustup run 1.85.0 rustc -Vv"
+  ],
+  "observed": {
+    "os_name": "Microsoft Windows 11 Pro",
+    "os_version": "10.0.22631",
+    "os_build": "22631",
+    "kernel_version": "10.0.22631",
+    "architecture": "x86_64",
+    "cpu_model": "Intel(R) Core(TM) i5-8500 CPU @ 3.00GHz",
+    "physical_cores": 6,
+    "logical_processors": 6,
+    "ram_bytes": 17111252992,
+    "gpu_model": "NVIDIA GeForce GTX 1660 Ti",
+    "gpu_driver_version": "32.0.15.8088",
+    "storage_model": "Samsung SSD 860 EVO 500GB",
+    "storage_media_type": "Fixed hard disk media",
+    "storage_device_bytes": 500105249280,
+    "filesystem": "NTFS",
+    "display_width_pixels": 1920,
+    "display_height_pixels": 1080,
+    "display_refresh_hz": 60,
+    "applied_dpi": 96,
+    "power_plan": "Smart Game Boost Power Plan",
+    "power_source": "unavailable",
+    "rustc": "rustc 1.85.0 (4d91de4e4 2025-02-17), host x86_64-pc-windows-msvc, LLVM 19.1.7"
+  },
+  "limitations": [
+    "The capture does not bind the future benchmark fixture to a measured storage path.",
+    "Physical display dimensions, renderer backend, cache-control proof, and validated measurement harness are absent.",
+    "This profile is candidate evidence only and does not approve a reference machine."
+  ]
+}

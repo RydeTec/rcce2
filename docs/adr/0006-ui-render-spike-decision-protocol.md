@@ -42,10 +42,17 @@ progress within 250 ms during project open, the default fixture ready within
 5 s, lens/focus feedback within 100 ms p95, incremental diagnostics within
 250 ms p95, cancellation acknowledged within 250 ms, and one interactive world
 viewport sustaining p95 frame time at or below 16.67 ms (equivalently p5 FPS at
-or above 60). M0 records small/default/large fixtures,
-reference hardware, and measured memory and commit-duration budgets before M1
-exit. A gate changes only through recorded measurement and an ADR update; a
-candidate cannot waive it locally.
+or above 60). The versioned
+[`performance-reference-v1.toml`](../compat/performance-reference-v1.toml)
+records small/default/large fixture and reference-machine status plus measured
+memory budgets required before candidate selection and M1 exit. Its current
+status is `blocked`; a candidate cannot treat unavailable fixtures, an
+incomplete machine, or unmeasured memory as approval. Commit duration cannot be
+measured truthfully by read-only M1: it is a mandatory pre-write M2 gate,
+measured on the first representative ADR-0005 commit implementation before any
+write API is authorized. A raw copy/rename/fsync microbenchmark is not a
+substitute. A gate changes only through recorded measurement and an ADR update;
+a candidate cannot waive it locally.
 
 Every candidate runs the same versioned harness and immutable scripted event
 trace against content-addressed small/default/large fixtures. The evidence
@@ -57,6 +64,57 @@ and p95 frame time (or equivalently p50 and p5 FPS, with the direction named),
 separately for one and two simultaneously active viewports. Memory reports both
 peak working set and steady state after a fixed idle/interaction window. Runs
 that omit a field are `Not run`, not comparable evidence.
+
+Status text has no approval authority by itself. An approved machine, fixture,
+measured budget, or aggregate record carries a typed external approval record
+with reviewer identity and role, UTC timestamp, reviewed artifact revision, and
+exact SHA-256 subject-evidence bindings. The approval record is a separately
+hashed artifact and is excluded from those bindings, avoiding a self-referential
+hash. The validator can emit both the full semantic subject digest and the
+canonical approval-record envelope before that envelope is hashed. Fixture
+approval additionally binds license,
+consent, sensitivity, materialization, and content-identity evidence. Measured
+budgets bind immutable trace, source, dependency lock, fixture, machine, cache,
+protocol, command, and raw-sample artifacts from which the recorded statistic
+is recomputed. Each approval also binds the canonical digest of the complete
+subject—including a budget's fixed identity semantics and threshold—so a later
+field edit makes the decision stale. Candidate labels, placeholder commands, or
+self-asserted `approved` fields do not satisfy this contract.
+
+Evidence lives beneath one dedicated root and uses canonical POSIX relative
+paths. Validation opens the root by a component-wise descriptor-relative
+no-follow walk from a stable filesystem anchor, then inventories the complete
+declared file and parent-directory set through retained handles. It rejects
+undeclared files, empty/non-derived directories, and any symlink/reparse
+component. An immutable initial snapshot binds every path and file/directory
+identity; evidence bytes are read from retained file handles tied to that
+snapshot; a separately captured final snapshot and retained ancestry check must
+match before validation succeeds. Every opened directory is fstat-checked both
+before and after its captured listing, and every final directory path is reopened
+and identity-compared immediately before acceptance.
+The authority is intentionally `linux-descriptor-v1`: approved records require
+the Linux descriptor-validation backend, which may run locally or in CI. Native
+Windows may capture the reference-machine profile and raw evidence, but those
+exact bytes are transferred into the dedicated evidence tree for validation by
+that backend. This boundary remains until an independently reviewed native
+Windows handle/reparse-safe backend exists.
+Fixture identity and materialization artifacts contain a sorted file manifest;
+the validator recomputes `RCCE-CORPUS-TREE-V1` from path bytes, size, and file
+SHA-256 rather than trusting a claimed aggregate. Numeric thresholds and raw
+measurements must be finite, the recorded statistic is recomputed, and every
+measured budget carries an explicit outcome consistent with its threshold.
+Validation is resource-bounded: at most 4,096 evidence files and 4,096 evidence
+directories, 64 relative path components, 255 UTF-8 bytes per component, 4,096
+UTF-8 bytes per relative path, 64 MiB per file, 512 MiB total, 8 MiB per typed
+JSON document, JSON depth 64, and 100,000 fixture manifest entries. The tree
+walk is iterative and descriptor-relative. Evidence is streamed into SHA-256 and length counters; only
+bounded typed JSON is buffered. JSON rejects duplicate keys and non-standard
+constants. Every artifact kind crosses a typed shape boundary before semantic
+field access: objects, arrays, strings, integers, manifest entries, bindings,
+review payloads, and every machine-profile observed field are checked with
+path-qualified errors and exact types/ranges. Approval records additionally require the exact canonical UTF-8 JSON
+encoding emitted by the validator (sorted keys, compact separators, no trailing
+newline), not merely an equivalent parsed object.
 
 The spike lives outside production composition roots and may be deleted. Domain
 and command state must remain in headless crates; framework widget state cannot

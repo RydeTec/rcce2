@@ -1,0 +1,13 @@
+Candidate project identity captured from Git at the corrective packet base.
+
+Command: git rev-parse HEAD
+Output: c4660b39159798a2a5e288d7ca624d40452157df
+
+Command: git rev-parse HEAD:data
+Output: ad1b1c6d9972a99b10a292ce27acb98d22addd79
+
+Command: git ls-tree -r -l HEAD data | awk '{files += 1; bytes += $4} END {print files, bytes}'
+Output: 1180 351551965
+
+The Git tree object is a candidate source identity, not an approved SHA-256
+fixture digest. No bytes were copied or mutated by this capture.

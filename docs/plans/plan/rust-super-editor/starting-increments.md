@@ -192,7 +192,7 @@ All five child packets are independently accepted. `SE-0004` may then consume a 
 ### Identity
 
 - **Milestone coverage**: M1 task 16 only.
-- **Depends on**: accepted `SE-M1-P01`, M0 UI/render questions and approved budgets; it may overlap P02–P05 using a read-only contract stub.
+- **Depends on**: accepted `SE-M1-P01` plus approved fixture, reference-machine, and memory entries in [`performance-reference-v1.toml`](../../../compat/performance-reference-v1.toml); it may overlap P02–P05 using a read-only contract stub. Commit-duration approval is separately gated before M2 authorizes writes.
 - **Owner/lease**: unassigned; required for `editor-rs/spikes/ui-render/` and its evidence file before `Ready`.
 - **Status**: Planned.
 - **Mutation class**: disposable spike; no production coupling.
@@ -214,7 +214,7 @@ Produce evidence for one desktop shell approach that can host document navigatio
 2. Render two independently navigable viewport textures from one device/queue.
 3. Demonstrate deterministic selection/picking and resize/device-loss handling.
 4. Exercise 100%, 150% and 200% scale, keyboard-only navigation, focus visibility, screen-reader-accessible names/roles for representative controls, and a 1024×768 constrained layout.
-5. Measure idle CPU, frame pacing, viewport resize latency and representative memory use on a documented machine; record measurements rather than universal thresholds unless the canonical spec defines them.
+5. Measure idle CPU, frame pacing, viewport resize latency and representative memory use on an approved reference machine and fixtures; retain raw samples and apply the versioned thresholds rather than treating an incomplete candidate profile as comparable evidence.
 6. Show a large synthetic project tree/list without blocking the event loop.
 
 ### Verification and decision

@@ -6,7 +6,7 @@
 - **Requirements authority**: [`../plan/rust-super-editor-engine-migration.md`](../plan/rust-super-editor-engine-migration.md)
 - **Packet/dependency authority**: [`../plan/rust-super-editor-implementation.md`](../plan/rust-super-editor-implementation.md)
 - **Current base**: `origin/develop` at `ee0977405cdee6591e6facdb9b88794d21ba65d3`; accepted packet worktrees were authored from `23ef44f6` and the intervening upstream delta is disjoint
-- **Program status**: M0 independently accepted; M1-P01 is accepted and integrated at exact pushed head `e1460ae7fbb3ac0fe0fb6fd3167a878d20a1ad20`; M1-P02 and M1-P06 are implementing in disjoint worktrees
+- **Program status**: M0 is independently accepted and corrective packet `SE-M0-C01` is accepted and integrating; M1-P01 and M1-P02 are accepted and integrated; M1-P03 is in final correction; egui and iced are rejected and unselected, and P06 cannot select a framework until C01's fixture, machine, and memory prerequisites are approved
 
 This ledger records execution state. It does not weaken packet acceptance, compatibility, safety, or retirement gates in the authorities above.
 
@@ -86,8 +86,8 @@ Completed implementation lanes:
 
 | Milestone | Status | Accepted packets | Next gate |
 |---|---|---|---|
-| M0 | Accepted | P01, P02, P03, P04, P05, P06, P07 | Exact-head CI and independent exit review passed at `52c5dece` |
-| M1 | In progress | P01, P02 | Execute P03 inventory; correct M0 performance prerequisites; P06 selection remains blocked |
+| M0 | Accepted; C01 accepted and integrating | P01, P02, P03, P04, P05, P06, P07 | Approve C01 fixtures, machines, and memory budgets before M1-P06 selection; commit duration is a pre-write M2 gate |
+| M1 | In progress | P01, P02 | Finish P03 inventory; P06 selection remains blocked on approved C01 reference inputs |
 | M2 | Planned | — | M1 accepted |
 | M3 | Planned | — | M2 accepted |
 | M4 | Planned | — | M3 accepted |
@@ -132,10 +132,12 @@ Completed implementation lanes:
 - `2026-07-21` — Ledger-only head `c4660b39159798a2a5e288d7ca624d40452157df` passed both required draft-PR checks: `Build and test` 6m51s and `Rust server (Linux)` 3m50s.
 - `2026-07-21` — M1-P02 passed three adversarial correction rounds, fresh specification review, different fresh quality review, and final specification-delta confirmation at aggregate SHA-256 `f2f6f44f36833f4c1be555efd711f432694c1ca4e49e291c4064c842dd6f52c1`. Source `af1a36a7` integrated as `194cabb6`. The sole descriptor-relative backend now belongs to `rcce-project`; scanner policy consumes it. Linux editor 36/0 and scanner 23/0, native Windows editor/scanner gates, strict Clippy/build, platform assurance, alias, retained-root, plan, and hygiene gates passed. Integrated Linux editor/scanner tests and the exact aggregate reproduced.
 - `2026-07-21` — M1-P06's first egui candidate remains rejected and unselected. Revision 2 records a full 29-row gate table and six native Windows release cases; all six observed p95 frame times were about 50 ms and failed the inherited 16.67 ms gate. The failed-candidate evidence remains under provenance correction before preservation; the bounded next experiment is an iced 0.13.1 shared-device seam probe, then Slint only if required.
+- `2026-07-21` — Rejected egui evidence was preserved at program commit `f1d1f393`. Rejected iced 0.13.1 evidence was preserved at program commit `d884d2b6`: the compiler-backed seam confirms `iced_wgpu` 0.13.5 uses wgpu 0.19.4 and cannot consume `rcce-render`'s wgpu 22.1.0 device, queue, encoder, and texture-view types. Neither framework is selected; Slint is the next bounded seam candidate.
 - `2026-07-21` — Corrective packet `SE-M0-C01` started after review confirmed M0 lacked approved content-addressed performance workloads, a complete reference machine, raw memory budgets, and a representative commit-duration path. It defines a closed reference-evidence contract and moves real commit-duration measurement to the pre-write M2 gate; acceptance remains pending independent quality corrections.
+- `2026-07-21` — `SE-M0-C01` passed specification-delta and independent engineering-conformance review at aggregate SHA-256 `7e6b83cebaf6393bdec3d39702b7ef5ee055a1188334af51d755e9f5b1e3c52a`. Source commit `388b7df3` records the closed evidence-tree contract, deterministic resource limits, strict approval bytes, Linux validation backend, and exact-byte Windows capture path. Fixture, reference-machine, and memory-budget approvals remain explicitly blocked; representative commit-duration measurement remains a pre-write M2 gate.
 
 ## Next actions
 
-1. Start M1-P03 from accepted integrated P02 head `194cabb6`; assign the canonical fingerprint type there.
-2. Accept the M0-C01 reference-evidence correction before any UI framework selection or performance-pass claim.
-3. Preserve the rejected egui evidence after provenance review, then execute the bounded iced shared-device seam experiment; keep P04 serialized behind accepted P03 fingerprint ownership.
+1. Complete local and exact-head CI verification for integrated `SE-M0-C01`; M1-P06 may gather evidence but cannot select a framework while reference fixtures, machines, or memory budgets remain blocked.
+2. Correct and independently accept M1-P03's opaque-location byte ceilings; keep P04 serialized behind the accepted P03 fingerprint.
+3. Continue M1-P06 with the next bounded candidate seam after the accepted P03 integration lane is stable.

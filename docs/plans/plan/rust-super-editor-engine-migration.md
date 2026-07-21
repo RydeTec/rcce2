@@ -286,7 +286,7 @@ M1 does not call an I1/tolerant view authoritative. Counts and diagnostics are l
 - The choice becomes locked only after a spike proves docking/panels, large virtualized catalogs, keyboard/focus/accessibility, high-DPI text, native file dialogs, and embedding an `rcce-render` viewport.
 - If the spike fails a gate, compare `iced` and `Slint` against the same executable harness. Product architecture must not depend on framework-specific widget state.
 
-Before production UI work, M0 defines small/default/large reference fixtures, records reference hardware, and approves explicit budgets. Initial gates are: visible progress within 250 ms during project open; default project ready within 5 s; lens/focus feedback within 100 ms p95; incremental diagnostics within 250 ms p95; cancellation acknowledged within 250 ms; and an interactive world viewport sustaining 60 fps p95 on the reference fixture/hardware. M0 sets measured memory and commit-duration budgets for all three fixture sizes before M1 exits. If baselines show a gate is unrealistic, the ADR changes the number with evidence rather than silently waiving it.
+Before production UI work, M0 defines small/default/large reference fixtures, records reference hardware, and approves explicit budgets in [`performance-reference-v1.toml`](../../compat/performance-reference-v1.toml). Initial gates are: visible progress within 250 ms during project open; default project ready within 5 s; lens/focus feedback within 100 ms p95; incremental diagnostics within 250 ms p95; cancellation acknowledged within 250 ms; and an interactive world viewport sustaining 60 fps p95 on the reference fixture/hardware. M0 sets measured memory budgets for all three fixture sizes before candidate selection and M1 exit. Because M1 is read-only, representative commit duration is instead a mandatory pre-write M2 gate: measure the first ADR-0005 commit implementation before authorizing any write API, and do not substitute raw copy/rename/fsync microbenchmarks. If baselines show a gate is unrealistic, the ADR changes the number with evidence rather than silently waiving it.
 
 The initial accessibility contract is Windows keyboard-only completion of every M1 flow, visible focus, Windows UI Automation semantics sufficient for Narrator to announce controls/state/errors, WCAG 2.2 AA text/essential-control contrast, 200% scaling, reduced-motion respect, and usable layout at desktop width 1024 px. Later platform support names equivalent assistive-technology gates before release.
 
@@ -732,7 +732,7 @@ Each increment has its own baseline, RED/GREEN evidence where applicable, and re
   - keyboard completion, focus order/visibility, UI Automation tree inspection, Narrator evidence, 100%/200% DPI, reduced motion, contrast, and the 1024 px minimum desktop viewport;
   - manual review of screenshots rather than filename-only assertions.
 - **Performance**:
-  - enforce the approved small/default/large open, progress, input, incremental-validation, cancellation, memory, commit, and viewport budgets on named reference hardware;
+  - enforce the approved small/default/large open, progress, input, incremental-validation, cancellation, memory, and viewport budgets on named reference hardware; enforce approved commit-duration budgets for M2 and later write gates only;
 - **Smoke**:
   - open repository project read-only;
   - edit a copied legacy project;

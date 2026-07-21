@@ -1,0 +1,360 @@
+schema_version = 1
+schema = "performance-reference-schema-v1.json"
+record_id = "rcce-super-editor-performance-reference-v1"
+record_revision = 1
+approval_policy_revision = 1
+authority_revision = "c4660b39159798a2a5e288d7ca624d40452157df"
+approval_validation_authority = "linux-descriptor-v1"
+status = "blocked"
+hash_algorithm = "sha256"
+fixture_hash_domain = "RCCE-CORPUS-TREE-V1"
+blocking_reasons = [
+  "No approved small, default, or large performance fixture exists.",
+  "The captured primary Windows machine profile is incomplete and is not approved.",
+  "Peak and steady-state memory budgets have no representative measurements.",
+  "Commit duration requires a representative ADR-0005 write implementation and is deferred to the pre-write M2 gate."
+]
+approvals = []
+
+[protocols.ui]
+status = "unimplemented"
+tool = "editor-rs/spikes/ui-render performance harness (not yet implemented)"
+command_template = "cargo run --manifest-path editor-rs/spikes/ui-render/Cargo.toml --release -- --fixture <content-sha256> --machine <machine-id> --trace <trace-sha256> --cache <cold|warm> --output <raw-samples.json>"
+warmup_runs = 3
+measured_runs = 10
+run_duration_seconds = 60
+trace_requirements = "One immutable scripted event trace and seed per scenario; preserve raw samples, tool version, source revision, dependency lock hash, cache state, and one/two-viewport results."
+evidence_ids = []
+
+[protocols.cache]
+status = "unvalidated"
+cold_definition = "A run after an OS-reboot or a recorded, platform-valid cache reset that removes prior fixture data from the relevant filesystem cache; process restart alone is insufficient."
+warm_definition = "A run immediately after one complete untimed fixture-open and trace replay on the same machine, storage path, build, and fixture."
+reset_command_template = "<record exact approved Windows cache-reset or reboot procedure and observed completion>"
+evidence_ids = []
+
+[protocols.memory]
+status = "unvalidated"
+metrics = ["peak_working_set_bytes", "steady_state_working_set_bytes"]
+sample_interval_ms = 100
+steady_window_seconds = 30
+command_template = "<validated harness> --scenario <open|idle|interaction> --sample-memory-ms 100 --steady-window-seconds 30 --output <raw-samples.json>"
+evidence_ids = []
+
+[protocols.commit]
+status = "deferred"
+phase = "pre-write-m2"
+semantic_requirement = "Measure the first representative implementation of ADR-0005 commit planning, flush, precondition recheck, replacement, directory durability, journal transitions, and recovery classification on approved fixtures and machines."
+command_template = "<M2 commit harness> --fixture <content-sha256> --machine <machine-id> --cache <cold|warm> --output <raw-samples.json>"
+prohibition = "A raw copy, rename, fsync, or synthetic filesystem microbenchmark cannot substitute for the representative ADR-0005 commit path."
+evidence_ids = []
+
+[[evidence]]
+id = "windows-primary-candidate-profile"
+path = "windows-primary-candidate/system-profile.json"
+sha256 = "352cd0420dd9a5b51742d1182047e283af2709477da9b284e96d8f2e31fca282"
+bytes = 1712
+kind = "machine-profile"
+subject_id = "windows-primary-candidate"
+artifact_revision = 1
+captured_at = "2026-07-21T06:46:10Z"
+
+[[evidence]]
+id = "default-project-candidate-identity"
+path = "default-project-candidate.txt"
+sha256 = "2a31720637e6c8fdfca55b9d785ca2b83eab17f6ad1a700fd3e2c362f58fd3b1"
+bytes = 499
+kind = "fixture-source-identity"
+subject_id = "default-v1"
+artifact_revision = 1
+captured_at = "2026-07-21T06:46:10Z"
+
+[[machines]]
+id = "windows-primary-candidate"
+role = "primary-windows-creator"
+status = "incomplete"
+os_name = "Microsoft Windows 11 Pro"
+os_version = "10.0.22631"
+os_build = "22631"
+kernel_version = "10.0.22631"
+architecture = "x86_64"
+cpu_model = "Intel(R) Core(TM) i5-8500 CPU @ 3.00GHz"
+physical_cores = 6
+logical_processors = 6
+ram_bytes = 17111252992
+gpu_model = "NVIDIA GeForce GTX 1660 Ti"
+gpu_backend = "unavailable"
+gpu_driver_version = "32.0.15.8088"
+storage_model = "Samsung SSD 860 EVO 500GB"
+storage_media_type = "Fixed hard disk media"
+filesystem = "NTFS"
+display_width_pixels = 1920
+display_height_pixels = 1080
+display_refresh_hz = 60
+applied_dpi = 96
+display_physical_size = "unavailable"
+power_plan = "Smart Game Boost Power Plan"
+power_source = "unavailable"
+rustc = "rustc 1.85.0 (4d91de4e4 2025-02-17), x86_64-pc-windows-msvc, LLVM 19.1.7"
+storage_path_binding = "unavailable"
+evidence_ids = ["windows-primary-candidate-profile"]
+approval_ids = []
+missing_fields = ["gpu_backend", "display_physical_size", "power_source", "storage_path_binding", "cold_cache_control", "measurement_harness_validation"]
+
+[[fixtures]]
+id = "small-v1"
+tier = "small"
+status = "unavailable"
+source_kind = "unselected"
+source_locator = "unavailable"
+source_revision = "unavailable"
+source_git_tree_sha1 = ""
+content_sha256 = ""
+materialization_protocol = "unavailable"
+materialization_command = "unavailable"
+license_status = "pending"
+consent_status = "pending"
+sensitivity_status = "pending"
+materialization_status = "not-started"
+file_count = 0
+byte_count = 0
+identity_evidence_ids = []
+license_evidence_ids = []
+consent_evidence_ids = []
+sensitivity_evidence_ids = []
+materialization_evidence_ids = []
+approval_ids = []
+missing_fields = ["lawful representative source", "sanitized materialization", "content_sha256"]
+
+[[fixtures]]
+id = "default-v1"
+tier = "default"
+status = "candidate"
+source_kind = "repository-default"
+source_locator = "data/"
+source_revision = "c4660b39159798a2a5e288d7ca624d40452157df"
+source_git_tree_sha1 = "ad1b1c6d9972a99b10a292ce27acb98d22addd79"
+content_sha256 = ""
+materialization_protocol = "Pending corpus approval; materialize through the RCCE-CORPUS-TREE-V1 procedure without editing source bytes."
+materialization_command = "<approved corpus materializer> --source data/ --fixture default-v1 --hash-domain RCCE-CORPUS-TREE-V1"
+license_status = "pending"
+consent_status = "pending"
+sensitivity_status = "pending"
+materialization_status = "not-started"
+file_count = 1180
+byte_count = 351551965
+identity_evidence_ids = ["default-project-candidate-identity"]
+license_evidence_ids = []
+consent_evidence_ids = []
+sensitivity_evidence_ids = []
+materialization_evidence_ids = []
+approval_ids = []
+missing_fields = ["license and consent approval", "sensitivity review", "sanitized materialization", "content_sha256"]
+
+[[fixtures]]
+id = "large-v1"
+tier = "large"
+status = "unavailable"
+source_kind = "consented-third-party"
+source_locator = "withheld-until-consent"
+source_revision = "unavailable"
+source_git_tree_sha1 = ""
+content_sha256 = ""
+materialization_protocol = "unavailable"
+materialization_command = "unavailable"
+license_status = "pending"
+consent_status = "pending"
+sensitivity_status = "pending"
+materialization_status = "not-started"
+file_count = 0
+byte_count = 0
+identity_evidence_ids = []
+license_evidence_ids = []
+consent_evidence_ids = []
+sensitivity_evidence_ids = []
+materialization_evidence_ids = []
+approval_ids = []
+missing_fields = ["consented representative source", "license approval", "sanitized materialization", "content_sha256"]
+
+[[gates]]
+id = "visible-open-progress"
+metric = "project_open_visible_progress_latency"
+statistic = "maximum"
+direction = "lte"
+threshold = 250.0
+unit = "milliseconds"
+fixture_scope = "all-approved"
+machine_scope = "all-approved"
+authority = "inherited-accepted-program"
+
+[[gates]]
+id = "default-project-ready"
+metric = "default_project_ready_latency"
+statistic = "maximum"
+direction = "lte"
+threshold = 5000.0
+unit = "milliseconds"
+fixture_scope = "default"
+machine_scope = "all-approved"
+authority = "inherited-accepted-program"
+
+[[gates]]
+id = "lens-focus-feedback"
+metric = "lens_or_focus_feedback_latency"
+statistic = "p95"
+direction = "lte"
+threshold = 100.0
+unit = "milliseconds"
+fixture_scope = "all-approved"
+machine_scope = "all-approved"
+authority = "inherited-accepted-program"
+
+[[gates]]
+id = "incremental-diagnostics"
+metric = "incremental_diagnostics_latency"
+statistic = "p95"
+direction = "lte"
+threshold = 250.0
+unit = "milliseconds"
+fixture_scope = "all-approved"
+machine_scope = "all-approved"
+authority = "inherited-accepted-program"
+
+[[gates]]
+id = "cancellation-acknowledgement"
+metric = "cancellation_acknowledgement_latency"
+statistic = "maximum"
+direction = "lte"
+threshold = 250.0
+unit = "milliseconds"
+fixture_scope = "all-approved"
+machine_scope = "all-approved"
+authority = "inherited-accepted-program"
+
+[[gates]]
+id = "one-viewport-frame-time"
+metric = "interactive_world_viewport_frame_time"
+statistic = "p95"
+direction = "lte"
+threshold = 16.67
+unit = "milliseconds"
+fixture_scope = "reference"
+machine_scope = "all-approved"
+authority = "inherited-accepted-program"
+
+[[budgets]]
+id = "memory-small-peak"
+budget_type = "memory"
+tier = "small"
+status = "not-measured"
+phase = "m1-selection"
+metric = "peak_working_set_bytes"
+statistic = "maximum"
+unit = "bytes"
+raw_sample_evidence_ids = []
+protocol_evidence_ids = []
+approval_ids = []
+
+[[budgets]]
+id = "memory-small-steady"
+budget_type = "memory"
+tier = "small"
+status = "not-measured"
+phase = "m1-selection"
+metric = "steady_state_working_set_bytes"
+statistic = "maximum"
+unit = "bytes"
+raw_sample_evidence_ids = []
+protocol_evidence_ids = []
+approval_ids = []
+
+[[budgets]]
+id = "memory-default-peak"
+budget_type = "memory"
+tier = "default"
+status = "not-measured"
+phase = "m1-selection"
+metric = "peak_working_set_bytes"
+statistic = "maximum"
+unit = "bytes"
+raw_sample_evidence_ids = []
+protocol_evidence_ids = []
+approval_ids = []
+
+[[budgets]]
+id = "memory-default-steady"
+budget_type = "memory"
+tier = "default"
+status = "not-measured"
+phase = "m1-selection"
+metric = "steady_state_working_set_bytes"
+statistic = "maximum"
+unit = "bytes"
+raw_sample_evidence_ids = []
+protocol_evidence_ids = []
+approval_ids = []
+
+[[budgets]]
+id = "memory-large-peak"
+budget_type = "memory"
+tier = "large"
+status = "not-measured"
+phase = "m1-selection"
+metric = "peak_working_set_bytes"
+statistic = "maximum"
+unit = "bytes"
+raw_sample_evidence_ids = []
+protocol_evidence_ids = []
+approval_ids = []
+
+[[budgets]]
+id = "memory-large-steady"
+budget_type = "memory"
+tier = "large"
+status = "not-measured"
+phase = "m1-selection"
+metric = "steady_state_working_set_bytes"
+statistic = "maximum"
+unit = "bytes"
+raw_sample_evidence_ids = []
+protocol_evidence_ids = []
+approval_ids = []
+
+[[budgets]]
+id = "commit-duration-small"
+budget_type = "commit-duration"
+tier = "small"
+status = "deferred-to-pre-write-m2"
+phase = "pre-write-m2"
+metric = "representative_adr0005_commit_duration"
+statistic = "p95"
+unit = "milliseconds"
+raw_sample_evidence_ids = []
+protocol_evidence_ids = []
+approval_ids = []
+
+[[budgets]]
+id = "commit-duration-default"
+budget_type = "commit-duration"
+tier = "default"
+status = "deferred-to-pre-write-m2"
+phase = "pre-write-m2"
+metric = "representative_adr0005_commit_duration"
+statistic = "p95"
+unit = "milliseconds"
+raw_sample_evidence_ids = []
+protocol_evidence_ids = []
+approval_ids = []
+
+[[budgets]]
+id = "commit-duration-large"
+budget_type = "commit-duration"
+tier = "large"
+status = "deferred-to-pre-write-m2"
+phase = "pre-write-m2"
+metric = "representative_adr0005_commit_duration"
+statistic = "p95"
+unit = "milliseconds"
+raw_sample_evidence_ids = []
+protocol_evidence_ids = []
+approval_ids = []
