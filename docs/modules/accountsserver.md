@@ -158,7 +158,7 @@ Parameters:
 *   _Email$_ - Email address for the new account
 
   
-This function creates a new Account object, sets its initial values, and adds it to the server's Accounts window. It then saves the complete account set through `SaveAccounts`' atomic v1 writer. It returns True only after that commit succeeds; on failure it removes the new account and its list/count changes so callers can report that registration did not persist.
+This function rejects an empty username, password hash, or email address before it creates an Account object or mutates the server Accounts window. For nonempty fields, it creates the object, sets its initial values, and adds it to the window. It then saves the complete account set through `SaveAccounts`' atomic v1 writer. It returns True only after that commit succeeds; validation or commit failure leaves no new account/list/count state so callers can report that registration did not persist.
 
   
   

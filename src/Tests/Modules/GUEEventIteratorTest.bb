@@ -19,6 +19,10 @@ Function GUEEventDrainUsesAfterCursor%(Path$, FunctionMarker$, LegacyFor$, First
 			CloseFile F
 			Return False
 		EndIf
+		If Stage > 0 And Instr(Line$, "E\\Event") > 0 Then
+			CloseFile F
+			Return False
+		EndIf
 		If Stage = 1 And Instr(Line$, FirstCursor$) > 0 Then Stage = 2
 		If Stage = 2 And Instr(Line$, NextDeclaration$) > 0 Then Stage = 3
 		If Stage = 3 And Instr(Line$, WhileCursor$) > 0 Then Stage = 4
@@ -33,6 +37,70 @@ Function GUEEventDrainUsesAfterCursor%(Path$, FunctionMarker$, LegacyFor$, First
 			Return True
 		EndIf
 		If Stage > 0 And Instr(Line$, "End Function") > 0 Then Exit
+	Wend
+
+	CloseFile F
+	Return False
+End Function
+
+; The editor's top-level queue spans the main loop rather than a bounded modal
+; function. Keep its current Event cursor, but require its successor to be
+; captured before the dispatch can delete the current object.
+Function GUEMainQueueUsesAfterCursor%(Path$)
+	Local F.BBStream = ReadFile(Path$)
+	Local Stage%
+	Local LoopDepth%
+	Local Line$
+	If F = Null Then F = ReadFile("..\\" + Path$)
+	If F = Null Then F = ReadFile("..\\..\\" + Path$)
+	If F = Null Then Return False
+
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		If Stage > 0 And Instr(Line$, "For E.Event = Each Event") > 0
+			CloseFile F
+			Return False
+		EndIf
+		If Stage > 0 And Stage < 6 And Instr(Line$, "Delete E") > 0
+			CloseFile F
+			Return False
+		EndIf
+		If Stage >= 6 And Stage < 8
+			If Left$(Trim$(Line$), 6) = "While " Then LoopDepth = LoopDepth + 1
+			If Trim$(Line$) = "Wend"
+				LoopDepth = LoopDepth - 1
+				If LoopDepth = 0
+					CloseFile F
+					Return False
+				EndIf
+			EndIf
+		EndIf
+		If Stage = 0
+			If Instr(Line$, "Local E.Event") > 0 Then Stage = 1
+		ElseIf Stage = 1
+			If Instr(Line$, "Local ENext.Event") > 0 Then Stage = 2
+		ElseIf Stage = 2
+			If Instr(Line$, "; Process events") > 0 Then Stage = 3
+		ElseIf Stage = 3
+			If Instr(Line$, "E = First Event") > 0 Then Stage = 4
+		ElseIf Stage = 4
+			If Instr(Line$, "While E <> Null") > 0
+				LoopDepth = 1
+				Stage = 5
+			EndIf
+		ElseIf Stage = 5
+			If Instr(Line$, "ENext = After E") > 0 Then Stage = 6
+		ElseIf Stage = 6
+			If Instr(Line$, "Delete E") > 0 Then Stage = 7
+		ElseIf Stage = 7
+			If Instr(Line$, "E = ENext") > 0 Then Stage = 8
+		ElseIf Stage = 8
+			If Trim$(Line$) = "Wend" And LoopDepth = 1
+				CloseFile F
+				Return True
+			EndIf
+		EndIf
+		If Stage > 0 And Instr(Line$, "RenderWorld") > 0 Then Exit
 	Wend
 
 	CloseFile F
@@ -59,6 +127,14 @@ Test testFixedAttributeDialogCapturesNextEventBeforeDelete()
 	Assert(GUEEventDrainUsesAfterCursor%("GUE.bb", "Function FixedAttributeDialog()", "For E.Event = Each Event", "Local FixedAttributeEvent.Event = First Event", "Local NextFixedAttributeEvent.Event = Null", "While FixedAttributeEvent <> Null", "NextFixedAttributeEvent = After FixedAttributeEvent", "Delete(FixedAttributeEvent)", "FixedAttributeEvent = NextFixedAttributeEvent") = True)
 End Test
 
+Test testSaveDialogCapturesNextEventBeforeDelete()
+	Assert(GUEEventDrainUsesAfterCursor%("GUE.bb", "Function SaveDialog()", "For E.Event = Each Event", "Local SaveEvent.Event = First Event", "Local NextSaveEvent.Event = Null", "While SaveEvent <> Null", "NextSaveEvent = After SaveEvent", "Delete(SaveEvent)", "SaveEvent = NextSaveEvent") = True)
+End Test
+
+Test testAreaNameDialogCapturesNextEventBeforeDelete()
+	Assert(GUEEventDrainUsesAfterCursor%("GUE.bb", "Function AreaNameDialog$()", "For E.Event = Each Event", "Local AreaNameEvent.Event = First Event", "Local NextAreaNameEvent.Event = Null", "While AreaNameEvent <> Null", "NextAreaNameEvent = After AreaNameEvent", "Delete(AreaNameEvent)", "AreaNameEvent = NextAreaNameEvent") = True)
+End Test
+
 Test testMeshDialogCapturesNextEventBeforeDelete()
 	Assert(GUEEventDrainUsesAfterCursor%("GUE.bb", "Function MeshDialog()", "For E.Event = Each Event", "Local MeshEvent.Event = First Event", "Local NextMeshEvent.Event = Null", "While MeshEvent <> Null", "NextMeshEvent = After MeshEvent", "Delete MeshEvent", "MeshEvent = NextMeshEvent") = True)
 End Test
@@ -69,4 +145,8 @@ End Test
 
 Test testSoundDialogCapturesNextEventBeforeDelete()
 	Assert(GUEEventDrainUsesAfterCursor%("GUE.bb", "Function SoundDialog()", "For E.Event = Each Event", "Local SoundEvent.Event = First Event", "Local NextSoundEvent.Event = Null", "While SoundEvent <> Null", "NextSoundEvent = After SoundEvent", "Delete SoundEvent", "SoundEvent = NextSoundEvent") = True)
+End Test
+
+Test testMainQueueCapturesNextEventBeforeDelete()
+	Assert(GUEMainQueueUsesAfterCursor%("GUE.bb") = True)
 End Test

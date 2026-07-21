@@ -444,10 +444,12 @@ Repeat
 	FUI_Update()
 	Flip(0)
 	
-	;Activate Buttons
-	Local E.Event	
-	For E.Event = Each Event
-		Select E\EventID
+	; Activate queued buttons without deleting the active For Each cursor.
+	Local CurrentEvent.Event = First Event
+	Local NextEvent.Event = Null
+	While CurrentEvent <> Null
+		NextEvent = After CurrentEvent
+		Select CurrentEvent\EventID
 		
 	;Main Window
 		Case BMINI
@@ -597,8 +599,8 @@ Repeat
 			ExecFile(discFull$)
 		End Select
 
-		if E <> Null
-			local mi.MenuItem = Object.MenuItem(E\EventID)
+		if CurrentEvent <> Null
+			local mi.MenuItem = Object.MenuItem(CurrentEvent\EventID)
 			if mi <> Null
 				if Handle( mi\Parent ) = M_ProjectsRecent
 					ProjectManager::loadProject(pm, ProjectManager::getProject(pm, mi\caption$))
@@ -607,8 +609,9 @@ Repeat
 			EndIf
 		EndIf
 
-		Delete E
-	Next
+		Delete CurrentEvent
+		CurrentEvent = NextEvent
+	Wend
 Until app\Quit = True
 
 FUI_Destroy()

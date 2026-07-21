@@ -3169,8 +3169,11 @@ Cls
 	;Flip(0)
 
 	Local E.Event
+	Local ENext.Event
 	; Process events
-	For E.Event = Each Event
+	E = First Event
+	While E <> Null
+		ENext = After E
 		Select E\EventID
 
 			;- Tab switched ----------------------------------------------------------------------------------------------------------
@@ -6594,7 +6597,8 @@ Cls
 				Next
 		End Select
 		Delete E
-	Next
+		E = ENext
+	Wend
 	
 	;Flip(0) added here after events cysis145
 	RenderWorld
@@ -9793,12 +9797,15 @@ Function SaveDialog()
 	Result = -1
 	While Result < 0
 
-		For E.Event = Each Event
-			Select E\EventID
+		Local SaveEvent.Event = First Event
+		Local NextSaveEvent.Event = Null
+		While SaveEvent <> Null
+			NextSaveEvent = After SaveEvent
+			Select SaveEvent\EventID
 
 				; Window closed
 				Case W
-					If Lower$(E\EventData$) = "closed" Then Result = False
+					If Lower$(SaveEvent\EventData$) = "closed" Then Result = False
 				; Cancel hit
 				Case BCancel
 					Result = False
@@ -9909,8 +9916,9 @@ Function SaveDialog()
 					EndIf
 					Result = True
 			End Select
-			Delete E
-		Next
+			Delete(SaveEvent)
+			SaveEvent = NextSaveEvent
+		Wend
 
 		FUI_Update()
 		Flip(0)
@@ -9944,8 +9952,11 @@ Function AreaNameDialog$()
 		EndIf
 
 		; Events
-		For E.Event = Each Event
-			Select E\EventID
+		Local AreaNameEvent.Event = First Event
+		Local NextAreaNameEvent.Event = Null
+		While AreaNameEvent <> Null
+			NextAreaNameEvent = After AreaNameEvent
+			Select AreaNameEvent\EventID
 				; OK clicked
 				Case BDone
 					Result$ = FUI_SendMessage(TAreaName, M_GETCAPTION)
@@ -9959,8 +9970,9 @@ Function AreaNameDialog$()
 					Next
 					If AlreadyExists = False Then Done = True
 			End Select
-			Delete E
-		Next
+			Delete(AreaNameEvent)
+			AreaNameEvent = NextAreaNameEvent
+		Wend
 
 		; Render
 		FUI_Update()

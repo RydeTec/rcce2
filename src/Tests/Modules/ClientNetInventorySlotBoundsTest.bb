@@ -70,6 +70,25 @@ Function ButtonSlot$(SlotName$)
 	Return "BSlots" + Chr$(40) + SlotName$ + Chr$(41)
 End Function
 
+Const EquipmentVisualPayloadBytes% = 17
+Const GiveItemOfferPayloadBytes% = 9
+
+Function EquipmentVisualPayloadExact%(PayloadLen%)
+	Return PayloadLen = EquipmentVisualPayloadBytes
+End Function
+
+Function EquipmentVisualLengthGuard$()
+	Return "If Len(M" + Chr$(92) + "MessageData$) <> " + EquipmentVisualPayloadBytes
+End Function
+
+Function GiveItemOfferPayloadExact%(PayloadLen%)
+	Return PayloadLen = GiveItemOfferPayloadBytes
+End Function
+
+Function GiveItemOfferLengthGuard$()
+	Return "If Len(M" + Chr$(92) + "MessageData$) <> " + GiveItemOfferPayloadBytes
+End Function
+
 Test testClientInventorySlotGuardRejectsMissingPlayerAndOutOfRangeSlots()
 	Local Source$ = ClientNetSource$()
 	Local Guard$ = Between$(Source$, "Function ClientInventorySlotUsable", "End Function")
@@ -103,4 +122,30 @@ Test testInventoryUpdateReceiveValidatesSlotBeforeDroppedItemMutation()
 	Local InventoryUpdate$ = Between$(ClientNetSource$(), "Case P_InventoryUpdate", "Case P_StandardUpdate")
 	Local Received$ = Between$(InventoryUpdate$, "Case " + Chr$(34) + "R" + Chr$(34), "Case " + Chr$(34) + "P" + Chr$(34))
 	Assert(ContainsInOrder%(Received$, PacketLengthGuard$(6), "i = RCE_IntFromStr", UsableSlotGuard$("i"), "For DItem.DroppedItem = Each DroppedItem") = True)
+End Test
+
+Test testEquipmentVisualPayloadRequiresExactly17Bytes()
+	Assert(EquipmentVisualPayloadExact%(0) = False)
+	Assert(EquipmentVisualPayloadExact%(16) = False)
+	Assert(EquipmentVisualPayloadExact%(17) = True)
+	Assert(EquipmentVisualPayloadExact%(18) = False)
+End Test
+
+Test testEquipmentVisualLengthGuardPrecedesParseAndVisualMutation()
+	Local InventoryUpdate$ = Between$(ClientNetSource$(), "Case P_InventoryUpdate", "Case P_StandardUpdate")
+	Local Equipment$ = Between$(InventoryUpdate$, "Case " + Chr$(34) + "O" + Chr$(34), "Case " + Chr$(34) + "G" + Chr$(34))
+	Assert(ContainsInOrder%(Equipment$, EquipmentVisualLengthGuard$(), "RuntimeID = RCE_IntFromStr", "FreeItemInstance(A" + Chr$(92) + "Inventory" + Chr$(92) + "Items[SlotI_Weapon])", "UpdateActorItems(A)") = True)
+End Test
+
+Test testGiveItemOfferPayloadRequiresExactlyNineBytes()
+	Assert(GiveItemOfferPayloadExact%(8) = False)
+	Assert(GiveItemOfferPayloadExact%(9) = True)
+	Assert(GiveItemOfferPayloadExact%(10) = False)
+End Test
+
+Test testGiveItemOfferLengthGuardPrecedesInventoryMutation()
+	Local InventoryUpdate$ = Between$(ClientNetSource$(), "Case P_InventoryUpdate", "Case P_StandardUpdate")
+	Local Given$ = Between$(InventoryUpdate$, "Case " + Chr$(34) + "G" + Chr$(34), "End Select")
+	Local BadPayloadLog$ = "WriteLog(MainLog, " + Chr$(34) + "P_InventoryUpdate G: bad payload length "
+	Assert(ContainsInOrder%(Given$, GiveItemOfferLengthGuard$(), BadPayloadLog$, "ItemID = RCE_IntFromStr", "II.ItemInstance = CreateItemInstance") = True)
 End Test
