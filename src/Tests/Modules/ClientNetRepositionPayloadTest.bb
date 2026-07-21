@@ -24,7 +24,7 @@ Function RepositionKnownFrameGate$()
 End Function
 
 Function RepositionMoveBranch$()
-    Return "If RepositionType$ = " + Chr$(34) + "M" + Chr$(34)
+    Return "If Left$(M\MessageData$, 1) = " + Chr$(34) + "M" + Chr$(34)
 End Function
 
 Function RepositionPayloadGuardIsOrdered%(Path$)

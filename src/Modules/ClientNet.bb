@@ -196,7 +196,7 @@ Function UpdateNetwork()
 					AI.ActorInstance = RuntimeIDList(RuntimeID)
 					If AI <> Null
 						; Move
-						If RepositionType$ = "M"
+						If Left$(M\MessageData$, 1) = "M"
 							AI\X# = RCE_FloatFromStr(Mid$(M\MessageData$, 4, 4))
 							Y# = RCE_FloatFromStr(Mid$(M\MessageData$, 8, 4))
 							AI\Z# = RCE_FloatFromStr(Mid$(M\MessageData$, 12, 4))
