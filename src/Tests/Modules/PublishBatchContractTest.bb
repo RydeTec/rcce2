@@ -102,8 +102,8 @@ Function HelpGuardPrecedesReleaseCleanup%(Path$)
 	Local F.BBStream = ReadFile(Path$)
 	Local Line$
 	Local Stage% = 0
-	If F = Null Then F = ReadFile("..\\" + Path$)
-	If F = Null Then F = ReadFile("..\\..\\" + Path$)
+	If F = Null Then F = ReadFile("..\" + Path$)
+	If F = Null Then F = ReadFile("..\..\" + Path$)
 	If F = Null Then Return False
 	While Not Eof(F)
 		Line$ = ReadLine$(F)
