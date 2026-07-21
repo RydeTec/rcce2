@@ -1028,27 +1028,39 @@ Function UpdateNetwork()
 
 			; Character stat update
 			Case P_StatUpdate
-				A.ActorInstance = RuntimeIDList(RCE_IntFromStr(Mid$(M\MessageData$, 2, 2)))
-				; A can be Null if the server names a RuntimeID we haven't
-				; created yet (race on actor spawn) -- guard before any
-				; field access. Attribute index also comes off the wire
-				; as a 1-byte 0..255 value; bound against the 40-entry
-				; Attributes\Value / Maximum arrays.
-				If A <> Null
-					If Left$(M\MessageData$, 1) = "A"
-						Attribute = RCE_IntFromStr(Mid$(M\MessageData$, 4, 1))
-						If Attribute >= 0 And Attribute < 40
-							A\Attributes\Value[Attribute] = RCE_IntFromStr(Mid$(M\MessageData$, 5, 2))
+				Select Left$(M\MessageData$, 1)
+					Case "A"
+						If Len(M\MessageData$) <> 6
+							WriteLog(MainLog, "P_StatUpdate A: bad payload length " + Len(M\MessageData$) + ", dropping")
+						Else
+							A.ActorInstance = RuntimeIDList(RCE_IntFromStr(Mid$(M\MessageData$, 2, 2)))
+							If A <> Null
+								Attribute = RCE_IntFromStr(Mid$(M\MessageData$, 4, 1))
+								If Attribute >= 0 And Attribute < 40
+									A\Attributes\Value[Attribute] = RCE_IntFromStr(Mid$(M\MessageData$, 5, 2))
+								EndIf
+							EndIf
 						EndIf
-					ElseIf Left$(M\MessageData$, 1) = "M"
-						Attribute = RCE_IntFromStr(Mid$(M\MessageData$, 4, 1))
-						If Attribute >= 0 And Attribute < 40
-							A\Attributes\Maximum[Attribute] = RCE_IntFromStr(Mid$(M\MessageData$, 5, 2))
+					Case "M"
+						If Len(M\MessageData$) <> 6
+							WriteLog(MainLog, "P_StatUpdate M: bad payload length " + Len(M\MessageData$) + ", dropping")
+						Else
+							A.ActorInstance = RuntimeIDList(RCE_IntFromStr(Mid$(M\MessageData$, 2, 2)))
+							If A <> Null
+								Attribute = RCE_IntFromStr(Mid$(M\MessageData$, 4, 1))
+								If Attribute >= 0 And Attribute < 40
+									A\Attributes\Maximum[Attribute] = RCE_IntFromStr(Mid$(M\MessageData$, 5, 2))
+								EndIf
+							EndIf
 						EndIf
-					ElseIf Left$(M\MessageData$, 1) = "R"
-						A\Reputation = RCE_SignedShortFromStr(Mid$(M\MessageData$, 4, 2))  ; signed: reputation can be negative
-					EndIf
-				EndIf
+					Case "R"
+						If Len(M\MessageData$) <> 5
+							WriteLog(MainLog, "P_StatUpdate R: bad payload length " + Len(M\MessageData$) + ", dropping")
+						Else
+							A.ActorInstance = RuntimeIDList(RCE_IntFromStr(Mid$(M\MessageData$, 2, 2)))
+							If A <> Null Then A\Reputation = RCE_SignedShortFromStr(Mid$(M\MessageData$, 4, 2))  ; signed: reputation can be negative
+						EndIf
+				End Select
 
 			; Scripted text input dialog
 			Case P_ScriptInput
