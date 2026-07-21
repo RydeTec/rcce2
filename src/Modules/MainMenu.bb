@@ -264,7 +264,10 @@ Function UpdateFiles()
 	; Go through each file to make sure that I have it
 	ThisFile = 0
 	GY_UpdateLabel(TStatus, LanguageString$(LS_CheckingFiles))
-	For U.UpdateFile = Each UpdateFile
+	Local U.UpdateFile = First UpdateFile
+	Local UNext.UpdateFile = Null
+	While U <> Null
+		UNext = After U
 		; Skip entries the announcement path already rejected as unsafe.
 		If U\Name$ = "" Then NeedFile = False : Goto skipUpdateApply
 
@@ -349,7 +352,8 @@ Function UpdateFiles()
 		RenderWorld()
 		Flip()
 		If KeyHit(1) Then End
-	Next
+		U = UNext
+	Wend
 
 	FreeEntity(Background)
 	GY_FreeGadget(TStatus) : GY_FreeGadget(LFileProg) : GY_FreeGadget(LFile)
