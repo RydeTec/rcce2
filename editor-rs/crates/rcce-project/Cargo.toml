@@ -1,0 +1,11 @@
+[package]
+name = "rcce-project"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+description = "Root-confined project-model boundary for the RCCE Rust editor."
+
+[lints]
+workspace = true

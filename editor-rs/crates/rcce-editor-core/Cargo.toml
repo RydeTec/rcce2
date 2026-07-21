@@ -1,0 +1,18 @@
+[package]
+name = "rcce-editor-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+description = "GUI-independent orchestration boundary for the RCCE Rust editor."
+
+[dependencies]
+rcce-project.workspace = true
+rcce-validation.workspace = true
+
+[dev-dependencies]
+serde_json = "1"
+
+[lints]
+workspace = true
