@@ -122,6 +122,12 @@ End Type
 
 Function DeferKillActor(A.ActorInstance, Killer.ActorInstance)
 	If A = Null Then Return
+	; A can reach both underwater-death paths in one tick. Keep the first
+	; request (and therefore its killer) so ProcessPendingKills never repeats
+	; KillActor against an actor that the first queued death already freed.
+	For PK.PendingKill = Each PendingKill
+		If PK\Actor = A Then Return
+	Next
 	PK.PendingKill = New PendingKill
 	PK\Actor = A
 	PK\Killer = Killer
