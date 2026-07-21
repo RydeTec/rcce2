@@ -570,11 +570,11 @@ Function UpdateNetwork()
 
 			; Trading updated
 			Case P_UpdateTrading
-				If TradingVisible = True
+				If TradingVisible = True And (Len(M\MessageData$) = 3 Or Len(M\MessageData$) = 86)
 					Slot = RCE_IntFromStr(Mid$(M\MessageData$, 1, 1))
 					Amount = RCE_IntFromStr(Mid$(M\MessageData$, 2, 2))
 					; Remove item
-					If Amount = 0
+					If Amount = 0 And Len(M\MessageData$) = 3
 						For i = 0 To 31
 							If ServerTradeIDs(i) = Slot
 								ServerTradeIDs(i) = 0
@@ -587,22 +587,22 @@ Function UpdateNetwork()
 								Exit
 							EndIf
 						Next
-					; Add item
-					Else
-						For i = 0 To 31
+					ElseIf Amount > 0 And Len(M\MessageData$) = 86
+							For i = 0 To 31
 							If TradeItems(i) = Null
-								ServerTradeIDs(i) = Slot
-								TradeAmounts(i) = Amount
-								TradeItems(i) = ItemInstanceFromString(Mid$(M\MessageData$, 4))
-								GYG.GY_Gadget = Object.GY_Gadget(BSlotsHis(i))
-								GYB.GY_Button = Object.GY_Button(GYG\TypeHandle)
-								EntityTexture GYB\Gadget\EN, GetTexture(TradeItems(i)\Item\ThumbnailTexID)
-								If TradeAmounts(i) > 1
-									GY_SetButtonLabel(BSlotsHis(i), TradeAmounts(i), 100, 255, 0, True)
-								Else
-									GY_SetButtonLabel(BSlotsHis(i), "")
-								EndIf
-								Exit
+								II.ItemInstance = ItemInstanceFromString(Mid$(M\MessageData$, 4))
+								If II <> Null
+									TradeItems(i) = II : ServerTradeIDs(i) = Slot
+									TradeAmounts(i) = Amount
+									GYG.GY_Gadget = Object.GY_Gadget(BSlotsHis(i))
+									GYB.GY_Button = Object.GY_Button(GYG\TypeHandle)
+									EntityTexture GYB\Gadget\EN, GetTexture(TradeItems(i)\Item\ThumbnailTexID)
+									If TradeAmounts(i) > 1
+										GY_SetButtonLabel(BSlotsHis(i), TradeAmounts(i), 100, 255, 0, True)
+									Else
+										GY_SetButtonLabel(BSlotsHis(i), "")
+									EndIf
+									Exit : EndIf
 							EndIf
 						Next
 					EndIf
