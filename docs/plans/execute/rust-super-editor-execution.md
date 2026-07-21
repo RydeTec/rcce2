@@ -87,7 +87,7 @@ Completed implementation lanes:
 | Milestone | Status | Accepted packets | Next gate |
 |---|---|---|---|
 | M0 | Accepted; C01 integrated | P01, P02, P03, P04, P05, P06, P07 | Approve C01 fixtures, machines, and memory budgets before M1-P06 selection; commit duration is a pre-write M2 gate |
-| M1 | In progress | P01, P02, P03, P04, P05 | Complete P05 integrated/exact-head verification; continue P06 bounded candidate evidence |
+| M1 | In progress | P01, P02, P03, P04, P05 | Obtain explicit Stage 2 authority and prove the full client plus native Windows/i686 path; approve C01 fixtures, machine, and memory budgets before framework selection |
 | M2 | Planned | — | M1 accepted |
 | M3 | Planned | — | M2 accepted |
 | M4 | Planned | — | M3 accepted |
