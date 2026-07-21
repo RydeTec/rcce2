@@ -6,7 +6,7 @@
 - **Requirements authority**: [`../plan/rust-super-editor-engine-migration.md`](../plan/rust-super-editor-engine-migration.md)
 - **Packet/dependency authority**: [`../plan/rust-super-editor-implementation.md`](../plan/rust-super-editor-implementation.md)
 - **Current base**: `origin/develop` at `ee0977405cdee6591e6facdb9b88794d21ba65d3`; accepted packet worktrees were authored from `23ef44f6` and the intervening upstream delta is disjoint
-- **Program status**: M0 and corrective packet `SE-M0-C01` are accepted and integrated; M1-P01 through M1-P04 are accepted and integrated; egui and iced are rejected and unselected, and P06 cannot select a framework until C01's fixture, machine, and memory prerequisites are approved
+- **Program status**: M0 and corrective packet `SE-M0-C01` are accepted and integrated; M1-P01 through M1-P05 are accepted and integrated; egui and iced are rejected and unselected, and P06 cannot select a framework until C01's fixture, machine, and memory prerequisites are approved
 
 This ledger records execution state. It does not weaken packet acceptance, compatibility, safety, or retirement gates in the authorities above.
 
@@ -87,7 +87,7 @@ Completed implementation lanes:
 | Milestone | Status | Accepted packets | Next gate |
 |---|---|---|---|
 | M0 | Accepted; C01 integrated | P01, P02, P03, P04, P05, P06, P07 | Approve C01 fixtures, machines, and memory budgets before M1-P06 selection; commit duration is a pre-write M2 gate |
-| M1 | In progress | P01, P02, P03, P04 | Start P05 consensus fixtures from accepted typed provenance; continue P06 bounded candidate evidence |
+| M1 | In progress | P01, P02, P03, P04, P05 | Complete P05 integrated/exact-head verification; continue P06 bounded candidate evidence |
 | M2 | Planned | — | M1 accepted |
 | M3 | Planned | — | M2 accepted |
 | M4 | Planned | — | M3 accepted |
@@ -140,9 +140,10 @@ Completed implementation lanes:
 - `2026-07-21` — Integrated skeleton verification exposed a base-order mismatch: later accepted egui/iced files under the disposable `editor-rs/spikes/` evidence tree were included by P03's exact production-workspace topology walk. A one-line integration correction excludes only that exact top-level evidence tree while preserving all production file, Cargo metadata, dependency, target, build/FFI, and source-token assertions. Specification-delta and separate quality rereview accepted delta SHA-256 `a702243de321d0f0c7bfec18862e74cfbdee259353595fb8a7329f46eb01d7ce`; program correction `3a7702f2` passes the complete integrated local gates. Exact-head CI remains pending.
 - `2026-07-21` — `SE-M1-P03` exact pushed head `89a68670` passed draft-PR checks (`Build and test` 6m42s, `Rust server (Linux)` 3m54s).
 - `2026-07-21` — `SE-M1-P04` passed fresh specification review, correction rereview, separate quality review, final specification-delta confirmation, and quality rereview at exact five-path aggregate SHA-256 `5395982141e52b62445188eac018089616b3ce9f1bd81e3d6f584bf395067b33`. It adds typed raw identities, authoritative raw/display separation, checked spans, exact P03 provenance reuse without rehashing, and a sealed immutable no-write legacy envelope; real byte binding and consensus fixtures remain deferred to P05. Linux exact Rust 1.85 passed library 32/0, identity 4/0, inventory 16/0, confinement 15/0, doctests 10/0, skeleton 3/0, full workspace, strict Clippy/build, scanner 23/0, P07 17+6, and plan 95/11. Native Windows exact Rust 1.85 passed library 22/0, identity 4/0, inventory 15/0, confinement 9/0, doctests 10/0, skeleton 3/0, and strict Clippy. Source `410085b1` integrated as `95dffeb8`; exact-head CI remains pending.
+- `2026-07-21` — `SE-M1-P05` passed fresh specification review, final specification-delta confirmation, and a different fresh quality review at exact 42-path aggregate SHA-256 `7ff53f289ab7a396035b84ddf286c36ed8d301925e3674e397a3b2dcc211fc42`. It binds exact P03 inventory evidence to sealed P04 actor/mesh documents, adds raw-span-aware client/server parser evidence, and records only proven or provisional compatibility outcomes for `Actors.dat`, `Meshes.dat`, and physical `Data/Meshes` files. Review corrections removed long-lived Windows inventory handles, preserved malformed alias evidence, made duplicate IDs provisional, rejected linked fixture roots, supported validated nested legacy paths without changing raw bytes, and scoped unreferenced catalog evidence to the selected actor-base slice. The closed synthetic corpus contains 22 files. Exact Rust 1.85 focused gates passed editor consensus 8/0, skeleton 3/0, client consensus 4/0, server consensus 2/0, and strict Clippy; the generator and diff checks passed. Earlier corrected-candidate Linux broad and native Windows component matrices passed; the final nested-path/slice-only delta remains Linux-verified pending integrated fan-out. Full client Linux workspace testing remains unavailable at the existing ALSA `alsa.pc` boundary, and exact Rust 1.85 rustfmt is unavailable. Source `13579186` integrated as `4f417ae3`; integrated verification and exact-head CI remain pending.
 
 ## Next actions
 
-1. Complete integrated local and exact-head CI verification for `SE-M1-P04`.
-2. Start M1-P05 consensus fixtures without widening P04's sealed construction boundary before byte-to-inventory binding is proved.
-3. Continue M1-P06 with the bounded Slint one-device/shared-wgpu seam; reference fixture, machine, and memory-budget approvals remain blocked.
+1. Complete integrated local and exact-head CI verification for `SE-M1-P05`.
+2. Continue M1-P06 with the bounded Slint one-device/shared-wgpu seam; reference fixture, machine, and memory-budget approvals remain blocked.
+3. Start only the next dependency-ready M1 packet after P05 exact-head acceptance; do not broaden P05 into additional reference families.
