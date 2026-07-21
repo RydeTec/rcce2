@@ -22,7 +22,7 @@ Function EncryptB3DUsesVerifiedPromotion%()
 
 	While Not Eof(F)
 		Line$ = ReadLine$(F)
-		If Instr(Line$, "Function Encrypt_B3D$(") > 0 Then InEncrypt = True
+		If Instr(Line$, "Function") > 0 And Instr(Line$, "Encrypt_B3D$(") > 0 Then InEncrypt = True
 		If InEncrypt
 			If Stage = 0 And Instr(Line$, "TmpPath$ = fname$ + " + Chr$(34) + ".tmp" + Chr$(34)) > 0
 				Stage = 1
@@ -54,7 +54,7 @@ Function EncryptB3DContainsDirectPromotion%()
 
 	While Not Eof(F)
 		Line$ = ReadLine$(F)
-		If Instr(Line$, "Function Encrypt_B3D$(") > 0 Then InEncrypt = True
+		If Instr(Line$, "Function") > 0 And Instr(Line$, "Encrypt_B3D$(") > 0 Then InEncrypt = True
 		If InEncrypt
 			If Instr(Line$, "DeleteFile(fname$)") > 0 Or Instr(Line$, "CopyFile TmpPath$, fname$") > 0
 				CloseFile F
