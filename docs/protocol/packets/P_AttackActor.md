@@ -36,6 +36,14 @@ A fixed 2-byte payload, no sub-code. The client tags the target by `RuntimeID`; 
 
 ## Validation requirements
 
+### S → C handler (`ClientNet.bb`)
+
+The client classifies the sub-code before decoding any RuntimeID or combat
+field. `H` and `Y` are accepted only at exactly 6 bytes, while observer `O`
+is accepted only at exactly 5 bytes. Every other sub-code or length is logged
+and dropped before it can animate an actor, alter HUD/health state, or emit
+combat feedback.
+
 ### C → S handler ([ServerNet.bb:1548-1571](../../../src/Modules/ServerNet.bb#L1548))
 
 Six gates, all required to fire:

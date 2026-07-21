@@ -1180,7 +1180,20 @@ Function UpdateNetwork()
 
 			; Actor attacked
 			Case P_AttackActor
-				RuntimeID = RCE_IntFromStr(Mid$(M\MessageData$, 2, 2))
+				Local AttackFrameValid%, AttackSub$
+				AttackFrameValid = False
+				AttackSub$ = Left$(M\MessageData$, 1)
+				If AttackSub$ = "H"
+					If Len(M\MessageData$) = 6 Then AttackFrameValid = True
+				ElseIf AttackSub$ = "Y"
+					If Len(M\MessageData$) = 6 Then AttackFrameValid = True
+				ElseIf AttackSub$ = "O"
+					If Len(M\MessageData$) = 5 Then AttackFrameValid = True
+				EndIf
+				If AttackFrameValid = False
+					WriteLog(MainLog, "P_AttackActor: bad payload length " + Len(M\MessageData$) + ", dropping")
+				Else
+					RuntimeID = RCE_IntFromStr(Mid$(M\MessageData$, 2, 2))
 				A.ActorInstance = RuntimeIDList(RuntimeID)
 				If A <> Null
 					; I attacked someone else
@@ -1259,9 +1272,10 @@ Function UpdateNetwork()
 						EndIf
 					EndIf
 					If A = CharInteract Then UpdateCharInteractionWindow()
+					EndIf
 				EndIf
 
-			; Chat bubble message
+				; Chat bubble message
 			Case P_BubbleMessage
 				AI.ActorInstance = RuntimeIDList(RCE_IntFromStr(Left$(M\MessageData$, 2)))
 				If AI <> Null
