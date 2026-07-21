@@ -26,14 +26,22 @@ Function ServerLoadAreaUsesBoundedWaterCount%(Path$)
 		If Line$ = "Function ServerLoadArea.Area(Name$)" Then InSection = True
 		If InSection = True
 			If Line$ = "End Function" Then Exit
-			If Stage = 0 And Line$ = "Local AreaWaterRecordBytes = 24" Then Stage = 1
-			ElseIf Stage = 1 And Instr(Line$, "Local AreaPath$ = ") = 1 Then Stage = 2
-			ElseIf Stage = 2 And Line$ = "F = ReadFile(AreaPath$)" Then Stage = 3
-			ElseIf Stage = 3 And Line$ = "Waters = ReadShort(F)" Then Stage = 4
-			ElseIf Stage = 4 And Line$ = "If Waters < 0 Or Waters > (FileSize(AreaPath$) - FilePos(F)) / AreaWaterRecordBytes Then Waters = 0" Then Stage = 5
-			ElseIf Stage = 5 And Line$ = "For i = 1 To Waters" Then Stage = 6
-			ElseIf Stage = 6 And Line$ = "W.ServerWater = New ServerWater" Then Stage = 7
-			ElseIf Stage = 7 And Line$ = "ServerWaterAttach(W, A)" Then Stage = 8
+			If Stage = 0
+				If Line$ = "Local AreaWaterRecordBytes = 24" Then Stage = 1
+			ElseIf Stage = 1
+				If Instr(Line$, "Local AreaPath$ = ") = 1 Then Stage = 2
+			ElseIf Stage = 2
+				If Line$ = "F = ReadFile(AreaPath$)" Then Stage = 3
+			ElseIf Stage = 3
+				If Line$ = "Waters = ReadShort(F)" Then Stage = 4
+			ElseIf Stage = 4
+				If Line$ = "If Waters < 0 Or Waters > (FileSize(AreaPath$) - FilePos(F)) / AreaWaterRecordBytes Then Waters = 0" Then Stage = 5
+			ElseIf Stage = 5
+				If Line$ = "For i = 1 To Waters" Then Stage = 6
+			ElseIf Stage = 6
+				If Line$ = "W.ServerWater = New ServerWater" Then Stage = 7
+			ElseIf Stage = 7
+				If Line$ = "ServerWaterAttach(W, A)" Then Stage = 8
 			EndIf
 		EndIf
 	Wend
