@@ -37,18 +37,18 @@ pages is a per-iteration documentation task — see CONTRIBUTING.md.
 
 | ID | Packet | Direction | Server handler | Client handler | Detail |
 |---|---|---|---|---|---|
-| 1 | `P_CreateAccount` | C→S | [ServerNet.bb:2462](../../src/Modules/ServerNet.bb#L2462) | — | [P_CreateAccount](packets/P_CreateAccount.md) |
-| 2 | `P_VerifyAccount` | C→S | [ServerNet.bb:2518](../../src/Modules/ServerNet.bb#L2518) | — | [P_VerifyAccount](packets/P_VerifyAccount.md) |
-| 3 | `P_FetchCharacter` | C→S | [ServerNet.bb:2729](../../src/Modules/ServerNet.bb#L2729) | — | — |
-| 4 | `P_CreateCharacter` | C→S | [ServerNet.bb:2853](../../src/Modules/ServerNet.bb#L2853) | — | — |
-| 5 | `P_DeleteCharacter` | C→S | [ServerNet.bb:3069](../../src/Modules/ServerNet.bb#L3069) | — | — |
-| 6 | `P_ChangePassword` | C→S | [ServerNet.bb:2653](../../src/Modules/ServerNet.bb#L2653) | — | [P_ChangePassword](packets/P_ChangePassword.md) |
-| 7 | `P_FetchActors` | C→S | [ServerNet.bb:2354](../../src/Modules/ServerNet.bb#L2354) | — | — |
+| 1 | `P_CreateAccount` | C→S | [ServerNet.bb:2466](../../src/Modules/ServerNet.bb#L2466) | — | [P_CreateAccount](packets/P_CreateAccount.md) |
+| 2 | `P_VerifyAccount` | C→S | [ServerNet.bb:2522](../../src/Modules/ServerNet.bb#L2522) | — | [P_VerifyAccount](packets/P_VerifyAccount.md) |
+| 3 | `P_FetchCharacter` | C→S | [ServerNet.bb:2733](../../src/Modules/ServerNet.bb#L2733) | — | — |
+| 4 | `P_CreateCharacter` | C→S | [ServerNet.bb:2857](../../src/Modules/ServerNet.bb#L2857) | — | — |
+| 5 | `P_DeleteCharacter` | C→S | [ServerNet.bb:3073](../../src/Modules/ServerNet.bb#L3073) | — | — |
+| 6 | `P_ChangePassword` | C→S | [ServerNet.bb:2657](../../src/Modules/ServerNet.bb#L2657) | — | [P_ChangePassword](packets/P_ChangePassword.md) |
+| 7 | `P_FetchActors` | C→S | [ServerNet.bb:2358](../../src/Modules/ServerNet.bb#L2358) | — | — |
 | 8 | `P_FetchItems` | Unused | — | — | — |
 | 9 | `P_ChangeArea` | Both | [ServerNet.bb:819](../../src/Modules/ServerNet.bb#L819) | [ClientNet.bb:1684](../../src/Modules/ClientNet.bb#L1684) | — |
-| 10 | `P_FetchUpdateFiles` | C→S | [ServerNet.bb:2339](../../src/Modules/ServerNet.bb#L2339) | — | — |
+| 10 | `P_FetchUpdateFiles` | C→S | [ServerNet.bb:2343](../../src/Modules/ServerNet.bb#L2343) | — | — |
 | 11 | `P_NewActor` | S→C | — | [ClientNet.bb:1643](../../src/Modules/ClientNet.bb#L1643) | — |
-| 12 | `P_StartGame` | C→S | [ServerNet.bb:2219](../../src/Modules/ServerNet.bb#L2219) | — | — |
+| 12 | `P_StartGame` | C→S | [ServerNet.bb:2223](../../src/Modules/ServerNet.bb#L2223) | — | — |
 | 13 | `P_ActorGone` | S→C | — | [ClientNet.bb:1603](../../src/Modules/ClientNet.bb#L1603) | — |
 | 14 | `P_StandardUpdate` | Both | [ServerNet.bb:1914](../../src/Modules/ServerNet.bb#L1914) | [ClientNet.bb:1543](../../src/Modules/ClientNet.bb#L1543) | [P_StandardUpdate](packets/P_StandardUpdate.md) |
 | 15 | `P_InventoryUpdate` | Both | [ServerNet.bb:1717](../../src/Modules/ServerNet.bb#L1717) | [ClientNet.bb:1300](../../src/Modules/ClientNet.bb#L1300) | [P_InventoryUpdate](packets/P_InventoryUpdate.md) |
