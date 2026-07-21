@@ -42,7 +42,11 @@ result: byte_identical_exit=0
 command: compare -metric AE /tmp/wgpu22-model-94ed.png /tmp/wgpu26-model-94ed.png null:
 result: 0; pixel_compare_exit=0
 
-source hygiene
+production migration source hygiene
+command: git diff --check 94ed5adbd9adf94d88f8ff6b0e9432285af8d925..01361496e3fc8847cab7702cdffde44a817fecec
+result: exit 0
+
+evidence hygiene
 command: git diff --check 01361496e3fc8847cab7702cdffde44a817fecec..HEAD
 result: exit 0
 

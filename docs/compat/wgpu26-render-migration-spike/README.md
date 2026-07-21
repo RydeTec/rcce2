@@ -35,7 +35,8 @@ by wgpu 26 are propagated. Cargo continues to resolve wgpu 22.1.0 for
 - A full `rcce-client` check is not a Stage 1 gate and stopped earlier on the
   environment's missing ALSA development package. The client still speaks the
   wgpu 22 type contract and must be a separately approved Stage 2 migration.
-- Exact-toolchain rustfmt was unavailable. `git diff --check` passed; no
+- Exact-toolchain rustfmt was unavailable. Separate `git diff --check` runs
+  passed for the base-to-migration and migration-to-evidence ranges; no
   component was installed unattended.
 
 ## Stop rule for production
