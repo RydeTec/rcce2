@@ -81,6 +81,12 @@ class WindowsCaptureScriptTest(unittest.TestCase):
             self.assertEqual(profile["observed"]["gpu_driver_version"], adapter["DriverVersion"])
             self.assertEqual(profile["observed"]["filesystem"], "NTFS")
             self.assertFalse(profile["capture_details"]["cold_cache_control"]["reboot_performed"])
+            storage = profile["capture_details"]["benchmark_storage"]
+            self.assertNotIn("full_path", storage)
+            self.assertNotIn("working_path", storage)
+            self.assertRegex(storage["path_sha256"], r"^[0-9a-f]{64}$")
+            self.assertNotIn("C:\\Users\\dyanr", profile["observed"]["storage_path_binding"])
+            self.assertNotIn("C:\\Users\\dyanr", raw.decode("utf-8"))
             before = raw
             repeated = subprocess.run(command, capture_output=True, text=True)
             self.assertNotEqual(repeated.returncode, 0)

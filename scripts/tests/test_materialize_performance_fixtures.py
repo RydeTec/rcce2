@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import shlex
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -34,7 +35,7 @@ def _tree_digest(files: list[dict[str, object]]) -> str:
 
 class MaterializerTest(unittest.TestCase):
     def setUp(self) -> None:
-        self.temp = tempfile.TemporaryDirectory()
+        self.temp = tempfile.TemporaryDirectory(dir="/home/ryan/.codex/tmp")
         self.root = Path(self.temp.name)
         self.repo = self.root / "repo"
         self.repo.mkdir()
@@ -105,14 +106,16 @@ class MaterializerTest(unittest.TestCase):
 
     def test_default_limits_are_enforced_before_output(self) -> None:
         base = {"path": "data/a", "size": 1}
+        directories = [{**base, "path": "/".join(["data", f"root-{root}"] + [f"d{i}" for i in range(29)] + ["file"])} for root in range(68)]
+        directories.append({**base, "path": "/".join(["data", "root-68"] + [f"d{i}" for i in range(7)] + ["file"])})
         cases = [
             ([{**base, "path": f"data/{index:04d}"} for index in range(4097)], "file count"),
             ([{**base, "size": 32 * 1024 * 1024 + 1}], "per-file"),
             ([{**base, "path": f"data/total-{index}", "size": 32 * 1024 * 1024} for index in range(17)], "total bytes"),
-            ([{**base, "path": "data/" + "/".join(f"d{i}" for i in range(64))}], "depth"),
+            ([{**base, "path": "/".join(["data"] + [f"d{i}" for i in range(32)])}], "depth"),
             ([{**base, "path": "data/" + "x" * 256}], "component"),
-            ([{**base, "path": "/".join(["data"] + ["x" * 70] * 59)}], "path bytes"),
-            ([{**base, "path": "/".join(["data", f"root-{root}"] + [f"d{i}" for i in range(61)] + ["file"])} for root in range(67)], "directory count"),
+            ([{**base, "path": "/".join(["data"] + ["x" * 255] * 8)}], "path bytes"),
+            (directories, "directory count"),
         ]
         for entries, reason in cases:
             with self.subTest(reason=reason), self.assertRaisesRegex(MaterializationError, reason):
@@ -142,8 +145,35 @@ class MaterializerTest(unittest.TestCase):
             self.assertIn(flag, argv)
         self.assertEqual(argv[argv.index("--revision") + 1], self.revision)
 
+    def test_impossible_python_timestamp_is_rejected(self) -> None:
+        with self.assertRaisesRegex(MaterializationError, "real canonical UTC"):
+            materialize_fixture(
+                repo=self.repo, revision=self.revision, source_tree="data", tier="default",
+                output=self.root / "bad-date-output", manifest_path=self.root / "bad-date-manifest.json",
+                metadata_path=self.root / "bad-date-metadata.json", captured_at="2026-02-30T12:00:00Z",
+            )
+
+    def test_low_free_space_rejects_before_staging(self) -> None:
+        usage = shutil._ntuple_diskusage(total=10_000, used=9_999, free=1)
+        with mock.patch.object(materializer.shutil, "disk_usage", return_value=usage):
+            with self.assertRaisesRegex(MaterializationError, "free space"):
+                materialize_fixture(
+                    repo=self.repo, revision=self.revision, source_tree="data", tier="default",
+                    output=self.root / "low-space-output", manifest_path=self.root / "low-space-manifest.json",
+                    metadata_path=self.root / "low-space-metadata.json", captured_at="2026-07-21T12:00:00Z",
+                )
+        self.assertEqual(list(self.root.glob(".*stage-*")), [])
+
+    def test_stage_json_removes_owned_temp_on_write_or_fsync_failure(self) -> None:
+        target = self.root / "staged.json"
+        for failing in ("dump", "fsync"):
+            patcher = mock.patch.object(materializer.json, "dump", side_effect=OSError("dump failed")) if failing == "dump" else mock.patch.object(materializer.os, "fsync", side_effect=OSError("fsync failed"))
+            with self.subTest(failing=failing), patcher, self.assertRaises(OSError):
+                materializer._stage_json(target, {"kind": failing})
+            self.assertEqual(list(self.root.glob(".staged.json.stage-*")), [])
+
     def test_promotion_failure_rolls_back_all_owned_targets(self) -> None:
-        real_replace = os.replace
+        real_publish = materializer._publish_noreplace
         for fail_at in (1, 2, 3):
             output = self.root / f"rollback-output-{fail_at}"
             manifest = self.root / f"rollback-manifest-{fail_at}.json"
@@ -155,9 +185,9 @@ class MaterializerTest(unittest.TestCase):
                 calls += 1
                 if calls == fail_at:
                     raise OSError("injected promotion failure")
-                real_replace(source, target)
+                real_publish(Path(source), Path(target))
 
-            with self.subTest(fail_at=fail_at), mock.patch.object(materializer.os, "replace", side_effect=fail_boundary):
+            with self.subTest(fail_at=fail_at), mock.patch.object(materializer, "_publish_noreplace", side_effect=fail_boundary):
                 with self.assertRaisesRegex(MaterializationError, "promotion failed"):
                     materialize_fixture(
                         repo=self.repo, revision=self.revision, source_tree="data", tier="default",
@@ -168,6 +198,42 @@ class MaterializerTest(unittest.TestCase):
             self.assertFalse(manifest.exists())
             self.assertFalse(metadata.exists())
             self.assertEqual(list(self.root.glob(".*stage-*")), [])
+
+    def test_concurrent_targets_are_preserved_and_owned_promotions_roll_back(self) -> None:
+        real_publish = materializer._publish_noreplace
+        for conflict_at in (1, 2, 3):
+            output = self.root / f"concurrent-output-{conflict_at}"
+            manifest = self.root / f"concurrent-manifest-{conflict_at}.json"
+            metadata = self.root / f"concurrent-metadata-{conflict_at}.json"
+            targets = (output, manifest, metadata)
+            calls = 0
+
+            def create_conflict(source: Path, target: Path) -> None:
+                nonlocal calls
+                calls += 1
+                if calls == conflict_at:
+                    if target == output:
+                        target.mkdir()
+                        (target / "external.txt").write_text("external", encoding="utf-8")
+                    else:
+                        target.write_text("external", encoding="utf-8")
+                real_publish(source, target)
+
+            with self.subTest(conflict_at=conflict_at), mock.patch.object(materializer, "_publish_noreplace", side_effect=create_conflict):
+                with self.assertRaisesRegex(MaterializationError, "already exists"):
+                    materialize_fixture(
+                        repo=self.repo, revision=self.revision, source_tree="data", tier="default",
+                        output=output, manifest_path=manifest, metadata_path=metadata,
+                        captured_at="2026-07-21T12:00:00Z",
+                    )
+            conflict = targets[conflict_at - 1]
+            self.assertTrue(conflict.exists())
+            if conflict.is_file():
+                self.assertEqual(conflict.read_text(encoding="utf-8"), "external")
+            else:
+                self.assertEqual((conflict / "external.txt").read_text(encoding="utf-8"), "external")
+            for earlier in targets[: conflict_at - 1]:
+                self.assertFalse(earlier.exists())
 
     @unittest.skipUnless(hasattr(os, "symlink"), "symlinks unavailable")
     def test_rejects_symlink_entries_without_materializing_any_bytes(self) -> None:

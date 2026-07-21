@@ -13,8 +13,8 @@ non-canonical paths, output anywhere under the repository, and evidence
 files inside either the source tree or materialized fixture.
 It also rejects case-folding or Unicode-normalization collisions, Windows
 reserved names and characters, controls, trailing dots/spaces, and corpus trees
-outside the canonical 4,096-file, 4,096-directory, 512 MiB total, 32 MiB per
-file, path-depth, path-byte, and component-byte bounds. Blob reads are streamed
+outside the canonical 4,096-file, 2,048-directory, 512 MiB total, 32 MiB per
+file, 32-component path-depth, 2,048-path-byte, and 255-component-byte bounds. Blob reads are streamed
 in 1 MiB chunks.
 
 Run it only with disposable output and separate evidence paths:
@@ -33,7 +33,11 @@ python3 scripts/materialize_performance_fixtures.py \
 
 The output directory, manifest, and metadata are staged independently and
 promoted as one owned transaction; a failure at any promotion boundary removes
-all targets created by that attempt. The manifest records the fully quoted,
+all targets created by that attempt. Publication uses atomic no-replace
+semantics and fails closed when the platform or filesystem cannot provide them;
+a concurrently created target is preserved. Before staging, free space must
+cover the exact default-tree byte count plus a documented 64 MiB safety margin.
+The manifest records the fully quoted,
 replayable command. It is a typed `fixture-materialization` artifact with a sorted file
 list and an `RCCE-CORPUS-TREE-V1` digest compatible with the performance
 reference validator. The separate preparation metadata makes the source,
@@ -75,7 +79,9 @@ The adapter name and driver version must match exactly one native
 media type uses a `Get-PhysicalDisk` device association with a documented
 `Win32_DiskDrive` fallback. The profile records desktop AC/no-battery observation, EDID availability
 without retaining EDID identifiers or raw bytes, the exact capture commands,
-and storage binding. Output is written to an owned `CreateNew` temporary file,
+and storage binding. The raw benchmark path is used only during capture and is
+represented in retained evidence by SHA-256 plus volume, partition, disk, and
+filesystem identity. Output is written to an owned `CreateNew` temporary file,
 flushed, then promoted without overwriting an existing target. Timestamps are
 parsed as real canonical UTC calendar values. It collects no account, environment, credential,
 clipboard, file-content, or network-profile data. It performs no reboot, cache

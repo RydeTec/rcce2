@@ -146,8 +146,16 @@ function Get-BenchmarkStorageBinding([string]$PathValue) {
             $mediaType = [string]$win32Disk.MediaType
         }
     }
+    $pathHasher = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $pathBytes = [System.Text.Encoding]::UTF8.GetBytes($fullPath)
+        $pathSha256 = ([System.BitConverter]::ToString($pathHasher.ComputeHash($pathBytes))).Replace("-", "").ToLowerInvariant()
+    } finally {
+        $pathHasher.Dispose()
+    }
     return [ordered]@{
-        full_path = $fullPath
+        working_path = $fullPath
+        path_sha256 = $pathSha256
         drive_letter = $driveLetter
         filesystem = [string]$volume.FileSystem
         partition_number = [int]$partition.PartitionNumber
@@ -157,7 +165,7 @@ function Get-BenchmarkStorageBinding([string]$PathValue) {
         disk_media_type_source = $mediaTypeSource
         disk_bus_type = [string]$disk.BusType
         disk_size_bytes = [int64]$disk.Size
-        binding = "path=$fullPath; drive=$($driveLetter):; filesystem=$($volume.FileSystem); disk=$($disk.Number); partition=$($partition.PartitionNumber); model=$($disk.FriendlyName)"
+        binding = "path_sha256=$pathSha256; drive=$($driveLetter):; filesystem=$($volume.FileSystem); disk=$($disk.Number); partition=$($partition.PartitionNumber); model=$($disk.FriendlyName)"
     }
 }
 
@@ -220,7 +228,7 @@ $rustup = Resolve-Rustup
 if ($RustToolchain -notmatch "^[A-Za-z0-9._-]+$") {
     throw "RustToolchain contains unsupported characters."
 }
-$rustResult = Invoke-NativeCapture $rustup ("run {0} rustc -Vv" -f $RustToolchain) $storage.full_path
+$rustResult = Invoke-NativeCapture $rustup ("run {0} rustc -Vv" -f $RustToolchain) $storage.working_path
 if ($rustResult.exit_code -ne 0) {
     throw "rustup run $RustToolchain rustc -Vv failed with exit $($rustResult.exit_code): $($rustResult.stderr)"
 }
@@ -230,6 +238,10 @@ $rustHost = ($rustLines | Where-Object { $_ -match "^host:" } | Select-Object -F
 $rustLlvm = ($rustLines | Where-Object { $_ -match "^LLVM version:" } | Select-Object -First 1) -replace "^LLVM version:\s*", ""
 $powerSource = if ($batteries.Count -eq 0) { "AC desktop workstation (no Win32_Battery present)" } else { "battery-capable workstation; AC state not asserted by this capture" }
 $architecture = if ([Environment]::Is64BitOperatingSystem) { "x86_64" } else { "x86" }
+$storageEvidence = [ordered]@{}
+foreach ($key in $storage.Keys) {
+    if ($key -ne "working_path") { $storageEvidence[$key] = $storage[$key] }
+}
 
 $profile = [ordered]@{
     capture_utc = $CapturedAtUtc
@@ -265,7 +277,7 @@ $profile = [ordered]@{
     capture_details = [ordered]@{
         gpu_backend_source = "required command-line value copied from the measurement harness; not inferred from GPU or driver"
         display_edid = $edid
-        benchmark_storage = $storage
+        benchmark_storage = $storageEvidence
         cold_cache_control = [ordered]@{
             status = "not-performed"
             reboot_performed = $false
@@ -279,7 +291,7 @@ $profile = [ordered]@{
         $edid.limitation,
         "The benchmark storage path is bound to an observed NTFS volume, partition, disk number, and model; disk serial numbers and volume unique identifiers were not collected.",
         "No reboot, filesystem-cache reset, benchmark harness validation, performance run, or memory sample was performed.",
-        "No account, environment-variable, network-profile, credential, clipboard, file-content, or raw EDID data was collected."
+        "No account objects, environment-variable values, network profiles, credentials, clipboard, file contents, raw EDID data, or raw benchmark path were retained."
     )
 }
 

@@ -11,6 +11,9 @@ records exist.
 from __future__ import annotations
 
 import argparse
+import ctypes
+import datetime
+import errno
 import hashlib
 import json
 import os
@@ -19,6 +22,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
 from typing import Any
 import unicodedata
@@ -27,13 +31,14 @@ import unicodedata
 HASH_DOMAIN = "RCCE-CORPUS-TREE-V1"
 MAX_MANIFEST_ENTRIES = 100_000
 MAX_DEFAULT_FILES = 4_096
-MAX_DEFAULT_DIRECTORIES = 4_096
+MAX_DEFAULT_DIRECTORIES = 2_048
 MAX_DEFAULT_BYTES = 512 * 1024 * 1024
 MAX_DEFAULT_FILE_BYTES = 32 * 1024 * 1024
-MAX_PATH_DEPTH = 64
-MAX_PATH_BYTES = 4_096
+MAX_PATH_DEPTH = 32
+MAX_PATH_BYTES = 2_048
 MAX_COMPONENT_BYTES = 255
 STREAM_CHUNK_BYTES = 1024 * 1024
+FREE_SPACE_MARGIN_BYTES = 64 * 1024 * 1024
 TIMESTAMP_RE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z")
 WINDOWS_RESERVED = {"con", "prn", "aux", "nul", *(f"com{i}" for i in range(1, 10)), *(f"lpt{i}" for i in range(1, 10))}
 
@@ -206,6 +211,17 @@ def _enforce_default_limits(entries: list[dict[str, Any]]) -> None:
         raise MaterializationError(f"default fixture directory count exceeds {MAX_DEFAULT_DIRECTORIES}")
 
 
+def _validate_timestamp(value: str) -> None:
+    if not TIMESTAMP_RE.fullmatch(value):
+        raise MaterializationError("captured-at must be a real canonical UTC timestamp like 2026-07-21T12:00:00Z")
+    try:
+        parsed = datetime.datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc)
+    except ValueError:
+        raise MaterializationError("captured-at must be a real canonical UTC timestamp like 2026-07-21T12:00:00Z") from None
+    if parsed.strftime("%Y-%m-%dT%H:%M:%SZ") != value:
+        raise MaterializationError("captured-at must be a real canonical UTC timestamp like 2026-07-21T12:00:00Z")
+
+
 def _resolve_commit(repo: Path, revision: str) -> str:
     resolved = str(_run_git(repo, "rev-parse", "--verify", f"{revision}^{{commit}}" )).strip()
     if not re.fullmatch(r"[0-9a-f]{40,64}", resolved):
@@ -274,12 +290,17 @@ def _corpus_tree_sha256(files: list[dict[str, Any]]) -> str:
 def _stage_json(path: Path, value: dict[str, Any]) -> Path:
     parent = path.parent.resolve(strict=True)
     descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}.stage-", dir=parent)
-    with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as stream:
-        json.dump(value, stream, sort_keys=True, indent=2, ensure_ascii=False)
-        stream.write("\n")
-        stream.flush()
-        os.fsync(stream.fileno())
-    return Path(temporary)
+    temporary_path = Path(temporary)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as stream:
+            json.dump(value, stream, sort_keys=True, indent=2, ensure_ascii=False)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        return temporary_path
+    except Exception:
+        temporary_path.unlink(missing_ok=True)
+        raise
 
 
 def _remove_owned(path: Path) -> None:
@@ -287,6 +308,33 @@ def _remove_owned(path: Path) -> None:
         shutil.rmtree(path)
     elif path.exists() or path.is_symlink():
         path.unlink()
+
+
+def _publish_noreplace(source: Path, target: Path) -> None:
+    """Atomically publish one staged path without replacing a concurrent target."""
+    if sys.platform.startswith("linux"):
+        libc = ctypes.CDLL(None, use_errno=True)
+        renameat2 = getattr(libc, "renameat2", None)
+        if renameat2 is None:
+            raise MaterializationError("atomic no-replace publication is unsupported on this Linux runtime")
+        renameat2.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+        renameat2.restype = ctypes.c_int
+        result = renameat2(-100, os.fsencode(source), -100, os.fsencode(target), 1)
+        if result == 0:
+            return
+        error = ctypes.get_errno()
+        if error == errno.EEXIST:
+            raise MaterializationError(f"publication target already exists: {target}")
+        if error in {errno.ENOSYS, errno.EINVAL, errno.ENOTSUP}:
+            raise MaterializationError("atomic no-replace publication is unsupported by this filesystem/runtime")
+        raise MaterializationError(f"atomic no-replace publication failed: {os.strerror(error)}")
+    if os.name == "nt":
+        try:
+            os.rename(source, target)
+        except FileExistsError:
+            raise MaterializationError(f"publication target already exists: {target}") from None
+        return
+    raise MaterializationError("atomic no-replace publication is unsupported on this platform")
 
 
 def materialize_fixture(
@@ -308,8 +356,7 @@ def materialize_fixture(
         raise MaterializationError(
             "only the exact default Git tree is supported; small and large remain unavailable pending schema-aware openable transforms"
         )
-    if not TIMESTAMP_RE.fullmatch(captured_at):
-        raise MaterializationError("captured-at must be an explicit UTC timestamp like 2026-07-21T12:00:00Z")
+    _validate_timestamp(captured_at)
     output = output.absolute()
     source_worktree = (repo / Path(*source_tree.split("/"))).absolute()
     resolved_output = output.resolve(strict=False)
@@ -338,6 +385,15 @@ def materialize_fixture(
         "permission_handling": "regular-file bytes preserved; executable mode not reproduced",
     }
     stage_parent = output.parent.resolve(strict=True)
+    manifest_path.parent.resolve(strict=True)
+    metadata_path.parent.resolve(strict=True)
+    required_space = sum(entry["size"] for entry in source_entries) + FREE_SPACE_MARGIN_BYTES
+    free_space = shutil.disk_usage(stage_parent).free
+    if free_space < required_space:
+        raise MaterializationError(
+            f"insufficient free space before staging: need {required_space} bytes "
+            f"(exact fixture bytes plus {FREE_SPACE_MARGIN_BYTES}-byte safety margin), have {free_space}"
+        )
     stage = Path(tempfile.mkdtemp(prefix=f".{output.name}.stage-", dir=stage_parent))
     manifest_stage: Path | None = None
     metadata_stage: Path | None = None
@@ -405,11 +461,13 @@ def materialize_fixture(
         promoted: list[Path] = []
         try:
             for staged, target in promotions:
-                os.replace(staged, target)
+                _publish_noreplace(staged, target)
                 promoted.append(target)
-        except OSError as exc:
+        except (OSError, MaterializationError) as exc:
             for target in reversed(promoted):
                 _remove_owned(target)
+            if isinstance(exc, MaterializationError):
+                raise
             raise MaterializationError(f"promotion failed; all owned targets rolled back: {exc}") from None
         return artifact
     except Exception:
