@@ -3169,8 +3169,11 @@ Cls
 	;Flip(0)
 
 	Local E.Event
+	Local ENext.Event
 	; Process events
-	For E.Event = Each Event
+	E = First Event
+	While E <> Null
+		ENext = After E
 		Select E\EventID
 
 			;- Tab switched ----------------------------------------------------------------------------------------------------------
@@ -6594,7 +6597,8 @@ Cls
 				Next
 		End Select
 		Delete E
-	Next
+		E = ENext
+	Wend
 	
 	;Flip(0) added here after events cysis145
 	RenderWorld
