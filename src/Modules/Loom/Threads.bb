@@ -146,10 +146,13 @@ Type Threads
     // -------------------------------------------------------------------------
     Method clearStack()
         If self\backStack = Null Then Return
-        Local entry.LoomFocusEntry
-        For entry = Each LoomFocusEntry
+        Local entry.LoomFocusEntry = First LoomFocusEntry
+        Local nextEntry.LoomFocusEntry = Null
+        While entry <> Null
+            nextEntry = After entry
             Delete entry
-        Next
+            entry = nextEntry
+        Wend
         ListClear(self\backStack)
     End Method
 
