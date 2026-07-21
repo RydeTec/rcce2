@@ -54,7 +54,7 @@ fn workspace_root() -> PathBuf {
 fn collect_files(directory: &Path, root: &Path, output: &mut Vec<String>) {
     for entry in fs::read_dir(directory).expect("workspace directory must be readable") {
         let path = entry.expect("workspace entry must be readable").path();
-        if path == root.join("target") {
+        if path == root.join("target") || path == root.join("spikes") {
             continue;
         }
         if path.is_dir() {
