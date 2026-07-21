@@ -232,26 +232,34 @@ Function UpdateNetwork()
 
 			; Projectile created
 			Case P_Projectile
-				; Get source and target actor instance
-				RuntimeID = RCE_IntFromStr(Mid$(M\MessageData$, 1, 2))
-				AI.ActorInstance = RuntimeIDList(RuntimeID)
-				RuntimeID = RCE_IntFromStr(Mid$(M\MessageData$, 3, 2))
-				TargetAI.ActorInstance = RuntimeIDList(RuntimeID)
-				; Target is valid
-				If TargetAI <> Null And AI <> Null
-					; Get projectile data
-					MeshID = RCE_IntFromStr(Mid$(M\MessageData$, 5, 2))
-					TexID1 = RCE_IntFromStr(Mid$(M\MessageData$, 7, 2))
-					TexID2 = RCE_IntFromStr(Mid$(M\MessageData$, 9, 2))
-					Homing = RCE_IntFromStr(Mid$(M\MessageData$, 11, 1))
-					Speed# = Float#(RCE_IntFromStr(Mid$(M\MessageData$, 12, 1))) / 50.0
-					NameLen = RCE_IntFromStr(Mid$(M\MessageData$, 13, 1))
-					Emitter1$ = ""
-					If NameLen > 0 Then Emitter1$ = Mid$(M\MessageData$, 14, NameLen)
-					Emitter2$ = Mid$(M\MessageData$, 14 + NameLen)
+				If Len(M\MessageData$) < 13
+					WriteLog(MainLog, "P_Projectile: truncated header, dropping")
+				Else
+					; Get source and target actor instance
+					RuntimeID = RCE_IntFromStr(Mid$(M\MessageData$, 1, 2))
+					AI.ActorInstance = RuntimeIDList(RuntimeID)
+					RuntimeID = RCE_IntFromStr(Mid$(M\MessageData$, 3, 2))
+					TargetAI.ActorInstance = RuntimeIDList(RuntimeID)
+					; Target is valid
+					If TargetAI <> Null And AI <> Null
+						; Get projectile data
+						MeshID = RCE_IntFromStr(Mid$(M\MessageData$, 5, 2))
+						TexID1 = RCE_IntFromStr(Mid$(M\MessageData$, 7, 2))
+						TexID2 = RCE_IntFromStr(Mid$(M\MessageData$, 9, 2))
+						Homing = RCE_IntFromStr(Mid$(M\MessageData$, 11, 1))
+						Speed# = Float#(RCE_IntFromStr(Mid$(M\MessageData$, 12, 1))) / 50.0
+						NameLen = RCE_IntFromStr(Mid$(M\MessageData$, 13, 1))
+						If Len(M\MessageData$) < 13 + NameLen
+							WriteLog(MainLog, "P_Projectile: truncated emitter name, dropping")
+						Else
+							Emitter1$ = ""
+							If NameLen > 0 Then Emitter1$ = Mid$(M\MessageData$, 14, NameLen)
+							Emitter2$ = Mid$(M\MessageData$, 14 + NameLen)
 
-					; Create it
-					CreateProjectile(AI, TargetAI, MeshID, Homing, Speed#, Emitter1$, Emitter2$, TexID1, TexID2)
+							; Create it
+							CreateProjectile(AI, TargetAI, MeshID, Homing, Speed#, Emitter1$, Emitter2$, TexID1, TexID2)
+						EndIf
+					EndIf
 				EndIf
 
 			; An actor has jumped
