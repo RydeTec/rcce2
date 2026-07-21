@@ -32,7 +32,7 @@ Function Between$(Source$, StartNeedle$, EndNeedle$)
 	Return Mid$(Source$, Start, Len(StartNeedle$) + EndAt - 1)
 End Function
 
-Function ContainsInOrder%(Source$, FirstNeedle$, SecondNeedle$, ThirdNeedle$, FourthNeedle$)
+Function ContainsInOrder5%(Source$, FirstNeedle$, SecondNeedle$, ThirdNeedle$, FourthNeedle$, FifthNeedle$)
 	Local At = Instr(Source$, FirstNeedle$)
 	If At = 0 Then Return False
 	At = At + Len(FirstNeedle$)
@@ -44,7 +44,11 @@ Function ContainsInOrder%(Source$, FirstNeedle$, SecondNeedle$, ThirdNeedle$, Fo
 	If NextAt = 0 Then Return False
 	At = At + NextAt - 1
 	At = At + Len(ThirdNeedle$)
-	Return Instr(Mid$(Source$, At), FourthNeedle$) > 0
+	NextAt = Instr(Mid$(Source$, At), FourthNeedle$)
+	If NextAt = 0 Then Return False
+	At = At + NextAt - 1
+	At = At + Len(FourthNeedle$)
+	Return Instr(Mid$(Source$, At), FifthNeedle$) > 0
 End Function
 
 Function StatPayloadExact%(SubCode$, PayloadLen%)
@@ -87,9 +91,9 @@ End Test
 
 Test testStatUpdateGuardsBeforeDecodeAndMutation()
 	Local Section$ = Between$(ClientNetSource$(), "Case P_StatUpdate", "Case P_ScriptInput")
-	Assert(ContainsInOrder%(Section$, "Case " + Chr$(34) + "A" + Chr$(34), StatLengthGuard$(6), "RuntimeIDList", AttributeValueMutation$()) = True)
-	Assert(ContainsInOrder%(Section$, "Case " + Chr$(34) + "M" + Chr$(34), StatLengthGuard$(6), "RuntimeIDList", AttributeMaximumMutation$()) = True)
-	Assert(ContainsInOrder%(Section$, "Case " + Chr$(34) + "R" + Chr$(34), StatLengthGuard$(5), "RuntimeIDList", ReputationMutation$()) = True)
+	Assert(ContainsInOrder5%(Section$, "Case " + Chr$(34) + "A" + Chr$(34), StatLengthGuard$(6), "Else", "RuntimeIDList", AttributeValueMutation$()) = True)
+	Assert(ContainsInOrder5%(Section$, "Case " + Chr$(34) + "M" + Chr$(34), StatLengthGuard$(6), "Else", "RuntimeIDList", AttributeMaximumMutation$()) = True)
+	Assert(ContainsInOrder5%(Section$, "Case " + Chr$(34) + "R" + Chr$(34), StatLengthGuard$(5), "Else", "RuntimeIDList", ReputationMutation$()) = True)
 End Test
 
 Test testStatUpdateUnknownSubcodesRemainNoOps()
