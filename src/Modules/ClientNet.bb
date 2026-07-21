@@ -289,9 +289,23 @@ Function UpdateNetwork()
 
 			; Actor appearance (clothes, face, etc.) changed
 			Case P_AppearanceUpdate
-				AI.ActorInstance = RuntimeIDList(RCE_IntFromStr(Mid$(M\MessageData$, 2, 2)))
-				If AI <> Null
-					Select Left$(M\MessageData$, 1)
+				AppearanceSubCode$ = Left$(M\MessageData$, 1)
+				AppearanceFrameLength = 0
+				Select AppearanceSubCode$
+					Case "C" : AppearanceFrameLength = 5
+					Case "G" : AppearanceFrameLength = 4
+					Case "D" : AppearanceFrameLength = 4
+					Case "H" : AppearanceFrameLength = 4
+					Case "F" : AppearanceFrameLength = 4
+					Case "B" : AppearanceFrameLength = 4
+				End Select
+				If AppearanceFrameLength > 0
+					If Len(M\MessageData$) <> AppearanceFrameLength
+						WriteLog(MainLog, "P_AppearanceUpdate " + AppearanceSubCode$ + ": bad payload length " + Len(M\MessageData$) + ", dropping")
+					Else
+						AI.ActorInstance = RuntimeIDList(RCE_IntFromStr(Mid$(M\MessageData$, 2, 2)))
+						If AI <> Null
+							Select AppearanceSubCode$
 						; Entire actor
 						Case "C"
 							ID = RCE_IntFromStr(Right$(M\MessageData$, 2))
@@ -499,7 +513,9 @@ Function UpdateNetwork()
 								EntityTexture AI\EN, GetTexture(BodyTex)
 								UnloadTexture(BodyTex)
 							EndIf
-					End Select
+							End Select
+						EndIf
+					EndIf
 				EndIf
 
 			; Party changed
