@@ -6,7 +6,7 @@
 - **Requirements authority**: [`../plan/rust-super-editor-engine-migration.md`](../plan/rust-super-editor-engine-migration.md)
 - **Packet/dependency authority**: [`../plan/rust-super-editor-implementation.md`](../plan/rust-super-editor-implementation.md)
 - **Current base**: `origin/develop` at `ee0977405cdee6591e6facdb9b88794d21ba65d3`; accepted packet worktrees were authored from `23ef44f6` and the intervening upstream delta is disjoint
-- **Program status**: M0 is independently accepted and corrective packet `SE-M0-C01` is accepted and integrating; M1-P01 and M1-P02 are accepted and integrated; M1-P03 is in final correction; egui and iced are rejected and unselected, and P06 cannot select a framework until C01's fixture, machine, and memory prerequisites are approved
+- **Program status**: M0 and corrective packet `SE-M0-C01` are accepted and integrated; M1-P01, M1-P02, and M1-P03 are accepted and integrated; egui and iced are rejected and unselected, and P06 cannot select a framework until C01's fixture, machine, and memory prerequisites are approved
 
 This ledger records execution state. It does not weaken packet acceptance, compatibility, safety, or retirement gates in the authorities above.
 
@@ -86,8 +86,8 @@ Completed implementation lanes:
 
 | Milestone | Status | Accepted packets | Next gate |
 |---|---|---|---|
-| M0 | Accepted; C01 accepted and integrating | P01, P02, P03, P04, P05, P06, P07 | Approve C01 fixtures, machines, and memory budgets before M1-P06 selection; commit duration is a pre-write M2 gate |
-| M1 | In progress | P01, P02 | Finish P03 inventory; P06 selection remains blocked on approved C01 reference inputs |
+| M0 | Accepted; C01 integrated | P01, P02, P03, P04, P05, P06, P07 | Approve C01 fixtures, machines, and memory budgets before M1-P06 selection; commit duration is a pre-write M2 gate |
+| M1 | In progress | P01, P02, P03 | Start P04 typed provenance from the accepted P03 fingerprint; continue P06 bounded candidate evidence |
 | M2 | Planned | — | M1 accepted |
 | M3 | Planned | — | M2 accepted |
 | M4 | Planned | — | M3 accepted |
@@ -135,9 +135,11 @@ Completed implementation lanes:
 - `2026-07-21` — Rejected egui evidence was preserved at program commit `f1d1f393`. Rejected iced 0.13.1 evidence was preserved at program commit `d884d2b6`: the compiler-backed seam confirms `iced_wgpu` 0.13.5 uses wgpu 0.19.4 and cannot consume `rcce-render`'s wgpu 22.1.0 device, queue, encoder, and texture-view types. Neither framework is selected; Slint is the next bounded seam candidate.
 - `2026-07-21` — Corrective packet `SE-M0-C01` started after review confirmed M0 lacked approved content-addressed performance workloads, a complete reference machine, raw memory budgets, and a representative commit-duration path. It defines a closed reference-evidence contract and moves real commit-duration measurement to the pre-write M2 gate; acceptance remains pending independent quality corrections.
 - `2026-07-21` — `SE-M0-C01` passed specification-delta and independent engineering-conformance review at aggregate SHA-256 `7e6b83cebaf6393bdec3d39702b7ef5ee055a1188334af51d755e9f5b1e3c52a`. Source commit `388b7df3` records the closed evidence-tree contract, deterministic resource limits, strict approval bytes, Linux validation backend, and exact-byte Windows capture path. Fixture, reference-machine, and memory-budget approvals remain explicitly blocked; representative commit-duration measurement remains a pre-write M2 gate.
+- `2026-07-21` — `SE-M0-C01` integrated and pushed as `03fb6669`; exact-head draft-PR checks passed (`Build and test` 6m56s, `Rust server (Linux)` 3m49s). Local self-tests passed 70/0, the canonical and external Draft 2020-12 validators reported valid, and the plan checker remained 95/11.
+- `2026-07-21` — `SE-M1-P03` passed fresh specification review and different fresh implementation-quality review at exact ten-path aggregate SHA-256 `1cc0dda0af4368b9950193ca8998402c292a9f29ac50ead3c63d3d9cc3c88bc5`. Linux exact Rust 1.85 passed inventory 16/0, library 27/0, confinement 15/0, skeleton 3/0, scanner 23/0, P07 17+6, strict Clippy/build, and plan 95/11; native Windows exact Rust 1.85 passed inventory 15/0, library 17/0, confinement 9/0, and skeleton 3/0. Source `31a56479` integrated as `b3c032ee`; exact-head CI remains pending.
 
 ## Next actions
 
-1. Complete local and exact-head CI verification for integrated `SE-M0-C01`; M1-P06 may gather evidence but cannot select a framework while reference fixtures, machines, or memory budgets remain blocked.
-2. Correct and independently accept M1-P03's opaque-location byte ceilings; keep P04 serialized behind the accepted P03 fingerprint.
-3. Continue M1-P06 with the next bounded candidate seam after the accepted P03 integration lane is stable.
+1. Complete integrated local and exact-head CI verification for `SE-M1-P03`.
+2. Start M1-P04 typed provenance from the accepted P03 fingerprint without duplicating fingerprint ownership.
+3. Continue M1-P06 with the bounded Slint one-device/shared-wgpu seam; reference fixture, machine, and memory-budget approvals remain blocked.
