@@ -218,14 +218,16 @@ Function UpdateNetwork()
 
 			; Floating number (for damage or whatever)
 			Case P_FloatingNumber
-				RuntimeID = RCE_IntFromStr(Mid$(M\MessageData$, 1, 2))
-				AI.ActorInstance = RuntimeIDList(RuntimeID)
-				If AI <> Null
-					Amount = RCE_IntFromStr(Mid$(M\MessageData$, 3, 4))
-					cR = RCE_IntFromStr(Mid$(M\MessageData$, 7, 1))
-					cG = RCE_IntFromStr(Mid$(M\MessageData$, 8, 1))
-					cB = RCE_IntFromStr(Mid$(M\MessageData$, 9, 1))
-					CreateFloatingNumber(AI, Amount, cR, cG, cB)
+				If Len(M\MessageData$) = 9
+					RuntimeID = RCE_IntFromStr(Mid$(M\MessageData$, 1, 2))
+					AI.ActorInstance = RuntimeIDList(RuntimeID)
+					If AI <> Null
+						Amount = RCE_IntFromStr(Mid$(M\MessageData$, 3, 4))
+						cR = RCE_IntFromStr(Mid$(M\MessageData$, 7, 1))
+						cG = RCE_IntFromStr(Mid$(M\MessageData$, 8, 1))
+						cB = RCE_IntFromStr(Mid$(M\MessageData$, 9, 1))
+						CreateFloatingNumber(AI, Amount, cR, cG, cB)
+					EndIf
 				EndIf
 
 			; Projectile created
