@@ -188,26 +188,31 @@ Function UpdateNetwork()
 
 			; Reposition an actor
 			Case P_RepositionActor
-				RuntimeID = RCE_IntFromStr(Mid$(M\MessageData$, 2, 2))
-				AI.ActorInstance = RuntimeIDList(RuntimeID)
-				If AI <> Null
-					; Move
-					If Left$(M\MessageData$, 1) = "M"
-						AI\X# = RCE_FloatFromStr(Mid$(M\MessageData$, 4, 4))
-						Y# = RCE_FloatFromStr(Mid$(M\MessageData$, 8, 4))
-						AI\Z# = RCE_FloatFromStr(Mid$(M\MessageData$, 12, 4))
-						MoveCamera = RCE_IntFromStr(Mid$(M\MessageData$, 16, 1))
-						AI\DestX# = AI\X#
-						AI\DestZ# = AI\Z#
-						PositionEntity(AI\CollisionEN, AI\X#, Y#, AI\Z#)
-						; Ignore collision
-						If RCE_IntFromStr(Mid$(M\MessageData$, 16, 1)) = 0 Then ResetEntity(AI\CollisionEN)
-						; Move the camera directly to the new spot, otherwise it will fly there
-						If MoveCamera = False Then PositionEntity(Cam, AI\X#, Y#, AI\Z#)
-					; Rotate
-					Else
-						AI\Yaw# = RCE_FloatFromStr(Mid$(M\MessageData$, 4))
-						RotateEntity(AI\CollisionEN, 0, AI\Yaw#, 0)
+				RepositionType$ = Left$(M\MessageData$, 1)
+				If (RepositionType$ = "M" And Len(M\MessageData$) < 16) Or (RepositionType$ = "R" And Len(M\MessageData$) < 7)
+					WriteLog(MainLog, "P_RepositionActor: truncated payload, dropping")
+				ElseIf RepositionType$ = "M" Or RepositionType$ = "R"
+					RuntimeID = RCE_IntFromStr(Mid$(M\MessageData$, 2, 2))
+					AI.ActorInstance = RuntimeIDList(RuntimeID)
+					If AI <> Null
+						; Move
+						If RepositionType$ = "M"
+							AI\X# = RCE_FloatFromStr(Mid$(M\MessageData$, 4, 4))
+							Y# = RCE_FloatFromStr(Mid$(M\MessageData$, 8, 4))
+							AI\Z# = RCE_FloatFromStr(Mid$(M\MessageData$, 12, 4))
+							MoveCamera = RCE_IntFromStr(Mid$(M\MessageData$, 16, 1))
+							AI\DestX# = AI\X#
+							AI\DestZ# = AI\Z#
+							PositionEntity(AI\CollisionEN, AI\X#, Y#, AI\Z#)
+							; Ignore collision
+							If RCE_IntFromStr(Mid$(M\MessageData$, 16, 1)) = 0 Then ResetEntity(AI\CollisionEN)
+							; Move the camera directly to the new spot, otherwise it will fly there
+							If MoveCamera = False Then PositionEntity(Cam, AI\X#, Y#, AI\Z#)
+						; Rotate
+						Else
+							AI\Yaw# = RCE_FloatFromStr(Mid$(M\MessageData$, 4))
+							RotateEntity(AI\CollisionEN, 0, AI\Yaw#, 0)
+						EndIf
 					EndIf
 				EndIf
 
