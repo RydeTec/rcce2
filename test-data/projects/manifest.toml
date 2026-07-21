@@ -1,0 +1,188 @@
+schema_version = 1
+schema = "schema-v1.json"
+manifest_id = "rcce-compatibility-corpus"
+manifest_revision = 4
+hash_algorithm = "sha256"
+tree_hash_domain = "RCCE-CORPUS-TREE-V1"
+
+[[projects]]
+id = "small-v1"
+tier = "small"
+availability = "unavailable"
+fixture_root = "small-v1"
+purpose = "Fast structural, malformed, raw-byte, and focused semantic compatibility evidence."
+expected_consumers = ["corpus-scanner", "rcce-project", "rcce-data", "rcce-server-core"]
+expected_compatibility = [{ selector = "*", level = "I0 Inventory", evidence = "policy-only; no fixture selected" }]
+included_state_classes = []
+excluded_state_classes = ["Secret", "DynamicPrivate"]
+files = []
+artifacts = []
+canaries = []
+
+[projects.budget]
+max_bytes = 4194304
+max_files = 256
+max_single_file_bytes = 2097152
+max_directories = 128
+max_depth = 12
+max_path_bytes = 1024
+max_component_bytes = 255
+max_manifest_bytes = 262144
+
+[projects.provenance]
+status = "unavailable"
+source_kind = "unselected"
+source_locator = "unavailable"
+unavailable_reason = "No lawful, representative minimal project snapshot has been selected."
+
+[projects.license]
+status = "pending"
+spdx = "NOASSERTION"
+redistribution = "not-approved"
+evidence = []
+
+[projects.consent]
+status = "pending"
+scope = "none"
+evidence = []
+
+[projects.sensitivity_review]
+status = "pending"
+evidence = []
+
+[projects.sanitization]
+status = "not-started"
+sanitizer_id = "unassigned"
+transform_ids = []
+
+[projects.canary_registry]
+status = "unavailable"
+
+[projects.withdrawal]
+status = "not-withdrawn"
+
+[projects.hashes]
+status = "unavailable"
+algorithm = "sha256"
+
+[[projects]]
+id = "default-v1"
+tier = "default"
+availability = "pending-sanitization"
+fixture_root = "default-v1"
+purpose = "Broad compatibility and smoke evidence derived from the shipped example project after approval and sanitization."
+expected_consumers = ["corpus-scanner", "rcce-project", "rcce-data", "rcce-server-core", "rust-client", "rust-server", "rust-editor"]
+expected_compatibility = [{ selector = "*", level = "I0 Inventory", evidence = "docs/compat/project-format-matrix.md at the evidence revision; per-family expectations pending materialization" }]
+included_state_classes = []
+excluded_state_classes = ["Secret", "DynamicPrivate"]
+files = []
+artifacts = []
+canaries = []
+
+[projects.budget]
+max_bytes = 536870912
+max_files = 4096
+max_single_file_bytes = 33554432
+max_directories = 2048
+max_depth = 32
+max_path_bytes = 2048
+max_component_bytes = 255
+max_manifest_bytes = 8388608
+
+[projects.provenance]
+status = "candidate-identified"
+source_kind = "repository-default"
+source_locator = "data/"
+source_revision = "2d09d0992757a6beb9acf0a77978fdd5637a4006"
+source_bytes = 351551965
+source_files = 1180
+
+[projects.license]
+status = "pending"
+spdx = "NOASSERTION"
+redistribution = "not-approved"
+evidence = ["No tracked repository-root license file exists at source_revision; review required before copying bytes into the corpus."]
+
+[projects.consent]
+status = "pending"
+scope = "none"
+evidence = ["Maintainer approval and embedded-asset provenance review are not yet recorded."]
+
+[projects.sensitivity_review]
+status = "pending"
+evidence = ["The checked-in source is development evidence only; no corpus sensitivity review has been performed."]
+
+[projects.sanitization]
+status = "not-started"
+sanitizer_id = "unassigned"
+transform_ids = []
+
+[projects.canary_registry]
+status = "unavailable"
+
+[projects.withdrawal]
+status = "not-withdrawn"
+
+[projects.hashes]
+status = "unavailable"
+algorithm = "sha256"
+
+[[projects]]
+id = "large-v1"
+tier = "large"
+availability = "unavailable"
+fixture_root = "large-v1"
+purpose = "High-cardinality, media-heavy, and performance evidence from an explicitly consented legacy project."
+expected_consumers = ["corpus-scanner", "rcce-project", "performance-harness", "rust-client", "rust-server", "rust-editor"]
+expected_compatibility = [{ selector = "*", level = "I0 Inventory", evidence = "policy-only; no consented source selected" }]
+included_state_classes = []
+excluded_state_classes = ["Secret", "DynamicPrivate"]
+files = []
+artifacts = []
+canaries = []
+
+[projects.budget]
+max_bytes = 4294967296
+max_files = 50000
+max_single_file_bytes = 536870912
+max_directories = 20000
+max_depth = 64
+max_path_bytes = 4096
+max_component_bytes = 255
+max_manifest_bytes = 67108864
+
+[projects.provenance]
+status = "unavailable"
+source_kind = "consented-third-party"
+source_locator = "withheld-until-consent"
+unavailable_reason = "No third-party project has supplied consent, license evidence, and a sanitizable snapshot."
+
+[projects.license]
+status = "pending"
+spdx = "NOASSERTION"
+redistribution = "not-approved"
+evidence = []
+
+[projects.consent]
+status = "pending"
+scope = "none"
+evidence = []
+
+[projects.sensitivity_review]
+status = "pending"
+evidence = []
+
+[projects.sanitization]
+status = "not-started"
+sanitizer_id = "unassigned"
+transform_ids = []
+
+[projects.canary_registry]
+status = "unavailable"
+
+[projects.withdrawal]
+status = "not-withdrawn"
+
+[projects.hashes]
+status = "unavailable"
+algorithm = "sha256"

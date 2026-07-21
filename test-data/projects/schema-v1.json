@@ -1,0 +1,754 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema-v1.json",
+  "title": "RCCE compatibility corpus manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "schema",
+    "manifest_id",
+    "manifest_revision",
+    "hash_algorithm",
+    "tree_hash_domain",
+    "projects"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "schema": { "const": "schema-v1.json" },
+    "manifest_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "manifest_revision": { "type": "integer", "minimum": 1 },
+    "hash_algorithm": { "const": "sha256" },
+    "tree_hash_domain": { "const": "RCCE-CORPUS-TREE-V1" },
+    "projects": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "$ref": "#/$defs/project" },
+      "allOf": [
+        {
+          "contains": { "properties": { "tier": { "const": "small" } }, "required": ["tier"] },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": { "properties": { "tier": { "const": "default" } }, "required": ["tier"] },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": { "properties": { "tier": { "const": "large" } }, "required": ["tier"] },
+          "minContains": 1,
+          "maxContains": 1
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "nonEmpty": { "type": "string", "minLength": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "utc": { "type": "string", "format": "date-time", "pattern": "Z$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "stateClass": {
+      "enum": [
+        "PublicClient",
+        "ServerConfig",
+        "Secret",
+        "DynamicPrivate",
+        "EditorMetadata",
+        "AuthoringSource",
+        "Unknown"
+      ]
+    },
+    "compatibilityLevel": {
+      "enum": [
+        "I0 Inventory",
+        "I1 Read",
+        "I2 Lossless",
+        "I3 Semantic write",
+        "I4 Convert"
+      ]
+    },
+    "evidence": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/nonEmpty" },
+      "uniqueItems": true
+    },
+    "nonEmptyEvidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/nonEmpty" },
+      "uniqueItems": true
+    },
+    "expectedCompatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["selector", "level", "evidence"],
+      "properties": {
+        "selector": {
+          "type": "string",
+          "pattern": "^(\\*|PF-[A-Z]+-[0-9]{3})$"
+        },
+        "level": { "$ref": "#/$defs/compatibilityLevel" },
+        "evidence": { "$ref": "#/$defs/nonEmpty" }
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_bytes",
+        "max_files",
+        "max_single_file_bytes",
+        "max_directories",
+        "max_depth",
+        "max_path_bytes",
+        "max_component_bytes",
+        "max_manifest_bytes"
+      ],
+      "properties": {
+        "max_bytes": { "type": "integer", "minimum": 1 },
+        "max_files": { "type": "integer", "minimum": 1 },
+        "max_single_file_bytes": { "type": "integer", "minimum": 1 },
+        "max_directories": { "type": "integer", "minimum": 1 },
+        "max_depth": { "type": "integer", "minimum": 1 },
+        "max_path_bytes": { "type": "integer", "minimum": 1 },
+        "max_component_bytes": { "type": "integer", "minimum": 1 },
+        "max_manifest_bytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "provenance": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "source_kind", "source_locator", "unavailable_reason"],
+          "properties": {
+            "status": { "const": "unavailable" },
+            "source_kind": {
+              "enum": ["unselected", "repository-default", "consented-third-party", "synthetic"]
+            },
+            "source_locator": { "$ref": "#/$defs/nonEmpty" },
+            "unavailable_reason": { "$ref": "#/$defs/nonEmpty" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "source_kind",
+            "source_locator",
+            "source_revision",
+            "source_bytes",
+            "source_files"
+          ],
+          "properties": {
+            "status": { "const": "candidate-identified" },
+            "source_kind": {
+              "enum": ["repository-default", "consented-third-party", "synthetic"]
+            },
+            "source_locator": { "$ref": "#/$defs/nonEmpty" },
+            "source_revision": { "$ref": "#/$defs/nonEmpty" },
+            "source_bytes": { "type": "integer", "minimum": 0 },
+            "source_files": { "type": "integer", "minimum": 0 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "source_kind",
+            "source_locator",
+            "source_revision",
+            "source_bytes",
+            "source_files",
+            "evidence",
+            "reviewed_by",
+            "reviewed_at_utc"
+          ],
+          "properties": {
+            "status": { "const": "verified" },
+            "source_kind": {
+              "enum": ["repository-default", "consented-third-party", "synthetic"]
+            },
+            "source_locator": { "$ref": "#/$defs/nonEmpty" },
+            "source_revision": { "$ref": "#/$defs/nonEmpty" },
+            "source_bytes": { "type": "integer", "minimum": 0 },
+            "source_files": { "type": "integer", "minimum": 1 },
+            "evidence": { "$ref": "#/$defs/nonEmptyEvidence" },
+            "reviewed_by": { "$ref": "#/$defs/nonEmpty" },
+            "reviewed_at_utc": { "$ref": "#/$defs/utc" }
+          }
+        }
+      ]
+    },
+    "license": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "spdx", "redistribution", "evidence"],
+          "properties": {
+            "status": { "const": "pending" },
+            "spdx": { "$ref": "#/$defs/nonEmpty" },
+            "redistribution": { "const": "not-approved" },
+            "evidence": { "$ref": "#/$defs/evidence" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "spdx",
+            "redistribution",
+            "scope",
+            "evidence",
+            "reviewed_by",
+            "reviewed_at_utc"
+          ],
+          "properties": {
+            "status": { "const": "approved" },
+            "spdx": { "$ref": "#/$defs/nonEmpty" },
+            "redistribution": { "enum": ["repository-test-only", "public"] },
+            "scope": { "$ref": "#/$defs/nonEmpty" },
+            "evidence": { "$ref": "#/$defs/nonEmptyEvidence" },
+            "reviewed_by": { "$ref": "#/$defs/nonEmpty" },
+            "reviewed_at_utc": { "$ref": "#/$defs/utc" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "spdx",
+            "redistribution",
+            "reason",
+            "evidence",
+            "reviewed_by",
+            "reviewed_at_utc"
+          ],
+          "properties": {
+            "status": { "const": "rejected" },
+            "spdx": { "$ref": "#/$defs/nonEmpty" },
+            "redistribution": { "const": "not-approved" },
+            "reason": { "$ref": "#/$defs/nonEmpty" },
+            "evidence": { "$ref": "#/$defs/nonEmptyEvidence" },
+            "reviewed_by": { "$ref": "#/$defs/nonEmpty" },
+            "reviewed_at_utc": { "$ref": "#/$defs/utc" }
+          }
+        }
+      ]
+    },
+    "consent": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "scope", "evidence"],
+          "properties": {
+            "status": { "const": "pending" },
+            "scope": { "const": "none" },
+            "evidence": { "$ref": "#/$defs/evidence" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "scope",
+            "history_scope",
+            "revocable",
+            "subject_id",
+            "evidence",
+            "approved_by",
+            "approved_at_utc"
+          ],
+          "properties": {
+            "status": { "const": "approved" },
+            "scope": { "$ref": "#/$defs/nonEmpty" },
+            "history_scope": { "const": "permanent-public-vcs" },
+            "revocable": { "const": false },
+            "subject_id": { "$ref": "#/$defs/id" },
+            "evidence": { "$ref": "#/$defs/nonEmptyEvidence" },
+            "approved_by": { "$ref": "#/$defs/nonEmpty" },
+            "approved_at_utc": { "$ref": "#/$defs/utc" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "scope", "reason", "evidence", "reviewed_by", "reviewed_at_utc"],
+          "properties": {
+            "status": { "const": "rejected" },
+            "scope": { "const": "none" },
+            "reason": { "$ref": "#/$defs/nonEmpty" },
+            "evidence": { "$ref": "#/$defs/nonEmptyEvidence" },
+            "reviewed_by": { "$ref": "#/$defs/nonEmpty" },
+            "reviewed_at_utc": { "$ref": "#/$defs/utc" }
+          }
+        }
+      ]
+    },
+    "review": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "evidence"],
+          "properties": {
+            "status": { "const": "pending" },
+            "evidence": { "$ref": "#/$defs/evidence" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "method", "evidence", "reviewed_by", "reviewed_at_utc"],
+          "properties": {
+            "status": { "const": "approved" },
+            "method": { "$ref": "#/$defs/nonEmpty" },
+            "evidence": { "$ref": "#/$defs/nonEmptyEvidence" },
+            "reviewed_by": { "$ref": "#/$defs/nonEmpty" },
+            "reviewed_at_utc": { "$ref": "#/$defs/utc" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "reason", "evidence", "reviewed_by", "reviewed_at_utc"],
+          "properties": {
+            "status": { "const": "rejected" },
+            "reason": { "$ref": "#/$defs/nonEmpty" },
+            "evidence": { "$ref": "#/$defs/nonEmptyEvidence" },
+            "reviewed_by": { "$ref": "#/$defs/nonEmpty" },
+            "reviewed_at_utc": { "$ref": "#/$defs/utc" }
+          }
+        }
+      ]
+    },
+    "sanitization": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "sanitizer_id", "transform_ids"],
+          "properties": {
+            "status": { "const": "not-started" },
+            "sanitizer_id": { "$ref": "#/$defs/nonEmpty" },
+            "transform_ids": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "sanitizer_id", "sanitizer_version", "transform_ids", "evidence"],
+          "properties": {
+            "status": { "const": "in-review" },
+            "sanitizer_id": { "$ref": "#/$defs/id" },
+            "sanitizer_version": { "$ref": "#/$defs/nonEmpty" },
+            "transform_ids": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true },
+            "evidence": { "$ref": "#/$defs/nonEmptyEvidence" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "sanitizer_id",
+            "sanitizer_version",
+            "transform_ids",
+            "evidence",
+            "reviewed_by",
+            "reviewed_at_utc"
+          ],
+          "properties": {
+            "status": { "const": "approved" },
+            "sanitizer_id": { "$ref": "#/$defs/id" },
+            "sanitizer_version": { "$ref": "#/$defs/nonEmpty" },
+            "transform_ids": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true },
+            "evidence": { "$ref": "#/$defs/nonEmptyEvidence" },
+            "reviewed_by": { "$ref": "#/$defs/nonEmpty" },
+            "reviewed_at_utc": { "$ref": "#/$defs/utc" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "sanitizer_id", "reason", "transform_ids", "evidence", "reviewed_by", "reviewed_at_utc"],
+          "properties": {
+            "status": { "const": "rejected" },
+            "sanitizer_id": { "$ref": "#/$defs/nonEmpty" },
+            "reason": { "$ref": "#/$defs/nonEmpty" },
+            "transform_ids": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true },
+            "evidence": { "$ref": "#/$defs/nonEmptyEvidence" },
+            "reviewed_by": { "$ref": "#/$defs/nonEmpty" },
+            "reviewed_at_utc": { "$ref": "#/$defs/utc" }
+          }
+        }
+      ]
+    },
+    "canaryRegistry": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status"],
+          "properties": { "status": { "const": "unavailable" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "id", "version", "evidence"],
+          "properties": {
+            "status": { "const": "verified" },
+            "id": { "$ref": "#/$defs/id" },
+            "version": { "type": "integer", "minimum": 1 },
+            "evidence": { "$ref": "#/$defs/nonEmptyEvidence" }
+          }
+        }
+      ]
+    },
+    "withdrawal": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status"],
+          "properties": { "status": { "const": "not-withdrawn" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "reason", "evidence", "reviewed_by", "reviewed_at_utc"],
+          "properties": {
+            "status": { "const": "withdrawn" },
+            "reason": { "$ref": "#/$defs/nonEmpty" },
+            "evidence": { "$ref": "#/$defs/nonEmptyEvidence" },
+            "reviewed_by": { "$ref": "#/$defs/nonEmpty" },
+            "reviewed_at_utc": { "$ref": "#/$defs/utc" }
+          }
+        }
+      ]
+    },
+    "hashes": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "algorithm"],
+          "properties": {
+            "status": { "const": "unavailable" },
+            "algorithm": { "const": "sha256" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "algorithm", "tree_sha256", "materialized_bytes", "materialized_files"],
+          "properties": {
+            "status": { "const": "verified" },
+            "algorithm": { "const": "sha256" },
+            "tree_sha256": { "$ref": "#/$defs/sha256" },
+            "materialized_bytes": { "type": "integer", "minimum": 0 },
+            "materialized_files": { "type": "integer", "minimum": 1 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "algorithm", "former_tree_sha256", "former_materialized_bytes", "former_materialized_files"],
+          "properties": {
+            "status": { "const": "withdrawn" },
+            "algorithm": { "const": "sha256" },
+            "former_tree_sha256": { "$ref": "#/$defs/sha256" },
+            "former_materialized_bytes": { "type": "integer", "minimum": 0 },
+            "former_materialized_files": { "type": "integer", "minimum": 1 }
+          }
+        }
+      ]
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "path",
+        "size_bytes",
+        "sha256",
+        "primary_state_class",
+        "additional_state_classes",
+        "sensitivity",
+        "expected_level",
+        "format_rows",
+        "transform_ids"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "path": { "$ref": "#/$defs/nonEmpty" },
+        "size_bytes": { "type": "integer", "minimum": 0 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "primary_state_class": { "$ref": "#/$defs/stateClass" },
+        "additional_state_classes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/stateClass" },
+          "uniqueItems": true
+        },
+        "sensitivity": { "enum": ["reviewed-clear", "sanitized", "synthetic-canary"] },
+        "expected_level": { "$ref": "#/$defs/compatibilityLevel" },
+        "format_rows": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "pattern": "^PF-[A-Z]+-[0-9]{3}$" },
+          "uniqueItems": true
+        },
+        "transform_ids": { "type": "array", "items": { "$ref": "#/$defs/id" }, "uniqueItems": true }
+      }
+    },
+    "byteRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end_exclusive"],
+      "properties": {
+        "start": { "type": "integer", "minimum": 0 },
+        "end_exclusive": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "file_id", "kind", "byte_ranges", "diagnostic", "boundary", "evidence"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "file_id": { "$ref": "#/$defs/id" },
+        "kind": { "enum": ["malformed", "unknown-format", "non-utf8-content"] },
+        "byte_ranges": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/byteRange" },
+          "uniqueItems": true
+        },
+        "diagnostic": { "$ref": "#/$defs/nonEmpty" },
+        "boundary": { "$ref": "#/$defs/nonEmpty" },
+        "evidence": { "$ref": "#/$defs/nonEmptyEvidence" }
+      }
+    },
+    "canary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "registry_id",
+        "permission_policy_id",
+        "file_id",
+        "state_class",
+        "expected_min_occurrences",
+        "expected_max_occurrences"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "registry_id": { "$ref": "#/$defs/id" },
+        "permission_policy_id": { "$ref": "#/$defs/id" },
+        "file_id": { "$ref": "#/$defs/id" },
+        "state_class": { "enum": ["Secret", "DynamicPrivate"] },
+        "expected_min_occurrences": { "type": "integer", "minimum": 1 },
+        "expected_max_occurrences": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "tier",
+        "availability",
+        "fixture_root",
+        "purpose",
+        "expected_consumers",
+        "expected_compatibility",
+        "included_state_classes",
+        "excluded_state_classes",
+        "files",
+        "artifacts",
+        "canaries",
+        "budget",
+        "provenance",
+        "license",
+        "consent",
+        "sensitivity_review",
+        "sanitization",
+        "canary_registry",
+        "withdrawal",
+        "hashes"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "tier": { "enum": ["small", "default", "large"] },
+        "availability": {
+          "enum": ["unavailable", "pending-sanitization", "quarantined", "ready", "withdrawn"]
+        },
+        "fixture_root": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+        "purpose": { "$ref": "#/$defs/nonEmpty" },
+        "expected_consumers": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/id" },
+          "uniqueItems": true
+        },
+        "expected_compatibility": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/expectedCompatibility" },
+          "uniqueItems": true
+        },
+        "included_state_classes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/stateClass" },
+          "uniqueItems": true
+        },
+        "excluded_state_classes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/stateClass" },
+          "uniqueItems": true
+        },
+        "files": { "type": "array", "items": { "$ref": "#/$defs/file" } },
+        "artifacts": { "type": "array", "items": { "$ref": "#/$defs/artifact" } },
+        "canaries": { "type": "array", "items": { "$ref": "#/$defs/canary" } },
+        "budget": { "$ref": "#/$defs/budget" },
+        "provenance": { "$ref": "#/$defs/provenance" },
+        "license": { "$ref": "#/$defs/license" },
+        "consent": { "$ref": "#/$defs/consent" },
+        "sensitivity_review": { "$ref": "#/$defs/review" },
+        "sanitization": { "$ref": "#/$defs/sanitization" },
+        "canary_registry": { "$ref": "#/$defs/canaryRegistry" },
+        "withdrawal": { "$ref": "#/$defs/withdrawal" },
+        "hashes": { "$ref": "#/$defs/hashes" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "tier": { "const": "small" } }, "required": ["tier"] },
+          "then": {
+            "properties": {
+              "budget": {
+                "const": {
+                  "max_bytes": 4194304,
+                  "max_files": 256,
+                  "max_single_file_bytes": 2097152,
+                  "max_directories": 128,
+                  "max_depth": 12,
+                  "max_path_bytes": 1024,
+                  "max_component_bytes": 255,
+                  "max_manifest_bytes": 262144
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "tier": { "const": "default" } }, "required": ["tier"] },
+          "then": {
+            "properties": {
+              "budget": {
+                "const": {
+                  "max_bytes": 536870912,
+                  "max_files": 4096,
+                  "max_single_file_bytes": 33554432,
+                  "max_directories": 2048,
+                  "max_depth": 32,
+                  "max_path_bytes": 2048,
+                  "max_component_bytes": 255,
+                  "max_manifest_bytes": 8388608
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "tier": { "const": "large" } }, "required": ["tier"] },
+          "then": {
+            "properties": {
+              "budget": {
+                "const": {
+                  "max_bytes": 4294967296,
+                  "max_files": 50000,
+                  "max_single_file_bytes": 536870912,
+                  "max_directories": 20000,
+                  "max_depth": 64,
+                  "max_path_bytes": 4096,
+                  "max_component_bytes": 255,
+                  "max_manifest_bytes": 67108864
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "availability": { "const": "ready" } }, "required": ["availability"] },
+          "then": {
+            "properties": {
+              "files": { "minItems": 1 },
+              "provenance": { "properties": { "status": { "const": "verified" } } },
+              "license": { "properties": { "status": { "const": "approved" } } },
+              "consent": { "properties": { "status": { "const": "approved" } } },
+              "sensitivity_review": { "properties": { "status": { "const": "approved" } } },
+              "sanitization": { "properties": { "status": { "const": "approved" } } },
+              "withdrawal": { "properties": { "status": { "const": "not-withdrawn" } } },
+              "hashes": { "properties": { "status": { "const": "verified" } } },
+              "expected_compatibility": {
+                "items": { "properties": { "selector": { "pattern": "^PF-[A-Z]+-[0-9]{3}$" } } }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "availability": { "const": "withdrawn" } }, "required": ["availability"] },
+          "then": {
+            "properties": {
+              "files": { "maxItems": 0 },
+              "artifacts": { "maxItems": 0 },
+              "canaries": { "maxItems": 0 },
+              "withdrawal": { "properties": { "status": { "const": "withdrawn" } } },
+              "hashes": { "properties": { "status": { "const": "withdrawn" } } }
+            }
+          },
+          "else": {
+            "properties": {
+              "withdrawal": { "properties": { "status": { "const": "not-withdrawn" } } }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "availability": {
+                "enum": ["unavailable", "pending-sanitization", "quarantined"]
+              }
+            },
+            "required": ["availability"]
+          },
+          "then": {
+            "properties": {
+              "files": { "maxItems": 0 },
+              "artifacts": { "maxItems": 0 },
+              "canaries": { "maxItems": 0 },
+              "hashes": { "properties": { "status": { "const": "unavailable" } } }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "canaries": { "minItems": 1 } }, "required": ["canaries"] },
+          "then": {
+            "properties": {
+              "canary_registry": { "properties": { "status": { "const": "verified" } } }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
