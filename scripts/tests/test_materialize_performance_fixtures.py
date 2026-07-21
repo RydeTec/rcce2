@@ -174,7 +174,7 @@ class MaterializerTest(unittest.TestCase):
                 materializer._stage_json(target, {"kind": failing})
             self.assertEqual(list(self.root.glob(".staged.json.stage-*")), [])
 
-    def test_promotion_failure_rolls_back_all_owned_targets(self) -> None:
+    def test_later_promotion_failure_reports_and_preserves_published_targets(self) -> None:
         real_publish = materializer._publish_noreplace
         for fail_at in (1, 2, 3):
             output = self.root / f"rollback-output-{fail_at}"
@@ -190,18 +190,20 @@ class MaterializerTest(unittest.TestCase):
                 real_publish(Path(source), Path(target))
 
             with self.subTest(fail_at=fail_at), mock.patch.object(materializer, "_publish_noreplace", side_effect=fail_boundary):
-                with self.assertRaisesRegex(MaterializationError, "promotion failed"):
+                expected = "promotion failed" if fail_at == 1 else "partial publication; manual cleanup required"
+                with self.assertRaisesRegex(MaterializationError, expected):
                     materialize_fixture(
                         repo=self.repo, revision=self.revision, source_tree="data", tier="default",
                         output=output, manifest_path=manifest, metadata_path=metadata,
                         captured_at="2026-07-21T12:00:00Z",
                     )
-            self.assertFalse(output.exists())
-            self.assertFalse(manifest.exists())
-            self.assertFalse(metadata.exists())
+            for published in (output, manifest, metadata)[: fail_at - 1]:
+                self.assertTrue(published.exists())
+            for unpublished in (output, manifest, metadata)[fail_at - 1 :]:
+                self.assertFalse(unpublished.exists())
             self.assertEqual(list(self.root.glob(".*stage-*")), [])
 
-    def test_concurrent_targets_are_preserved_and_owned_promotions_roll_back(self) -> None:
+    def test_concurrent_targets_and_prior_publications_are_preserved(self) -> None:
         real_publish = materializer._publish_noreplace
         for conflict_at in (1, 2, 3):
             output = self.root / f"concurrent-output-{conflict_at}"
@@ -222,7 +224,8 @@ class MaterializerTest(unittest.TestCase):
                 real_publish(source, target)
 
             with self.subTest(conflict_at=conflict_at), mock.patch.object(materializer, "_publish_noreplace", side_effect=create_conflict):
-                with self.assertRaisesRegex(MaterializationError, "already exists"):
+                expected = "already exists" if conflict_at == 1 else "partial publication; manual cleanup required"
+                with self.assertRaisesRegex(MaterializationError, expected):
                     materialize_fixture(
                         repo=self.repo, revision=self.revision, source_tree="data", tier="default",
                         output=output, manifest_path=manifest, metadata_path=metadata,
@@ -235,7 +238,7 @@ class MaterializerTest(unittest.TestCase):
             else:
                 self.assertEqual((conflict / "external.txt").read_text(encoding="utf-8"), "external")
             for earlier in targets[: conflict_at - 1]:
-                self.assertFalse(earlier.exists())
+                self.assertTrue(earlier.exists())
 
     def test_replaced_published_output_is_preserved_when_later_publication_fails(self) -> None:
         output = self.root / "replaced-output"
@@ -255,13 +258,38 @@ class MaterializerTest(unittest.TestCase):
             real_publish(source, target)
 
         with mock.patch.object(materializer, "_publish_noreplace", side_effect=replace_after_output_identity):
-            with self.assertRaisesRegex(MaterializationError, "rollback incomplete"):
+            with self.assertRaisesRegex(MaterializationError, "partial publication; manual cleanup required"):
                 materialize_fixture(
                     repo=self.repo, revision=self.revision, source_tree="data", tier="default",
                     output=output, manifest_path=manifest, metadata_path=metadata,
                     captured_at="2026-07-21T12:00:00Z",
                 )
         self.assertEqual((output / "external.txt").read_text(encoding="utf-8"), "replacement")
+        self.assertFalse(manifest.exists())
+        self.assertFalse(metadata.exists())
+
+    def test_post_publish_identity_failure_reports_published_target_without_deleting_it(self) -> None:
+        output = self.root / "identity-output"
+        manifest = self.root / "identity-manifest.json"
+        metadata = self.root / "identity-metadata.json"
+        real_identity = materializer._stable_identity
+        calls = 0
+
+        def fail_target_identity(path: Path) -> tuple[int, int, int]:
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                raise MaterializationError("injected post-publish identity failure")
+            return real_identity(path)
+
+        with mock.patch.object(materializer, "_stable_identity", side_effect=fail_target_identity):
+            with self.assertRaisesRegex(MaterializationError, "partial publication; manual cleanup required.*identity-output"):
+                materialize_fixture(
+                    repo=self.repo, revision=self.revision, source_tree="data", tier="default",
+                    output=output, manifest_path=manifest, metadata_path=metadata,
+                    captured_at="2026-07-21T12:00:00Z",
+                )
+        self.assertTrue(output.exists())
         self.assertFalse(manifest.exists())
         self.assertFalse(metadata.exists())
 

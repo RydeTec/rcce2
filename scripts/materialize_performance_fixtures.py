@@ -322,22 +322,6 @@ def _stable_identity(path: Path) -> tuple[int, int, int]:
     return metadata.st_dev, metadata.st_ino, file_type
 
 
-def _rollback_published(promoted: list[tuple[Path, tuple[int, int, int]]]) -> list[Path]:
-    incomplete: list[Path] = []
-    for target, published_identity in reversed(promoted):
-        try:
-            current_identity = _stable_identity(target)
-        except MaterializationError:
-            if target.exists() or target.is_symlink():
-                incomplete.append(target)
-            continue
-        if current_identity != published_identity:
-            incomplete.append(target)
-            continue
-        _remove_owned(target)
-    return incomplete
-
-
 def _publish_noreplace(source: Path, target: Path) -> None:
     """Atomically publish one staged path without replacing a concurrent target."""
     if sys.platform.startswith("linux"):
@@ -486,25 +470,26 @@ def materialize_fixture(
         manifest_stage = _stage_json(manifest_path, artifact)
         metadata_stage = _stage_json(metadata_path, metadata)
         promotions = [(stage, output), (manifest_stage, manifest_path), (metadata_stage, metadata_path)]
-        promoted: list[tuple[Path, tuple[int, int, int]]] = []
+        published: list[Path] = []
         try:
             for staged, target in promotions:
                 staged_identity = _stable_identity(staged)
                 _publish_noreplace(staged, target)
+                published.append(target)
                 published_identity = _stable_identity(target)
                 if published_identity != staged_identity:
                     raise MaterializationError(
-                        f"publication identity changed before ownership capture; rollback incomplete and target preserved: {target}"
+                        f"publication identity changed before ownership capture: {target}"
                     )
-                promoted.append((target, published_identity))
         except (OSError, MaterializationError) as exc:
-            incomplete = _rollback_published(promoted)
-            if incomplete:
-                preserved = ", ".join(str(path) for path in incomplete)
-                raise MaterializationError(f"{exc}; rollback incomplete; concurrent targets preserved: {preserved}") from None
+            if published:
+                partials = ", ".join(str(path) for path in published)
+                raise MaterializationError(
+                    f"{exc}; partial publication; manual cleanup required: {partials}"
+                ) from None
             if isinstance(exc, MaterializationError):
                 raise
-            raise MaterializationError(f"promotion failed; all owned targets rolled back: {exc}") from None
+            raise MaterializationError(f"promotion failed before any final target was published: {exc}") from None
         return artifact
     except Exception:
         for owned in (stage, manifest_stage, metadata_stage):

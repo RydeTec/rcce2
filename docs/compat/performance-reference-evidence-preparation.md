@@ -31,13 +31,15 @@ python3 scripts/materialize_performance_fixtures.py \
   --captured-at <whole-second-UTC-timestamp>
 ```
 
-The output directory, manifest, and metadata are staged independently and
-promoted as one owned transaction; a failure at any promotion boundary removes
-only targets whose no-follow filesystem identity still matches the identity
-captured at publication. A concurrently replaced target is preserved and the
-rollback is reported incomplete. Publication uses atomic no-replace
+The output directory, manifest, and metadata are staged independently.
+Publication uses atomic no-replace
 semantics and fails closed when the platform or filesystem cannot provide them;
-a concurrently created target is preserved. Before staging, free space must
+a concurrently created target is preserved. Once any final target is
+successfully published, it is never deleted automatically. A later publication
+or identity failure reports `partial publication; manual cleanup required` with
+the exact published paths; the caller must inspect and delete those paths before
+retrying. Only unpublished owned staging paths are cleaned automatically.
+Before staging, free space must
 cover the exact default-tree byte count plus a documented 64 MiB safety margin.
 The manifest records the fully quoted,
 replayable command. It is a typed `fixture-materialization` artifact with a sorted file
