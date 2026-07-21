@@ -9,8 +9,13 @@ record, and it does not add project fixture bytes to Git.
 `scripts/materialize_performance_fixtures.py` reads an exact revision through
 the Git object database. It never reads the working `data/` directory. Before
 creating output, it rejects symlinks, submodules, non-regular entries,
-non-canonical paths, output under the repository source tree, and evidence
+non-canonical paths, output anywhere under the repository, and evidence
 files inside either the source tree or materialized fixture.
+It also rejects case-folding or Unicode-normalization collisions, Windows
+reserved names and characters, controls, trailing dots/spaces, and corpus trees
+outside the canonical 4,096-file, 4,096-directory, 512 MiB total, 32 MiB per
+file, path-depth, path-byte, and component-byte bounds. Blob reads are streamed
+in 1 MiB chunks.
 
 Run it only with disposable output and separate evidence paths:
 
@@ -26,17 +31,18 @@ python3 scripts/materialize_performance_fixtures.py \
   --captured-at <whole-second-UTC-timestamp>
 ```
 
-The manifest is a typed `fixture-materialization` artifact with a sorted file
+The output directory, manifest, and metadata are staged independently and
+promoted as one owned transaction; a failure at any promotion boundary removes
+all targets created by that attempt. The manifest records the fully quoted,
+replayable command. It is a typed `fixture-materialization` artifact with a sorted file
 list and an `RCCE-CORPUS-TREE-V1` digest compatible with the performance
 reference validator. The separate preparation metadata makes the source,
 transform, topology, and pending review status explicit.
 
 - `default` preserves every source path and byte from the exact Git tree.
-- `small` selects complete files by a stable SHA-256 path ranking under explicit
-  file and byte ceilings. Its representativeness remains pending human review.
-- `large` creates explicit `replica-NNN/` namespaces with byte-exact source
-  replicas. It is synthetic capacity material, not a claim of representative
-  project topology; representativeness remains pending human review.
+- `small` and `large` are rejected and remain unavailable. A future transform
+  must be schema-aware, openable as an RCCE project, and separately reviewed;
+  path-hash subsets and namespaced byte replicas are not valid substitutes.
 
 At base revision `94ed5adbd9adf94d88f8ff6b0e9432285af8d925`, an executed disposable
 default materialization produced 1,180 files, 351,551,965 bytes, and candidate
@@ -59,12 +65,19 @@ powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass `
   -OutputPath <new-candidate-profile.json> `
   -BenchmarkStoragePath <existing-NTFS-benchmark-directory> `
   -GpuBackend <backend-reported-by-measurement-harness> `
+  -GpuAdapterName <adapter-name-reported-by-measurement-harness> `
+  -GpuAdapterDriverVersion <driver-version-reported-by-measurement-harness> `
   -CapturedAtUtc <whole-second-UTC-timestamp>
 ```
 
-The profile records desktop AC/no-battery observation, EDID availability
+The adapter name and driver version must match exactly one native
+`Win32_VideoController`; the script does not select the first GPU. Storage
+media type uses a `Get-PhysicalDisk` device association with a documented
+`Win32_DiskDrive` fallback. The profile records desktop AC/no-battery observation, EDID availability
 without retaining EDID identifiers or raw bytes, the exact capture commands,
-and storage binding. It collects no account, environment, credential,
+and storage binding. Output is written to an owned `CreateNew` temporary file,
+flushed, then promoted without overwriting an existing target. Timestamps are
+parsed as real canonical UTC calendar values. It collects no account, environment, credential,
 clipboard, file-content, or network-profile data. It performs no reboot, cache
 reset, benchmark, memory measurement, or approval action. Cold-cache control
 and harness validation therefore remain explicit blockers.

@@ -16,18 +16,26 @@ import json
 import os
 from pathlib import Path, PurePosixPath
 import re
+import shlex
 import shutil
 import subprocess
 import tempfile
 from typing import Any
+import unicodedata
 
 
 HASH_DOMAIN = "RCCE-CORPUS-TREE-V1"
-DEFAULT_SMALL_MAX_FILES = 128
-DEFAULT_SMALL_MAX_BYTES = 32 * 1024 * 1024
-DEFAULT_LARGE_REPLICAS = 4
 MAX_MANIFEST_ENTRIES = 100_000
+MAX_DEFAULT_FILES = 4_096
+MAX_DEFAULT_DIRECTORIES = 4_096
+MAX_DEFAULT_BYTES = 512 * 1024 * 1024
+MAX_DEFAULT_FILE_BYTES = 32 * 1024 * 1024
+MAX_PATH_DEPTH = 64
+MAX_PATH_BYTES = 4_096
+MAX_COMPONENT_BYTES = 255
+STREAM_CHUNK_BYTES = 1024 * 1024
 TIMESTAMP_RE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z")
+WINDOWS_RESERVED = {"con", "prn", "aux", "nul", *(f"com{i}" for i in range(1, 10)), *(f"lpt{i}" for i in range(1, 10))}
 
 
 class MaterializationError(RuntimeError):
@@ -54,7 +62,7 @@ class _GitBlobReader:
             raise MaterializationError(f"Git batch object reader failed to start: {exc}") from None
         return self
 
-    def read(self, oid: str, expected_size: int) -> bytes:
+    def copy(self, oid: str, expected_size: int, destination: Any) -> tuple[str, int]:
         process = self.process
         if process is None or process.stdin is None or process.stdout is None:
             raise MaterializationError("Git batch object reader is not open")
@@ -65,13 +73,14 @@ class _GitBlobReader:
             if len(header) != 3 or header[1] != b"blob":
                 raise MaterializationError(f"Git batch object reader rejected {oid}")
             size = int(header[2])
-            blob = process.stdout.read(size)
-            terminator = process.stdout.read(1)
         except (BrokenPipeError, OSError, ValueError):
             raise MaterializationError(f"Git batch object read failed for {oid}") from None
-        if size != expected_size or len(blob) != size or terminator != b"\n":
+        if size != expected_size:
             raise MaterializationError(f"Git blob size changed for {oid}")
-        return blob
+        digest, count = _copy_stream(process.stdout, destination, size)
+        if process.stdout.read(1) != b"\n":
+            raise MaterializationError(f"Git batch object framing failed for {oid}")
+        return digest, count
 
     def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
         process = self.process
@@ -128,9 +137,73 @@ def _canonical_manifest_path(value: str) -> str:
     if any(part in {"", ".", ".."} for part in parts):
         raise MaterializationError(f"non-canonical Git path: {value!r}")
     encoded = value.encode("utf-8")
-    if len(parts) > 64 or len(encoded) > 4096 or any(len(part.encode("utf-8")) > 255 for part in parts):
-        raise MaterializationError(f"Git path exceeds evidence limits: {value!r}")
+    if len(parts) > MAX_PATH_DEPTH:
+        raise MaterializationError(f"Git path depth exceeds {MAX_PATH_DEPTH}: {value!r}")
+    if len(encoded) > MAX_PATH_BYTES:
+        raise MaterializationError(f"Git path bytes exceed {MAX_PATH_BYTES}: {value!r}")
+    if any(len(part.encode("utf-8")) > MAX_COMPONENT_BYTES for part in parts):
+        raise MaterializationError(f"Git path component exceeds {MAX_COMPONENT_BYTES} bytes: {value!r}")
     return value
+
+
+def _copy_stream(source: Any, destination: Any, size: int) -> tuple[str, int]:
+    digest = hashlib.sha256()
+    remaining = size
+    count = 0
+    while remaining:
+        chunk = source.read(min(STREAM_CHUNK_BYTES, remaining))
+        if not chunk:
+            raise MaterializationError("Git blob ended before its declared size")
+        destination.write(chunk)
+        digest.update(chunk)
+        count += len(chunk)
+        remaining -= len(chunk)
+    return digest.hexdigest(), count
+
+
+def _validate_portable_paths(entries: list[dict[str, Any]]) -> None:
+    portable: dict[str, str] = {}
+    for entry in entries:
+        path = _canonical_manifest_path(entry["path"])
+        normalized_parts: list[str] = []
+        for component in path.split("/"):
+            if unicodedata.normalize("NFC", component) != component:
+                raise MaterializationError(f"Git path is not NFC-normalized: {path!r}")
+            if any(ord(character) < 32 or ord(character) == 127 for character in component):
+                raise MaterializationError(f"Git path contains a control character: {path!r}")
+            if any(character in '<>:"|?*' for character in component):
+                raise MaterializationError(f"Git path contains a Windows-forbidden character: {path!r}")
+            if component.endswith((".", " ")):
+                raise MaterializationError(f"Git path has a trailing dot or space: {path!r}")
+            if component.split(".", 1)[0].casefold() in WINDOWS_RESERVED:
+                raise MaterializationError(f"Git path contains a reserved Windows name: {path!r}")
+            normalized_parts.append(unicodedata.normalize("NFC", component).casefold())
+        key = "/".join(normalized_parts)
+        previous = portable.get(key)
+        if previous is not None and previous != path:
+            raise MaterializationError(f"Git paths collide under portable case/Unicode rules: {previous!r}, {path!r}")
+        portable[key] = path
+
+
+def _enforce_default_limits(entries: list[dict[str, Any]]) -> None:
+    if len(entries) > MAX_MANIFEST_ENTRIES or len(entries) > MAX_DEFAULT_FILES:
+        raise MaterializationError(f"default fixture file count exceeds {MAX_DEFAULT_FILES}")
+    directories: set[str] = set()
+    total_bytes = 0
+    for entry in entries:
+        path = _canonical_manifest_path(entry["path"])
+        size = entry["size"]
+        if size > MAX_DEFAULT_FILE_BYTES:
+            raise MaterializationError(f"default fixture per-file limit exceeds {MAX_DEFAULT_FILE_BYTES} bytes: {path}")
+        total_bytes += size
+        parts = path.split("/")
+        if len(parts) > MAX_PATH_DEPTH:
+            raise MaterializationError(f"default fixture depth exceeds {MAX_PATH_DEPTH}: {path}")
+        directories.update("/".join(parts[:index]) for index in range(1, len(parts)))
+    if total_bytes > MAX_DEFAULT_BYTES:
+        raise MaterializationError(f"default fixture total bytes exceed {MAX_DEFAULT_BYTES}")
+    if len(directories) > MAX_DEFAULT_DIRECTORIES:
+        raise MaterializationError(f"default fixture directory count exceeds {MAX_DEFAULT_DIRECTORIES}")
 
 
 def _resolve_commit(repo: Path, revision: str) -> str:
@@ -176,68 +249,6 @@ def _list_git_entries(repo: Path, commit: str, source_tree: str) -> list[dict[st
     return entries
 
 
-def _select_small(entries: list[dict[str, Any]], max_files: int, max_bytes: int) -> list[dict[str, Any]]:
-    if max_files < 1 or max_bytes < 1:
-        raise MaterializationError("small tier limits must be positive")
-    ranked = sorted(entries, key=lambda entry: (hashlib.sha256(entry["path"].encode("utf-8")).digest(), entry["path"]))
-    selected: list[dict[str, Any]] = []
-    byte_count = 0
-    for entry in ranked:
-        if len(selected) >= max_files:
-            break
-        if byte_count + entry["size"] <= max_bytes:
-            selected.append(entry)
-            byte_count += entry["size"]
-    if not selected:
-        raise MaterializationError("small tier limits select no complete source file")
-    return sorted(selected, key=lambda entry: entry["path"])
-
-
-def _transform_entries(
-    entries: list[dict[str, Any]],
-    tier: str,
-    small_max_files: int,
-    small_max_bytes: int,
-    large_replicas: int,
-) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    if tier == "default":
-        return entries, {
-            "kind": "exact-git-tree",
-            "topology": "source paths preserved",
-            "permission_handling": "regular-file bytes preserved; executable mode not reproduced",
-        }
-    if tier == "small":
-        selected = _select_small(entries, small_max_files, small_max_bytes)
-        return selected, {
-            "kind": "stable-path-hash-subset",
-            "topology": "selected source paths preserved",
-            "ranking": "sha256(UTF-8 source path), then source path",
-            "max_files": small_max_files,
-            "max_bytes": small_max_bytes,
-            "source_file_count": len(entries),
-            "permission_handling": "regular-file bytes preserved; executable mode not reproduced",
-        }
-    if tier == "large":
-        if large_replicas < 2:
-            raise MaterializationError("large tier requires at least two replicas")
-        if len(entries) * large_replicas > MAX_MANIFEST_ENTRIES:
-            raise MaterializationError(f"large tier exceeds {MAX_MANIFEST_ENTRIES} manifest entries")
-        transformed: list[dict[str, Any]] = []
-        for replica in range(large_replicas):
-            prefix = f"replica-{replica:03d}"
-            for entry in entries:
-                transformed.append({**entry, "path": f"{prefix}/{entry['path']}"})
-        transformed.sort(key=lambda entry: entry["path"])
-        return transformed, {
-            "kind": "namespaced-byte-exact-replication",
-            "topology": "replica-NNN/source-path",
-            "replicas": large_replicas,
-            "source_file_count": len(entries),
-            "permission_handling": "regular-file bytes preserved; executable mode not reproduced",
-        }
-    raise MaterializationError(f"unsupported tier: {tier}")
-
-
 def _corpus_tree_sha256(files: list[dict[str, Any]]) -> str:
     digest = hashlib.sha256(b"RCCE-CORPUS-TREE-V1\0")
     previous = ""
@@ -260,11 +271,22 @@ def _corpus_tree_sha256(files: list[dict[str, Any]]) -> str:
     return digest.hexdigest()
 
 
-def _write_json_new(path: Path, value: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("x", encoding="utf-8", newline="\n") as stream:
+def _stage_json(path: Path, value: dict[str, Any]) -> Path:
+    parent = path.parent.resolve(strict=True)
+    descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}.stage-", dir=parent)
+    with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as stream:
         json.dump(value, stream, sort_keys=True, indent=2, ensure_ascii=False)
         stream.write("\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+    return Path(temporary)
+
+
+def _remove_owned(path: Path) -> None:
+    if path.is_dir() and not path.is_symlink():
+        shutil.rmtree(path)
+    elif path.exists() or path.is_symlink():
+        path.unlink()
 
 
 def materialize_fixture(
@@ -277,22 +299,23 @@ def materialize_fixture(
     manifest_path: Path,
     metadata_path: Path,
     captured_at: str,
-    small_max_files: int = DEFAULT_SMALL_MAX_FILES,
-    small_max_bytes: int = DEFAULT_SMALL_MAX_BYTES,
-    large_replicas: int = DEFAULT_LARGE_REPLICAS,
 ) -> dict[str, Any]:
     repo = repo.resolve(strict=True)
     if not (repo / ".git").exists() and not str(_run_git(repo, "rev-parse", "--git-dir")).strip():
         raise MaterializationError("repo is not a Git worktree")
     source_tree = _canonical_source_tree(source_tree)
+    if tier != "default":
+        raise MaterializationError(
+            "only the exact default Git tree is supported; small and large remain unavailable pending schema-aware openable transforms"
+        )
     if not TIMESTAMP_RE.fullmatch(captured_at):
         raise MaterializationError("captured-at must be an explicit UTC timestamp like 2026-07-21T12:00:00Z")
     output = output.absolute()
     source_worktree = (repo / Path(*source_tree.split("/"))).absolute()
     resolved_output = output.resolve(strict=False)
     resolved_source = source_worktree.resolve(strict=False)
-    if resolved_output == resolved_source or resolved_source in resolved_output.parents:
-        raise MaterializationError("output must not be inside the repository source tree")
+    if resolved_output == repo or repo in resolved_output.parents:
+        raise MaterializationError("output must not be inside the repository")
     resolved_manifest = manifest_path.absolute().resolve(strict=False)
     resolved_metadata = metadata_path.absolute().resolve(strict=False)
     for evidence_target in (resolved_manifest, resolved_metadata):
@@ -307,34 +330,38 @@ def materialize_fixture(
 
     commit = _resolve_commit(repo, revision)
     source_entries = _list_git_entries(repo, commit, source_tree)
-    transformed, transform = _transform_entries(
-        source_entries, tier, small_max_files, small_max_bytes, large_replicas
-    )
+    _validate_portable_paths(source_entries)
+    _enforce_default_limits(source_entries)
+    transform = {
+        "kind": "exact-git-tree",
+        "topology": "source paths preserved",
+        "permission_handling": "regular-file bytes preserved; executable mode not reproduced",
+    }
     stage_parent = output.parent.resolve(strict=True)
     stage = Path(tempfile.mkdtemp(prefix=f".{output.name}.stage-", dir=stage_parent))
+    manifest_stage: Path | None = None
+    metadata_stage: Path | None = None
     manifest_files: list[dict[str, Any]] = []
     try:
         with _GitBlobReader(repo) as blob_reader:
-            for entry in transformed:
-                blob = blob_reader.read(entry["oid"], entry["size"])
+            for entry in source_entries:
                 destination = stage.joinpath(*entry["path"].split("/"))
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 with destination.open("xb") as stream:
-                    stream.write(blob)
+                    digest, count = blob_reader.copy(entry["oid"], entry["size"], stream)
                 manifest_files.append({
                     "path": entry["path"],
-                    "size": len(blob),
-                    "sha256": hashlib.sha256(blob).hexdigest(),
+                    "size": count,
+                    "sha256": digest,
                 })
         tree_sha256 = _corpus_tree_sha256(manifest_files)
-        command = (
-            "python3 scripts/materialize_performance_fixtures.py "
-            f"--revision {commit} --source-tree {source_tree} --tier {tier}"
-        )
-        if tier == "small":
-            command += f" --small-max-files {small_max_files} --small-max-bytes {small_max_bytes}"
-        elif tier == "large":
-            command += f" --large-replicas {large_replicas}"
+        command = shlex.join([
+            "python3", str(Path(__file__).resolve()),
+            "--repo", str(repo), "--revision", commit,
+            "--source-tree", source_tree, "--tier", tier,
+            "--output", str(output), "--manifest", str(manifest_path.absolute()),
+            "--metadata", str(metadata_path.absolute()), "--captured-at", captured_at,
+        ])
         artifact = {
             "schema_version": 1,
             "kind": "fixture-materialization",
@@ -356,7 +383,7 @@ def materialize_fixture(
             "kind": "fixture-materialization-preparation",
             "tier": tier,
             "review_status": "pending-human-review",
-            "representativeness": "pending-human-review" if tier in {"small", "large"} else "repository-default-candidate",
+            "representativeness": "repository-default-candidate",
             "source": {
                 "kind": "git-object-database",
                 "revision": commit,
@@ -372,13 +399,23 @@ def materialize_fixture(
             },
             "approval_prohibition": "This preparation artifact is not license, consent, sensitivity, representativeness, fixture, machine, budget, or aggregate approval.",
         }
-        os.replace(stage, output)
-        _write_json_new(manifest_path, artifact)
-        _write_json_new(metadata_path, metadata)
+        manifest_stage = _stage_json(manifest_path, artifact)
+        metadata_stage = _stage_json(metadata_path, metadata)
+        promotions = [(stage, output), (manifest_stage, manifest_path), (metadata_stage, metadata_path)]
+        promoted: list[Path] = []
+        try:
+            for staged, target in promotions:
+                os.replace(staged, target)
+                promoted.append(target)
+        except OSError as exc:
+            for target in reversed(promoted):
+                _remove_owned(target)
+            raise MaterializationError(f"promotion failed; all owned targets rolled back: {exc}") from None
         return artifact
     except Exception:
-        if stage.exists():
-            shutil.rmtree(stage)
+        for owned in (stage, manifest_stage, metadata_stage):
+            if owned is not None:
+                _remove_owned(owned)
         raise
 
 
@@ -392,9 +429,6 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--metadata", type=Path, required=True)
     parser.add_argument("--captured-at", required=True)
-    parser.add_argument("--small-max-files", type=int, default=DEFAULT_SMALL_MAX_FILES)
-    parser.add_argument("--small-max-bytes", type=int, default=DEFAULT_SMALL_MAX_BYTES)
-    parser.add_argument("--large-replicas", type=int, default=DEFAULT_LARGE_REPLICAS)
     return parser.parse_args()
 
 
@@ -410,9 +444,6 @@ def main() -> int:
             manifest_path=args.manifest,
             metadata_path=args.metadata,
             captured_at=args.captured_at,
-            small_max_files=args.small_max_files,
-            small_max_bytes=args.small_max_bytes,
-            large_replicas=args.large_replicas,
         )
     except MaterializationError as exc:
         print(f"materialization rejected: {exc}", file=os.sys.stderr)

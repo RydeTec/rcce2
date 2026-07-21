@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
+import shlex
 import subprocess
 import tempfile
 import unittest
+from unittest import mock
 
+import scripts.materialize_performance_fixtures as materializer
 from scripts.materialize_performance_fixtures import MaterializationError, materialize_fixture
 
 
@@ -79,33 +83,91 @@ class MaterializerTest(unittest.TestCase):
         self.assertEqual(metadata["transform"]["kind"], "exact-git-tree")
         self.assertEqual(metadata["review_status"], "pending-human-review")
 
-    def test_small_selection_is_deterministic_and_records_limits(self) -> None:
-        first_output, first, first_metadata = self.materialize(
-            "small", small_max_files=1, small_max_bytes=1024
-        )
-        second_output, second, second_metadata = self.materialize(
-            "small", small_max_files=1, small_max_bytes=1024
-        )
+    def test_small_and_large_remain_unavailable(self) -> None:
+        for tier in ("small", "large"):
+            with self.subTest(tier=tier), self.assertRaisesRegex(
+                MaterializationError, "only the exact default Git tree"
+            ):
+                self.materialize(tier)
 
-        self.assertEqual(first["payload"], second["payload"])
-        self.assertEqual(
-            sorted(path.relative_to(first_output).as_posix() for path in first_output.rglob("*") if path.is_file()),
-            sorted(path.relative_to(second_output).as_posix() for path in second_output.rglob("*") if path.is_file()),
-        )
-        self.assertEqual(first_metadata["transform"]["kind"], "stable-path-hash-subset")
-        self.assertEqual(first_metadata["transform"]["max_files"], 1)
-        self.assertEqual(second_metadata["representativeness"], "pending-human-review")
+    def test_portable_path_rules_reject_collisions_and_windows_hazards(self) -> None:
+        bad_path_sets = [
+            ["data/Case.txt", "data/case.txt"],
+            ["data/é.txt", "data/e\u0301.txt"],
+            ["data/CON.txt"],
+            ["data/name:stream"],
+            ["data/control\x01.txt"],
+            ["data/trailing. "],
+        ]
+        for paths in bad_path_sets:
+            with self.subTest(paths=paths), self.assertRaises(MaterializationError):
+                materializer._validate_portable_paths([{"path": path, "size": 1} for path in paths])
 
-    def test_large_replication_is_explicit_and_pending_representativeness_review(self) -> None:
-        output, artifact, metadata = self.materialize("large", large_replicas=2)
+    def test_default_limits_are_enforced_before_output(self) -> None:
+        base = {"path": "data/a", "size": 1}
+        cases = [
+            ([{**base, "path": f"data/{index:04d}"} for index in range(4097)], "file count"),
+            ([{**base, "size": 32 * 1024 * 1024 + 1}], "per-file"),
+            ([{**base, "path": f"data/total-{index}", "size": 32 * 1024 * 1024} for index in range(17)], "total bytes"),
+            ([{**base, "path": "data/" + "/".join(f"d{i}" for i in range(64))}], "depth"),
+            ([{**base, "path": "data/" + "x" * 256}], "component"),
+            ([{**base, "path": "/".join(["data"] + ["x" * 70] * 59)}], "path bytes"),
+            ([{**base, "path": "/".join(["data", f"root-{root}"] + [f"d{i}" for i in range(61)] + ["file"])} for root in range(67)], "directory count"),
+        ]
+        for entries, reason in cases:
+            with self.subTest(reason=reason), self.assertRaisesRegex(MaterializationError, reason):
+                materializer._enforce_default_limits(entries)
 
-        paths = [entry["path"] for entry in artifact["payload"]["files"]]
-        self.assertEqual(len(paths), 4)
-        self.assertTrue(all(path.startswith(("replica-000/", "replica-001/")) for path in paths))
-        self.assertEqual(metadata["transform"]["kind"], "namespaced-byte-exact-replication")
-        self.assertEqual(metadata["transform"]["replicas"], 2)
-        self.assertEqual(metadata["representativeness"], "pending-human-review")
-        self.assertEqual((output / "replica-001" / "data" / "alpha.txt").read_bytes(), b"alpha\n")
+    def test_stream_copy_never_requests_a_whole_large_blob(self) -> None:
+        class TrackingReader(io.BytesIO):
+            def __init__(self, value: bytes):
+                super().__init__(value)
+                self.requests: list[int] = []
+
+            def read(self, size: int = -1) -> bytes:
+                self.requests.append(size)
+                return super().read(size)
+
+        source = TrackingReader(b"x" * (materializer.STREAM_CHUNK_BYTES * 3 + 17))
+        destination = io.BytesIO()
+        digest, count = materializer._copy_stream(source, destination, len(source.getvalue()))
+        self.assertEqual(count, len(source.getvalue()))
+        self.assertEqual(digest, hashlib.sha256(source.getvalue()).hexdigest())
+        self.assertLessEqual(max(source.requests), materializer.STREAM_CHUNK_BYTES)
+
+    def test_recorded_command_is_safely_quoted_and_replayable(self) -> None:
+        _, artifact, _ = self.materialize("default")
+        argv = shlex.split(artifact["payload"]["command"])
+        for flag in ("--repo", "--revision", "--source-tree", "--tier", "--output", "--manifest", "--metadata", "--captured-at"):
+            self.assertIn(flag, argv)
+        self.assertEqual(argv[argv.index("--revision") + 1], self.revision)
+
+    def test_promotion_failure_rolls_back_all_owned_targets(self) -> None:
+        real_replace = os.replace
+        for fail_at in (1, 2, 3):
+            output = self.root / f"rollback-output-{fail_at}"
+            manifest = self.root / f"rollback-manifest-{fail_at}.json"
+            metadata = self.root / f"rollback-metadata-{fail_at}.json"
+            calls = 0
+
+            def fail_boundary(source: object, target: object) -> None:
+                nonlocal calls
+                calls += 1
+                if calls == fail_at:
+                    raise OSError("injected promotion failure")
+                real_replace(source, target)
+
+            with self.subTest(fail_at=fail_at), mock.patch.object(materializer.os, "replace", side_effect=fail_boundary):
+                with self.assertRaisesRegex(MaterializationError, "promotion failed"):
+                    materialize_fixture(
+                        repo=self.repo, revision=self.revision, source_tree="data", tier="default",
+                        output=output, manifest_path=manifest, metadata_path=metadata,
+                        captured_at="2026-07-21T12:00:00Z",
+                    )
+            self.assertFalse(output.exists())
+            self.assertFalse(manifest.exists())
+            self.assertFalse(metadata.exists())
+            self.assertEqual(list(self.root.glob(".*stage-*")), [])
 
     @unittest.skipUnless(hasattr(os, "symlink"), "symlinks unavailable")
     def test_rejects_symlink_entries_without_materializing_any_bytes(self) -> None:
@@ -136,7 +198,7 @@ class MaterializerTest(unittest.TestCase):
                 revision=self.revision,
                 source_tree="data",
                 tier="default",
-                output=self.repo / "data" / "generated",
+                output=self.repo / "generated",
                 manifest_path=self.root / "bad-manifest.json",
                 metadata_path=self.root / "bad-metadata.json",
                 captured_at="2026-07-21T12:00:00Z",

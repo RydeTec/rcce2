@@ -3,6 +3,8 @@ param(
     [string]$OutputPath,
     [string]$BenchmarkStoragePath,
     [string]$GpuBackend,
+    [string]$GpuAdapterName,
+    [string]$GpuAdapterDriverVersion,
     [string]$CapturedAtUtc,
     [string]$RustToolchain = "1.85.0",
     [switch]$SelfTest
@@ -15,7 +17,7 @@ $CaptureCommands = @(
     "Get-CimInstance Win32_OperatingSystem",
     "Get-CimInstance Win32_Processor | Select-Object -First 1",
     "Get-CimInstance Win32_ComputerSystem",
-    "Get-CimInstance Win32_VideoController | Select-Object -First 1",
+    "Get-CimInstance Win32_VideoController | match exact harness adapter name and driver version; require one result",
     "Get-CimInstance Win32_Battery",
     "Get-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Enum\DISPLAY\*\*\Device Parameters -Name EDID",
     "Get-ItemProperty HKCU:\Control Panel\Desktop\WindowMetrics -Name AppliedDPI",
@@ -33,9 +35,52 @@ function Assert-HarnessGpuBackend([string]$Value) {
 }
 
 function Assert-UtcTimestamp([string]$Value) {
-    if ($Value -notmatch "^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$") {
-        throw "CapturedAtUtc must be an explicit whole-second UTC timestamp such as 2026-07-21T12:00:00Z."
+    $parsed = [DateTimeOffset]::MinValue
+    $styles = [Globalization.DateTimeStyles]::AssumeUniversal -bor [Globalization.DateTimeStyles]::AdjustToUniversal
+    $valid = [DateTimeOffset]::TryParseExact(
+        $Value, "yyyy-MM-dd'T'HH:mm:ss'Z'", [Globalization.CultureInfo]::InvariantCulture,
+        $styles, [ref]$parsed
+    )
+    if (-not $valid -or $parsed.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'") -ne $Value) {
+        throw "CapturedAtUtc must be a real canonical UTC timestamp such as 2026-07-21T12:00:00Z."
     }
+}
+
+function Select-HarnessGpu($Adapters, [string]$Name, [string]$DriverVersion) {
+    if ([string]::IsNullOrWhiteSpace($Name) -or [string]::IsNullOrWhiteSpace($DriverVersion)) {
+        throw "GpuAdapterName and GpuAdapterDriverVersion must come from the measurement harness."
+    }
+    $matches = @($Adapters | Where-Object { ([string]$_.Name) -eq $Name -and ([string]$_.DriverVersion) -eq $DriverVersion })
+    if ($matches.Count -ne 1) {
+        throw "Harness adapter identity must match exactly one Win32_VideoController; observed $($matches.Count) matches."
+    }
+    return $matches[0]
+}
+
+function Resolve-Rustup {
+    $command = Get-Command rustup.exe -ErrorAction SilentlyContinue
+    if ($null -ne $command) { return $command.Source }
+    $candidate = Join-Path ([Environment]::GetFolderPath("UserProfile")) ".cargo\bin\rustup.exe"
+    if (Test-Path -LiteralPath $candidate -PathType Leaf) { return $candidate }
+    throw "rustup.exe was not found on PATH or in the current user's standard .cargo\\bin directory."
+}
+
+function Invoke-NativeCapture([string]$Executable, [string]$Arguments, [string]$WorkingDirectory) {
+    $start = New-Object System.Diagnostics.ProcessStartInfo
+    $start.FileName = $Executable
+    $start.Arguments = $Arguments
+    $start.WorkingDirectory = $WorkingDirectory
+    $start.UseShellExecute = $false
+    $start.CreateNoWindow = $true
+    $start.RedirectStandardOutput = $true
+    $start.RedirectStandardError = $true
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $start
+    if (-not $process.Start()) { throw "Failed to start native capture command." }
+    $stdout = $process.StandardOutput.ReadToEnd()
+    $stderr = $process.StandardError.ReadToEnd()
+    $process.WaitForExit()
+    return [ordered]@{ exit_code = $process.ExitCode; stdout = $stdout; stderr = $stderr }
 }
 
 function Get-DisplayEdidSummary {
@@ -83,6 +128,24 @@ function Get-BenchmarkStorageBinding([string]$PathValue) {
     }
     $partition = Get-Partition -DriveLetter $driveLetter
     $disk = Get-Disk -Number $partition.DiskNumber
+    $mediaType = "unavailable"
+    $mediaTypeSource = "Win32_DiskDrive fallback"
+    try {
+        $physicalMatches = @(Get-PhysicalDisk -ErrorAction Stop | Where-Object { ([string]$_.DeviceId) -eq ([string]$disk.Number) })
+        if ($physicalMatches.Count -eq 1 -and -not [string]::IsNullOrWhiteSpace([string]$physicalMatches[0].MediaType) -and ([string]$physicalMatches[0].MediaType) -ne "Unspecified") {
+            $mediaType = [string]$physicalMatches[0].MediaType
+            $mediaTypeSource = "Get-PhysicalDisk DeviceId matched to Get-Disk Number"
+        }
+    } catch {
+        # The documented Win32 fallback below remains available on systems
+        # where Storage Spaces cmdlets cannot provide a physical association.
+    }
+    if ($mediaType -eq "unavailable") {
+        $win32Disk = Get-CimInstance Win32_DiskDrive -Filter "Index = $($disk.Number)" | Select-Object -First 1
+        if ($null -ne $win32Disk -and -not [string]::IsNullOrWhiteSpace([string]$win32Disk.MediaType)) {
+            $mediaType = [string]$win32Disk.MediaType
+        }
+    }
     return [ordered]@{
         full_path = $fullPath
         drive_letter = $driveLetter
@@ -90,7 +153,8 @@ function Get-BenchmarkStorageBinding([string]$PathValue) {
         partition_number = [int]$partition.PartitionNumber
         disk_number = [int]$disk.Number
         disk_model = [string]$disk.FriendlyName
-        disk_media_type = [string]$disk.MediaType
+        disk_media_type = $mediaType
+        disk_media_type_source = $mediaTypeSource
         disk_bus_type = [string]$disk.BusType
         disk_size_bytes = [int64]$disk.Size
         binding = "path=$fullPath; drive=$($driveLetter):; filesystem=$($volume.FileSystem); disk=$($disk.Number); partition=$($partition.PartitionNumber); model=$($disk.FriendlyName)"
@@ -100,6 +164,22 @@ function Get-BenchmarkStorageBinding([string]$PathValue) {
 function Invoke-SelfTest {
     Assert-HarnessGpuBackend "wgpu-dx12-from-harness"
     Assert-UtcTimestamp "2026-07-21T12:00:00Z"
+    try {
+        Assert-UtcTimestamp "2026-02-30T12:00:00Z"
+        throw "Self-test accepted an impossible calendar timestamp."
+    } catch {
+        if ($_.Exception.Message -notmatch "real canonical UTC timestamp") { throw }
+    }
+    $duplicateAdapters = @(
+        [pscustomobject]@{ Name = "same"; DriverVersion = "1" },
+        [pscustomobject]@{ Name = "same"; DriverVersion = "1" }
+    )
+    try {
+        Select-HarnessGpu $duplicateAdapters "same" "1"
+        throw "Self-test accepted an ambiguous harness adapter identity."
+    } catch {
+        if ($_.Exception.Message -notmatch "exactly one") { throw }
+    }
     $forbidden = @("Win32_UserAccount", "Win32_NetworkLoginProfile", "Get-Credential", "Get-ChildItem Env:", "Get-Clipboard")
     $joined = $CaptureCommands -join "`n"
     foreach ($needle in $forbidden) {
@@ -131,15 +211,20 @@ $storage = Get-BenchmarkStorageBinding $BenchmarkStoragePath
 $os = Get-CimInstance Win32_OperatingSystem
 $cpu = Get-CimInstance Win32_Processor | Select-Object -First 1
 $computer = Get-CimInstance Win32_ComputerSystem
-$gpu = Get-CimInstance Win32_VideoController | Select-Object -First 1
+$gpu = Select-HarnessGpu @(Get-CimInstance Win32_VideoController) $GpuAdapterName $GpuAdapterDriverVersion
 $batteries = @(Get-CimInstance Win32_Battery -ErrorAction SilentlyContinue)
 $edid = Get-DisplayEdidSummary
 $dpi = Get-ItemProperty -Path "Registry::HKEY_CURRENT_USER\Control Panel\Desktop\WindowMetrics" -Name AppliedDPI -ErrorAction Stop
 $powerPlan = (& powercfg /getactivescheme | Out-String).Trim()
-$rustLines = @(& rustup run $RustToolchain rustc -Vv)
-if ($LASTEXITCODE -ne 0) {
-    throw "rustup run $RustToolchain rustc -Vv failed."
+$rustup = Resolve-Rustup
+if ($RustToolchain -notmatch "^[A-Za-z0-9._-]+$") {
+    throw "RustToolchain contains unsupported characters."
 }
+$rustResult = Invoke-NativeCapture $rustup ("run {0} rustc -Vv" -f $RustToolchain) $storage.full_path
+if ($rustResult.exit_code -ne 0) {
+    throw "rustup run $RustToolchain rustc -Vv failed with exit $($rustResult.exit_code): $($rustResult.stderr)"
+}
+$rustLines = @($rustResult.stdout -split "`r?`n")
 $rustRelease = ($rustLines | Where-Object { $_ -match "^release:" } | Select-Object -First 1) -replace "^release:\s*", ""
 $rustHost = ($rustLines | Where-Object { $_ -match "^host:" } | Select-Object -First 1) -replace "^host:\s*", ""
 $rustLlvm = ($rustLines | Where-Object { $_ -match "^LLVM version:" } | Select-Object -First 1) -replace "^LLVM version:\s*", ""
@@ -164,7 +249,7 @@ $profile = [ordered]@{
         gpu_backend = $GpuBackend
         gpu_driver_version = [string]$gpu.DriverVersion
         storage_model = $storage.disk_model
-        storage_media_type = "$($storage.disk_media_type); bus=$($storage.disk_bus_type)"
+        storage_media_type = "$($storage.disk_media_type); source=$($storage.disk_media_type_source); bus=$($storage.disk_bus_type)"
         storage_device_bytes = $storage.disk_size_bytes
         filesystem = $storage.filesystem
         display_width_pixels = [int]$gpu.CurrentHorizontalResolution
@@ -204,6 +289,21 @@ if (-not (Test-Path -LiteralPath $parent -PathType Container)) {
 }
 $json = $profile | ConvertTo-Json -Depth 8
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-[System.IO.File]::WriteAllText([System.IO.Path]::GetFullPath($OutputPath), $json + "`n", $utf8NoBom)
+$target = [System.IO.Path]::GetFullPath($OutputPath)
+$temporary = Join-Path $parent ("." + [System.IO.Path]::GetFileName($target) + ".stage-" + [Guid]::NewGuid().ToString("N"))
+$bytes = $utf8NoBom.GetBytes($json + "`n")
+$stream = $null
+try {
+    $stream = New-Object System.IO.FileStream($temporary, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+    $stream.Write($bytes, 0, $bytes.Length)
+    $stream.Flush($true)
+    $stream.Dispose()
+    $stream = $null
+    [System.IO.File]::Move($temporary, $target)
+} catch {
+    if ($null -ne $stream) { $stream.Dispose() }
+    if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary -Force }
+    throw
+}
 Write-Output "Windows performance reference candidate profile captured: $OutputPath"
 Write-Output "approval status: pending human review"
