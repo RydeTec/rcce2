@@ -41,7 +41,7 @@ Function ServerEventDrainUsesAfterCursor%()
 		Else If Stage = 4
 			If Instr(Line$, "ENext = After E") > 0 Then Stage = 5
 		Else If Stage = 5
-			If Instr(Line$, "Select E\\EventID") > 0 Then Stage = 6
+			If Instr(Line$, "Select E\EventID") > 0 Then Stage = 6
 		Else If Stage = 6
 			If Trim$(Line$) = "Delete E"
 				Stage = 7
