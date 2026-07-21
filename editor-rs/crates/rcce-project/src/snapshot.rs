@@ -2,9 +2,10 @@ use crate::classification::classify;
 use crate::fingerprint::SourceFingerprint;
 use crate::inventory::{provenance, InventoryFile, ProjectInventory, UnavailableEntry};
 use crate::root::{
-    MetadataBudget, MetadataKind, MetadataLocation, ProjectRoot, ReadAssurance, ReadBudget,
-    RootControl, RootError, RootErrorCode,
+    MetadataBudget, MetadataEntry, MetadataKind, MetadataLocation, ProjectRoot, ReadAssurance,
+    ReadBudget, RootControl, RootError, RootErrorCode,
 };
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ScanControl {
@@ -45,10 +46,21 @@ impl From<RootError> for SnapshotError {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct ProjectSnapshot {
     inventory: ProjectInventory,
+    // Metadata entries retain only immutable enumeration identity tokens. The
+    // backend deliberately closes every enumerated file before returning.
+    pub(crate) bound_entries: Arc<[MetadataEntry]>,
 }
+
+impl PartialEq for ProjectSnapshot {
+    fn eq(&self, other: &Self) -> bool {
+        self.inventory == other.inventory
+    }
+}
+
+impl Eq for ProjectSnapshot {}
 
 impl ProjectSnapshot {
     pub fn load(
@@ -89,7 +101,7 @@ impl ProjectSnapshot {
         let mut files = Vec::with_capacity(total_files as usize);
         let mut unavailable = Vec::with_capacity(unavailable_count as usize);
         let mut completed_bytes = 0_u64;
-        for entry in metadata.entries {
+        for entry in &metadata.entries {
             match entry.kind {
                 MetadataKind::File { size } => {
                     let path = match &entry.location {
@@ -97,7 +109,7 @@ impl ProjectSnapshot {
                         MetadataLocation::Opaque(_) => return Err(SnapshotError::MetadataChanged),
                     };
                     let accepted = match root.read_enumerated_controlled(
-                        &entry,
+                        entry,
                         ReadBudget { max_bytes: size },
                         assurance,
                         || match control() {
@@ -147,7 +159,7 @@ impl ProjectSnapshot {
                     });
                 }
                 MetadataKind::Unavailable(reason) => unavailable.push(UnavailableEntry {
-                    location: entry.location,
+                    location: entry.location.clone(),
                     reason,
                 }),
                 MetadataKind::Directory => {}
@@ -163,6 +175,7 @@ impl ProjectSnapshot {
         });
         Ok(Self {
             inventory: ProjectInventory::from_parts(files, unavailable),
+            bound_entries: metadata.entries.into(),
         })
     }
 

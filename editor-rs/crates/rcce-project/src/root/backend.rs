@@ -144,7 +144,6 @@ pub(crate) enum EntryToken {
         size: u64,
         modified_seconds: u64,
         modified_nanoseconds: u32,
-        opened: cap_std::fs::File,
     },
 }
 
@@ -340,7 +339,6 @@ mod windows {
     use cap_fs_ext::{DirExt, FollowSymlinks, MetadataExt, OpenOptionsFollowExt};
     use cap_std::fs::{Dir, File, OpenOptions};
     use std::os::windows::ffi::OsStrExt;
-    use std::os::windows::fs::FileExt as WindowsFileExt;
     use std::os::windows::fs::OpenOptionsExt;
     use windows_sys::Win32::Storage::FileSystem::{
         FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT,
@@ -509,7 +507,6 @@ mod windows {
                 size,
                 modified_seconds,
                 modified_nanoseconds,
-                opened: retained,
             } = token;
             let components = path.split('/').collect::<Vec<_>>();
             if components.is_empty() {
@@ -568,7 +565,8 @@ mod windows {
                     limit: "max_single_file_bytes",
                 });
             }
-            let opened_metadata = checked_file_metadata(retained, path, self.identity.volume)?;
+            let mut opened = open_file_nofollow(&current, name, path)?;
+            let opened_metadata = checked_file_metadata(&opened, path, self.identity.volume)?;
             if identity(&opened_metadata)
                 != (Identity {
                     volume: *volume,
@@ -583,30 +581,19 @@ mod windows {
                     reason: "enumerated file identity changed while opening",
                 });
             }
-            let opened = retained
-                .try_clone()
-                .map_err(|error| BackendError::io("clone retained bound file", path, error))?
-                .into_std();
             let mut bytes = Vec::with_capacity(usize::try_from(*size).unwrap_or(0));
             let mut buffer = [0_u8; 64 * 1024];
-            let mut offset = 0_u64;
             loop {
                 if !control() {
                     return Ok(None);
                 }
                 let count = opened
-                    .seek_read(&mut buffer, offset)
+                    .read(&mut buffer)
                     .map_err(|error| BackendError::io("read bound file chunk", path, error))?;
                 if count == 0 {
                     break;
                 }
                 bytes.extend_from_slice(&buffer[..count]);
-                offset = offset.checked_add(count as u64).ok_or_else(|| {
-                    BackendError::ResourceLimit {
-                        path: path.to_owned(),
-                        limit: "observed byte overflow",
-                    }
-                })?;
                 if bytes.len() as u64 > max_bytes {
                     return Err(BackendError::ResourceLimit {
                         path: path.to_owned(),
@@ -614,7 +601,7 @@ mod windows {
                     });
                 }
             }
-            let after = checked_file_metadata(retained, path, self.identity.volume)?;
+            let after = checked_file_metadata(&opened, path, self.identity.volume)?;
             if identity(&after)
                 != (Identity {
                     volume: *volume,
@@ -1200,7 +1187,6 @@ mod windows {
                         size,
                         modified_seconds,
                         modified_nanoseconds,
-                        opened: file,
                     }),
                 });
             } else {

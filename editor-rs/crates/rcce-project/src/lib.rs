@@ -1,6 +1,7 @@
 //! Root-confined RCCE project-model boundary.
 
 pub mod classification;
+pub mod consensus;
 pub mod fingerprint;
 pub mod identity;
 pub mod inventory;
@@ -11,6 +12,10 @@ pub mod snapshot;
 pub use classification::{
     classify, matrix_applicability, Classification, CompatibilityLevel, ConstraintEvidence,
     MatrixApplicability, StateClass, MATRIX_FAMILY_IDS, PROJECT_FORMAT_RULES_VERSION,
+};
+pub use consensus::{
+    ActorCountEvidence, ActorMediaAvailability, ActorMediaConsensus, ActorMediaOutcome,
+    CatalogTopologyEvidence, ConsensusLevel, ConsensusLoadError,
 };
 pub use fingerprint::{SourceFingerprint, TreeFingerprint};
 pub use identity::{

@@ -8,6 +8,8 @@ publish.workspace = true
 description = "Root-confined project-model boundary for the RCCE Rust editor."
 
 [dependencies]
+rcce-data = { path = "../../../client-rs/crates/rcce-data" }
+rcce-server-core = { path = "../../../server-rs/crates/rcce-server-core" }
 sha2 = "0.10"
 unicode-normalization = "0.1"
 

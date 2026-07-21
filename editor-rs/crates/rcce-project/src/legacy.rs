@@ -494,7 +494,6 @@ pub struct LegacyDocument<T> {
 impl<T> LegacyDocument<T> {
     /// Internal seam reserved for a loader that has already bound these bytes
     /// to the consumed inventory record. P04 exposes no public binding path.
-    #[cfg(test)]
     pub(crate) fn from_inventory_binding(
         original_bytes: Arc<[u8]>,
         value: T,

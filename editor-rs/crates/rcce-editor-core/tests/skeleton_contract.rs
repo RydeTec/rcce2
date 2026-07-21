@@ -15,7 +15,7 @@ const EXPECTED_CRATES: [&str; 8] = [
     "rcce-validation",
 ];
 
-const EXPECTED_FILES: [&str; 32] = [
+const EXPECTED_FILES: [&str; 56] = [
     ".gitignore",
     "Cargo.lock",
     "Cargo.toml",
@@ -33,6 +33,7 @@ const EXPECTED_FILES: [&str; 32] = [
     "crates/rcce-project-cli/src/main.rs",
     "crates/rcce-project/Cargo.toml",
     "crates/rcce-project/src/classification.rs",
+    "crates/rcce-project/src/consensus.rs",
     "crates/rcce-project/src/fingerprint.rs",
     "crates/rcce-project/src/identity.rs",
     "crates/rcce-project/src/inventory.rs",
@@ -41,6 +42,7 @@ const EXPECTED_FILES: [&str; 32] = [
     "crates/rcce-project/src/root/backend.rs",
     "crates/rcce-project/src/root/mod.rs",
     "crates/rcce-project/src/snapshot.rs",
+    "crates/rcce-project/tests/consensus.rs",
     "crates/rcce-project/tests/identity_provenance.rs",
     "crates/rcce-project/tests/inventory.rs",
     "crates/rcce-project/tests/root_confinement.rs",
@@ -48,6 +50,28 @@ const EXPECTED_FILES: [&str; 32] = [
     "crates/rcce-storage/src/lib.rs",
     "crates/rcce-validation/Cargo.toml",
     "crates/rcce-validation/src/lib.rs",
+    "test-data/consensus/README.md",
+    "test-data/consensus/SHA256SUMS",
+    "test-data/consensus/duplicate-id/Data/Server Data/Actors.dat",
+    "test-data/consensus/happy/Data/Game Data/Meshes.dat",
+    "test-data/consensus/happy/Data/Meshes/Hero.b3d",
+    "test-data/consensus/happy/Data/Server Data/Actors.dat",
+    "test-data/consensus/manifest.json",
+    "test-data/consensus/missing-catalog/Data/Server Data/Actors.dat",
+    "test-data/consensus/missing-physical/Data/Game Data/Meshes.dat",
+    "test-data/consensus/missing-physical/Data/Server Data/Actors.dat",
+    "test-data/consensus/nested-paths/Data/Game Data/Meshes.dat",
+    "test-data/consensus/nested-paths/Data/Meshes/Creatures/Wolf.b3d",
+    "test-data/consensus/nested-paths/Data/Server Data/Actors.dat",
+    "test-data/consensus/nested-traversal/Data/Game Data/Meshes.dat",
+    "test-data/consensus/nested-traversal/Data/Server Data/Actors.dat",
+    "test-data/consensus/provisional/Data/Game Data/Meshes.dat",
+    "test-data/consensus/provisional/Data/Meshes/outside-slice.b3d",
+    "test-data/consensus/provisional/Data/Server Data/Actors.dat",
+    "test-data/consensus/unique-case/Data/Game Data/Meshes.dat",
+    "test-data/consensus/unique-case/Data/Meshes/MAGE.B3D",
+    "test-data/consensus/unique-case/Data/Meshes/hErO.B3D",
+    "test-data/consensus/unique-case/Data/Server Data/Actors.dat",
 ];
 
 fn workspace_root() -> PathBuf {
@@ -139,7 +163,12 @@ fn expected_normal_dependencies() -> BTreeMap<&'static str, BTreeSet<&'static st
         ),
         (
             "rcce-project",
-            BTreeSet::from(["sha2", "unicode-normalization"]),
+            BTreeSet::from([
+                "rcce-data",
+                "rcce-server-core",
+                "sha2",
+                "unicode-normalization",
+            ]),
         ),
         ("rcce-project-cli", BTreeSet::new()),
         ("rcce-storage", BTreeSet::new()),
@@ -181,6 +210,11 @@ fn expected_targets() -> BTreeMap<&'static str, BTreeSet<(&'static str, &'static
             "rcce-project",
             BTreeSet::from([
                 ("rcce_project", "lib", "crates/rcce-project/src/lib.rs"),
+                (
+                    "consensus",
+                    "test",
+                    "crates/rcce-project/tests/consensus.rs",
+                ),
                 (
                     "identity_provenance",
                     "test",

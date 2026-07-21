@@ -87,22 +87,77 @@ pub struct ActorCatalog {
     pub templates: HashMap<u16, ActorTemplate>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RawSpan {
+    pub start: usize,
+    pub end: usize,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ActorRecordEvidence {
+    pub id: u16,
+    pub span: RawSpan,
+    pub race_span: RawSpan,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ActorParseCompletion {
+    Complete,
+    Malformed { offset: usize },
+    NegativeIdTerminator { offset: usize, raw: u16 },
+}
+
+#[derive(Clone, Debug)]
+pub struct ActorParseEvidence {
+    pub value: ActorCatalog,
+    pub records: Vec<ActorRecordEvidence>,
+    pub completion: ActorParseCompletion,
+}
+
 impl ActorCatalog {
     /// Parse the catalog from raw `Actors.dat` bytes. Stops at the first
     /// malformed record (a bad id or stream underflow), keeping whatever parsed
     /// cleanly — matching `LoadActors`'s `Exit`-on-bad-id behavior. Never panics.
     pub fn parse(data: &[u8]) -> Self {
+        Self::parse_with_evidence(data).value
+    }
+
+    /// Parse with additive byte spans and the exact completion reason.
+    pub fn parse_with_evidence(data: &[u8]) -> ActorParseEvidence {
         let mut r = Reader::new(data);
         let mut templates = HashMap::new();
+        let mut records = Vec::new();
+        let mut completion = ActorParseCompletion::Complete;
         while !r.at_end() {
+            let start = r.pos();
             match read_template(&mut r) {
-                Some(t) => {
+                TemplateRead::Record(t, race_span) => {
+                    let t = *t;
+                    records.push(ActorRecordEvidence {
+                        id: t.id,
+                        span: RawSpan {
+                            start,
+                            end: r.pos(),
+                        },
+                        race_span,
+                    });
                     templates.insert(t.id, t);
                 }
-                None => break,
+                TemplateRead::NegativeId(raw) => {
+                    completion = ActorParseCompletion::NegativeIdTerminator { offset: start, raw };
+                    break;
+                }
+                TemplateRead::Malformed => {
+                    completion = ActorParseCompletion::Malformed { offset: start };
+                    break;
+                }
             }
         }
-        Self { templates }
+        ActorParseEvidence {
+            value: Self { templates },
+            records,
+            completion,
+        }
     }
 
     /// Load and parse the catalog from a file path. A missing file yields an
@@ -135,100 +190,133 @@ fn read_i16_array<const N: usize>(r: &mut Reader) -> Option<[i16; N]> {
     Some(a)
 }
 
-fn read_template(r: &mut Reader) -> Option<ActorTemplate> {
-    let id_raw = r.i16()?;
+enum TemplateRead {
+    Record(Box<ActorTemplate>, RawSpan),
+    NegativeId(u16),
+    Malformed,
+}
+
+fn read_template(r: &mut Reader) -> TemplateRead {
+    let Some(id_raw) = r.i16() else {
+        return TemplateRead::Malformed;
+    };
     // `If A\ID < 0 … Exit` — a negative id ends the load (partial state kept).
     if id_raw < 0 {
-        return None;
+        return TemplateRead::NegativeId(id_raw as u16);
     }
     let id = id_raw as u16;
-    let race = r.string(256)?;
-    let class = r.string(256)?;
-    let description = r.string(4096)?;
-    let start_area = r.string(256)?;
-    let start_portal = r.string(256)?;
-    let mut m_animation_set = r.i16()?;
-    let mut f_animation_set = r.i16()?;
+    let race_prefix = r.pos();
+    let Some(race) = r.string(256) else {
+        return TemplateRead::Malformed;
+    };
+    let race_span = RawSpan {
+        start: race_prefix + 4,
+        end: r.pos(),
+    };
+    let Some(class) = r.string(256) else {
+        return TemplateRead::Malformed;
+    };
+    let Some(description) = r.string(4096) else {
+        return TemplateRead::Malformed;
+    };
+    let Some(start_area) = r.string(256) else {
+        return TemplateRead::Malformed;
+    };
+    let Some(start_portal) = r.string(256) else {
+        return TemplateRead::Malformed;
+    };
+    let Some(mut m_animation_set) = r.i16() else {
+        return TemplateRead::Malformed;
+    };
+    let Some(mut f_animation_set) = r.i16() else {
+        return TemplateRead::Malformed;
+    };
     if !(0..=999).contains(&m_animation_set) {
         m_animation_set = 0;
     }
     if !(0..=999).contains(&f_animation_set) {
         f_animation_set = 0;
     }
-    let scale = r.f32()?;
-    let radius = r.f32()?;
-    let mesh_ids = read_i16_array::<8>(r)?;
-    let beard_ids = read_i16_array::<5>(r)?;
-    let male_hair_ids = read_i16_array::<5>(r)?;
-    let female_hair_ids = read_i16_array::<5>(r)?;
-    let male_face_ids = read_i16_array::<5>(r)?;
-    let female_face_ids = read_i16_array::<5>(r)?;
-    let male_body_ids = read_i16_array::<5>(r)?;
-    let female_body_ids = read_i16_array::<5>(r)?;
-    let m_speech_ids = read_i16_array::<16>(r)?;
-    let f_speech_ids = read_i16_array::<16>(r)?;
-    let blood_tex_id = r.i16()?;
-    let mut attr_value = [0i16; 40];
-    let mut attr_maximum = [0i16; 40];
-    for i in 0..40 {
-        attr_value[i] = r.i16()?;
-        attr_maximum[i] = r.i16()?;
-    }
-    let resistances = read_i16_array::<20>(r)?;
-    let genders = r.u8()?;
-    let playable = r.u8()? != 0;
-    let rideable = r.u8()? != 0;
-    let aggressiveness = r.u8()?;
-    let aggressive_range = r.i32()?;
-    let trade_mode = r.u8()?;
-    let environment = r.u8()?;
-    let inventory_slots = r.i32()?;
-    let default_damage_type = r.u8()?;
-    let mut default_faction = r.u8()?;
-    if default_faction > 99 {
-        default_faction = 0;
-    }
-    let xp_multiplier = r.i32()?;
-    let poly_collision = r.u8()?;
+    let parsed = (|| {
+        let scale = r.f32()?;
+        let radius = r.f32()?;
+        let mesh_ids = read_i16_array::<8>(r)?;
+        let beard_ids = read_i16_array::<5>(r)?;
+        let male_hair_ids = read_i16_array::<5>(r)?;
+        let female_hair_ids = read_i16_array::<5>(r)?;
+        let male_face_ids = read_i16_array::<5>(r)?;
+        let female_face_ids = read_i16_array::<5>(r)?;
+        let male_body_ids = read_i16_array::<5>(r)?;
+        let female_body_ids = read_i16_array::<5>(r)?;
+        let m_speech_ids = read_i16_array::<16>(r)?;
+        let f_speech_ids = read_i16_array::<16>(r)?;
+        let blood_tex_id = r.i16()?;
+        let mut attr_value = [0i16; 40];
+        let mut attr_maximum = [0i16; 40];
+        for i in 0..40 {
+            attr_value[i] = r.i16()?;
+            attr_maximum[i] = r.i16()?;
+        }
+        let resistances = read_i16_array::<20>(r)?;
+        let genders = r.u8()?;
+        let playable = r.u8()? != 0;
+        let rideable = r.u8()? != 0;
+        let aggressiveness = r.u8()?;
+        let aggressive_range = r.i32()?;
+        let trade_mode = r.u8()?;
+        let environment = r.u8()?;
+        let inventory_slots = r.i32()?;
+        let default_damage_type = r.u8()?;
+        let mut default_faction = r.u8()?;
+        if default_faction > 99 {
+            default_faction = 0;
+        }
+        let xp_multiplier = r.i32()?;
+        let poly_collision = r.u8()?;
 
-    Some(ActorTemplate {
-        id,
-        race,
-        class,
-        description,
-        start_area,
-        start_portal,
-        m_animation_set,
-        f_animation_set,
-        scale,
-        radius,
-        mesh_ids,
-        beard_ids,
-        male_hair_ids,
-        female_hair_ids,
-        male_face_ids,
-        female_face_ids,
-        male_body_ids,
-        female_body_ids,
-        m_speech_ids,
-        f_speech_ids,
-        blood_tex_id,
-        attr_value,
-        attr_maximum,
-        resistances,
-        genders,
-        playable,
-        rideable,
-        aggressiveness,
-        aggressive_range,
-        trade_mode,
-        environment,
-        inventory_slots,
-        default_damage_type,
-        default_faction,
-        xp_multiplier,
-        poly_collision,
-    })
+        Some(ActorTemplate {
+            id,
+            race,
+            class,
+            description,
+            start_area,
+            start_portal,
+            m_animation_set,
+            f_animation_set,
+            scale,
+            radius,
+            mesh_ids,
+            beard_ids,
+            male_hair_ids,
+            female_hair_ids,
+            male_face_ids,
+            female_face_ids,
+            male_body_ids,
+            female_body_ids,
+            m_speech_ids,
+            f_speech_ids,
+            blood_tex_id,
+            attr_value,
+            attr_maximum,
+            resistances,
+            genders,
+            playable,
+            rideable,
+            aggressiveness,
+            aggressive_range,
+            trade_mode,
+            environment,
+            inventory_slots,
+            default_damage_type,
+            default_faction,
+            xp_multiplier,
+            poly_collision,
+        })
+    })();
+    match parsed {
+        Some(template) => TemplateRead::Record(Box::new(template), race_span),
+        None => TemplateRead::Malformed,
+    }
 }
 
 #[cfg(test)]
@@ -249,7 +337,10 @@ mod tests {
             return;
         }
         let cat = ActorCatalog::load(&path);
-        assert!(!cat.is_empty(), "shipped Actors.dat should yield >=1 template");
+        assert!(
+            !cat.is_empty(),
+            "shipped Actors.dat should yield >=1 template"
+        );
         // Every template should have a non-empty race and parse cleanly; a
         // playable race should name a start area.
         for t in cat.templates.values() {
