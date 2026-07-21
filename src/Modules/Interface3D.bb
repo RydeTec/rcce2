@@ -418,7 +418,11 @@ Function UpdateInterface()
 	; Cycle target
 	If ControlHit(Key_CycleTarget)
 		StartAI.ActorInstance = Object.ActorInstance(PlayerTarget)
-		If StartAI = Null Then StartAI = First ActorInstance
+		If StartAI = Null
+			PlayerTarget = 0
+			StartAI = First ActorInstance
+			If StartAI = Null Then Return
+		EndIf
 		AI.ActorInstance = StartAI
 		Repeat
 			AI = After AI
