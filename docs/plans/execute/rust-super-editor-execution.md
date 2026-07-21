@@ -6,7 +6,7 @@
 - **Requirements authority**: [`../plan/rust-super-editor-engine-migration.md`](../plan/rust-super-editor-engine-migration.md)
 - **Packet/dependency authority**: [`../plan/rust-super-editor-implementation.md`](../plan/rust-super-editor-implementation.md)
 - **Current base**: `origin/develop` at `ee0977405cdee6591e6facdb9b88794d21ba65d3`; accepted packet worktrees were authored from `23ef44f6` and the intervening upstream delta is disjoint
-- **Program status**: M0 in progress; P01, P02, P03, P04, and P06 accepted and integrated; P05 and P07 implementing in parallel
+- **Program status**: all seven M0 packets accepted and integrated; independent M0 exit-gate review pending
 
 This ledger records execution state. It does not weaken packet acceptance, compatibility, safety, or retirement gates in the authorities above.
 
@@ -73,17 +73,20 @@ Prepared integration lane:
 | `SE-M0-P03` Rust baselines | `Accepted and integrated` | Two-document spec/quality acceptance; client full-workspace gates truthfully blocked on ALSA, server `267/0`, diagnostic subset `147/0`, 48 dependency rows; blobs `01ae6358...` and `c2bc9c87...` | Source `3e348a96`; program `b77ef1bc` |
 | `SE-M0-P04` Corpus policy | `Accepted and integrated` | Spec/quality/final-delta acceptance; closed Draft 2020-12 schema, permanent-history consent, withdrawal limits, pre-open ceilings; four frozen SHA-256 hashes recorded in review | Source `e0b04c6e`; program `a33cb8cb` |
 | `SE-M0-P06` ADR set | `Accepted and integrated` | Spec/quality/final-delta acceptance; nine decisions, aggregate SHA-256 `3cdddc66cc475829917bdae0d0a8ad90bc77514c2b63709674589d265df0677e` | Source `04384d97`; program `a24baf89` |
+| `SE-M0-P07` State classes | `Accepted and integrated` | Spec/quality/final-delta acceptance; exact seven classes, eight operation policies, 17 classification cases, six hostile tree cases; aggregate `c57bd5ed...` | Source `ddd838e7`; program `51ef6317` |
+| `SE-M0-P05` Safe scanner | `Accepted and integrated` | Spec/quality/final-delta acceptance; Linux 36/0 and Windows 25/0, exact P07 oracle, pinned schema, no-follow/reparse/hardlink/mount/redaction proofs; aggregate `e52066f8...` | Source `4d9b8b66`; program `1823669b` |
 
-Active implementation lanes:
+Completed implementation lanes:
 
-- `SE-M0-P05`: `/home/ryan/.codex/worktrees/super-editor/m0-p05-safe-scanner`, branch `coreyrdean/super-editor-m0-p05`, base `a33cb8cb`;
-- `SE-M0-P07`: `/home/ryan/.codex/worktrees/super-editor/m0-p07-state-classes`, branch `coreyrdean/super-editor-m0-p07`, fast-forwarded to `a33cb8cb`.
+- `SE-M0-P05`: `/home/ryan/.codex/worktrees/super-editor/m0-p05-safe-scanner`, source branch `coreyrdean/super-editor-m0-p05`;
+- `SE-M0-P07`: `/home/ryan/.codex/worktrees/super-editor/m0-p07-state-classes`, source branch `coreyrdean/super-editor-m0-p07`;
+- hardlink/Secret-memory evidence correction: source `1f29d6ba`, program `f47ef496`, final ADR aggregate `dc8047eabc29d869c3246b38a2cc83d1a495a9689bc81385919164e7c6df26da`.
 
 ## Milestone register
 
 | Milestone | Status | Accepted packets | Next gate |
 |---|---|---|---|
-| M0 | In progress | P01, P02, P03, P04, P06 | Accept and integrate P05/P07, then run the M0 exit-gate review |
+| M0 | Exit review | P01, P02, P03, P04, P05, P06, P07 | Independent integrated review of tasks 1–8 and exact-head evidence |
 | M1 | Planned | — | M0 accepted |
 | M2 | Planned | — | M1 accepted |
 | M3 | Planned | — | M2 accepted |
@@ -118,9 +121,13 @@ Active implementation lanes:
 - `2026-07-20` — P06 passed specification, quality, and final specification-delta review after strengthening recovery durability, journal torn-write handling, replacement authority, hardlink confinement, external-operation lifecycle, plugin isolation, and UI measurement. Committed as `04384d97` and integrated as `a24baf89`; aggregate hash reproduced after integration.
 - `2026-07-20` — P04 passed specification, quality, and final specification-delta review after adding a closed machine-readable schema, permanent-public-history consent semantics, withdrawal limits, and pre-open traversal ceilings. Committed as `e0b04c6e` and integrated as `a33cb8cb`; all four accepted hashes reproduced.
 - `2026-07-20` — Dependency-ready P05 and P07 implementation worktrees started from exact accepted program head `a33cb8cb`; owned paths are disjoint and neither may mutate a real project corpus.
+- `2026-07-20` — P07 passed fresh specification, different quality, and final delta review; committed as `ddd838e7` and integrated as `51ef6317`. Integrated validator self-test passed 17 classification and six hostile tree cases at aggregate `c57bd5ed...`.
+- `2026-07-20` — Implementation evidence forced a reviewed ADR-0003/0005/0007 correction for transient hardlinks, speculative read quarantine, and Secret-memory authority. After spec/quality/delta acceptance it was committed as `1f29d6ba` and integrated as `f47ef496`; final aggregate `dc8047eabc29d869c3246b38a2cc83d1a495a9689bc81385919164e7c6df26da` reproduced.
+- `2026-07-20` — P05 passed fresh specification, different quality, and final delta review after closing schema trust, registry-oracle, Windows reparse, mount, hardlink-race, and error-redaction findings. Source `4d9b8b66` integrated as `1823669b`; integrated Rust 1.85 tests passed 36/0 and strict Clippy passed.
+- `2026-07-20` — Draft PR `#833` preserves the program branch. Exact-head CI passed at `51ef6317`; later integrated heads require their own refreshed checks before any merge claim.
 
 ## Next actions
 
-1. Complete independent specification and quality review for P05 and P07.
-2. Integrate accepted P05/P07 and run the complete M0 exit-gate review against tasks 1–8.
+1. Run the complete independent M0 exit-gate review against tasks 1–8 on the integrated head.
+2. Correct any integrated evidence or contract regressions and obtain exit acceptance.
 3. Start the M1 read-only project-platform child packets only after M0 is accepted.
