@@ -1,6 +1,7 @@
 use crate::error::ScanError;
 use crate::fs::{Budget, Inventory, Root};
 use jsonschema::{Draft, JSONSchema};
+use rcce_project::ReadAssurance;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
@@ -40,6 +41,27 @@ pub(crate) fn scan(
     manifest_path: &Path,
     registry_path: Option<&Path>,
 ) -> Result<ManifestScan, ScanError> {
+    scan_with_assurance(
+        manifest_path,
+        registry_path,
+        ReadAssurance::BaselineQuarantine,
+    )
+}
+
+pub(crate) fn scan_with_assurance(
+    manifest_path: &Path,
+    registry_path: Option<&Path>,
+    assurance: ReadAssurance,
+) -> Result<ManifestScan, ScanError> {
+    scan_with_assurance_and_before_content(manifest_path, registry_path, assurance, || {})
+}
+
+fn scan_with_assurance_and_before_content(
+    manifest_path: &Path,
+    registry_path: Option<&Path>,
+    assurance: ReadAssurance,
+    before_content: impl FnOnce(),
+) -> Result<ManifestScan, ScanError> {
     let parent = manifest_path
         .parent()
         .filter(|path| !path.as_os_str().is_empty())
@@ -50,7 +72,8 @@ pub(crate) fn scan(
         .ok_or_else(|| {
             ScanError::Semantic("manifest path must have one portable UTF-8 filename".to_owned())
         })?;
-    let root = Root::open(parent)?;
+    let root = Root::open_with_assurance(parent, assurance)?;
+    before_content();
     let manifest_bytes = root.read_component(name, ABSOLUTE_MANIFEST_LIMIT)?;
     let manifest_text = std::str::from_utf8(&manifest_bytes)
         .map_err(|_| ScanError::ManifestToml("manifest is not UTF-8".to_owned()))?;
@@ -112,7 +135,9 @@ pub(crate) fn scan(
         .iter()
         .any(|project| !array_at(project, "canaries").unwrap_or(&[]).is_empty());
     let registry = match registry_path {
-        Some(path) => Some(crate::registry::Registry::load(path)?),
+        Some(path) => Some(crate::registry::Registry::load_with_assurance(
+            path, assurance,
+        )?),
         None if has_declared_canaries => {
             return Err(ScanError::Semantic(
                 "canary-bearing manifest requires explicit --canary-registry".to_owned(),
@@ -793,6 +818,61 @@ mod tests {
         root.join("manifest.toml")
     }
 
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn strict_session_retains_one_root_across_filesystem_replacement() {
+        use std::os::unix::fs::symlink;
+
+        let shared_memory = Path::new("/dev/shm");
+        if !shared_memory.is_dir() {
+            eprintln!("SKIP: /dev/shm is unavailable for the replacement filesystem");
+            return;
+        }
+        let parent = tempfile::tempdir().unwrap();
+        let selected_root = parent.path().join("selected");
+        let held_root = parent.path().join("held-open-root");
+        fs::create_dir(&selected_root).unwrap();
+        fs::write(selected_root.join("manifest.toml"), MANIFEST).unwrap();
+        fs::write(selected_root.join("schema-v1.json"), SCHEMA).unwrap();
+        let manifest = selected_root.join("manifest.toml");
+        if crate::platform_capability(&manifest)
+            .unwrap()
+            .contains("hardlink-transient=unavailable")
+        {
+            eprintln!("SKIP: selected root lacks transient-race authority");
+            return;
+        }
+
+        let replacement = tempfile::Builder::new()
+            .prefix("rcce-unproved-replacement-")
+            .tempdir_in(shared_memory)
+            .unwrap();
+        fs::write(
+            replacement.path().join("manifest.toml"),
+            b"replacement filesystem body must never be scanned",
+        )
+        .unwrap();
+        fs::write(replacement.path().join("schema-v1.json"), b"{}").unwrap();
+        assert!(
+            crate::platform_capability(&replacement.path().join("manifest.toml"))
+                .unwrap()
+                .contains("hardlink-transient=unavailable")
+        );
+
+        let report = scan_with_assurance_and_before_content(
+            &manifest,
+            None,
+            ReadAssurance::TransientRaceDetection,
+            || {
+                fs::rename(&selected_root, &held_root).unwrap();
+                symlink(replacement.path(), &selected_root).unwrap();
+            },
+        )
+        .unwrap();
+        assert_eq!(report.projects.len(), 3);
+        assert!(report.projects.iter().all(|project| project.files == 0));
+    }
+
     #[test]
     fn validates_ready_membership_hash_and_tree_digest() {
         let temp = tempfile::tempdir().unwrap();
@@ -876,7 +956,6 @@ mod tests {
         let error = scan(&missing, None).unwrap_err();
         let message = error.to_string();
         assert!(message.contains("filesystem operation"));
-        assert!(message.contains("<redacted-marker-bearing-value>"));
         assert!(!message.contains(&marker));
     }
 

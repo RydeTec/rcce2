@@ -4,6 +4,7 @@ use std::{error::Error, fmt};
 /// A scanner rejection. Errors intentionally contain paths and bounded metadata,
 /// never file bodies or matched canary bytes.
 pub enum ScanError {
+    Root(rcce_project::RootError),
     UnsupportedPlatform(&'static str),
     Io {
         operation: &'static str,
@@ -35,6 +36,7 @@ pub enum ScanError {
 impl fmt::Display for ScanError {
     fn fmt(&self, output: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::Root(error) => write!(output, "root capability rejected operation: {error}"),
             Self::UnsupportedPlatform(message) => {
                 write!(output, "platform unsupported: {}", Redacted(message))
             }
@@ -128,5 +130,11 @@ impl ScanError {
             path: path.into(),
             source: source.into(),
         }
+    }
+}
+
+impl From<rcce_project::RootError> for ScanError {
+    fn from(error: rcce_project::RootError) -> Self {
+        Self::Root(error)
     }
 }

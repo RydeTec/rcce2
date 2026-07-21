@@ -1,4 +1,5 @@
 use crate::error::ScanError;
+use rcce_project::ReadAssurance;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
@@ -201,7 +202,15 @@ pub(crate) struct Registry {
 }
 
 impl Registry {
+    #[cfg(test)]
     pub(crate) fn load(path: &Path) -> Result<Self, ScanError> {
+        Self::load_with_assurance(path, ReadAssurance::BaselineQuarantine)
+    }
+
+    pub(crate) fn load_with_assurance(
+        path: &Path,
+        assurance: ReadAssurance,
+    ) -> Result<Self, ScanError> {
         let absolute = if path.is_absolute() {
             path.to_owned()
         } else {
@@ -219,7 +228,6 @@ impl Registry {
             .ok_or_else(|| {
                 ScanError::Semantic("registry path must have one UTF-8 filename".to_owned())
             })?;
-        let root = crate::fs::Root::open(parent)?;
         let registry_directory = parent
             .file_name()
             .and_then(|name| name.to_str())
@@ -231,7 +239,8 @@ impl Registry {
         let registry_parent = parent.parent().ok_or_else(|| {
             ScanError::Semantic("registry directory must have a parent".to_owned())
         })?;
-        let inventory = crate::fs::Root::open(registry_parent)?.inventory(
+        let root = crate::fs::Root::open_with_assurance(registry_parent, assurance)?;
+        let inventory = root.inventory(
             registry_directory,
             crate::fs::Budget {
                 max_bytes: 2 * 1024 * 1024,
@@ -243,7 +252,7 @@ impl Registry {
                 max_component_bytes: 255,
             },
         )?;
-        let bytes = root.read_component(name, 1024 * 1024)?;
+        let bytes = root.read_fixture_file(registry_directory, name, 1024 * 1024)?;
         let text = std::str::from_utf8(&bytes)
             .map_err(|_| ScanError::Semantic("canary registry is not UTF-8".to_owned()))?;
         let raw: RawRegistry = toml::from_str(text).map_err(|_| {
@@ -252,14 +261,15 @@ impl Registry {
                     .to_owned(),
             )
         })?;
-        let registry = Self::validate(raw, &root, name)?;
-        registry.validate_closed_tree(&root, &inventory)?;
+        let registry = Self::validate(raw, &root, registry_directory, name)?;
+        registry.validate_closed_tree(&root, registry_directory, &inventory)?;
         Ok(registry)
     }
 
     fn validate(
         raw: RawRegistry,
         root: &crate::fs::Root,
+        registry_directory: &str,
         registry_name: &str,
     ) -> Result<Self, ScanError> {
         if raw.schema_version != 1
@@ -575,14 +585,8 @@ impl Registry {
                     "registry seed-canary marker collision".to_owned(),
                 ));
             }
-            let body = root.read_fixture_file(
-                "fixtures",
-                canary
-                    .fixture_path
-                    .strip_prefix("fixtures/")
-                    .expect("validated prefix"),
-                64 * 1024,
-            )?;
+            let body =
+                root.read_fixture_file(registry_directory, &canary.fixture_path, 64 * 1024)?;
             if body != registry.expected_fixture(canary, &marker) {
                 return Err(ScanError::Semantic(
                     "registry seed fixture differs from the exact synthetic envelope".to_owned(),
@@ -699,6 +703,7 @@ impl Registry {
     fn validate_closed_tree(
         &self,
         root: &crate::fs::Root,
+        registry_directory: &str,
         inventory: &crate::fs::Inventory,
     ) -> Result<(), ScanError> {
         let expected_files = BTreeSet::from([
@@ -729,11 +734,7 @@ impl Registry {
                     "complete canary marker is forbidden in a registry path".to_owned(),
                 ));
             }
-            let body = if let Some((directory, path)) = file.path.split_once('/') {
-                root.read_fixture_file(directory, path, 1024 * 1024)?
-            } else {
-                root.read_component(&file.path, 1024 * 1024)?
-            };
+            let body = root.read_fixture_file(registry_directory, &file.path, 1024 * 1024)?;
             for token in complete_markers(&body) {
                 let marker = markers
                     .iter()

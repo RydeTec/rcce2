@@ -1,9 +1,10 @@
 # RCCE Rust editor workspace
 
 This additive Rust 1.85 workspace reserves the production crate boundaries for
-the RCCE super editor. At `SE-M1-P01` it is intentionally a compiling skeleton:
-it opens no project, exposes no mutation API, selects no GUI framework, and is
-not connected to the shipping build or packaging scripts.
+the RCCE super editor. `SE-M1-P02` adds the first production capability: an
+explicit, read-only project root with typed relative paths and bounded reads and
+walks. The workspace still exposes no mutation API, selects no GUI framework,
+and is not connected to the shipping build or packaging scripts.
 
 ## Packet baseline
 
@@ -30,7 +31,7 @@ The observed toolchain was `rustc 1.85.0 (4d91de4e4 2025-02-17)` and
 |---|---|---|
 | `rcce-editor` | Desktop composition; the only production crate allowed to acquire a GUI framework | Headless placeholder binary only |
 | `rcce-editor-core` | GUI-independent session, query, selection, and diagnostic orchestration | Empty library boundary |
-| `rcce-project` | Root-confined project model, inventory, identity, and legacy document interpretation | Empty library boundary |
+| `rcce-project` | Root-confined project model, inventory, identity, and legacy document interpretation | Explicit read-only `ProjectRoot`, validated `ProjectRelativePath`, bounded read/walk, and truthful assurance reporting |
 | `rcce-validation` | Pure diagnostics over project evidence | Empty library boundary |
 | `rcce-storage` | Format-agnostic command storage after write-capable milestones authorize it | Empty library boundary; no persistence API |
 | `rcce-migrate` | Explicit conversion planning and execution after authorization | Empty library boundary; no migration behavior |
@@ -54,25 +55,54 @@ rcce-storage     (no dependencies in this packet)
 
 `rcce-project` is the only editor crate permitted to establish a path
 dependency on the existing `client-rs/crates/rcce-data` shared-format crate.
-This skeleton does not add that edge because it has no consensus-proven read to
-consume yet. Shared logic must not be copied into this workspace. Renderer,
-network, and script-analysis seams likewise require the packet and
-cross-consumer evidence named by ADR 0009.
+P02 does not add that edge because it has no consensus-proven format read to
+consume yet. The existing compatibility corpus scanner instead reuses
+`rcce-project`'s root capability, typed paths, assurance selection, reads, and
+walks rather than retaining a second filesystem implementation. Shared format
+logic must not be copied into this workspace. Renderer, network, and
+script-analysis seams likewise require the packet and cross-consumer evidence
+named by ADR 0009.
 
 Headless crates cannot depend on GUI frameworks. Authoritative server mutable
 state cannot be linked into the editor process. Dependency flow is from
 composition toward capabilities; project/model crates never depend on desktop,
 CLI, migration, administration, or storage composition.
 
-## Read-only boundary
+## Read-only root capability
 
-The current production sources implement no project-relative write, delete,
-rename, create, repair, conversion, database, subprocess-launch, or persistence
-API. The contract suite includes a common-token smoke check for accidental
-introduction of those operations; that heuristic is regression evidence, not
-an AST analysis, syscall sandbox, or complete security proof. Later packets may
-add root-confined reads. Write-capable APIs remain an M2-or-later concern and
-require command, journal, recovery, and authorization contracts.
+`ProjectRoot::open_explicit` accepts an explicitly selected absolute directory
+and retains an opened root identity. Callers construct a
+`ProjectRelativePath`, which rejects traversal, host-absolute, device/UNC,
+alternate-stream, reserved-name, embedded-separator, and trailing-dot/space
+forms before filesystem access. `ProjectRoot::read` quarantines bytes until
+post-read identity and integrity checks pass, and `ProjectRoot::walk` returns a
+deterministic SHA-256 inventory under explicit file, byte, directory, depth,
+path, and component ceilings. Both operations reject links, multiply linked
+files, alias collisions, boundary crossings, and changed identities rather than
+publishing speculative content.
+
+The assurance tiers are explicit and independently queryable:
+
+- `BaselineQuarantine` is available on the native Unix and Windows backends.
+- `TransientRaceDetection` is available only where the opened filesystem has
+  executable evidence for the stronger change-detection boundary. The current
+  Linux backend advertises it only for the proved ext-family filesystem;
+  Windows and unproved filesystems report it unavailable.
+- `StrongNoRead` is unavailable: no backend claims that it can prevent every
+  read during arbitrary concurrent namespace mutation.
+
+Requesting an unavailable assurance fails before content access. This is
+platform truth, not an emulated success. The compatibility corpus scanner uses
+the same capability and assurance contract for its project and separately
+selected canary roots.
+
+The current production sources still implement no project-relative write,
+delete, rename, create, repair, conversion, database, subprocess-launch, or
+persistence API. The contract suite includes a common-token smoke check for
+accidental introduction of those operations; that heuristic is regression
+evidence, not an AST analysis, syscall sandbox, or complete security proof.
+Write-capable APIs remain an M2-or-later concern and require command, journal,
+recovery, and authorization contracts.
 
 The installed binary name `rcce-project` is reserved by the
 `rcce-project-cli` package. In this packet it accepts only no arguments,

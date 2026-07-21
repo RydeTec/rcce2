@@ -110,13 +110,18 @@ Callers requiring the stronger literal “no read during any concurrent namespac
 mutation” guarantee must first place intake in an immutable or private namespace;
 the scanner does not claim that stronger guarantee.
 
-`--platform-capability` emits semicolon-delimited `key=value` fields. In
-particular, Linux reports
-`hardlink-transient=detect-reject-no-publication`, while Windows reports
-`hardlink-transient=unavailable`. A workflow whose acceptance requires the
-stronger detection boundary must pass `--require-transient-hardlink-detection`;
-the scanner fails closed before manifest access on Windows and other unsupported
-backends.
+`--platform-capability` emits semicolon-delimited `key=value` fields derived
+from the opened manifest parent. Linux reports
+`hardlink-transient=detect-reject-no-publication` only for the filesystem family
+on which the synchronized inode-change-time fixture was proved; unknown or
+unproved filesystems and Windows report `hardlink-transient=unavailable`. A
+workflow whose acceptance requires the stronger detection boundary must pass
+`--require-transient-hardlink-detection`; the scanner opens the root to inspect
+that authority, retains the same opened project root for the entire project
+scan, and applies the selected assurance to every content read and walk. A
+separately selected canary registry establishes its own root with the same
+assurance. Strict mode fails closed before content access when either authority
+is unavailable.
 
 Print the compiled capability statement with:
 

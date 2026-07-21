@@ -15,7 +15,7 @@ const EXPECTED_CRATES: [&str; 8] = [
     "rcce-validation",
 ];
 
-const EXPECTED_FILES: [&str; 21] = [
+const EXPECTED_FILES: [&str; 24] = [
     ".gitignore",
     "Cargo.lock",
     "Cargo.toml",
@@ -33,6 +33,9 @@ const EXPECTED_FILES: [&str; 21] = [
     "crates/rcce-project-cli/src/main.rs",
     "crates/rcce-project/Cargo.toml",
     "crates/rcce-project/src/lib.rs",
+    "crates/rcce-project/src/root/backend.rs",
+    "crates/rcce-project/src/root/mod.rs",
+    "crates/rcce-project/tests/root_confinement.rs",
     "crates/rcce-storage/Cargo.toml",
     "crates/rcce-storage/src/lib.rs",
     "crates/rcce-validation/Cargo.toml",
@@ -73,6 +76,23 @@ fn source_files(directory: &Path, output: &mut Vec<PathBuf>) {
     }
 }
 
+fn without_backend_test_modules(text: &str) -> String {
+    const TEST_MODULE: &str = "    #[cfg(test)]\n    mod tests {";
+    const UNIX_MODULE: &str = "#[cfg(unix)]\nmod unix {";
+    let (through_windows, unix) = text
+        .split_once(UNIX_MODULE)
+        .expect("shared backend must retain explicit Unix module");
+    let windows_production = through_windows
+        .split_once(TEST_MODULE)
+        .expect("shared backend must retain Windows hostile tests")
+        .0;
+    let unix_production = unix
+        .split_once(TEST_MODULE)
+        .expect("shared backend must retain Unix hostile tests")
+        .0;
+    format!("{windows_production}{UNIX_MODULE}{unix_production}")
+}
+
 fn metadata() -> Value {
     let output = Command::new(env!("CARGO"))
         .args([
@@ -109,7 +129,10 @@ fn expected_normal_dependencies() -> BTreeMap<&'static str, BTreeSet<&'static st
             "rcce-migrate",
             BTreeSet::from(["rcce-project", "rcce-storage"]),
         ),
-        ("rcce-project", BTreeSet::new()),
+        (
+            "rcce-project",
+            BTreeSet::from(["sha2", "unicode-normalization"]),
+        ),
         ("rcce-project-cli", BTreeSet::new()),
         ("rcce-storage", BTreeSet::new()),
         ("rcce-validation", BTreeSet::from(["rcce-project"])),
@@ -148,7 +171,14 @@ fn expected_targets() -> BTreeMap<&'static str, BTreeSet<(&'static str, &'static
         ),
         (
             "rcce-project",
-            BTreeSet::from([("rcce_project", "lib", "crates/rcce-project/src/lib.rs")]),
+            BTreeSet::from([
+                ("rcce_project", "lib", "crates/rcce-project/src/lib.rs"),
+                (
+                    "root_confinement",
+                    "test",
+                    "crates/rcce-project/tests/root_confinement.rs",
+                ),
+            ]),
         ),
         (
             "rcce-project-cli",
@@ -207,16 +237,17 @@ fn cargo_metadata_pins_packages_dependencies_features_publication_and_targets() 
         );
 
         let expected_manifest = root.join("crates").join(name).join("Cargo.toml");
-        assert_eq!(
-            Path::new(
-                package["manifest_path"]
-                    .as_str()
-                    .expect("manifest path must be text")
-            ),
-            expected_manifest
-        );
+        let actual_manifest = Path::new(
+            package["manifest_path"]
+                .as_str()
+                .expect("manifest path must be text"),
+        )
+        .canonicalize()
+        .expect("metadata manifest path must resolve");
+        assert_eq!(actual_manifest, expected_manifest);
 
         let mut normal_dependencies = BTreeSet::new();
+        let mut target_dependencies = BTreeSet::new();
         let mut dev_dependencies = BTreeSet::new();
         for dependency in package["dependencies"]
             .as_array()
@@ -231,11 +262,6 @@ fn cargo_metadata_pins_packages_dependencies_features_publication_and_targets() 
                 "renamed dependency in {name}"
             );
             assert_eq!(
-                dependency["target"],
-                Value::Null,
-                "target-specific dependency in {name}"
-            );
-            assert_eq!(
                 dependency["optional"], false,
                 "optional dependency in {name}"
             );
@@ -248,7 +274,11 @@ fn cargo_metadata_pins_packages_dependencies_features_publication_and_targets() 
             }
             match dependency["kind"].as_str() {
                 None => {
-                    normal_dependencies.insert(dependency_name);
+                    if let Some(target) = dependency["target"].as_str() {
+                        target_dependencies.insert((dependency_name, target));
+                    } else {
+                        normal_dependencies.insert(dependency_name);
+                    }
                 }
                 Some("dev") => {
                     dev_dependencies.insert(dependency_name);
@@ -260,10 +290,24 @@ fn cargo_metadata_pins_packages_dependencies_features_publication_and_targets() 
             normal_dependencies, expected_dependencies[name],
             "unexpected normal dependency edge for {name}"
         );
-        let expected_dev = if name == "rcce-editor-core" {
-            BTreeSet::from(["serde_json"])
+        let expected_target = if name == "rcce-project" {
+            BTreeSet::from([
+                ("cap-fs-ext", "cfg(windows)"),
+                ("cap-std", "cfg(windows)"),
+                ("rustix", "cfg(unix)"),
+                ("windows-sys", "cfg(windows)"),
+            ])
         } else {
             BTreeSet::new()
+        };
+        assert_eq!(
+            target_dependencies, expected_target,
+            "unexpected target-specific dependency edge for {name}"
+        );
+        let expected_dev = match name {
+            "rcce-editor-core" => BTreeSet::from(["serde_json"]),
+            "rcce-project" => BTreeSet::from(["hex", "tempfile"]),
+            _ => BTreeSet::new(),
         };
         assert_eq!(
             dev_dependencies, expected_dev,
@@ -281,15 +325,18 @@ fn cargo_metadata_pins_packages_dependencies_features_publication_and_targets() 
             assert_eq!(kinds.len(), 1, "{name} target must have one exact kind");
             let kind = kinds[0].as_str().expect("target kind must be text");
             assert_ne!(kind, "custom-build", "custom build target in {name}");
-            let source = Path::new(
+            let source_path = Path::new(
                 target["src_path"]
                     .as_str()
                     .expect("target source path must be text"),
             )
-            .strip_prefix(&root)
-            .expect("target source must remain in workspace")
-            .to_string_lossy()
-            .replace('\\', "/");
+            .canonicalize()
+            .expect("target source path must resolve");
+            let source = source_path
+                .strip_prefix(&root)
+                .expect("target source must remain in workspace")
+                .to_string_lossy()
+                .replace('\\', "/");
             actual_targets.insert((
                 target["name"].as_str().expect("target name must be text"),
                 kind,
@@ -330,10 +377,13 @@ fn workspace_file_topology_is_exact_and_has_no_build_or_ffi_sources() {
 fn production_sources_pass_common_mutation_token_smoke() {
     // This is deliberately a heuristic regression smoke, not an AST/capability
     // proof or a substitute for the root confinement and syscall tests in P02.
-    const COMMON_MUTATION_OR_PROCESS_TOKENS: [&str; 10] = [
+    const COMMON_MUTATION_OR_PROCESS_TOKENS: [&str; 13] = [
         "fs::write",
         "File::create",
-        "OpenOptions",
+        ".write(true)",
+        ".append(true)",
+        ".create(true)",
+        ".truncate(true)",
         "remove_file",
         "remove_dir",
         "create_dir",
@@ -352,6 +402,11 @@ fn production_sources_pass_common_mutation_token_smoke() {
         );
         for source in sources {
             let text = fs::read_to_string(&source).expect("production source must be readable");
+            let text = if source.ends_with("root/backend.rs") {
+                without_backend_test_modules(&text)
+            } else {
+                text
+            };
             for token in COMMON_MUTATION_OR_PROCESS_TOKENS {
                 assert!(
                     !text.contains(token),

@@ -1,3 +1,9 @@
 //! Root-confined RCCE project-model boundary.
-//!
-//! This skeleton does not yet open, resolve, inventory, or mutate a project.
+
+pub mod root;
+
+pub use root::{
+    AcceptedBytes, CapabilityAvailability, ProjectRelativePath, ProjectRoot, ReadAssurance,
+    ReadBudget, RootCapabilities, RootError, RootErrorCode, RootIdentity, WalkBudget, WalkFile,
+    WalkResult,
+};

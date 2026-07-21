@@ -21,16 +21,26 @@ struct Cli {
 fn main() {
     let cli = Cli::parse();
     if cli.platform_capability {
-        println!("{}", rcce_project_scanner::platform_capability());
-        return;
-    }
-    if cli.require_transient_hardlink_detection {
-        if let Err(error) = rcce_project_scanner::require_transient_hardlink_detection() {
-            eprintln!("scan rejected: {error}");
-            std::process::exit(2);
+        match rcce_project_scanner::platform_capability(&cli.manifest) {
+            Ok(capability) => {
+                println!("{capability}");
+                return;
+            }
+            Err(error) => {
+                eprintln!("scan rejected: {error}");
+                std::process::exit(2);
+            }
         }
     }
-    match rcce_project_scanner::scan_manifest(&cli.manifest, cli.canary_registry.as_deref()) {
+    let scan = if cli.require_transient_hardlink_detection {
+        rcce_project_scanner::scan_manifest_requiring_transient_hardlink_detection(
+            &cli.manifest,
+            cli.canary_registry.as_deref(),
+        )
+    } else {
+        rcce_project_scanner::scan_manifest(&cli.manifest, cli.canary_registry.as_deref())
+    };
+    match scan {
         Ok(report) => {
             let files: u64 = report.projects.iter().map(|project| project.files).sum();
             let bytes: u64 = report.projects.iter().map(|project| project.bytes).sum();

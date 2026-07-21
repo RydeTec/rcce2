@@ -7,5 +7,21 @@ rust-version.workspace = true
 publish.workspace = true
 description = "Root-confined project-model boundary for the RCCE Rust editor."
 
+[dependencies]
+sha2 = "0.10"
+unicode-normalization = "0.1"
+
+[target.'cfg(unix)'.dependencies]
+rustix = { version = "1.1", features = ["fs"] }
+
+[target.'cfg(windows)'.dependencies]
+cap-std = "=3.4.5"
+cap-fs-ext = "=3.4.5"
+windows-sys = { version = "=0.59.0", features = ["Win32_Storage_FileSystem"] }
+
+[dev-dependencies]
+hex = "0.4"
+tempfile = "3"
+
 [lints]
 workspace = true
