@@ -1094,7 +1094,7 @@ These are descriptions of the inherited product surface. They are not proposed s
 - GUE has live Actor, particle, mesh/texture, sound/music, interface, and complete world-oriented previews.
 - Loom has texture/mesh/actor/item previews, audio audition, schematic/world zone display, but no live particle system and narrower appearance composition.
 - Specialist applications preview their own construction model and often bake lighting or transforms into export.
-- A prior manual Loom run recorded that emitter preview was absent and that world rendering needed further fidelity validation; those observations are consistent with current source boundaries, not proof that every zone fails ([`FEEDBACK.md`](loom/FEEDBACK.md)).
+- Current source shows that Loom loads emitter configuration fields without constructing live particle surfaces, while zone World mode loads terrain, scenery, and water; fidelity beyond those source-demonstrated boundaries remains unverified here ([`ParticleEditor.bb`](../src/Modules/Loom/ParticleEditor.bb#L4), [`ZoneViewport.bb`](../src/Modules/Loom/ZoneViewport.bb#L1)).
 
 ### 15.6 Format and UI capacity can diverge
 
