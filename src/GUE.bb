@@ -9904,7 +9904,8 @@ Function SaveDialog()
 						SaveInterfaceSettings("Data\Game Data\Interface.dat")
 						If ChatBar <> Null Then Delete ChatBar
 					EndIf
-					If ParticlesSaved = False Or DamageTypesSaved = False Then Result = False
+					If ParticlesSaved = False Then Result = False
+					If DamageTypesSaved = False Then Result = False
 					If ParticlesSaved = True And DamageTypesSaved = True Then Result = True
 			End Select
 			Delete(SaveEvent)

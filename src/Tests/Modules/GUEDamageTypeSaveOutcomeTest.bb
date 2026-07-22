@@ -78,14 +78,14 @@ Function HasDamageTypeSerializer%(Path$)
 End Function
 
 Test testGUEDamageTypeSaveUsesOneOutcomeHelper()
-	Assert(HasDamageTypeSerializer%("Modules\\Items.bb") = True)
+	Assert(HasDamageTypeSerializer%("Modules\Items.bb") = True)
 	Assert(CountLinesContaining%("GUE.bb", "SafeWriteCommit(DamageTemp$, DamageFinal$, F)") = 0)
 End Test
 
 Test testGUEDamageTypeSaveRoutesKeepDirtyStateOnFailure()
 	Local Source$ = "GUE.bb"
-	Assert(CountLinesContaining%(Source$, "DamageTypesSaved = SaveDamageTypes(" + Chr$(34) + "Data\\Server Data\\Damage.dat" + Chr$(34) + ")") = 4)
+	Assert(CountLinesContaining%(Source$, "DamageTypesSaved = SaveDamageTypes(" + Chr$(34) + "Data\Server Data\Damage.dat" + Chr$(34) + ")") = 4)
 	Assert(FileContains%(Source$, "If FUI_SendMessage(List, M_GETCAPTION) <> " + Chr$(34) + "Damage types" + Chr$(34) + " Or DamageTypesSaved = True") = True)
-	Assert(FileContains%(Source$, "If ParticlesSaved = False Or DamageTypesSaved = False Then Result = False") = True)
+	Assert(FileContains%(Source$, "If DamageTypesSaved = False Then Result = False") = True)
 	Assert(FileContains%(Source$, "If ParticlesSaved = True And DamageTypesSaved = True Then Result = True") = True)
 End Test
