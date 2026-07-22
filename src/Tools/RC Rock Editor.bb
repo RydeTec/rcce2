@@ -662,9 +662,10 @@ End Function
 
 Function BUTTONCHECK()
 		MOUSEPRESSED1 = MouseHit(1)
-		
-For e.Event = Each event
-  Select e\EventId
+
+Local E.Event = First Event
+While E <> Null
+  Select E\EventId
    Case GUI_MENUFILE_Exit
    yn=Fui_confirm("Quit program","Yes","No")
    If yn=1 Then 
@@ -775,7 +776,8 @@ Case GUI_MENUFILE_EXPORT
      ChangeDir thispath$
   End Select
   Delete E
-Next
+  E = First Event
+Wend
 
 
 
