@@ -10,7 +10,7 @@ Function ScriptInputPayloadGuard%(Path$)
 	Local InHandler%, Stage%
 	Local Line$, Slash$, MessagePath$
 	Slash$ = Chr$(92)
-	MessagePath$ = "M" + Slash$ + "Message$"
+	MessagePath$ = "M" + Slash$ + "MessageData$"
 	If F = Null Then F = ReadFile(".." + Slash$ + Path$)
 	If F = Null Then Return False
 
