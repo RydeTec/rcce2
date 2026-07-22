@@ -11,6 +11,7 @@
 
 ;Set Constants
 Const MaxFogFar# = 2000.0
+Const MaxTerrainGrid = 4096
 
 Global SkyEN, CloudEN, StarsEN
 Global SkyTexID = 65535, CloudTexID = 65535, StormCloudTexID = 65535, StarsTexID = 65535
@@ -634,6 +635,19 @@ Function LoadAreaData(Name$, CameraEN, DisplayItems = False, UpdateRottNet = Fal
 			T\DetailTexID = ReadShort(F)
 			; Terrain heights
 			GridSize = ReadInt(F)
+			; The grid comes directly from the visual-area file. Reject corrupt
+			; negative or implausibly large values before native allocation and
+			; the quadratic height loop can exhaust resources or stall the editor.
+			If GridSize < 0 Or GridSize > MaxTerrainGrid
+				WriteLog(MainLog, "LoadArea: invalid terrain grid " + GridSize + " (zone: " + Name$ + ")")
+				Delete T
+				CloseFile(F)
+				UnlockMeshes()
+				UnlockTextures()
+				AreaLoadEnd()
+				UnloadArea()
+				Return False
+			EndIf
 			T\EN = CreateTerrain(GridSize)
 			For X = 0 To TerrainSize(T\EN)
 				For Z = 0 To TerrainSize(T\EN)
