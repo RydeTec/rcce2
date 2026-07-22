@@ -7,6 +7,7 @@ EnableGC
 Function ProjectVerificationRequiresMiscSettingsFile%()
     Local F.BBStream = ReadFile("Modules\Framework\Project\Project.bb")
     Local Line$
+    Local Quote$ = Chr$(34)
     Local Stage%
 
     If F = Null Then F = ReadFile("..\Modules\Framework\Project\Project.bb")
@@ -19,9 +20,9 @@ Function ProjectVerificationRequiresMiscSettingsFile%()
             Case 0
                 If Line$ = "Method verify()" Then Stage = 1
             Case 1
-                If Line$ = "if (NOT Filesystem::dirExists(Null, self\rootDir + \"Data\")) return false" Then Stage = 2
+                If Line$ = "if (NOT Filesystem::dirExists(Null, self\rootDir + " + Quote$ + "Data" + Quote$ + ")) return false" Then Stage = 2
             Case 2
-                If Line$ = "if (NOT Filesystem::fileExists(Null, self\rootDir + \"Data\Game Data\Misc.dat\")) return false" Then Stage = 3
+                If Line$ = "if (NOT Filesystem::fileExists(Null, self\rootDir + " + Quote$ + "Data\Game Data\Misc.dat" + Quote$ + ")) return false" Then Stage = 3
                 If Line$ = "return true"
                     CloseFile F
                     Return False
