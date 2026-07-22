@@ -6,6 +6,7 @@ Const W_Fog   = 3
 Const W_Storm = 4
 Const W_Wind  = 5
 Const SunRecordBytes = 78
+Const EnvironmentHeaderBytes = 20
 
 Dim SeasonName$(11)
 Dim SeasonStartDay(11)
@@ -84,9 +85,46 @@ End Function
 ;   * TimeH / TimeM bounded to wall-clock ranges; Year / Day clamped to
 ;     non-negative.
 Function LoadEnvironment()
+	Return LoadEnvironmentFromFile("Data\Server Data\Environment.dat", True)
+End Function
 
-	F = ReadFile("Data\Server Data\Environment.dat")
-	If F = 0 Then Return CreateEnvironment()
+; Verifies the variable-length Environment.dat layout before load mutates the
+; live time, season, and month globals. ReadInt silently zero-fills past EOF,
+; so a truncated file must be rejected before the normal reader starts.
+Function EnvironmentFileIsComplete%(F, FileBytes)
+	If FileBytes < EnvironmentHeaderBytes Then Return False
+	SeekFile F, EnvironmentHeaderBytes
+	For i = 0 To 11
+		If FilePos(F) + 4 > FileBytes Then Return False
+		NameBytes = ReadInt(F)
+		If NameBytes < 0 Or NameBytes > 256 Then Return False
+		If FilePos(F) + NameBytes + 12 > FileBytes Then Return False
+		SeekFile F, FilePos(F) + NameBytes + 12
+	Next
+	For i = 0 To 19
+		If FilePos(F) + 4 > FileBytes Then Return False
+		NameBytes = ReadInt(F)
+		If NameBytes < 0 Or NameBytes > 256 Then Return False
+		If FilePos(F) + NameBytes + 4 > FileBytes Then Return False
+		SeekFile F, FilePos(F) + NameBytes + 4
+	Next
+	Return True
+End Function
+
+; The optional CreateMissing flag retains LoadEnvironment's original default
+; creation behavior while allowing focused callers/tests to reject absence.
+Function LoadEnvironmentFromFile(Filename$, CreateMissing = False)
+
+	F = ReadFile(Filename$)
+	If F = 0
+		If CreateMissing = True Then Return CreateEnvironment()
+		Return False
+	EndIf
+	If EnvironmentFileIsComplete(F, FileSize(Filename$)) = False
+		CloseFile(F)
+		Return False
+	EndIf
+	SeekFile F, 0
 	Year = ReadInt(F)
 	Day = ReadInt(F)
 	TimeH = ReadInt(F)

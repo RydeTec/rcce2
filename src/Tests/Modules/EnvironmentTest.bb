@@ -20,18 +20,51 @@ End Function
 Function SafeWriteAbort(TempPath$, F)
 End Function
 
-; LoadEnvironment now reads SeasonName / MonthName via ReadBoundedString$
-; (added to harden against corrupted Environment.dat). The real helper
-; lives in Logging.bb; this test doesn't exercise the load path -- only
-; TimeDelta is the unit under test below -- so a no-op stub is enough
-; to let Environment.bb compile under Strict.
 Function ReadBoundedString$(F, MaxLen)
-	Return ""
+	If F = 0 Then Return ""
+	Local Length = ReadInt(F)
+	If Length < 0 Or Length > MaxLen Then Return ""
+	Local Value$ = ""
+	For i = 1 To Length
+		If Eof(F) Then Exit
+		Value$ = Value$ + Chr$(ReadByte(F))
+	Next
+	Return Value$
 End Function
 
 Include "Modules\Environment.bb"
 
 Global SunLoadTestFile$ = CurrentDir$() + "environment_suns_test.dat"
+Global EnvironmentLoadTestFile$ = CurrentDir$() + "environment_load_test.dat"
+
+Function ClearEnvironmentLoadTestState()
+	If FileType(EnvironmentLoadTestFile$) = 1 Then DeleteFile(EnvironmentLoadTestFile$)
+End Function
+
+Function WriteEnvironmentLoadTestFile%(IncludeMonths = True)
+	Local F.BBStream = WriteFile(EnvironmentLoadTestFile$)
+	Local i
+	If F = Null Then Return False
+	WriteInt F, 7
+	WriteInt F, 42
+	WriteInt F, 14
+	WriteInt F, 30
+	WriteInt F, 10
+	For i = 0 To 11
+		WriteString F, "Season " + i
+		WriteInt F, i * 28
+		WriteInt F, 18
+		WriteInt F, 6
+	Next
+	If IncludeMonths = True
+		For i = 0 To 19
+			WriteString F, "Month " + i
+			WriteInt F, i * 28
+		Next
+	EndIf
+	CloseFile F
+	Return True
+End Function
 
 Function ClearSunLoadTestState()
 	If FileType(SunLoadTestFile$) = 1 Then DeleteFile(SunLoadTestFile$)
@@ -165,4 +198,25 @@ Test testLoadSunsLoadsTheExactDeclaredRecordCount()
 	Assert(LoadSunsFromFile(SunLoadTestFile$) = True)
 	Assert(SunLoadTestCount() = 1)
 	ClearSunLoadTestState()
+End Test
+
+Test testLoadEnvironmentFromFileAcceptsCompleteRequiredRecords()
+	ClearEnvironmentLoadTestState()
+	Assert(WriteEnvironmentLoadTestFile(True) = True)
+	Assert(LoadEnvironmentFromFile(EnvironmentLoadTestFile$) = True)
+	Assert(Year = 7)
+	Assert(Day = 42)
+	Assert(TimeH = 14)
+	Assert(TimeM = 30)
+	Assert(TimeFactor = 10)
+	Assert(SeasonName$(0) = "Season 0")
+	Assert(MonthName$(19) = "Month 19")
+	ClearEnvironmentLoadTestState()
+End Test
+
+Test testLoadEnvironmentFromFileRejectsTruncatedRequiredRecords()
+	ClearEnvironmentLoadTestState()
+	Assert(WriteEnvironmentLoadTestFile(False) = True)
+	Assert(LoadEnvironmentFromFile(EnvironmentLoadTestFile$) = False)
+	ClearEnvironmentLoadTestState()
 End Test
