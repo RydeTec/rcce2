@@ -20,8 +20,8 @@ End Function
 Function SafeWriteAbort(TempPath$, F)
 End Function
 
-Function ReadBoundedString$(F, MaxLen)
-	If F = 0 Then Return ""
+Function ReadBoundedString$(F.BBStream, MaxLen)
+	If F = Null Then Return ""
 	Local Length = ReadInt(F)
 	If Length < 0 Or Length > MaxLen Then Return ""
 	Local Value$ = ""
