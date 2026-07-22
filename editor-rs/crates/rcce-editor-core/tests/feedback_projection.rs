@@ -1,4 +1,7 @@
-use rcce_editor_core::{load_feedback_project, FeedbackProject, Lens};
+use rcce_editor_core::{
+    load_feedback_project, FeedbackActorCount, FeedbackEvidence, FeedbackMediaStatus,
+    FeedbackProject, Lens,
+};
 use std::{fs, path::PathBuf, time::SystemTime};
 
 fn fixture() -> PathBuf {
@@ -74,4 +77,68 @@ fn preserves_observed_sizes_and_never_invents_entries() {
     assert!(observed.contains(&("Data/mystery.bin", 7)));
 
     fs::remove_dir_all(path).expect("fixture cleanup");
+}
+
+#[test]
+fn projects_consensus_proven_actor_catalog_and_live_media_diagnostics() {
+    let data_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../test-data/consensus/happy/Data")
+        .canonicalize()
+        .expect("consensus fixture data root");
+    let project = load_feedback_project(data_root, |_| {}).expect("feedback consensus project");
+    let catalog = project.actor_catalog();
+
+    assert_eq!(catalog.evidence, FeedbackEvidence::Consensus);
+    assert_eq!(catalog.count, FeedbackActorCount::Agreed(4));
+    assert_eq!(catalog.actors.len(), 4);
+    assert_eq!(catalog.actors[0].race, "NoMesh");
+    assert_eq!(
+        catalog.actors[0].media_status,
+        FeedbackMediaStatus::NoBaseMesh
+    );
+    assert_eq!(catalog.actors[1].media_status, FeedbackMediaStatus::Present);
+    assert_eq!(
+        catalog.actors[1].physical_path.as_deref(),
+        Some("Data/Meshes/Hero.b3d")
+    );
+    assert_eq!(
+        catalog.actors[2].media_status,
+        FeedbackMediaStatus::MissingCatalog
+    );
+    assert_eq!(
+        catalog.actors[3].media_status,
+        FeedbackMediaStatus::MissingPhysical
+    );
+    assert_eq!(catalog.diagnostics.len(), 2);
+    assert_eq!(
+        catalog.diagnostics[0].code,
+        "RCCE-ACTOR-MESH-CATALOG-MISSING"
+    );
+    assert_eq!(catalog.diagnostics[0].actor_id, 3);
+    assert_eq!(catalog.diagnostics[1].code, "RCCE-ACTOR-MESH-FILE-MISSING");
+    assert_eq!(catalog.diagnostics[1].actor_id, 4);
+}
+
+#[test]
+fn provisional_actor_catalog_remains_browsable_without_asserted_media_health() {
+    let data_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../test-data/consensus/provisional/Data")
+        .canonicalize()
+        .expect("provisional fixture data root");
+    let project = load_feedback_project(data_root, |_| {}).expect("provisional feedback project");
+    let catalog = project.actor_catalog();
+
+    assert_eq!(catalog.evidence, FeedbackEvidence::Provisional);
+    assert_eq!(
+        catalog.count,
+        FeedbackActorCount::Disagreed {
+            client: 4,
+            server: 2
+        }
+    );
+    assert!(!catalog.actors.is_empty());
+    assert!(catalog.actors.iter().all(|actor| {
+        actor.media_status == FeedbackMediaStatus::Provisional && actor.physical_path.is_none()
+    }));
+    assert!(catalog.diagnostics.is_empty());
 }

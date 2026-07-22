@@ -28,6 +28,28 @@ const ACTORS_PARSER: ParserIdentity = ParserIdentity::new("rcce-actors-consensus
 const MESHES_PARSER: ParserIdentity = ParserIdentity::new("rcce-meshes-consensus", 1);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DataLayout {
+    ProjectRoot,
+    DataRoot,
+}
+
+impl DataLayout {
+    fn inventory_path(self, canonical: &str) -> &str {
+        match self {
+            Self::ProjectRoot => canonical,
+            Self::DataRoot => canonical.strip_prefix("Data/").unwrap_or(canonical),
+        }
+    }
+
+    fn canonical_path(self, observed: &str) -> String {
+        match self {
+            Self::ProjectRoot => observed.to_owned(),
+            Self::DataRoot => format!("Data/{observed}"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConsensusLevel {
     Consensus,
     Provisional,
@@ -118,8 +140,8 @@ impl ProjectSnapshot {
         root: &ProjectRoot,
         mut control: impl FnMut() -> ScanControl,
     ) -> Result<ActorMediaConsensus, ConsensusLoadError> {
-        let actor_file = self
-            .select_inventory(ACTORS_PATH)?
+        let (actor_file, layout) = self
+            .select_data_inventory(ACTORS_PATH)?
             .ok_or(ConsensusLoadError::MissingActors)?;
         let actor_bytes = self.reread_bound(root, actor_file, ACTORS_MAX_BYTES, &mut control)?;
         let client = rcce_data::ActorCatalog::parse_with_evidence(&actor_bytes);
@@ -131,7 +153,7 @@ impl ProjectSnapshot {
         )
         .map_err(|_| ConsensusLoadError::FingerprintMismatch)?;
 
-        let mesh_file = self.select_inventory(MESHES_PATH)?;
+        let mesh_file = self.select_inventory(MESHES_PATH, layout)?;
         let meshes_document = if let Some(file) = mesh_file {
             let bytes = self.reread_bound(root, file, MESHES_MAX_BYTES, &mut control)?;
             let parsed = rcce_data::MeshCatalog::parse_with_evidence(&bytes)
@@ -148,14 +170,39 @@ impl ProjectSnapshot {
             None
         };
 
-        Self::assemble_actor_media(actor_document, server, meshes_document, self)
+        Self::assemble_actor_media(actor_document, server, meshes_document, self, layout)
+    }
+
+    fn select_data_inventory(
+        &self,
+        canonical: &str,
+    ) -> Result<Option<(&InventoryFile, DataLayout)>, ConsensusLoadError> {
+        let candidates = [DataLayout::ProjectRoot, DataLayout::DataRoot];
+        let matches = self
+            .inventory()
+            .files
+            .iter()
+            .flat_map(|file| {
+                candidates.into_iter().filter_map(move |layout| {
+                    (portable_path_key(&file.path)
+                        == portable_path_key(layout.inventory_path(canonical)))
+                    .then_some((file, layout))
+                })
+            })
+            .collect::<Vec<_>>();
+        match matches.as_slice() {
+            [] => Ok(None),
+            [entry] => Ok(Some(*entry)),
+            _ => Err(ConsensusLoadError::AmbiguousInventory),
+        }
     }
 
     fn select_inventory(
         &self,
         canonical: &str,
+        layout: DataLayout,
     ) -> Result<Option<&InventoryFile>, ConsensusLoadError> {
-        let key = portable_path_key(canonical);
+        let key = portable_path_key(layout.inventory_path(canonical));
         let matches = self
             .inventory()
             .files
@@ -221,6 +268,7 @@ impl ProjectSnapshot {
         server: ServerActors,
         meshes_document: Option<LegacyDocument<MeshParseEvidence>>,
         snapshot: &ProjectSnapshot,
+        layout: DataLayout,
     ) -> Result<ActorMediaConsensus, ConsensusLoadError> {
         let client = actor_document.value();
         let client_count = client.records.len();
@@ -318,7 +366,9 @@ impl ProjectSnapshot {
             let (availability, physical_inventory_path) = match (base_mesh, &meshes_document) {
                 (None, _) => (ActorMediaAvailability::NoBaseMesh, None),
                 (Some(_), None) => (ActorMediaAvailability::MissingCatalog, None),
-                (Some(media_id), Some(document)) => resolve_physical(snapshot, document, media_id),
+                (Some(media_id), Some(document)) => {
+                    resolve_physical(snapshot, document, media_id, layout)
+                }
             };
             actors.insert(
                 record.id,
@@ -362,6 +412,7 @@ fn resolve_physical(
     snapshot: &ProjectSnapshot,
     document: &LegacyDocument<MeshParseEvidence>,
     media_id: u16,
+    layout: DataLayout,
 ) -> (ActorMediaAvailability, Option<String>) {
     let Some(record) = document
         .value()
@@ -381,11 +432,12 @@ fn resolve_physical(
     // Meshes.dat stores legacy Windows-style separators. Preserve `raw` in
     // the bound document and derive a separate portable lookup projection.
     let projected_filename = filename.replace('\\', "/");
-    let candidate = format!("Data/Meshes/{projected_filename}");
-    if ProjectRelativePath::parse(&candidate).is_err() {
+    let canonical_candidate = format!("Data/Meshes/{projected_filename}");
+    let candidate = layout.inventory_path(&canonical_candidate);
+    if ProjectRelativePath::parse(candidate).is_err() {
         return (ActorMediaAvailability::Provisional, None);
     }
-    let key = portable_path_key(&candidate);
+    let key = portable_path_key(candidate);
     let matches = snapshot
         .inventory()
         .files
@@ -395,7 +447,7 @@ fn resolve_physical(
     if matches.len() == 1 {
         return (
             ActorMediaAvailability::Present,
-            Some(matches[0].path.clone()),
+            Some(layout.canonical_path(&matches[0].path)),
         );
     }
     let unavailable = snapshot

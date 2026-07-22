@@ -8,6 +8,13 @@ and Vault lenses. It exposes no mutation API and does not select a final UI or
 renderer architecture; the current desktop host is a replaceable feedback
 surface over GUI-independent state.
 
+The Records lens also projects the accepted actor/media consensus slice into a
+real actor catalog. It shows stable actor IDs, legacy race display names, base
+mesh references, physical media resolution, and evidence status. Missing
+catalog/file diagnostics appear only when the consensus layer marks the slice
+authoritative; provisional projects remain browsable without presenting those
+diagnostics as proven facts.
+
 On Windows, launch the latest feedback build from the repository root:
 
 ```powershell
@@ -42,8 +49,8 @@ The observed toolchain was `rustc 1.85.0 (4d91de4e4 2025-02-17)` and
 
 | Crate | Reserved responsibility at later packets | Current behavior |
 |---|---|---|
-| `rcce-editor` | Desktop composition; the only production crate allowed to acquire a GUI framework | Replaceable feedback-MVP host with five read-only lenses |
-| `rcce-editor-core` | GUI-independent session, query, selection, and diagnostic orchestration | Real inventory loading and feedback projection with no write authority |
+| `rcce-editor` | Desktop composition; the only production crate allowed to acquire a GUI framework | Replaceable feedback-MVP host with five read-only lenses and actor-focused Records surface |
+| `rcce-editor-core` | GUI-independent session, query, selection, and diagnostic orchestration | Real inventory plus actor/media consensus projection with no write authority |
 | `rcce-project` | Root-confined project model, inventory, identity, and legacy document interpretation | Explicit read-only `ProjectRoot`, validated `ProjectRelativePath`, bounded read/walk, and truthful assurance reporting |
 | `rcce-validation` | Pure diagnostics over project evidence | Empty library boundary |
 | `rcce-storage` | Format-agnostic command storage after write-capable milestones authorize it | Empty library boundary; no persistence API |

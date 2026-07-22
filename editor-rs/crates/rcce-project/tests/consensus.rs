@@ -2,7 +2,11 @@ use rcce_project::{
     ActorCountEvidence, ActorMediaAvailability, ConsensusLevel, MetadataBudget, ProjectRoot,
     ProjectSnapshot, ReadAssurance, ScanControl,
 };
-use std::path::{Path, PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    time::SystemTime,
+};
 
 fn fixture(name: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -36,6 +40,82 @@ fn load(name: &str) -> rcce_project::ActorMediaConsensus {
     snapshot(&root)
         .load_actor_media_consensus(&root, || ScanControl::Continue)
         .unwrap()
+}
+
+fn load_from_data_root(name: &str) -> rcce_project::ActorMediaConsensus {
+    let root = ProjectRoot::open_explicit(&fixture(name).join("Data")).unwrap();
+    snapshot(&root)
+        .load_actor_media_consensus(&root, || ScanControl::Continue)
+        .unwrap()
+}
+
+fn temporary_root(label: &str) -> PathBuf {
+    let nonce = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .expect("system clock")
+        .as_nanos();
+    std::env::temp_dir().join(format!(
+        "rcce-consensus-{label}-{}-{nonce}",
+        std::process::id()
+    ))
+}
+
+fn copy_happy_actor_slice(destination: &Path) {
+    let source = fixture("happy").join("Data");
+    fs::create_dir_all(destination.join("Server Data")).expect("server data directory");
+    fs::create_dir_all(destination.join("Game Data")).expect("game data directory");
+    fs::create_dir_all(destination.join("Meshes")).expect("meshes directory");
+    fs::copy(
+        source.join("Server Data/Actors.dat"),
+        destination.join("Server Data/Actors.dat"),
+    )
+    .expect("actor catalog copy");
+    fs::copy(
+        source.join("Game Data/Meshes.dat"),
+        destination.join("Game Data/Meshes.dat"),
+    )
+    .expect("mesh catalog copy");
+    fs::copy(
+        source.join("Meshes/Hero.b3d"),
+        destination.join("Meshes/Hero.b3d"),
+    )
+    .expect("physical mesh copy");
+}
+
+#[test]
+fn consensus_accepts_an_explicit_data_root_without_changing_canonical_paths() {
+    let result = load_from_data_root("happy");
+
+    assert_eq!(result.level(), ConsensusLevel::Consensus);
+    assert_eq!(result.actor_count(), ActorCountEvidence::Agreed(4));
+    assert_eq!(result.actors().len(), 4);
+    assert_eq!(
+        result.actors()[1].physical_inventory_path.as_deref(),
+        Some("Data/Meshes/Hero.b3d")
+    );
+    assert_eq!(
+        result.actors()[2].availability,
+        ActorMediaAvailability::MissingCatalog
+    );
+    assert_eq!(
+        result.actors()[3].availability,
+        ActorMediaAvailability::MissingPhysical
+    );
+}
+
+#[test]
+fn consensus_rejects_a_root_with_both_project_and_data_layouts() {
+    let path = temporary_root("ambiguous-layout");
+    copy_happy_actor_slice(&path);
+    copy_happy_actor_slice(&path.join("Data"));
+
+    let root = ProjectRoot::open_explicit(&path).expect("ambiguous fixture root");
+    let error = snapshot(&root)
+        .load_actor_media_consensus(&root, || ScanControl::Continue)
+        .expect_err("two actor layouts must not be mixed or selected implicitly");
+
+    assert_eq!(error, rcce_project::ConsensusLoadError::AmbiguousInventory);
+    fs::remove_dir_all(path).expect("fixture cleanup");
 }
 
 #[test]

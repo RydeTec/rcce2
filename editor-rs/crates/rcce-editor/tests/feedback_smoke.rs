@@ -25,6 +25,10 @@ fn smoke_contract_distinguishes_openable_and_missing_roots() {
         .expect("valid smoke command");
     assert!(valid.status.success());
     assert!(String::from_utf8_lossy(&valid.stdout).contains("[super-editor-mvp] ready: 1 files"));
+    let valid_stdout = String::from_utf8_lossy(&valid.stdout);
+    assert!(valid_stdout.contains("actors="));
+    assert!(valid_stdout.contains("actor_evidence="));
+    assert!(valid_stdout.contains("actor_reference_issues="));
 
     let missing = root.join("missing");
     let invalid = Command::new(env!("CARGO_BIN_EXE_rcce-editor"))

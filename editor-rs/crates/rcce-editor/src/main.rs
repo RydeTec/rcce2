@@ -3,7 +3,8 @@ use eframe::egui::{
     Stroke, TextEdit, Vec2,
 };
 use rcce_editor_core::{
-    load_feedback_project, FeedbackEntry, FeedbackLoadProgress, FeedbackProject, Lens,
+    load_feedback_project, FeedbackActor, FeedbackActorCount, FeedbackEntry, FeedbackEvidence,
+    FeedbackLoadProgress, FeedbackMediaStatus, FeedbackProject, Lens,
 };
 use std::{
     path::{Path, PathBuf},
@@ -21,17 +22,22 @@ const CANVAS: Color32 = Color32::from_rgb(17, 20, 21);
 const PANEL: Color32 = Color32::from_rgb(23, 27, 28);
 const PANEL_RAISED: Color32 = Color32::from_rgb(29, 34, 34);
 const GREEN: Color32 = Color32::from_rgb(111, 184, 139);
+const ISSUE: Color32 = Color32::from_rgb(206, 125, 96);
 
 fn main() -> ExitCode {
     let data_root = parse_project_arg().unwrap_or_else(default_data_root);
     if std::env::args().any(|arg| arg == "--smoke-exit") {
         return match load_feedback_project(data_root, |_| {}) {
             Ok(project) => {
+                let actor_catalog = project.actor_catalog();
                 println!(
-                    "[super-editor-mvp] ready: {} files, {} bytes, {} unavailable",
+                    "[super-editor-mvp] ready: {} files, {} bytes, {} unavailable; actors={} actor_evidence={} actor_reference_issues={}",
                     project.total_files(),
                     project.total_bytes(),
-                    project.unavailable
+                    project.unavailable,
+                    actor_count_smoke(actor_catalog.count),
+                    evidence_label(actor_catalog.evidence).to_ascii_lowercase(),
+                    actor_catalog.diagnostics.len()
                 );
                 ExitCode::SUCCESS
             }
@@ -157,8 +163,27 @@ fn configure_style(context: &egui::Context) {
 
 enum LoadMessage {
     Progress(FeedbackLoadProgress),
-    Ready(FeedbackProject),
+    Ready(Box<FeedbackProject>),
     Failed(String),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RecordsView {
+    Actors,
+    Files,
+}
+
+fn transition_records_view(
+    current: RecordsView,
+    target: RecordsView,
+    selected_file: &mut Option<String>,
+    selected_actor: &mut Option<u16>,
+) -> RecordsView {
+    if current != target {
+        *selected_file = None;
+        *selected_actor = None;
+    }
+    target
 }
 
 #[derive(Default)]
@@ -191,6 +216,8 @@ struct LedgerApp {
     lens: Lens,
     filter: String,
     selected: Option<String>,
+    selected_actor: Option<u16>,
+    records_view: RecordsView,
     status: String,
     activity: Vec<String>,
     load_gate: LoadGate,
@@ -205,6 +232,8 @@ impl LedgerApp {
             lens: Lens::Records,
             filter: String::new(),
             selected: None,
+            selected_actor: None,
+            records_view: RecordsView::Actors,
             status: "Preparing project inventory…".to_owned(),
             activity: vec!["Feedback MVP started in read-only mode".to_owned()],
             load_gate: LoadGate::default(),
@@ -226,6 +255,7 @@ impl LedgerApp {
         self.receiver = Some(receiver);
         self.project = None;
         self.selected = None;
+        self.selected_actor = None;
         self.status = "Opening selected project…".to_owned();
         self.activity
             .insert(0, format!("Inventory requested: {}", path.display()));
@@ -234,7 +264,7 @@ impl LedgerApp {
                 let _ = sender.send(LoadMessage::Progress(progress));
             });
             let _ = sender.send(match result {
-                Ok(project) => LoadMessage::Ready(project),
+                Ok(project) => LoadMessage::Ready(Box::new(project)),
                 Err(error) => LoadMessage::Failed(error),
             });
         });
@@ -261,10 +291,21 @@ impl LedgerApp {
             match message {
                 LoadMessage::Progress(progress) => self.apply_progress(progress),
                 LoadMessage::Ready(project) => {
+                    let actor_count = actor_count_label(project.actor_catalog().count);
                     self.status = format!(
-                        "{} files indexed · {} unavailable",
+                        "{} files indexed · {actor_count} · {} unavailable",
                         project.total_files(),
                         project.unavailable
+                    );
+                    self.activity.insert(
+                        0,
+                        format!(
+                            "Actor catalog: {actor_count} · {}",
+                            diagnostic_count_label(
+                                project.actor_catalog().evidence,
+                                project.actor_catalog().diagnostics.len()
+                            )
+                        ),
                     );
                     self.activity.insert(
                         0,
@@ -274,7 +315,7 @@ impl LedgerApp {
                             project.shape
                         ),
                     );
-                    self.project = Some(project);
+                    self.project = Some(*project);
                     self.load_gate.finish();
                     return;
                 }
@@ -339,6 +380,16 @@ impl LedgerApp {
             .as_ref()?
             .all_entries()
             .find(|entry| entry.path == selected)
+    }
+
+    fn selected_actor(&self) -> Option<&FeedbackActor> {
+        let selected = self.selected_actor?;
+        self.project
+            .as_ref()?
+            .actor_catalog()
+            .actors
+            .iter()
+            .find(|actor| actor.actor_id == selected)
     }
 
     fn top_bar(&mut self, context: &egui::Context) {
@@ -424,11 +475,12 @@ impl LedgerApp {
                     {
                         self.lens = lens;
                         self.selected = None;
+                        self.selected_actor = None;
                     }
                 }
                 ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
                     ui.label(
-                        RichText::new("Feedback build 0.1\nNo save or mutation commands exist")
+                        RichText::new("Feedback build 0.2\nNo save or mutation commands exist")
                             .size(11.0)
                             .color(MUTED),
                     );
@@ -453,7 +505,82 @@ impl LedgerApp {
                         .strong(),
                 );
                 ui.add_space(8.0);
-                if let Some(entry) = self.selected_entry() {
+                if let Some(actor) = self.selected_actor() {
+                    let evidence = self
+                        .project
+                        .as_ref()
+                        .map(|project| project.actor_catalog().evidence)
+                        .unwrap_or(FeedbackEvidence::Unavailable);
+                    let evidence_color = match evidence {
+                        FeedbackEvidence::Consensus => GREEN,
+                        FeedbackEvidence::Provisional => BRASS,
+                        FeedbackEvidence::Unavailable => ISSUE,
+                    };
+                    ui.label(RichText::new(&actor.race).size(22.0).color(INK));
+                    ui.label(
+                        RichText::new(format!("ACTOR  /  #{:05}", actor.actor_id))
+                            .size(12.0)
+                            .color(BRASS),
+                    );
+                    ui.add_space(16.0);
+                    property(ui, "Stable identity", &format!("Actor #{}", actor.actor_id));
+                    property(
+                        ui,
+                        "Legacy display",
+                        if actor.race_is_lossy {
+                            "Lossy byte projection"
+                        } else {
+                            "Exact UTF-8 projection"
+                        },
+                    );
+                    property(
+                        ui,
+                        "Base mesh",
+                        &actor
+                            .base_mesh
+                            .map_or_else(|| "None".to_owned(), |id| format!("Mesh #{id}")),
+                    );
+                    property(ui, "Media state", media_status_label(actor.media_status));
+                    property(
+                        ui,
+                        "Physical source",
+                        actor.physical_path.as_deref().unwrap_or("Not resolved"),
+                    );
+                    ui.add_space(12.0);
+                    let evidence_fill = match evidence {
+                        FeedbackEvidence::Consensus => Color32::from_rgb(19, 31, 27),
+                        FeedbackEvidence::Provisional => Color32::from_rgb(37, 31, 20),
+                        FeedbackEvidence::Unavailable => Color32::from_rgb(39, 25, 23),
+                    };
+                    let evidence_stroke = match evidence {
+                        FeedbackEvidence::Consensus => Color32::from_rgb(54, 91, 71),
+                        FeedbackEvidence::Provisional => BRASS_SOFT,
+                        FeedbackEvidence::Unavailable => Color32::from_rgb(104, 62, 48),
+                    };
+                    Frame::none()
+                        .fill(evidence_fill)
+                        .stroke(Stroke::new(1.0, evidence_stroke))
+                        .inner_margin(Margin::same(12.0))
+                        .show(ui, |ui| {
+                            ui.label(
+                                RichText::new(format!(
+                                    "{} · OBSERVATION ONLY",
+                                    evidence_label(evidence)
+                                ))
+                                .color(evidence_color)
+                                .strong(),
+                            );
+                            ui.label(
+                                RichText::new(if evidence == FeedbackEvidence::Consensus {
+                                    "Client and server parser evidence agrees; no edit path exists."
+                                } else {
+                                    "The consensus layer marked this slice provisional; missing-media diagnostics are withheld."
+                                })
+                                .size(12.0)
+                                .color(MUTED),
+                            );
+                        });
+                } else if let Some(entry) = self.selected_entry() {
                     ui.label(RichText::new(file_name(&entry.path)).size(22.0).color(INK));
                     ui.label(RichText::new(&entry.path).size(12.0).color(MUTED));
                     ui.add_space(16.0);
@@ -494,10 +621,10 @@ impl LedgerApp {
                             );
                         });
                 } else {
-                    ui.label(RichText::new("Select an observed file").size(18.0).color(INK));
+                    ui.label(RichText::new("Select a record or file").size(18.0).color(INK));
                     ui.label(
                         RichText::new(
-                            "The inspector exposes identity, compatibility, state class, and exact source fingerprint.",
+                            "Actor records expose stable identity and media health. Files expose classification and exact fingerprints.",
                         )
                         .color(MUTED),
                     );
@@ -536,14 +663,27 @@ impl LedgerApp {
             .show(context, |ui| {
                 ui.horizontal(|ui| {
                     ui.vertical(|ui| {
+                        let title = if self.lens == Lens::Records
+                            && self.records_view == RecordsView::Actors
+                        {
+                            "Actor catalog".to_owned()
+                        } else {
+                            format!("{} atlas", self.lens.label())
+                        };
                         ui.label(
-                            RichText::new(format!("{} atlas", self.lens.label()))
+                            RichText::new(title)
                                 .size(25.0)
                                 .color(INK)
                                 .strong(),
                         );
                         ui.label(
-                            RichText::new("One project snapshot · stable observed identities")
+                            RichText::new(if self.lens == Lens::Records
+                                && self.records_view == RecordsView::Actors
+                            {
+                                "Client/server consensus · stable actor identities · live media health"
+                            } else {
+                                "One project snapshot · stable observed identities"
+                            })
                                 .color(MUTED),
                         );
                     });
@@ -551,76 +691,49 @@ impl LedgerApp {
                         ui.add_sized(
                             [260.0, 34.0],
                             TextEdit::singleline(&mut self.filter)
-                                .hint_text("Filter observed paths…"),
+                                .hint_text(if self.lens == Lens::Records
+                                    && self.records_view == RecordsView::Actors
+                                {
+                                    "Filter actors, ids, or states…"
+                                } else {
+                                    "Filter observed paths…"
+                                }),
                         );
+                        if self.lens == Lens::Records {
+                            if ui
+                                .selectable_label(self.records_view == RecordsView::Files, "FILES")
+                                .clicked()
+                            {
+                                self.records_view = transition_records_view(
+                                    self.records_view,
+                                    RecordsView::Files,
+                                    &mut self.selected,
+                                    &mut self.selected_actor,
+                                );
+                            }
+                            if ui
+                                .selectable_label(
+                                    self.records_view == RecordsView::Actors,
+                                    "ACTORS",
+                                )
+                                .clicked()
+                            {
+                                self.records_view = transition_records_view(
+                                    self.records_view,
+                                    RecordsView::Actors,
+                                    &mut self.selected,
+                                    &mut self.selected_actor,
+                                );
+                            }
+                        }
                     });
                 });
                 ui.add_space(14.0);
-                Frame::none()
-                    .fill(PANEL_RAISED)
-                    .stroke(Stroke::new(1.0, Color32::from_rgb(48, 53, 51)))
-                    .inner_margin(Margin::same(1.0))
-                    .show(ui, |ui| {
-                        let available = ui.available_height();
-                        ScrollArea::vertical().max_height(available).show(ui, |ui| {
-                            let entries = self
-                                .project
-                                .as_ref()
-                                .map(|project| project.entries(self.lens))
-                                .unwrap_or(&[]);
-                            let filter = self.filter.to_ascii_lowercase();
-                            if entries.is_empty() && self.receiver.is_some() {
-                                ui.add_space(30.0);
-                                ui.vertical_centered(|ui| {
-                                    ui.spinner();
-                                    ui.label(RichText::new(&self.status).color(MUTED));
-                                });
-                            }
-                            for entry in entries.iter().filter(|entry| {
-                                filter.is_empty()
-                                    || entry.path.to_ascii_lowercase().contains(&filter)
-                            }) {
-                                let selected =
-                                    self.selected.as_deref() == Some(entry.path.as_str());
-                                let row = Frame::none()
-                                    .fill(if selected {
-                                        Color32::from_rgb(59, 49, 31)
-                                    } else {
-                                        Color32::TRANSPARENT
-                                    })
-                                    .inner_margin(Margin::symmetric(13.0, 8.0))
-                                    .show(ui, |ui| {
-                                        ui.set_min_width(ui.available_width());
-                                        ui.label(RichText::new(&entry.path).size(13.0).color(INK));
-                                        ui.label(
-                                            RichText::new(format!(
-                                                "{}  ·  {}  ·  {}",
-                                                format_bytes(entry.size),
-                                                entry.family.unwrap_or("unclassified"),
-                                                entry.compatibility
-                                            ))
-                                            .size(11.0)
-                                            .color(MUTED),
-                                        );
-                                    });
-                                let response = ui.interact(
-                                    row.response.rect,
-                                    ui.make_persistent_id(&entry.path),
-                                    Sense::click(),
-                                );
-                                if response.hovered() {
-                                    ui.painter().rect_stroke(
-                                        response.rect,
-                                        0.0,
-                                        Stroke::new(1.0, BRASS_SOFT),
-                                    );
-                                }
-                                if response.clicked() {
-                                    self.selected = Some(entry.path.clone());
-                                }
-                            }
-                        });
-                    });
+                if self.lens == Lens::Records && self.records_view == RecordsView::Actors {
+                    self.actor_catalog(ui);
+                } else {
+                    self.file_atlas(ui);
+                }
                 if let Some(project) = &self.project {
                     ui.add_space(8.0);
                     ui.label(
@@ -635,6 +748,227 @@ impl LedgerApp {
                         .color(MUTED),
                     );
                 }
+            });
+    }
+
+    fn actor_catalog(&mut self, ui: &mut egui::Ui) {
+        let Some(project) = self.project.as_ref() else {
+            ui.vertical_centered(|ui| {
+                ui.spinner();
+                ui.label(RichText::new(&self.status).color(MUTED));
+            });
+            return;
+        };
+        let catalog = project.actor_catalog();
+        let evidence_color = match catalog.evidence {
+            FeedbackEvidence::Consensus => GREEN,
+            FeedbackEvidence::Provisional => BRASS,
+            FeedbackEvidence::Unavailable => ISSUE,
+        };
+        Frame::none()
+            .fill(PANEL_RAISED)
+            .stroke(Stroke::new(1.0, Color32::from_rgb(48, 53, 51)))
+            .inner_margin(Margin::symmetric(14.0, 11.0))
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new(evidence_label(catalog.evidence))
+                            .color(evidence_color)
+                            .strong(),
+                    );
+                    ui.separator();
+                    ui.label(RichText::new(actor_count_label(catalog.count)).color(INK));
+                    ui.separator();
+                    ui.label(
+                        RichText::new(diagnostic_count_label(
+                            catalog.evidence,
+                            catalog.diagnostics.len(),
+                        ))
+                        .color(match catalog.evidence {
+                            FeedbackEvidence::Consensus if catalog.diagnostics.is_empty() => GREEN,
+                            FeedbackEvidence::Consensus => ISSUE,
+                            FeedbackEvidence::Provisional => BRASS,
+                            FeedbackEvidence::Unavailable => ISSUE,
+                        }),
+                    );
+                });
+                if let Some(reason) = &catalog.unavailable_reason {
+                    ui.label(RichText::new(reason).size(12.0).color(MUTED));
+                }
+            });
+        ui.add_space(8.0);
+
+        let filter = self.filter.to_ascii_lowercase();
+        let mut clicked_actor = None;
+        ScrollArea::vertical()
+            .max_height(ui.available_height())
+            .show(ui, |ui| {
+                for diagnostic in &catalog.diagnostics {
+                    if !filter.is_empty()
+                        && !diagnostic.message.to_ascii_lowercase().contains(&filter)
+                        && !diagnostic.code.to_ascii_lowercase().contains(&filter)
+                        && !diagnostic.actor_id.to_string().contains(&filter)
+                    {
+                        continue;
+                    }
+                    let response = Frame::none()
+                        .fill(Color32::from_rgb(42, 29, 25))
+                        .stroke(Stroke::new(1.0, Color32::from_rgb(104, 62, 48)))
+                        .inner_margin(Margin::symmetric(13.0, 9.0))
+                        .show(ui, |ui| {
+                            ui.set_min_width(ui.available_width());
+                            ui.label(
+                                RichText::new(format!(
+                                    "{}  ·  ACTOR #{}",
+                                    diagnostic.code, diagnostic.actor_id
+                                ))
+                                .size(10.0)
+                                .color(ISSUE)
+                                .strong(),
+                            );
+                            ui.label(RichText::new(&diagnostic.message).size(12.0).color(INK));
+                        })
+                        .response;
+                    if response.interact(Sense::click()).clicked() {
+                        clicked_actor = Some(diagnostic.actor_id);
+                    }
+                    ui.add_space(5.0);
+                }
+
+                for actor in &catalog.actors {
+                    let searchable = format!(
+                        "{} {} {}",
+                        actor.race,
+                        actor.actor_id,
+                        media_status_label(actor.media_status)
+                    )
+                    .to_ascii_lowercase();
+                    if !filter.is_empty() && !searchable.contains(&filter) {
+                        continue;
+                    }
+                    let selected = self.selected_actor == Some(actor.actor_id);
+                    let response = Frame::none()
+                        .fill(if selected {
+                            Color32::from_rgb(59, 49, 31)
+                        } else {
+                            Color32::from_rgb(25, 30, 30)
+                        })
+                        .stroke(Stroke::new(
+                            1.0,
+                            if selected {
+                                BRASS
+                            } else {
+                                Color32::from_rgb(48, 53, 51)
+                            },
+                        ))
+                        .inner_margin(Margin::symmetric(13.0, 10.0))
+                        .show(ui, |ui| {
+                            ui.set_min_width(ui.available_width());
+                            ui.horizontal(|ui| {
+                                ui.vertical(|ui| {
+                                    ui.label(
+                                        RichText::new(&actor.race).size(16.0).color(INK).strong(),
+                                    );
+                                    ui.label(
+                                        RichText::new(format!(
+                                            "ACTOR #{:05}  ·  {}",
+                                            actor.actor_id,
+                                            actor.base_mesh.map_or_else(
+                                                || "NO BASE MESH".to_owned(),
+                                                |id| format!("BASE MESH #{id}")
+                                            )
+                                        ))
+                                        .size(10.0)
+                                        .color(MUTED),
+                                    );
+                                });
+                                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                    ui.label(
+                                        RichText::new(media_status_badge(actor.media_status))
+                                            .size(10.0)
+                                            .color(media_status_color(actor.media_status))
+                                            .strong(),
+                                    );
+                                });
+                            });
+                        })
+                        .response;
+                    if response.interact(Sense::click()).clicked() {
+                        clicked_actor = Some(actor.actor_id);
+                    }
+                    ui.add_space(5.0);
+                }
+            });
+        if let Some(actor_id) = clicked_actor {
+            self.selected_actor = Some(actor_id);
+            self.selected = None;
+        }
+    }
+
+    fn file_atlas(&mut self, ui: &mut egui::Ui) {
+        Frame::none()
+            .fill(PANEL_RAISED)
+            .stroke(Stroke::new(1.0, Color32::from_rgb(48, 53, 51)))
+            .inner_margin(Margin::same(1.0))
+            .show(ui, |ui| {
+                let available = ui.available_height();
+                ScrollArea::vertical().max_height(available).show(ui, |ui| {
+                    let entries = self
+                        .project
+                        .as_ref()
+                        .map(|project| project.entries(self.lens))
+                        .unwrap_or(&[]);
+                    let filter = self.filter.to_ascii_lowercase();
+                    if entries.is_empty() && self.receiver.is_some() {
+                        ui.add_space(30.0);
+                        ui.vertical_centered(|ui| {
+                            ui.spinner();
+                            ui.label(RichText::new(&self.status).color(MUTED));
+                        });
+                    }
+                    for entry in entries.iter().filter(|entry| {
+                        filter.is_empty() || entry.path.to_ascii_lowercase().contains(&filter)
+                    }) {
+                        let selected = self.selected.as_deref() == Some(entry.path.as_str());
+                        let row = Frame::none()
+                            .fill(if selected {
+                                Color32::from_rgb(59, 49, 31)
+                            } else {
+                                Color32::TRANSPARENT
+                            })
+                            .inner_margin(Margin::symmetric(13.0, 8.0))
+                            .show(ui, |ui| {
+                                ui.set_min_width(ui.available_width());
+                                ui.label(RichText::new(&entry.path).size(13.0).color(INK));
+                                ui.label(
+                                    RichText::new(format!(
+                                        "{}  ·  {}  ·  {}",
+                                        format_bytes(entry.size),
+                                        entry.family.unwrap_or("unclassified"),
+                                        entry.compatibility
+                                    ))
+                                    .size(11.0)
+                                    .color(MUTED),
+                                );
+                            });
+                        let response = ui.interact(
+                            row.response.rect,
+                            ui.make_persistent_id(&entry.path),
+                            Sense::click(),
+                        );
+                        if response.hovered() {
+                            ui.painter().rect_stroke(
+                                response.rect,
+                                0.0,
+                                Stroke::new(1.0, BRASS_SOFT),
+                            );
+                        }
+                        if response.clicked() {
+                            self.selected = Some(entry.path.clone());
+                            self.selected_actor = None;
+                        }
+                    }
+                });
             });
     }
 }
@@ -663,6 +997,68 @@ fn file_name(path: &str) -> &str {
     path.rsplit('/').next().unwrap_or(path)
 }
 
+const fn evidence_label(evidence: FeedbackEvidence) -> &'static str {
+    match evidence {
+        FeedbackEvidence::Consensus => "CONSENSUS",
+        FeedbackEvidence::Provisional => "PROVISIONAL",
+        FeedbackEvidence::Unavailable => "UNAVAILABLE",
+    }
+}
+
+fn actor_count_label(count: FeedbackActorCount) -> String {
+    match count {
+        FeedbackActorCount::Agreed(count) => format!("{count} actors · count agreed"),
+        FeedbackActorCount::Disagreed { client, server } => {
+            format!("actor count disagrees: client {client} / server {server}")
+        }
+        FeedbackActorCount::Unavailable => "actor count unavailable".to_owned(),
+    }
+}
+
+fn diagnostic_count_label(evidence: FeedbackEvidence, count: usize) -> String {
+    match evidence {
+        FeedbackEvidence::Consensus => format!("{count} actionable reference issues"),
+        FeedbackEvidence::Provisional => "reference diagnostics withheld".to_owned(),
+        FeedbackEvidence::Unavailable => "reference diagnostics unavailable".to_owned(),
+    }
+}
+
+fn actor_count_smoke(count: FeedbackActorCount) -> String {
+    match count {
+        FeedbackActorCount::Agreed(count) => count.to_string(),
+        FeedbackActorCount::Disagreed { client, server } => format!("{client}/{server}"),
+        FeedbackActorCount::Unavailable => "unavailable".to_owned(),
+    }
+}
+
+const fn media_status_label(status: FeedbackMediaStatus) -> &'static str {
+    match status {
+        FeedbackMediaStatus::NoBaseMesh => "No base mesh",
+        FeedbackMediaStatus::Present => "Media present",
+        FeedbackMediaStatus::MissingCatalog => "Catalog entry missing",
+        FeedbackMediaStatus::MissingPhysical => "Physical file missing",
+        FeedbackMediaStatus::Provisional => "Media status provisional",
+    }
+}
+
+const fn media_status_badge(status: FeedbackMediaStatus) -> &'static str {
+    match status {
+        FeedbackMediaStatus::NoBaseMesh => "NO BASE MESH",
+        FeedbackMediaStatus::Present => "PRESENT",
+        FeedbackMediaStatus::MissingCatalog => "MISSING CATALOG",
+        FeedbackMediaStatus::MissingPhysical => "MISSING FILE",
+        FeedbackMediaStatus::Provisional => "PROVISIONAL",
+    }
+}
+
+const fn media_status_color(status: FeedbackMediaStatus) -> Color32 {
+    match status {
+        FeedbackMediaStatus::Present | FeedbackMediaStatus::NoBaseMesh => GREEN,
+        FeedbackMediaStatus::MissingCatalog | FeedbackMediaStatus::MissingPhysical => ISSUE,
+        FeedbackMediaStatus::Provisional => BRASS,
+    }
+}
+
 fn format_bytes(bytes: u64) -> String {
     const KIB: f64 = 1024.0;
     const MIB: f64 = KIB * 1024.0;
@@ -681,7 +1077,7 @@ fn format_bytes(bytes: u64) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::LoadGate;
+    use super::{transition_records_view, LoadGate, RecordsView};
 
     #[test]
     fn only_one_project_load_can_be_active() {
@@ -690,5 +1086,22 @@ mod tests {
         assert!(!gate.try_begin());
         gate.finish();
         assert!(gate.try_begin());
+    }
+
+    #[test]
+    fn records_view_transition_clears_incompatible_selection() {
+        let mut selected_file = Some("Data/Server Data/Actors.dat".to_owned());
+        let mut selected_actor = Some(7);
+
+        let view = transition_records_view(
+            RecordsView::Actors,
+            RecordsView::Files,
+            &mut selected_file,
+            &mut selected_actor,
+        );
+
+        assert_eq!(view, RecordsView::Files);
+        assert_eq!(selected_file, None);
+        assert_eq!(selected_actor, None);
     }
 }

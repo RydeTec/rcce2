@@ -28,7 +28,7 @@ This ledger records execution state. It does not weaken packet acceptance, compa
 | Field | Current value |
 |---|---|
 | Canonical relationship | Early feedback subset of M1 task 17; earns no task 17, P07, P06, or M1 acceptance credit |
-| Status | `Accepted; integration and exact-head CI pending` |
+| Status | `Accepted and integrated at 696585279feb77d97a97ec54d126347781698df5` |
 | Product boundary | Windows desktop feedback build, five lenses, inspector, and zero-mutation Ledger over the explicitly selected real project `data` root |
 | Headless ownership | `rcce-editor-core` owns loading/projection; it contains no GUI types and consumes the accepted `rcce-project` snapshot |
 | UI ownership | `rcce-editor` owns the provisional eframe/egui host; the UI dependency remains replaceable and unselected for production renderer composition |
@@ -36,12 +36,25 @@ This ledger records execution state. It does not weaken packet acceptance, compa
 | Mutation boundary | No write, repair, rename, conversion, command, storage, or external-operation API |
 | Baseline | Exact Rust 1.85 workspace green; `rcce-editor` printed only `RCCE editor workspace placeholder; no project was opened` |
 | Current evidence | Exact 13-path aggregate `145f344f18ece56a068ed244b94e2144e78a2c26defc178643badd7b43ce6777` passed fresh specification-delta and different fresh quality review; exact Rust 1.85 workspace tests, strict Clippy, build, stable targeted rustfmt, diff check, and plan 95/11 pass; Linux real-default smoke observed 1,180 files / 351,551,965 bytes / 0 unavailable; native Windows real-current-default smoke observed 1,201 files / 358,557,047 bytes / 0 unavailable with exhaustive lens counts 115 + 289 + 715 + 74 + 8 = 1,201; native valid/missing-root smoke exits are 0/2; native visual review passed |
-| Remaining acceptance | Integration commit, push, and terminal exact-head CI |
+| Remaining acceptance | None for this continuity packet; later fidelity packets must preserve it |
 
 This packet exists because the project owner changed sequencing: deliver a
 feedback-worthy product slice first, then increase fidelity while preserving
 the latest runnable MVP. It does not weaken the M1 packet dependency graph or
 the rejected/unselected UI candidate evidence.
+
+### `SE-FB-MVP-02` — Actor intelligence
+
+| Field | Current value |
+|---|---|
+| Canonical relationship | Feedback-only preview of the M1 tasks 17–18 actor/media vertical slice; earns no P07, P08, task 17, task 18, P06, or M1 acceptance credit |
+| Status | `Accepted candidate; integration pending` |
+| Product boundary | Records gains a real actor catalog, stable actor selection, base-mesh health, and navigable missing-catalog/file issue cards while the exhaustive file atlas remains available |
+| Evidence boundary | Missing-media issues render only for `Consensus`; `Provisional` actor slices remain browsable and explicitly withhold authoritative diagnostics |
+| Root compatibility | The sealed actor/media consensus accepts either an explicit project root containing `Data/` or the MVP's explicit `data` root, while retaining canonical `Data/...` evidence paths |
+| Mutation boundary | Read-only; no repair, save, rename, conversion, storage, process, or external-operation path |
+| Current evidence | Corrected exact nine-path aggregate `618f8b0478170f89f52beae4072ea3c7a32e1d6ab303e886e9cc8285d8c4476b` passed fresh specification and different fresh quality review after adding durable ambiguity, provisional-withholding, and Records-subview selection regressions; GREEN fixture/native visual flow reports 4 consensus actors / 2 issues and diagnostic-to-actor navigation; native real-current-default smoke reports 1,201 files / 358,557,047 bytes / 0 unavailable / 6 provisional actors / diagnostics withheld with valid/missing-root exits 0/2; exact Rust 1.85 workspace tests (editor 2, smoke 1, feedback projection 4, consensus 10, and all prior suites), strict Clippy/build, targeted stable rustfmt, diff check, and plan 95/11 pass |
+| Remaining acceptance | Commit, push, and terminal-success exact-head CI |
 
 ## Active packets
 

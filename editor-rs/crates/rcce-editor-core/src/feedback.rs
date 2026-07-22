@@ -1,6 +1,7 @@
 use rcce_project::{
-    classify, CompatibilityLevel, MetadataBudget, ProjectRoot, ProjectSnapshot, ReadAssurance,
-    ScanControl, SnapshotProgress, StateClass,
+    classify, ActorCountEvidence, ActorMediaAvailability, ActorMediaConsensus, CompatibilityLevel,
+    ConsensusLevel, MetadataBudget, ProjectRoot, ProjectSnapshot, ReadAssurance, ScanControl,
+    SnapshotProgress, StateClass,
 };
 use std::path::PathBuf;
 
@@ -54,11 +55,141 @@ pub struct FeedbackEntry {
     pub source_sha256: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FeedbackEvidence {
+    Consensus,
+    Provisional,
+    Unavailable,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FeedbackActorCount {
+    Agreed(usize),
+    Disagreed { client: usize, server: usize },
+    Unavailable,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FeedbackMediaStatus {
+    NoBaseMesh,
+    Present,
+    MissingCatalog,
+    MissingPhysical,
+    Provisional,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FeedbackActor {
+    pub actor_id: u16,
+    pub race: String,
+    pub race_is_lossy: bool,
+    pub base_mesh: Option<u16>,
+    pub media_status: FeedbackMediaStatus,
+    pub physical_path: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FeedbackDiagnostic {
+    pub code: &'static str,
+    pub actor_id: u16,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FeedbackActorCatalog {
+    pub evidence: FeedbackEvidence,
+    pub count: FeedbackActorCount,
+    pub actors: Vec<FeedbackActor>,
+    pub diagnostics: Vec<FeedbackDiagnostic>,
+    pub unavailable_reason: Option<String>,
+}
+
+impl FeedbackActorCatalog {
+    fn from_consensus(consensus: ActorMediaConsensus) -> Self {
+        let evidence = match consensus.level() {
+            ConsensusLevel::Consensus => FeedbackEvidence::Consensus,
+            ConsensusLevel::Provisional => FeedbackEvidence::Provisional,
+        };
+        let count = match consensus.actor_count() {
+            ActorCountEvidence::Agreed(count) => FeedbackActorCount::Agreed(count),
+            ActorCountEvidence::Disagreed { client, server } => {
+                FeedbackActorCount::Disagreed { client, server }
+            }
+        };
+        let actors = consensus
+            .actors()
+            .iter()
+            .map(|actor| {
+                let display = actor.race.as_ref().map(|race| race.best_effort_display());
+                FeedbackActor {
+                    actor_id: actor.actor_id,
+                    race: display.as_ref().map_or_else(
+                        || format!("Actor {}", actor.actor_id),
+                        |value| value.text().to_owned(),
+                    ),
+                    race_is_lossy: display.as_ref().is_some_and(|value| value.is_lossy()),
+                    base_mesh: actor.base_mesh,
+                    media_status: media_status(actor.availability),
+                    physical_path: actor.physical_inventory_path.clone(),
+                }
+            })
+            .collect::<Vec<_>>();
+        let diagnostics = if evidence == FeedbackEvidence::Consensus {
+            actors
+                .iter()
+                .filter_map(|actor| match actor.media_status {
+                    FeedbackMediaStatus::MissingCatalog => Some(FeedbackDiagnostic {
+                        code: "RCCE-ACTOR-MESH-CATALOG-MISSING",
+                        actor_id: actor.actor_id,
+                        message: format!(
+                            "{} (actor #{}) references mesh #{} without a catalog entry",
+                            actor.race,
+                            actor.actor_id,
+                            actor.base_mesh.unwrap_or_default()
+                        ),
+                    }),
+                    FeedbackMediaStatus::MissingPhysical => Some(FeedbackDiagnostic {
+                        code: "RCCE-ACTOR-MESH-FILE-MISSING",
+                        actor_id: actor.actor_id,
+                        message: format!(
+                            "{} (actor #{}) references mesh #{} whose physical file is missing",
+                            actor.race,
+                            actor.actor_id,
+                            actor.base_mesh.unwrap_or_default()
+                        ),
+                    }),
+                    _ => None,
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+        Self {
+            evidence,
+            count,
+            actors,
+            diagnostics,
+            unavailable_reason: None,
+        }
+    }
+
+    fn unavailable(reason: String) -> Self {
+        Self {
+            evidence: FeedbackEvidence::Unavailable,
+            count: FeedbackActorCount::Unavailable,
+            actors: Vec::new(),
+            diagnostics: Vec::new(),
+            unavailable_reason: Some(reason),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FeedbackProject {
     pub data_root: PathBuf,
     pub shape: String,
     pub unavailable: usize,
+    actor_catalog: FeedbackActorCatalog,
     by_lens: [Vec<FeedbackEntry>; 5],
     unclassified_files: usize,
     total_files: usize,
@@ -139,12 +270,34 @@ pub fn load_feedback_project(
         },
     )
     .map_err(|error| format!("project inventory failed: {error:?}"))?;
-    Ok(FeedbackProject::from_data_root(data_root, &snapshot))
+    let actor_catalog = match snapshot.load_actor_media_consensus(&root, || ScanControl::Continue) {
+        Ok(consensus) => FeedbackActorCatalog::from_consensus(consensus),
+        Err(error) => {
+            FeedbackActorCatalog::unavailable(format!("Actor catalog unavailable: {error:?}"))
+        }
+    };
+    Ok(FeedbackProject::from_data_root_with_actor_catalog(
+        data_root,
+        &snapshot,
+        actor_catalog,
+    ))
 }
 
 impl FeedbackProject {
     #[must_use]
     pub fn from_data_root(data_root: PathBuf, snapshot: &ProjectSnapshot) -> Self {
+        Self::from_data_root_with_actor_catalog(
+            data_root,
+            snapshot,
+            FeedbackActorCatalog::unavailable("Actor catalog was not requested".to_owned()),
+        )
+    }
+
+    fn from_data_root_with_actor_catalog(
+        data_root: PathBuf,
+        snapshot: &ProjectSnapshot,
+        actor_catalog: FeedbackActorCatalog,
+    ) -> Self {
         let mut by_lens: [Vec<FeedbackEntry>; 5] = std::array::from_fn(|_| Vec::new());
         let mut unclassified_files = 0;
         let inventory = snapshot.inventory();
@@ -189,6 +342,7 @@ impl FeedbackProject {
             }
             .to_owned(),
             unavailable: inventory.unavailable.len(),
+            actor_catalog,
             by_lens,
             unclassified_files,
             total_files: inventory.files.len(),
@@ -212,12 +366,27 @@ impl FeedbackProject {
     }
 
     #[must_use]
+    pub const fn actor_catalog(&self) -> &FeedbackActorCatalog {
+        &self.actor_catalog
+    }
+
+    #[must_use]
     pub fn unclassified_files(&self) -> usize {
         self.unclassified_files
     }
 
     pub fn all_entries(&self) -> impl Iterator<Item = &FeedbackEntry> {
         self.by_lens.iter().flat_map(|entries| entries.iter())
+    }
+}
+
+const fn media_status(availability: ActorMediaAvailability) -> FeedbackMediaStatus {
+    match availability {
+        ActorMediaAvailability::NoBaseMesh => FeedbackMediaStatus::NoBaseMesh,
+        ActorMediaAvailability::Present => FeedbackMediaStatus::Present,
+        ActorMediaAvailability::MissingCatalog => FeedbackMediaStatus::MissingCatalog,
+        ActorMediaAvailability::MissingPhysical => FeedbackMediaStatus::MissingPhysical,
+        ActorMediaAvailability::Provisional => FeedbackMediaStatus::Provisional,
     }
 }
 
