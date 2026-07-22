@@ -31,7 +31,7 @@ The shipped beta implements **five of these directly** (threads, conscience ribb
 
 ## What Loom is today (beta)
 
-A full-featured GUE replacement with thread navigation, search, and a custom-drawn aesthetic. Specifically:
+A parallel beta editor with thread navigation, search, and a custom-drawn aesthetic, with editing parity for primary GUE workflows. GUE remains the established editor. Specifically:
 
 - **Browser** with 18 categories: Actors / Items / Spells / Projectiles / Particles / Zones / Factions / Animation Sets / Tools / Scripts / Textures / Meshes / Sounds / Music / Stats / Days & Seasons / Interface / Settings. Content and asset categories use clickable card grids; Tools launches companion editors, while Stats, Days & Seasons, Interface, and Settings expose project-level surfaces. Arrow keys + Enter navigate; card grids have live filter input.
 - **Composer** panel for the focused entity — ~40 editable fields across every kind; Save / Discard / Delete buttons (arm-confirm on the destructive ones); per-field range clamps so typos can't poison data.
