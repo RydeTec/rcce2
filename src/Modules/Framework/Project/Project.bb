@@ -26,6 +26,7 @@ Type Project
 
     Method verify()
         if (NOT Filesystem::dirExists(Null, self\rootDir + "Data")) return false
+        if (NOT Filesystem::fileExists(Null, self\rootDir + "Data\Game Data\Misc.dat")) return false
         return true
     End Method
 
