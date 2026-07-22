@@ -1,6 +1,6 @@
 use rcce_editor_core::{
     load_feedback_project, FeedbackActorCount, FeedbackEvidence, FeedbackMediaStatus,
-    FeedbackProject, FeedbackZoneStatus, Lens,
+    FeedbackProject, FeedbackScriptFamily, FeedbackZoneStatus, Lens,
 };
 use std::{fs, path::PathBuf, time::SystemTime};
 
@@ -59,6 +59,46 @@ fn zone_fixture() -> PathBuf {
         b"unicode-gameplay",
     )
     .expect("unicode gameplay area");
+    root
+}
+
+fn script_fixture() -> PathBuf {
+    let nonce = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .expect("system clock")
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!(
+        "rcce-feedback-scripts-{}-{nonce}",
+        std::process::id()
+    ));
+    fs::create_dir_all(root.join("Server Data/Scripts/Nested")).expect("script fixture directory");
+    fs::write(
+        root.join("Server Data/Scripts/Click_Merchant.rsl"),
+        b"source",
+    )
+    .expect("active click source");
+    fs::write(
+        root.join("Server Data/Scripts/click_merchant.RCM"),
+        b"module",
+    )
+    .expect("same-stem module adjunct");
+    fs::write(
+        root.join("Server Data/Scripts/CLICK_MERCHANT.rcscript"),
+        b"alternate",
+    )
+    .expect("same-stem alternate adjunct");
+    fs::write(root.join("Server Data/Scripts/Spell_Fire.rsl"), b"spell").expect("spell source");
+    fs::write(root.join("Server Data/Scripts/Utility.rsl"), b"utility").expect("other source");
+    fs::write(root.join("Server Data/Scripts/orphan.rcm"), b"orphan").expect("unanchored adjunct");
+    fs::write(
+        root.join("Server Data/Scripts/Nested/Ignored.rsl"),
+        b"nested",
+    )
+    .expect("nested non-catalog source");
+    fs::write(root.join("Server Data/Scripts/notes.txt"), b"notes")
+        .expect("unrelated script-directory file");
+    fs::write(root.join("Server Data/Scripts/éabc"), b"unicode")
+        .expect("unicode extensionless file");
     root
 }
 
@@ -229,6 +269,70 @@ fn projects_filename_derived_paired_zones_and_missing_half_observations() {
         .find(|zone| zone.name == "Étoile")
         .expect("unicode dat zone identity");
     assert_eq!(unicode.status, FeedbackZoneStatus::Paired);
+
+    fs::remove_dir_all(path).expect("fixture cleanup");
+}
+
+#[test]
+fn projects_active_script_sources_with_observed_same_stem_adjuncts() {
+    let path = script_fixture();
+    let project = load_feedback_project(path.clone(), |_| {}).expect("script feedback project");
+    let catalog = project.script_catalog();
+
+    assert_eq!(catalog.scripts.len(), 3);
+    assert_eq!(catalog.adjunct_files, 3);
+    assert_eq!(catalog.diagnostics.len(), 1);
+
+    let click = catalog
+        .scripts
+        .iter()
+        .find(|script| script.name == "Click_Merchant")
+        .expect("active source spelling anchors identity");
+    assert_eq!(click.family, FeedbackScriptFamily::Click);
+    assert_eq!(
+        click.source_path,
+        "Data/Server Data/Scripts/Click_Merchant.rsl"
+    );
+    assert_eq!(click.source_size, 6);
+    assert_eq!(
+        click.module_path.as_deref(),
+        Some("Data/Server Data/Scripts/click_merchant.RCM")
+    );
+    assert_eq!(click.module_size, Some(6));
+    assert_eq!(
+        click.alternate_path.as_deref(),
+        Some("Data/Server Data/Scripts/CLICK_MERCHANT.rcscript")
+    );
+    assert_eq!(click.alternate_size, Some(9));
+
+    assert_eq!(
+        catalog
+            .scripts
+            .iter()
+            .find(|script| script.name == "Spell_Fire")
+            .expect("spell source")
+            .family,
+        FeedbackScriptFamily::Spell
+    );
+    assert_eq!(
+        catalog
+            .scripts
+            .iter()
+            .find(|script| script.name == "Utility")
+            .expect("uncategorized source")
+            .family,
+        FeedbackScriptFamily::Other
+    );
+    assert!(catalog
+        .scripts
+        .iter()
+        .all(|script| script.name != "Ignored"));
+
+    assert_eq!(
+        catalog.diagnostics[0].code,
+        "RCCE-SCRIPT-ADJUNCT-WITHOUT-SOURCE"
+    );
+    assert_eq!(catalog.diagnostics[0].script_name, "orphan");
 
     fs::remove_dir_all(path).expect("fixture cleanup");
 }

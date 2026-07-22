@@ -23,6 +23,15 @@ not parse zone contents, infer semantic parity, or expose create/save/repair
 actions. The exhaustive World file atlas remains available beside the zone
 view.
 
+The Scripts lens uses each immediate `.rsl` file as an active source identity.
+Recognized literal `Click_`, `Init_`, `Item_`, `Quest_`, and `Spell_` filename
+prefixes define five families; every other source is grouped as `Other`.
+Same-stem `.rcm` and `.rcscript` files appear as adjacent
+inventory observations with their exact paths and sizes. The surface does not
+parse source, assert that an adjunct was generated from the source, or expose
+script editing; the exhaustive Scripts file atlas remains available beside the
+catalog.
+
 On Windows, launch the latest feedback build from the repository root:
 
 ```powershell
@@ -57,8 +66,8 @@ The observed toolchain was `rustc 1.85.0 (4d91de4e4 2025-02-17)` and
 
 | Crate | Reserved responsibility at later packets | Current behavior |
 |---|---|---|
-| `rcce-editor` | Desktop composition; the only production crate allowed to acquire a GUI framework | Replaceable feedback-MVP host with five read-only lenses, actor-focused Records, and paired-zone World surfaces |
-| `rcce-editor-core` | GUI-independent session, query, selection, and diagnostic orchestration | Real inventory, actor/media consensus, and filename-derived zone-pair projection with no write authority |
+| `rcce-editor` | Desktop composition; the only production crate allowed to acquire a GUI framework | Replaceable feedback-MVP host with five read-only lenses and focused actor, paired-zone, and script-relationship surfaces |
+| `rcce-editor-core` | GUI-independent session, query, selection, and diagnostic orchestration | Real inventory, actor/media consensus, filename-derived zone pairs, and active-source script grouping with no write authority |
 | `rcce-project` | Root-confined project model, inventory, identity, and legacy document interpretation | Explicit read-only `ProjectRoot`, validated `ProjectRelativePath`, bounded read/walk, and truthful assurance reporting |
 | `rcce-validation` | Pure diagnostics over project evidence | Empty library boundary |
 | `rcce-storage` | Format-agnostic command storage after write-capable milestones authorize it | Empty library boundary; no persistence API |

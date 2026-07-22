@@ -61,13 +61,26 @@ the rejected/unselected UI candidate evidence.
 | Field | Current value |
 |---|---|
 | Canonical relationship | Feedback-only preview of paired-zone discovery in M5 tasks 50 and 54; earns no task 17, task 18, task 50, task 54, P06, P07, P08, M1, or M5 acceptance credit |
-| Status | `Implementation candidate; independent review pending` |
+| Status | `Accepted and integrated at bdc17fc51a69606ea1892bcd4175cc8d73be71ff` |
 | Product boundary | World gains a filename-derived zone catalog, visual/gameplay half presence and size, stable selection, and navigable missing-half observations while the exhaustive World file atlas remains available |
 | Evidence boundary | Pairing proves only accepted inventory filenames under `Data/Areas` and `Data/Server Data/Areas`; it does not parse either zone format, assert semantic parity, or treat nested/non-`.dat` files as zones |
 | Identity boundary | Zone identity remains the observed `.dat` filename stem; pairing is case-insensitive across the two directories and display spelling prefers the visual half when present |
 | Mutation boundary | Read-only; no create, repair, save, rename, delete, conversion, storage, process, or external-operation path |
-| Current evidence | RED captured absent public zone projection APIs and absent World transition behavior; GREEN synthetic projection reports 4 zones / 2 observed pairing issues, case-insensitive pairing with canonical `Data/...` paths, ignored nested/non-`.dat` files, and World selection reset; Linux repository-default smoke reports 1,180 files / 6 zones / 2 observed pairing issues; exact Rust 1.85 targeted projection/editor/smoke tests pass |
-| Remaining acceptance | Native Windows rebuild/smoke/visual exercise, complete local gates, exact freeze, independent specification/quality review, commit, push, and terminal-success exact-head CI |
+| Current evidence | Corrected exact seven-file aggregate `3b12d9fd2d454ed2de734db12698b254d45500ca0bdd9f19e52445694e87ec4e` passed fresh specification and different fresh quality review after an external Unicode filename exposed unsafe suffix slicing; RED reproduced the panic and GREEN added boundary-safe Unicode non-`.dat` exclusion plus valid Unicode zone identity coverage. Linux repository-default smoke reports 1,180 files / 6 zones / 2 observed pairing issues; native Windows smoke reports 1,201 files / 6 zones / 2 observed pairing issues with valid/missing-root exits 0/2; exact Rust 1.85 workspace tests, strict Clippy/build, stable targeted formatting, plan 95/11, and diff hygiene passed; exact-head CI passed `Build and test` in 6m27s and `Rust server (Linux)` in 3m54s |
+| Remaining acceptance | None for this feedback continuity packet; formal M1/M5 and framework/write/migration gates remain unchanged |
+
+### `SE-FB-MVP-04` — Script constellation
+
+| Field | Current value |
+|---|---|
+| Canonical relationship | Feedback-only preview of script discovery needed by M7 tasks 68–69; earns no task 17, task 18, task 68, task 69, P06, P07, P08, M1, or M7 acceptance credit |
+| Status | `Accepted for integration` |
+| Product boundary | Scripts gains an active `.rsl` source catalog, literal-prefix family filters, exact same-stem `.rcm` / `.rcscript` observations, stable selection, and direct unanchored-adjunct observations while the exhaustive Scripts file atlas remains available |
+| Evidence boundary | The catalog consumes accepted immediate filenames under `Data/Server Data/Scripts`; it does not read or parse source text, assert script behavior, treat `.rcscript` as active, or claim that same-stem adjuncts were generated from the `.rsl` source |
+| Identity boundary | Each accepted immediate `.rsl` path anchors one active source identity; family labels reflect only case-insensitive literal `Click_`, `Init_`, `Item_`, `Quest_`, and `Spell_` prefixes, with every other source grouped as `Other` |
+| Mutation boundary | Read-only; no edit, create, compile, regenerate, save, rename, delete, conversion, storage, process, playtest, or external-operation path |
+| Current evidence | Accepted exact seven-path aggregate `cea78aaeae8115fa0641b94d668751fb8df56d9d924745ee8bef0fd185a27d1c` passed fresh specification and different fresh quality review after focused RED/GREEN correction made the `Other` fallback truthful in cards, inspector, and README. GREEN synthetic projection reports 3 active sources / 3 adjunct files / 1 unanchored-adjunct observation with exact canonical paths/sizes, case-insensitive same-stem grouping, active-source spelling, literal-prefix families, nested/unrelated exclusion, Unicode-safe extension handling, and Scripts selection reset. Linux repository-default smoke reports 1,180 files / 55 active sources / 13 observed adjuncts / 0 script inventory issues; native Windows real-current-default smoke reports 1,201 files / 55 active sources / 13 observed adjuncts / 0 script inventory issues with valid/missing-root exits 0/2; the corrected native UI is responsive and visually confirms exact paths/sizes, adjunct-only evidence, and `no recognized literal prefix`. Exact Rust 1.85 workspace tests, strict all-target Clippy, build, stable targeted formatting, plan 95/11, and diff hygiene pass |
+| Remaining acceptance | Integration commit, push, and terminal-success exact-head CI |
 
 ## Active packets
 

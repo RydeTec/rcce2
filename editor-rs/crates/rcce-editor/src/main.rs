@@ -4,8 +4,8 @@ use eframe::egui::{
 };
 use rcce_editor_core::{
     load_feedback_project, FeedbackActor, FeedbackActorCount, FeedbackEntry, FeedbackEvidence,
-    FeedbackLoadProgress, FeedbackMediaStatus, FeedbackProject, FeedbackZone, FeedbackZoneStatus,
-    Lens,
+    FeedbackLoadProgress, FeedbackMediaStatus, FeedbackProject, FeedbackScript,
+    FeedbackScriptFamily, FeedbackZone, FeedbackZoneStatus, Lens,
 };
 use std::{
     path::{Path, PathBuf},
@@ -32,7 +32,7 @@ fn main() -> ExitCode {
             Ok(project) => {
                 let actor_catalog = project.actor_catalog();
                 println!(
-                    "[super-editor-mvp] ready: {} files, {} bytes, {} unavailable; actors={} actor_evidence={} actor_reference_issues={} zones={} zone_pairing_issues={}",
+                    "[super-editor-mvp] ready: {} files, {} bytes, {} unavailable; actors={} actor_evidence={} actor_reference_issues={} zones={} zone_pairing_issues={} scripts={} script_adjuncts={} script_inventory_issues={}",
                     project.total_files(),
                     project.total_bytes(),
                     project.unavailable,
@@ -40,7 +40,10 @@ fn main() -> ExitCode {
                     evidence_label(actor_catalog.evidence).to_ascii_lowercase(),
                     actor_catalog.diagnostics.len(),
                     project.zone_catalog().zones.len(),
-                    project.zone_catalog().diagnostics.len()
+                    project.zone_catalog().diagnostics.len(),
+                    project.script_catalog().scripts.len(),
+                    project.script_catalog().adjunct_files,
+                    project.script_catalog().diagnostics.len()
                 );
                 ExitCode::SUCCESS
             }
@@ -182,6 +185,12 @@ enum WorldView {
     Files,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ScriptsView {
+    Catalog,
+    Files,
+}
+
 fn transition_records_view(
     current: RecordsView,
     target: RecordsView,
@@ -204,6 +213,19 @@ fn transition_world_view(
     if current != target {
         *selected_file = None;
         *selected_zone = None;
+    }
+    target
+}
+
+fn transition_scripts_view(
+    current: ScriptsView,
+    target: ScriptsView,
+    selected_file: &mut Option<String>,
+    selected_script: &mut Option<String>,
+) -> ScriptsView {
+    if current != target {
+        *selected_file = None;
+        *selected_script = None;
     }
     target
 }
@@ -240,8 +262,11 @@ struct LedgerApp {
     selected: Option<String>,
     selected_actor: Option<u16>,
     selected_zone: Option<String>,
+    selected_script: Option<String>,
     records_view: RecordsView,
     world_view: WorldView,
+    scripts_view: ScriptsView,
+    script_family: Option<FeedbackScriptFamily>,
     status: String,
     activity: Vec<String>,
     load_gate: LoadGate,
@@ -258,8 +283,11 @@ impl LedgerApp {
             selected: None,
             selected_actor: None,
             selected_zone: None,
+            selected_script: None,
             records_view: RecordsView::Actors,
             world_view: WorldView::Zones,
+            scripts_view: ScriptsView::Catalog,
+            script_family: None,
             status: "Preparing project inventory…".to_owned(),
             activity: vec!["Feedback MVP started in read-only mode".to_owned()],
             load_gate: LoadGate::default(),
@@ -283,6 +311,7 @@ impl LedgerApp {
         self.selected = None;
         self.selected_actor = None;
         self.selected_zone = None;
+        self.selected_script = None;
         self.status = "Opening selected project…".to_owned();
         self.activity
             .insert(0, format!("Inventory requested: {}", path.display()));
@@ -320,6 +349,7 @@ impl LedgerApp {
                 LoadMessage::Ready(project) => {
                     let actor_count = actor_count_label(project.actor_catalog().count);
                     let zone_count = project.zone_catalog().zones.len();
+                    let script_count = project.script_catalog().scripts.len();
                     self.status = format!(
                         "{} files indexed · {actor_count} · {} unavailable",
                         project.total_files(),
@@ -348,6 +378,14 @@ impl LedgerApp {
                             "Snapshot accepted: {} across {}",
                             format_bytes(project.total_bytes()),
                             project.shape
+                        ),
+                    );
+                    self.activity.insert(
+                        0,
+                        format!(
+                            "Script constellation: {script_count} active .rsl identities · {} observed adjuncts · {} inventory issues",
+                            project.script_catalog().adjunct_files,
+                            project.script_catalog().diagnostics.len()
                         ),
                     );
                     self.project = Some(*project);
@@ -437,6 +475,16 @@ impl LedgerApp {
             .find(|zone| zone.name == selected)
     }
 
+    fn selected_script(&self) -> Option<&FeedbackScript> {
+        let selected = self.selected_script.as_deref()?;
+        self.project
+            .as_ref()?
+            .script_catalog()
+            .scripts
+            .iter()
+            .find(|script| script.source_path == selected)
+    }
+
     fn top_bar(&mut self, context: &egui::Context) {
         egui::TopBottomPanel::top("ledger_top")
             .exact_height(103.0)
@@ -522,11 +570,12 @@ impl LedgerApp {
                         self.selected = None;
                         self.selected_actor = None;
                         self.selected_zone = None;
+                        self.selected_script = None;
                     }
                 }
                 ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
                     ui.label(
-                        RichText::new("Feedback build 0.3\nNo save or mutation commands exist")
+                        RichText::new("Feedback build 0.4\nNo save or mutation commands exist")
                             .size(11.0)
                             .color(MUTED),
                     );
@@ -673,6 +722,60 @@ impl LedgerApp {
                                 .color(MUTED),
                             );
                         });
+                } else if let Some(script) = self.selected_script() {
+                    ui.label(RichText::new(&script.name).size(22.0).color(INK));
+                    ui.label(RichText::new("SCRIPT  /  ACTIVE .RSL IDENTITY").size(12.0).color(BRASS));
+                    ui.add_space(16.0);
+                    property(ui, "Stable identity", &script.name);
+                    property(
+                        ui,
+                        "Filename grouping",
+                        script_family_observation(script.family),
+                    );
+                    property(
+                        ui,
+                        "Active source",
+                        &format!(
+                            "{} · {}",
+                            script.source_path,
+                            format_bytes(script.source_size)
+                        ),
+                    );
+                    property(
+                        ui,
+                        "Legacy module adjunct",
+                        &script_artifact_label(
+                            script.module_path.as_deref(),
+                            script.module_size,
+                        ),
+                    );
+                    property(
+                        ui,
+                        "Alternate artifact",
+                        &script_artifact_label(
+                            script.alternate_path.as_deref(),
+                            script.alternate_size,
+                        ),
+                    );
+                    ui.add_space(12.0);
+                    Frame::none()
+                        .fill(Color32::from_rgb(19, 31, 27))
+                        .stroke(Stroke::new(1.0, Color32::from_rgb(54, 91, 71)))
+                        .inner_margin(Margin::same(12.0))
+                        .show(ui, |ui| {
+                            ui.label(
+                                RichText::new("INVENTORY RELATION · READ ONLY")
+                                    .color(GREEN)
+                                    .strong(),
+                            );
+                            ui.label(
+                                RichText::new(
+                                    "The .rsl source anchors this identity. Same-stem adjuncts are observed only; contents and generation provenance are not inferred.",
+                                )
+                                .size(12.0)
+                                .color(MUTED),
+                            );
+                        });
                 } else if let Some(entry) = self.selected_entry() {
                     ui.label(RichText::new(file_name(&entry.path)).size(22.0).color(INK));
                     ui.label(RichText::new(&entry.path).size(12.0).color(MUTED));
@@ -714,10 +817,14 @@ impl LedgerApp {
                             );
                         });
                 } else {
-                    ui.label(RichText::new("Select an actor, zone, or file").size(18.0).color(INK));
+                    ui.label(
+                        RichText::new("Select an actor, zone, script, or file")
+                            .size(18.0)
+                            .color(INK),
+                    );
                     ui.label(
                         RichText::new(
-                            "Actors expose media health, zones expose paired-file presence, and files expose classification plus exact fingerprints.",
+                            "Actors expose media health, zones expose paired-file presence, scripts expose source/adjunct relationships, and files expose classification plus exact fingerprints.",
                         )
                         .color(MUTED),
                     );
@@ -753,6 +860,7 @@ impl LedgerApp {
     fn atlas(&mut self, context: &egui::Context) {
         let actor_view = self.lens == Lens::Records && self.records_view == RecordsView::Actors;
         let zone_view = self.lens == Lens::World && self.world_view == WorldView::Zones;
+        let script_view = self.lens == Lens::Scripts && self.scripts_view == ScriptsView::Catalog;
         egui::CentralPanel::default()
             .frame(Frame::none().fill(CANVAS).inner_margin(Margin::same(20.0)))
             .show(context, |ui| {
@@ -762,6 +870,8 @@ impl LedgerApp {
                             "Actor catalog".to_owned()
                         } else if zone_view {
                             "Paired zone atlas".to_owned()
+                        } else if script_view {
+                            "Script constellation".to_owned()
                         } else {
                             format!("{} atlas", self.lens.label())
                         };
@@ -776,6 +886,8 @@ impl LedgerApp {
                                 "Client/server consensus · stable actor identities · live media health"
                             } else if zone_view {
                                 "Filename identities · visual/gameplay pairing · directly observed gaps"
+                            } else if script_view {
+                                "Active .rsl anchors · literal-prefix families · observed same-stem adjuncts"
                             } else {
                                 "One project snapshot · stable observed identities"
                             })
@@ -790,6 +902,8 @@ impl LedgerApp {
                                     "Filter actors, ids, or states…"
                                 } else if zone_view {
                                     "Filter zones or pairing states…"
+                                } else if script_view {
+                                    "Filter scripts, families, or paths…"
                                 } else {
                                     "Filter observed paths…"
                                 }),
@@ -845,6 +959,33 @@ impl LedgerApp {
                                 );
                             }
                         }
+                        if self.lens == Lens::Scripts {
+                            if ui
+                                .selectable_label(self.scripts_view == ScriptsView::Files, "FILES")
+                                .clicked()
+                            {
+                                self.scripts_view = transition_scripts_view(
+                                    self.scripts_view,
+                                    ScriptsView::Files,
+                                    &mut self.selected,
+                                    &mut self.selected_script,
+                                );
+                            }
+                            if ui
+                                .selectable_label(
+                                    self.scripts_view == ScriptsView::Catalog,
+                                    "SCRIPTS",
+                                )
+                                .clicked()
+                            {
+                                self.scripts_view = transition_scripts_view(
+                                    self.scripts_view,
+                                    ScriptsView::Catalog,
+                                    &mut self.selected,
+                                    &mut self.selected_script,
+                                );
+                            }
+                        }
                     });
                 });
                 ui.add_space(14.0);
@@ -852,6 +993,8 @@ impl LedgerApp {
                     self.actor_catalog(ui);
                 } else if zone_view {
                     self.zone_catalog(ui);
+                } else if script_view {
+                    self.script_catalog(ui);
                 } else {
                     self.file_atlas(ui);
                 }
@@ -1024,6 +1167,7 @@ impl LedgerApp {
             self.selected_actor = Some(actor_id);
             self.selected = None;
             self.selected_zone = None;
+            self.selected_script = None;
         }
     }
 
@@ -1174,6 +1318,206 @@ impl LedgerApp {
             self.selected_zone = Some(zone_name);
             self.selected = None;
             self.selected_actor = None;
+            self.selected_script = None;
+        }
+    }
+
+    fn script_catalog(&mut self, ui: &mut egui::Ui) {
+        let Some(project) = self.project.as_ref() else {
+            ui.vertical_centered(|ui| {
+                ui.spinner();
+                ui.label(RichText::new(&self.status).color(MUTED));
+            });
+            return;
+        };
+        let catalog = project.script_catalog();
+        Frame::none()
+            .fill(PANEL_RAISED)
+            .stroke(Stroke::new(1.0, Color32::from_rgb(48, 53, 51)))
+            .inner_margin(Margin::symmetric(14.0, 11.0))
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new("ACTIVE SOURCE INVENTORY").color(GREEN).strong());
+                    ui.separator();
+                    ui.label(
+                        RichText::new(format!("{} .rsl identities", catalog.scripts.len()))
+                            .color(INK),
+                    );
+                    ui.separator();
+                    ui.label(
+                        RichText::new(format!("{} observed adjuncts", catalog.adjunct_files))
+                            .color(BRASS),
+                    );
+                    ui.separator();
+                    ui.label(
+                        RichText::new(format!(
+                            "{} inventory issues",
+                            catalog.diagnostics.len()
+                        ))
+                        .color(if catalog.diagnostics.is_empty() {
+                            GREEN
+                        } else {
+                            ISSUE
+                        }),
+                    );
+                });
+                ui.label(
+                    RichText::new(
+                        "Only immediate .rsl files anchor active script identities; .rcm and .rcscript files are adjacent observations, not asserted build outputs.",
+                    )
+                    .size(12.0)
+                    .color(MUTED),
+                );
+                ui.add_space(5.0);
+                ui.horizontal_wrapped(|ui| {
+                    let all_label = format!("ALL  {}", catalog.scripts.len());
+                    if ui
+                        .selectable_label(self.script_family.is_none(), all_label)
+                        .clicked()
+                    {
+                        self.script_family = None;
+                        self.selected_script = None;
+                    }
+                    for family in FeedbackScriptFamily::ALL {
+                        let count = catalog
+                            .scripts
+                            .iter()
+                            .filter(|script| script.family == family)
+                            .count();
+                        if ui
+                            .selectable_label(
+                                self.script_family == Some(family),
+                                format!("{}  {count}", family.label()),
+                            )
+                            .clicked()
+                        {
+                            self.script_family = Some(family);
+                            self.selected_script = None;
+                        }
+                    }
+                });
+            });
+        ui.add_space(8.0);
+
+        let filter = self.filter.to_lowercase();
+        let mut clicked_script = None;
+        ScrollArea::vertical()
+            .max_height(ui.available_height())
+            .show(ui, |ui| {
+                for diagnostic in &catalog.diagnostics {
+                    let searchable = format!(
+                        "{} {} {}",
+                        diagnostic.code, diagnostic.script_name, diagnostic.message
+                    )
+                    .to_lowercase();
+                    if !filter.is_empty() && !searchable.contains(&filter) {
+                        continue;
+                    }
+                    Frame::none()
+                        .fill(Color32::from_rgb(42, 29, 25))
+                        .stroke(Stroke::new(1.0, Color32::from_rgb(104, 62, 48)))
+                        .inner_margin(Margin::symmetric(13.0, 9.0))
+                        .show(ui, |ui| {
+                            ui.set_min_width(ui.available_width());
+                            ui.label(
+                                RichText::new(format!(
+                                    "{}  ·  {}",
+                                    diagnostic.code, diagnostic.script_name
+                                ))
+                                .size(10.0)
+                                .color(ISSUE)
+                                .strong(),
+                            );
+                            ui.label(RichText::new(&diagnostic.message).size(12.0).color(INK));
+                        });
+                    ui.add_space(5.0);
+                }
+
+                for script in &catalog.scripts {
+                    if self
+                        .script_family
+                        .is_some_and(|family| family != script.family)
+                    {
+                        continue;
+                    }
+                    let searchable = format!(
+                        "{} {} {} {} {}",
+                        script.name,
+                        script.family.label(),
+                        script.source_path,
+                        script.module_path.as_deref().unwrap_or_default(),
+                        script.alternate_path.as_deref().unwrap_or_default()
+                    )
+                    .to_lowercase();
+                    if !filter.is_empty() && !searchable.contains(&filter) {
+                        continue;
+                    }
+                    let selected =
+                        self.selected_script.as_deref() == Some(script.source_path.as_str());
+                    let response = Frame::none()
+                        .fill(if selected {
+                            Color32::from_rgb(59, 49, 31)
+                        } else {
+                            Color32::from_rgb(25, 30, 30)
+                        })
+                        .stroke(Stroke::new(
+                            1.0,
+                            if selected {
+                                BRASS
+                            } else {
+                                Color32::from_rgb(48, 53, 51)
+                            },
+                        ))
+                        .inner_margin(Margin::symmetric(13.0, 10.0))
+                        .show(ui, |ui| {
+                            ui.set_min_width(ui.available_width());
+                            ui.horizontal(|ui| {
+                                ui.vertical(|ui| {
+                                    ui.label(
+                                        RichText::new(&script.name).size(16.0).color(INK).strong(),
+                                    );
+                                    ui.label(
+                                        RichText::new(format!(
+                                            ".RSL  {}  ·  {}",
+                                            format_bytes(script.source_size),
+                                            script_family_observation(script.family)
+                                        ))
+                                        .size(10.0)
+                                        .color(MUTED),
+                                    );
+                                });
+                                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                    if script.alternate_path.is_some() {
+                                        ui.label(
+                                            RichText::new("RCSCRIPT")
+                                                .size(10.0)
+                                                .color(MUTED)
+                                                .strong(),
+                                        );
+                                    }
+                                    if script.module_path.is_some() {
+                                        ui.label(
+                                            RichText::new("RCM").size(10.0).color(BRASS).strong(),
+                                        );
+                                    }
+                                    ui.label(
+                                        RichText::new("SOURCE").size(10.0).color(GREEN).strong(),
+                                    );
+                                });
+                            });
+                        })
+                        .response;
+                    if response.interact(Sense::click()).clicked() {
+                        clicked_script = Some(script.source_path.clone());
+                    }
+                    ui.add_space(5.0);
+                }
+            });
+        if let Some(source_path) = clicked_script {
+            self.selected_script = Some(source_path);
+            self.selected = None;
+            self.selected_actor = None;
+            self.selected_zone = None;
         }
     }
 
@@ -1239,6 +1583,7 @@ impl LedgerApp {
                             self.selected = Some(entry.path.clone());
                             self.selected_actor = None;
                             self.selected_zone = None;
+                            self.selected_script = None;
                         }
                     }
                 });
@@ -1363,6 +1708,25 @@ fn zone_half_label(ui: &mut egui::Ui, label: &str, size: Option<u64>) {
     ui.label(RichText::new(text).size(10.0).color(color).strong());
 }
 
+fn script_artifact_label(path: Option<&str>, size: Option<u64>) -> String {
+    match (path, size) {
+        (Some(path), Some(size)) => format!("{} · {}", path, format_bytes(size)),
+        (Some(path), None) => format!("{path} · size unavailable"),
+        (None, _) => "Not observed".to_owned(),
+    }
+}
+
+const fn script_family_observation(family: FeedbackScriptFamily) -> &'static str {
+    match family {
+        FeedbackScriptFamily::Click => "CLICK_ literal prefix",
+        FeedbackScriptFamily::Init => "INIT_ literal prefix",
+        FeedbackScriptFamily::Item => "ITEM_ literal prefix",
+        FeedbackScriptFamily::Quest => "QUEST_ literal prefix",
+        FeedbackScriptFamily::Spell => "SPELL_ literal prefix",
+        FeedbackScriptFamily::Other => "no recognized literal prefix",
+    }
+}
+
 fn format_bytes(bytes: u64) -> String {
     const KIB: f64 = 1024.0;
     const MIB: f64 = KIB * 1024.0;
@@ -1381,7 +1745,10 @@ fn format_bytes(bytes: u64) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{transition_records_view, transition_world_view, LoadGate, RecordsView, WorldView};
+    use super::{
+        script_family_observation, transition_records_view, transition_scripts_view,
+        transition_world_view, FeedbackScriptFamily, LoadGate, RecordsView, ScriptsView, WorldView,
+    };
 
     #[test]
     fn only_one_project_load_can_be_active() {
@@ -1424,5 +1791,34 @@ mod tests {
         assert_eq!(view, WorldView::Files);
         assert_eq!(selected_file, None);
         assert_eq!(selected_zone, None);
+    }
+
+    #[test]
+    fn scripts_view_transition_clears_incompatible_selection() {
+        let mut selected_file = Some("Data/Server Data/Scripts/Default.rsl".to_owned());
+        let mut selected_script = Some("Data/Server Data/Scripts/Default.rsl".to_owned());
+
+        let view = transition_scripts_view(
+            ScriptsView::Catalog,
+            ScriptsView::Files,
+            &mut selected_file,
+            &mut selected_script,
+        );
+
+        assert_eq!(view, ScriptsView::Files);
+        assert_eq!(selected_file, None);
+        assert_eq!(selected_script, None);
+    }
+
+    #[test]
+    fn script_family_copy_distinguishes_literal_prefixes_from_fallback() {
+        assert_eq!(
+            script_family_observation(FeedbackScriptFamily::Click),
+            "CLICK_ literal prefix"
+        );
+        assert_eq!(
+            script_family_observation(FeedbackScriptFamily::Other),
+            "no recognized literal prefix"
+        );
     }
 }

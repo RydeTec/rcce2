@@ -134,6 +134,193 @@ pub struct FeedbackZoneCatalog {
     pub diagnostics: Vec<FeedbackZoneDiagnostic>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FeedbackScriptFamily {
+    Click,
+    Init,
+    Item,
+    Quest,
+    Spell,
+    Other,
+}
+
+impl FeedbackScriptFamily {
+    pub const ALL: [Self; 6] = [
+        Self::Click,
+        Self::Init,
+        Self::Item,
+        Self::Quest,
+        Self::Spell,
+        Self::Other,
+    ];
+
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Click => "CLICK_",
+            Self::Init => "INIT_",
+            Self::Item => "ITEM_",
+            Self::Quest => "QUEST_",
+            Self::Spell => "SPELL_",
+            Self::Other => "OTHER",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FeedbackScript {
+    pub name: String,
+    pub family: FeedbackScriptFamily,
+    pub source_path: String,
+    pub source_size: u64,
+    pub module_path: Option<String>,
+    pub module_size: Option<u64>,
+    pub alternate_path: Option<String>,
+    pub alternate_size: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FeedbackScriptDiagnostic {
+    pub code: &'static str,
+    pub script_name: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FeedbackScriptCatalog {
+    pub scripts: Vec<FeedbackScript>,
+    pub adjunct_files: usize,
+    pub diagnostics: Vec<FeedbackScriptDiagnostic>,
+}
+
+#[derive(Debug, Clone)]
+struct ScriptFileObservation {
+    name: String,
+    path: String,
+    size: u64,
+}
+
+#[derive(Default)]
+struct ScriptBundleBuilder {
+    sources: Vec<ScriptFileObservation>,
+    modules: Vec<ScriptFileObservation>,
+    alternates: Vec<ScriptFileObservation>,
+}
+
+impl FeedbackScriptCatalog {
+    fn from_script_entries(entries: &[FeedbackEntry]) -> Self {
+        let mut bundles = BTreeMap::<String, ScriptBundleBuilder>::new();
+        for entry in entries {
+            let Some((name, kind)) = script_identity(&entry.path) else {
+                continue;
+            };
+            let observation = ScriptFileObservation {
+                name: name.clone(),
+                path: entry.path.clone(),
+                size: entry.size,
+            };
+            let bundle = bundles.entry(name.to_lowercase()).or_default();
+            match kind {
+                ScriptArtifactKind::Source => bundle.sources.push(observation),
+                ScriptArtifactKind::Module => bundle.modules.push(observation),
+                ScriptArtifactKind::Alternate => bundle.alternates.push(observation),
+            }
+        }
+
+        let adjunct_files = bundles
+            .values()
+            .map(|bundle| bundle.modules.len() + bundle.alternates.len())
+            .sum();
+        let mut scripts = Vec::new();
+        let mut diagnostics = Vec::new();
+        for mut bundle in bundles.into_values() {
+            for observations in [
+                &mut bundle.sources,
+                &mut bundle.modules,
+                &mut bundle.alternates,
+            ] {
+                observations.sort_by(|left, right| left.path.as_bytes().cmp(right.path.as_bytes()));
+            }
+            let display_name = bundle
+                .sources
+                .first()
+                .or_else(|| bundle.modules.first())
+                .or_else(|| bundle.alternates.first())
+                .map(|observation| observation.name.clone())
+                .expect("script bundles contain an observation");
+
+            if bundle.sources.is_empty() {
+                diagnostics.push(FeedbackScriptDiagnostic {
+                    code: "RCCE-SCRIPT-ADJUNCT-WITHOUT-SOURCE",
+                    script_name: display_name.clone(),
+                    message: format!(
+                        "{display_name} has an observed .rcm or .rcscript artifact but no active .rsl source"
+                    ),
+                });
+                continue;
+            }
+            if bundle.sources.len() > 1 {
+                diagnostics.push(FeedbackScriptDiagnostic {
+                    code: "RCCE-SCRIPT-SOURCE-CASE-COLLISION",
+                    script_name: display_name.clone(),
+                    message: format!(
+                        "{display_name} has multiple .rsl source paths that differ only by case"
+                    ),
+                });
+                continue;
+            }
+            let source = bundle.sources.pop().expect("one source was observed");
+            let module = unique_adjunct(&bundle.modules, &display_name, ".rcm", &mut diagnostics);
+            let alternate = unique_adjunct(
+                &bundle.alternates,
+                &display_name,
+                ".rcscript",
+                &mut diagnostics,
+            );
+            scripts.push(FeedbackScript {
+                name: source.name.clone(),
+                family: script_family(&source.name),
+                source_path: source.path,
+                source_size: source.size,
+                module_path: module.map(|observation| observation.path.clone()),
+                module_size: module.map(|observation| observation.size),
+                alternate_path: alternate.map(|observation| observation.path.clone()),
+                alternate_size: alternate.map(|observation| observation.size),
+            });
+        }
+        scripts.sort_by(|left, right| {
+            left.source_path
+                .as_bytes()
+                .cmp(right.source_path.as_bytes())
+        });
+        Self {
+            scripts,
+            adjunct_files,
+            diagnostics,
+        }
+    }
+}
+
+fn unique_adjunct<'a>(
+    observations: &'a [ScriptFileObservation],
+    script_name: &str,
+    extension: &str,
+    diagnostics: &mut Vec<FeedbackScriptDiagnostic>,
+) -> Option<&'a ScriptFileObservation> {
+    if observations.len() > 1 {
+        diagnostics.push(FeedbackScriptDiagnostic {
+            code: "RCCE-SCRIPT-ADJUNCT-CASE-COLLISION",
+            script_name: script_name.to_owned(),
+            message: format!(
+                "{script_name} has multiple {extension} artifact paths that differ only by case"
+            ),
+        });
+        None
+    } else {
+        observations.first()
+    }
+}
+
 #[derive(Default)]
 struct ZonePairBuilder {
     name: String,
@@ -299,6 +486,7 @@ pub struct FeedbackProject {
     pub unavailable: usize,
     actor_catalog: FeedbackActorCatalog,
     zone_catalog: FeedbackZoneCatalog,
+    script_catalog: FeedbackScriptCatalog,
     by_lens: [Vec<FeedbackEntry>; 5],
     unclassified_files: usize,
     total_files: usize,
@@ -441,6 +629,8 @@ impl FeedbackProject {
             entries.sort_by(|left, right| left.path.as_bytes().cmp(right.path.as_bytes()));
         }
         let zone_catalog = FeedbackZoneCatalog::from_world_entries(&by_lens[Lens::World.index()]);
+        let script_catalog =
+            FeedbackScriptCatalog::from_script_entries(&by_lens[Lens::Scripts.index()]);
         Self {
             data_root,
             shape: if inventory.files.is_empty() {
@@ -454,6 +644,7 @@ impl FeedbackProject {
             unavailable: inventory.unavailable.len(),
             actor_catalog,
             zone_catalog,
+            script_catalog,
             by_lens,
             unclassified_files,
             total_files: inventory.files.len(),
@@ -484,6 +675,11 @@ impl FeedbackProject {
     #[must_use]
     pub const fn zone_catalog(&self) -> &FeedbackZoneCatalog {
         &self.zone_catalog
+    }
+
+    #[must_use]
+    pub const fn script_catalog(&self) -> &FeedbackScriptCatalog {
+        &self.script_catalog
     }
 
     #[must_use]
@@ -546,6 +742,63 @@ fn zone_identity(path: &str) -> Option<(String, ZoneHalf)> {
         return None;
     }
     Some((relative.get(..suffix_start)?.to_owned(), half))
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ScriptArtifactKind {
+    Source,
+    Module,
+    Alternate,
+}
+
+fn script_identity(path: &str) -> Option<(String, ScriptArtifactKind)> {
+    const PREFIX: &str = "Data/Server Data/Scripts/";
+    if !path
+        .get(..PREFIX.len())
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case(PREFIX))
+    {
+        return None;
+    }
+    let relative = path.get(PREFIX.len()..)?;
+    if relative.contains('/') {
+        return None;
+    }
+    let (name, extension) = relative.rsplit_once('.')?;
+    if name.is_empty() {
+        return None;
+    }
+    let kind = if extension.eq_ignore_ascii_case("rsl") {
+        ScriptArtifactKind::Source
+    } else if extension.eq_ignore_ascii_case("rcm") {
+        ScriptArtifactKind::Module
+    } else if extension.eq_ignore_ascii_case("rcscript") {
+        ScriptArtifactKind::Alternate
+    } else {
+        return None;
+    };
+    Some((name.to_owned(), kind))
+}
+
+fn script_family(name: &str) -> FeedbackScriptFamily {
+    if starts_with_ascii(name, "Click_") {
+        FeedbackScriptFamily::Click
+    } else if starts_with_ascii(name, "Init_") {
+        FeedbackScriptFamily::Init
+    } else if starts_with_ascii(name, "Item_") {
+        FeedbackScriptFamily::Item
+    } else if starts_with_ascii(name, "Quest_") {
+        FeedbackScriptFamily::Quest
+    } else if starts_with_ascii(name, "Spell_") {
+        FeedbackScriptFamily::Spell
+    } else {
+        FeedbackScriptFamily::Other
+    }
+}
+
+fn starts_with_ascii(value: &str, prefix: &str) -> bool {
+    value
+        .get(..prefix.len())
+        .is_some_and(|candidate| candidate.eq_ignore_ascii_case(prefix))
 }
 
 fn lens_for(path: &str) -> Option<Lens> {

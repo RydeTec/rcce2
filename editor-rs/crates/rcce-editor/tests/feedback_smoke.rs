@@ -31,6 +31,9 @@ fn smoke_contract_distinguishes_openable_and_missing_roots() {
     assert!(valid_stdout.contains("actor_reference_issues="));
     assert!(valid_stdout.contains("zones="));
     assert!(valid_stdout.contains("zone_pairing_issues="));
+    assert!(valid_stdout.contains("scripts="));
+    assert!(valid_stdout.contains("script_adjuncts="));
+    assert!(valid_stdout.contains("script_inventory_issues="));
 
     let missing = root.join("missing");
     let invalid = Command::new(env!("CARGO_BIN_EXE_rcce-editor"))
