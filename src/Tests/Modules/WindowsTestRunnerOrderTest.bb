@@ -47,6 +47,14 @@ Function WindowsRunnerUsesSortedDiscovery%()
 				Stage = 1
 				ExecutionDepth = 1
 			EndIf
+		ElseIf Stage = 4 And ExecutionLoopClosed
+			; Once the outer for /F closes, the next no-match branch must
+			; begin outside it rather than being counted as another loop body.
+			If Instr(Line$, "if !TOTAL! equ 0 (") > 0
+				Stage = 5
+				NoMatchDepth = 1
+				SawNoMatchGuard = True
+			EndIf
 		ElseIf Stage >= 1 And Stage <= 4
 			If Line$ = ")"
 				If ExecutionDepth = 1 Then ExecutionLoopClosed = True
@@ -65,10 +73,6 @@ Function WindowsRunnerUsesSortedDiscovery%()
 				If Stage = 1 And Instr(Line$, "set /a TOTAL+=1") > 0 Then Stage = 2
 				If Stage = 2 And Instr(Line$, "%BLITZPATH%") > 0 And Instr(Line$, "blitzcc.exe") > 0 And Instr(Line$, " -t -w ") > 0 And Instr(Line$, "%ROOTDIR%") > 0 And Instr(Line$, "%%f") > 0 Then Stage = 3
 				If Stage = 3 And Instr(Line$, "if !errorlevel! equ 0 (") > 0 Then Stage = 4
-			ElseIf Stage = 4 And ExecutionLoopClosed And Instr(Line$, "if !TOTAL! equ 0 (") > 0
-				Stage = 5
-				NoMatchDepth = 1
-				SawNoMatchGuard = True
 			EndIf
 		ElseIf Stage = 5
 			If Line$ = ")"
