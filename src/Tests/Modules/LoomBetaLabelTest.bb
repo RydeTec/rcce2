@@ -49,6 +49,11 @@ Test testLoomGuidanceMatchesTheBetaLauncher()
 	Assert(FileContains%("CLAUDE.md", "## Loom (beta redesigned editor)") = True)
 End Test
 
+Test testLoomGuidePositionsTheBetaAsParallelToGUE()
+	Assert(FileContains%("docs\\loom\\README.md", "A parallel beta editor with thread navigation, search, and a custom-drawn aesthetic, with editing parity for primary GUE workflows. GUE remains the established editor.") = True)
+	Assert(FileContains%("docs\\loom\\README.md", "A full-featured GUE replacement with thread navigation, search, and a custom-drawn aesthetic.") = False)
+End Test
+
 Test testCurrentFacingGuidanceCannotRegressToAlpha()
 	Assert(FileContains%("Project Manager.bb", "Loom (Alpha)") = False)
 	Assert(FileContains%("Loom.bb", "AppTitle(" + Chr$(34) + "Loom -- World Editor (Alpha) -- Realm Crafter ") = False)
