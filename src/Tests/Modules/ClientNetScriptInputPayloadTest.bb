@@ -28,6 +28,12 @@ Function ScriptInputPayloadGuard%(Path$)
 				CloseFile F
 				Return False
 			EndIf
+			; Both valid branches must retain their sensitive work before their
+			; matching EndIf. Token order alone would permit an escaped guard.
+			If (Stage = 3 Or Stage = 7) And Trim$(Line$) = "EndIf"
+				CloseFile F
+				Return False
+			EndIf
 			If Stage = 0 And Instr(Line$, "If Len(M\\MessageData$) < 7") > 0 Then Stage = 1
 			If Stage = 1 And Instr(Line$, "P_ScriptInput: malformed header, dropping") > 0 Then Stage = 2
 			If Stage = 2 And Trim$(Line$) = "Else" Then Stage = 3
