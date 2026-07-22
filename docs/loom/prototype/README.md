@@ -26,18 +26,18 @@ The prototype boots into the "Hollow's Edge" sample scene. Click entities, follo
 
 ## How this maps to shipped Loom code
 
-| Prototype surface | Shipped in alpha? | Where |
+| Prototype surface | Shipped in beta? | Where |
 |---|---|---|
 | Browser categories | ✅ | `src/Modules/Loom/Browser.bb` |
 | Composer with thread chips | ✅ | `src/Modules/Loom/Composer.bb`, `Threads.bb` |
 | Thread back-stack navigation | ✅ | `Threads.bb` |
 | Color palette + brass / parchment / arcane / stone tokens | ✅ | `Theme.bb` |
-| Spatial scene view (SVG actors / scenery) | ❌ deferred | see [decisions/004-deferred-3d-viewport.md](../decisions/004-deferred-3d-viewport.md) |
-| Command palette (Ctrl+K) | ❌ next-up | see [roadmap.md](../roadmap.md) #1 |
-| Validation conscience ribbon | ❌ deferred | see [roadmap.md](../roadmap.md) |
-| World atlas (spatial zone map) | ❌ deferred | see [roadmap.md](../roadmap.md) #5 |
-| Session timeline scrubber | ❌ deferred | needs editing first |
-| Walk-in playtest modal | ❌ deferred | needs server bridge |
+| Spatial scene view (prototype SVG actors / scenery) | ⚠️ partial | Shipped **World mode** renders and edits real terrain, scenery, and water; the frozen SVG scene remains a visual reference. |
+| Command palette (Ctrl+K) | ✅ shipped | `Palette.bb`; Ctrl+K opens find-anywhere across project entities. |
+| Validation conscience ribbon | ✅ shipped | `Ribbon.bb`; shows dirty state, broken references, and entity counts. |
+| World atlas (spatial zone map) | ✅ shipped | Zones Card / Atlas toggle renders portal-linked zones. |
+| Session timeline scrubber | ✅ shipped | Ctrl+H opens recorded in-session edits with click-to-revert where supported. |
+| Walk-in playtest modal | ❌ deferred | Requires a server bridge. |
 | Tweaks panel (aesthetic toggle) | ❌ won't build | not load-bearing for the alpha |
 
 ## Why preserve the bundle in-repo
