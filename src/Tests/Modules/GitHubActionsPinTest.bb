@@ -36,6 +36,34 @@ Function FileOccurrenceCount%(Path$, Needle$)
 	Return Count
 End Function
 
+Function JobHasImmediateTimeout%(Path$, Job$, Runner$, Timeout$)
+	Local F.BBStream = ReadFile(Path$)
+	Local Line$
+	If F = Null Then F = ReadFile("..\" + Path$)
+	If F = Null Then F = ReadFile("..\..\" + Path$)
+	If F = Null Then Return False
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		If Line$ = "  " + Job$ + ":"
+			While Not Eof(F)
+				Line$ = ReadLine$(F)
+				If Line$ = "    " + Runner$
+					If Eof(F)
+						CloseFile F
+						Return False
+					EndIf
+					Line$ = ReadLine$(F)
+					CloseFile F
+					Return Line$ = "    " + Timeout$
+				EndIf
+				If Left$(Line$, 2) = "  " And Left$(Line$, 4) <> "    " Then Exit
+			Wend
+		EndIf
+	Wend
+	CloseFile F
+	Return False
+End Function
+
 Test testCIActionReferencesUseReviewedImmutablePins()
 	Assert(FileOccurrenceCount%(".github\workflows\ci.yml", "uses:") = 8)
 	Assert(FileOccurrenceCount%(".github\workflows\ci.yml", "uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5") = 2)
@@ -46,4 +74,10 @@ Test testCIActionReferencesUseReviewedImmutablePins()
 	Assert(FileContains%(".github\workflows\ci.yml", "uses: actions/cache@v4") = False)
 	Assert(FileContains%(".github\workflows\ci.yml", "uses: microsoft/setup-msbuild@v2") = False)
 	Assert(FileContains%(".github\workflows\ci.yml", "uses: dtolnay/rust-toolchain@1.85.0") = False)
+End Test
+
+Test testCIJobsCapDurationImmediatelyAfterRunner()
+	Assert(FileOccurrenceCount%(".github\workflows\ci.yml", "timeout-minutes: 30") = 2)
+	Assert(JobHasImmediateTimeout%(".github\workflows\ci.yml", "build-and-test", "runs-on: windows-latest", "timeout-minutes: 30"))
+	Assert(JobHasImmediateTimeout%(".github\workflows\ci.yml", "rust-server", "runs-on: ubuntu-latest", "timeout-minutes: 30"))
 End Test
