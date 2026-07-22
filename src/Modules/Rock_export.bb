@@ -29,7 +29,12 @@ End Function
 
 
 Function WriteBB3D( f_name$,mesh,tofolder$ )
-	file=WriteFile( f_name$ )
+	TempPath$ = SafeWriteOpen$(f_name$)
+	file = WriteFile(TempPath$)
+	If file = 0
+		SafeWriteAbort(TempPath$)
+		Return
+	EndIf
 	
 	b3dSetFile( file )
 	
@@ -103,7 +108,9 @@ Function WriteBB3D( f_name$,mesh,tofolder$ )
 	
 	b3dEndChunk();end of BB3D chunk
 	
-	CloseFile file
+	If SafeWriteCommit%(TempPath$, f_name$, file) = False
+		Return
+	EndIf
 End Function
 
 Function WriteMESH( mesh )

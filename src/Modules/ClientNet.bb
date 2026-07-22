@@ -188,63 +188,78 @@ Function UpdateNetwork()
 
 			; Reposition an actor
 			Case P_RepositionActor
-				RuntimeID = RCE_IntFromStr(Mid$(M\MessageData$, 2, 2))
-				AI.ActorInstance = RuntimeIDList(RuntimeID)
-				If AI <> Null
-					; Move
-					If Left$(M\MessageData$, 1) = "M"
-						AI\X# = RCE_FloatFromStr(Mid$(M\MessageData$, 4, 4))
-						Y# = RCE_FloatFromStr(Mid$(M\MessageData$, 8, 4))
-						AI\Z# = RCE_FloatFromStr(Mid$(M\MessageData$, 12, 4))
-						MoveCamera = RCE_IntFromStr(Mid$(M\MessageData$, 16, 1))
-						AI\DestX# = AI\X#
-						AI\DestZ# = AI\Z#
-						PositionEntity(AI\CollisionEN, AI\X#, Y#, AI\Z#)
-						; Ignore collision
-						If RCE_IntFromStr(Mid$(M\MessageData$, 16, 1)) = 0 Then ResetEntity(AI\CollisionEN)
-						; Move the camera directly to the new spot, otherwise it will fly there
-						If MoveCamera = False Then PositionEntity(Cam, AI\X#, Y#, AI\Z#)
-					; Rotate
-					Else
-						AI\Yaw# = RCE_FloatFromStr(Mid$(M\MessageData$, 4))
-						RotateEntity(AI\CollisionEN, 0, AI\Yaw#, 0)
+				RepositionType$ = Left$(M\MessageData$, 1)
+				If (RepositionType$ = "M" And Len(M\MessageData$) < 16) Or (RepositionType$ = "R" And Len(M\MessageData$) < 7)
+					WriteLog(MainLog, "P_RepositionActor: truncated payload, dropping")
+				ElseIf RepositionType$ = "M" Or RepositionType$ = "R"
+					RuntimeID = RCE_IntFromStr(Mid$(M\MessageData$, 2, 2))
+					AI.ActorInstance = RuntimeIDList(RuntimeID)
+					If AI <> Null
+						; Move
+						If Left$(M\MessageData$, 1) = "M"
+							AI\X# = RCE_FloatFromStr(Mid$(M\MessageData$, 4, 4))
+							Y# = RCE_FloatFromStr(Mid$(M\MessageData$, 8, 4))
+							AI\Z# = RCE_FloatFromStr(Mid$(M\MessageData$, 12, 4))
+							MoveCamera = RCE_IntFromStr(Mid$(M\MessageData$, 16, 1))
+							AI\DestX# = AI\X#
+							AI\DestZ# = AI\Z#
+							PositionEntity(AI\CollisionEN, AI\X#, Y#, AI\Z#)
+							; Ignore collision
+							If RCE_IntFromStr(Mid$(M\MessageData$, 16, 1)) = 0 Then ResetEntity(AI\CollisionEN)
+							; Move the camera directly to the new spot, otherwise it will fly there
+							If MoveCamera = False Then PositionEntity(Cam, AI\X#, Y#, AI\Z#)
+						; Rotate
+						Else
+							AI\Yaw# = RCE_FloatFromStr(Mid$(M\MessageData$, 4))
+							RotateEntity(AI\CollisionEN, 0, AI\Yaw#, 0)
+						EndIf
 					EndIf
 				EndIf
 
 			; Floating number (for damage or whatever)
 			Case P_FloatingNumber
-				RuntimeID = RCE_IntFromStr(Mid$(M\MessageData$, 1, 2))
-				AI.ActorInstance = RuntimeIDList(RuntimeID)
-				If AI <> Null
-					Amount = RCE_IntFromStr(Mid$(M\MessageData$, 3, 4))
-					cR = RCE_IntFromStr(Mid$(M\MessageData$, 7, 1))
-					cG = RCE_IntFromStr(Mid$(M\MessageData$, 8, 1))
-					cB = RCE_IntFromStr(Mid$(M\MessageData$, 9, 1))
-					CreateFloatingNumber(AI, Amount, cR, cG, cB)
+				If Len(M\MessageData$) = 9
+					RuntimeID = RCE_IntFromStr(Mid$(M\MessageData$, 1, 2))
+					AI.ActorInstance = RuntimeIDList(RuntimeID)
+					If AI <> Null
+						Amount = RCE_IntFromStr(Mid$(M\MessageData$, 3, 4))
+						cR = RCE_IntFromStr(Mid$(M\MessageData$, 7, 1))
+						cG = RCE_IntFromStr(Mid$(M\MessageData$, 8, 1))
+						cB = RCE_IntFromStr(Mid$(M\MessageData$, 9, 1))
+						CreateFloatingNumber(AI, Amount, cR, cG, cB)
+					EndIf
 				EndIf
 
 			; Projectile created
 			Case P_Projectile
-				; Get source and target actor instance
-				RuntimeID = RCE_IntFromStr(Mid$(M\MessageData$, 1, 2))
-				AI.ActorInstance = RuntimeIDList(RuntimeID)
-				RuntimeID = RCE_IntFromStr(Mid$(M\MessageData$, 3, 2))
-				TargetAI.ActorInstance = RuntimeIDList(RuntimeID)
-				; Target is valid
-				If TargetAI <> Null And AI <> Null
-					; Get projectile data
-					MeshID = RCE_IntFromStr(Mid$(M\MessageData$, 5, 2))
-					TexID1 = RCE_IntFromStr(Mid$(M\MessageData$, 7, 2))
-					TexID2 = RCE_IntFromStr(Mid$(M\MessageData$, 9, 2))
-					Homing = RCE_IntFromStr(Mid$(M\MessageData$, 11, 1))
-					Speed# = Float#(RCE_IntFromStr(Mid$(M\MessageData$, 12, 1))) / 50.0
-					NameLen = RCE_IntFromStr(Mid$(M\MessageData$, 13, 1))
-					Emitter1$ = ""
-					If NameLen > 0 Then Emitter1$ = Mid$(M\MessageData$, 14, NameLen)
-					Emitter2$ = Mid$(M\MessageData$, 14 + NameLen)
+				If Len(M\MessageData$) < 13
+					WriteLog(MainLog, "P_Projectile: truncated header, dropping")
+				Else
+					; Get source and target actor instance
+					RuntimeID = RCE_IntFromStr(Mid$(M\MessageData$, 1, 2))
+					AI.ActorInstance = RuntimeIDList(RuntimeID)
+					RuntimeID = RCE_IntFromStr(Mid$(M\MessageData$, 3, 2))
+					TargetAI.ActorInstance = RuntimeIDList(RuntimeID)
+					; Target is valid
+					If TargetAI <> Null And AI <> Null
+						; Get projectile data
+						MeshID = RCE_IntFromStr(Mid$(M\MessageData$, 5, 2))
+						TexID1 = RCE_IntFromStr(Mid$(M\MessageData$, 7, 2))
+						TexID2 = RCE_IntFromStr(Mid$(M\MessageData$, 9, 2))
+						Homing = RCE_IntFromStr(Mid$(M\MessageData$, 11, 1))
+						Speed# = Float#(RCE_IntFromStr(Mid$(M\MessageData$, 12, 1))) / 50.0
+						NameLen = RCE_IntFromStr(Mid$(M\MessageData$, 13, 1))
+						If Len(M\MessageData$) < 13 + NameLen
+							WriteLog(MainLog, "P_Projectile: truncated emitter name, dropping")
+						Else
+							Emitter1$ = ""
+							If NameLen > 0 Then Emitter1$ = Mid$(M\MessageData$, 14, NameLen)
+							Emitter2$ = Mid$(M\MessageData$, 14 + NameLen)
 
-					; Create it
-					CreateProjectile(AI, TargetAI, MeshID, Homing, Speed#, Emitter1$, Emitter2$, TexID1, TexID2)
+							; Create it
+							CreateProjectile(AI, TargetAI, MeshID, Homing, Speed#, Emitter1$, Emitter2$, TexID1, TexID2)
+						EndIf
+					EndIf
 				EndIf
 
 			; An actor has jumped
@@ -284,9 +299,23 @@ Function UpdateNetwork()
 
 			; Actor appearance (clothes, face, etc.) changed
 			Case P_AppearanceUpdate
-				AI.ActorInstance = RuntimeIDList(RCE_IntFromStr(Mid$(M\MessageData$, 2, 2)))
-				If AI <> Null
-					Select Left$(M\MessageData$, 1)
+				AppearanceSubCode$ = Left$(M\MessageData$, 1)
+				AppearanceFrameLength = 0
+				Select AppearanceSubCode$
+					Case "C" : AppearanceFrameLength = 5
+					Case "G" : AppearanceFrameLength = 4
+					Case "D" : AppearanceFrameLength = 4
+					Case "H" : AppearanceFrameLength = 4
+					Case "F" : AppearanceFrameLength = 4
+					Case "B" : AppearanceFrameLength = 4
+				End Select
+				If AppearanceFrameLength > 0
+					If Len(M\MessageData$) <> AppearanceFrameLength
+						WriteLog(MainLog, "P_AppearanceUpdate " + AppearanceSubCode$ + ": bad payload length " + Len(M\MessageData$) + ", dropping")
+					Else
+						AI.ActorInstance = RuntimeIDList(RCE_IntFromStr(Mid$(M\MessageData$, 2, 2)))
+						If AI <> Null
+							Select AppearanceSubCode$
 						; Entire actor
 						Case "C"
 							ID = RCE_IntFromStr(Right$(M\MessageData$, 2))
@@ -494,7 +523,9 @@ Function UpdateNetwork()
 								EntityTexture AI\EN, GetTexture(BodyTex)
 								UnloadTexture(BodyTex)
 							EndIf
-					End Select
+							End Select
+						EndIf
+					EndIf
 				EndIf
 
 			; Party changed
@@ -549,11 +580,11 @@ Function UpdateNetwork()
 
 			; Trading updated
 			Case P_UpdateTrading
-				If TradingVisible = True
+				If TradingVisible = True And (Len(M\MessageData$) = 3 Or Len(M\MessageData$) = 86)
 					Slot = RCE_IntFromStr(Mid$(M\MessageData$, 1, 1))
 					Amount = RCE_IntFromStr(Mid$(M\MessageData$, 2, 2))
 					; Remove item
-					If Amount = 0
+					If Amount = 0 And Len(M\MessageData$) = 3
 						For i = 0 To 31
 							If ServerTradeIDs(i) = Slot
 								ServerTradeIDs(i) = 0
@@ -566,22 +597,22 @@ Function UpdateNetwork()
 								Exit
 							EndIf
 						Next
-					; Add item
-					Else
-						For i = 0 To 31
+					ElseIf Amount > 0 And Len(M\MessageData$) = 86
+							For i = 0 To 31
 							If TradeItems(i) = Null
-								ServerTradeIDs(i) = Slot
-								TradeAmounts(i) = Amount
-								TradeItems(i) = ItemInstanceFromString(Mid$(M\MessageData$, 4))
-								GYG.GY_Gadget = Object.GY_Gadget(BSlotsHis(i))
-								GYB.GY_Button = Object.GY_Button(GYG\TypeHandle)
-								EntityTexture GYB\Gadget\EN, GetTexture(TradeItems(i)\Item\ThumbnailTexID)
-								If TradeAmounts(i) > 1
-									GY_SetButtonLabel(BSlotsHis(i), TradeAmounts(i), 100, 255, 0, True)
-								Else
-									GY_SetButtonLabel(BSlotsHis(i), "")
-								EndIf
-								Exit
+								II.ItemInstance = ItemInstanceFromString(Mid$(M\MessageData$, 4))
+								If II <> Null
+									TradeItems(i) = II : ServerTradeIDs(i) = Slot
+									TradeAmounts(i) = Amount
+									GYG.GY_Gadget = Object.GY_Gadget(BSlotsHis(i))
+									GYB.GY_Button = Object.GY_Button(GYG\TypeHandle)
+									EntityTexture GYB\Gadget\EN, GetTexture(TradeItems(i)\Item\ThumbnailTexID)
+									If TradeAmounts(i) > 1
+										GY_SetButtonLabel(BSlotsHis(i), TradeAmounts(i), 100, 255, 0, True)
+									Else
+										GY_SetButtonLabel(BSlotsHis(i), "")
+									EndIf
+									Exit : EndIf
 							EndIf
 						Next
 					EndIf
@@ -1023,34 +1054,54 @@ Function UpdateNetwork()
 
 			; Character stat update
 			Case P_StatUpdate
-				A.ActorInstance = RuntimeIDList(RCE_IntFromStr(Mid$(M\MessageData$, 2, 2)))
-				; A can be Null if the server names a RuntimeID we haven't
-				; created yet (race on actor spawn) -- guard before any
-				; field access. Attribute index also comes off the wire
-				; as a 1-byte 0..255 value; bound against the 40-entry
-				; Attributes\Value / Maximum arrays.
-				If A <> Null
-					If Left$(M\MessageData$, 1) = "A"
-						Attribute = RCE_IntFromStr(Mid$(M\MessageData$, 4, 1))
-						If Attribute >= 0 And Attribute < 40
-							A\Attributes\Value[Attribute] = RCE_IntFromStr(Mid$(M\MessageData$, 5, 2))
+				Select Left$(M\MessageData$, 1)
+					Case "A"
+						If Len(M\MessageData$) <> 6
+							WriteLog(MainLog, "P_StatUpdate A: bad payload length " + Len(M\MessageData$) + ", dropping")
+						Else
+							A.ActorInstance = RuntimeIDList(RCE_IntFromStr(Mid$(M\MessageData$, 2, 2)))
+							If A <> Null
+								Attribute = RCE_IntFromStr(Mid$(M\MessageData$, 4, 1))
+								If Attribute >= 0 And Attribute < 40
+									A\Attributes\Value[Attribute] = RCE_IntFromStr(Mid$(M\MessageData$, 5, 2))
+								EndIf
+							EndIf
 						EndIf
-					ElseIf Left$(M\MessageData$, 1) = "M"
-						Attribute = RCE_IntFromStr(Mid$(M\MessageData$, 4, 1))
-						If Attribute >= 0 And Attribute < 40
-							A\Attributes\Maximum[Attribute] = RCE_IntFromStr(Mid$(M\MessageData$, 5, 2))
+					Case "M"
+						If Len(M\MessageData$) <> 6
+							WriteLog(MainLog, "P_StatUpdate M: bad payload length " + Len(M\MessageData$) + ", dropping")
+						Else
+							A.ActorInstance = RuntimeIDList(RCE_IntFromStr(Mid$(M\MessageData$, 2, 2)))
+							If A <> Null
+								Attribute = RCE_IntFromStr(Mid$(M\MessageData$, 4, 1))
+								If Attribute >= 0 And Attribute < 40
+									A\Attributes\Maximum[Attribute] = RCE_IntFromStr(Mid$(M\MessageData$, 5, 2))
+								EndIf
+							EndIf
 						EndIf
-					ElseIf Left$(M\MessageData$, 1) = "R"
-						A\Reputation = RCE_SignedShortFromStr(Mid$(M\MessageData$, 4, 2))  ; signed: reputation can be negative
-					EndIf
-				EndIf
+					Case "R"
+						If Len(M\MessageData$) <> 5
+							WriteLog(MainLog, "P_StatUpdate R: bad payload length " + Len(M\MessageData$) + ", dropping")
+						Else
+							A.ActorInstance = RuntimeIDList(RCE_IntFromStr(Mid$(M\MessageData$, 2, 2)))
+							If A <> Null Then A\Reputation = RCE_SignedShortFromStr(Mid$(M\MessageData$, 4, 2))  ; signed: reputation can be negative
+						EndIf
+				End Select
 
 			; Scripted text input dialog
 			Case P_ScriptInput
-				NameLen = RCE_IntFromStr(Mid$(M\MessageData, 6, 2))
-				Title$ = Mid$(M\MessageData$, 8, NameLen)
-				Prompt$ = Mid$(M\MessageData$, 8 + NameLen)
-				CreateTextInput(Title$, Prompt$, RCE_IntFromStr(Mid$(M\MessageData, 5, 1)), RCE_IntFromStr(Mid$(M\MessageData, 1, 4)))
+				If Len(M\MessageData$) < 7
+					WriteLog(MainLog, "P_ScriptInput: malformed header, dropping")
+				Else
+					NameLen = RCE_IntFromStr(Mid$(M\MessageData$, 6, 2))
+					If NameLen > Len(M\MessageData$) - 7
+						WriteLog(MainLog, "P_ScriptInput: truncated title, dropping")
+					Else
+						Title$ = Mid$(M\MessageData$, 8, NameLen)
+						Prompt$ = Mid$(M\MessageData$, 8 + NameLen)
+						CreateTextInput(Title$, Prompt$, RCE_IntFromStr(Mid$(M\MessageData$, 5, 1)), RCE_IntFromStr(Mid$(M\MessageData$, 1, 4)))
+					EndIf
+				EndIf
 
 			; Dialog message
 			Case P_Dialog
@@ -1147,7 +1198,20 @@ Function UpdateNetwork()
 
 			; Actor attacked
 			Case P_AttackActor
-				RuntimeID = RCE_IntFromStr(Mid$(M\MessageData$, 2, 2))
+				Local AttackFrameValid%, AttackSub$
+				AttackFrameValid = False
+				AttackSub$ = Left$(M\MessageData$, 1)
+				If AttackSub$ = "H"
+					If Len(M\MessageData$) = 6 Then AttackFrameValid = True
+				ElseIf AttackSub$ = "Y"
+					If Len(M\MessageData$) = 6 Then AttackFrameValid = True
+				ElseIf AttackSub$ = "O"
+					If Len(M\MessageData$) = 5 Then AttackFrameValid = True
+				EndIf
+				If AttackFrameValid = False
+					WriteLog(MainLog, "P_AttackActor: bad payload length " + Len(M\MessageData$) + ", dropping")
+				Else
+					RuntimeID = RCE_IntFromStr(Mid$(M\MessageData$, 2, 2))
 				A.ActorInstance = RuntimeIDList(RuntimeID)
 				If A <> Null
 					; I attacked someone else
@@ -1226,9 +1290,10 @@ Function UpdateNetwork()
 						EndIf
 					EndIf
 					If A = CharInteract Then UpdateCharInteractionWindow()
+					EndIf
 				EndIf
 
-			; Chat bubble message
+				; Chat bubble message
 			Case P_BubbleMessage
 				AI.ActorInstance = RuntimeIDList(RCE_IntFromStr(Left$(M\MessageData$, 2)))
 				If AI <> Null
@@ -1293,8 +1358,12 @@ Function UpdateNetwork()
 
 			; Weather change
 			Case P_WeatherChange
-				ServerArea = RCE_IntFromStr(Mid$(M\MessageData$, 1, 4))
-				If ServerArea = CurrentAreaID Then SetWeather(RCE_IntFromStr(Mid$(M\MessageData$, 5, 1)))
+				If Len(M\MessageData$) <> 5
+					WriteLog(MainLog, "P_WeatherChange: malformed packet, dropping")
+				Else
+					ServerArea = RCE_IntFromStr(Mid$(M\MessageData$, 1, 4))
+					If ServerArea = CurrentAreaID Then SetWeather(RCE_IntFromStr(Mid$(M\MessageData$, 5, 1)))
+				EndIf
 
 			; Inventory update
 			Case P_InventoryUpdate

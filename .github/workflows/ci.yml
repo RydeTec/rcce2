@@ -29,6 +29,19 @@ jobs:
           # compile/test so we skip recursive to keep the checkout fast.
           submodules: true
 
+      # This diagnostic is only needed for the intermittent graphics launch
+      # investigation, so parse it here without launching the probe or a game.
+      - name: Validate PowerShell syntax
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $parseErrors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile("scripts/gfxprobe_loop.ps1", [ref]$tokens, [ref]$parseErrors)
+          if ($parseErrors.Count -gt 0) {
+            $parseErrors | ForEach-Object { Write-Error $_ }
+            exit 1
+          }
+
       # Cache the BlitzForge runtime binaries keyed on the submodule SHA.
       # rcce2 PRs rarely change the BlitzForge pointer, so the common-case
       # CI run avoids the ~3min MSBuild step entirely.
@@ -190,6 +203,10 @@ jobs:
       - name: Check out repository
         # actions/checkout@v4
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Validate Unix shell syntax
+        shell: bash
+        run: bash -n compile.sh test.sh scripts/*.sh
 
       - name: Set up Rust 1.85.0 (server)
         # dtolnay/rust-toolchain@1.85.0
