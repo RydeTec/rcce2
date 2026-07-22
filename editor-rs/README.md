@@ -1,10 +1,23 @@
 # RCCE Rust editor workspace
 
-This additive Rust 1.85 workspace reserves the production crate boundaries for
-the RCCE super editor. `SE-M1-P02` adds the first production capability: an
-explicit, read-only project root with typed relative paths and bounded reads and
-walks. The workspace still exposes no mutation API, selects no GUI framework,
-and is not connected to the shipping build or packaging scripts.
+This additive Rust 1.85 workspace contains the headless project foundation and
+the continuously runnable Super Editor feedback MVP. The MVP opens an explicit
+RCCE `data` directory, inventories it through the confined read-only project
+root, and projects the observed files into the Records, World, Assets, Scripts,
+and Vault lenses. It exposes no mutation API and does not select a final UI or
+renderer architecture; the current desktop host is a replaceable feedback
+surface over GUI-independent state.
+
+On Windows, launch the latest feedback build from the repository root:
+
+```powershell
+.\scripts\run_super_editor_mvp.ps1
+```
+
+Pass `-Project C:\path\to\project` to open another project or its `data`
+directory. The launcher pins Rust 1.85 through `rustup`, uses a dedicated build
+cache, and defaults to a release build. The first build is slower; subsequent
+launches are incremental.
 
 ## Packet baseline
 
@@ -29,8 +42,8 @@ The observed toolchain was `rustc 1.85.0 (4d91de4e4 2025-02-17)` and
 
 | Crate | Reserved responsibility at later packets | Current behavior |
 |---|---|---|
-| `rcce-editor` | Desktop composition; the only production crate allowed to acquire a GUI framework | Headless placeholder binary only |
-| `rcce-editor-core` | GUI-independent session, query, selection, and diagnostic orchestration | Empty library boundary |
+| `rcce-editor` | Desktop composition; the only production crate allowed to acquire a GUI framework | Replaceable feedback-MVP host with five read-only lenses |
+| `rcce-editor-core` | GUI-independent session, query, selection, and diagnostic orchestration | Real inventory loading and feedback projection with no write authority |
 | `rcce-project` | Root-confined project model, inventory, identity, and legacy document interpretation | Explicit read-only `ProjectRoot`, validated `ProjectRelativePath`, bounded read/walk, and truthful assurance reporting |
 | `rcce-validation` | Pure diagnostics over project evidence | Empty library boundary |
 | `rcce-storage` | Format-agnostic command storage after write-capable milestones authorize it | Empty library boundary; no persistence API |

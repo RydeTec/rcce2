@@ -15,7 +15,7 @@ const EXPECTED_CRATES: [&str; 8] = [
     "rcce-validation",
 ];
 
-const EXPECTED_FILES: [&str; 56] = [
+const EXPECTED_FILES: [&str; 59] = [
     ".gitignore",
     "Cargo.lock",
     "Cargo.toml",
@@ -23,10 +23,13 @@ const EXPECTED_FILES: [&str; 56] = [
     "crates/rcce-admin/Cargo.toml",
     "crates/rcce-admin/src/lib.rs",
     "crates/rcce-editor-core/Cargo.toml",
+    "crates/rcce-editor-core/src/feedback.rs",
     "crates/rcce-editor-core/src/lib.rs",
+    "crates/rcce-editor-core/tests/feedback_projection.rs",
     "crates/rcce-editor-core/tests/skeleton_contract.rs",
     "crates/rcce-editor/Cargo.toml",
     "crates/rcce-editor/src/main.rs",
+    "crates/rcce-editor/tests/feedback_smoke.rs",
     "crates/rcce-migrate/Cargo.toml",
     "crates/rcce-migrate/src/lib.rs",
     "crates/rcce-project-cli/Cargo.toml",
@@ -152,7 +155,10 @@ fn metadata() -> Value {
 fn expected_normal_dependencies() -> BTreeMap<&'static str, BTreeSet<&'static str>> {
     BTreeMap::from([
         ("rcce-admin", BTreeSet::new()),
-        ("rcce-editor", BTreeSet::from(["rcce-editor-core"])),
+        (
+            "rcce-editor",
+            BTreeSet::from(["eframe", "rcce-editor-core"]),
+        ),
         (
             "rcce-editor-core",
             BTreeSet::from(["rcce-project", "rcce-validation"]),
@@ -185,7 +191,14 @@ fn expected_targets() -> BTreeMap<&'static str, BTreeSet<(&'static str, &'static
         ),
         (
             "rcce-editor",
-            BTreeSet::from([("rcce-editor", "bin", "crates/rcce-editor/src/main.rs")]),
+            BTreeSet::from([
+                ("rcce-editor", "bin", "crates/rcce-editor/src/main.rs"),
+                (
+                    "feedback_smoke",
+                    "test",
+                    "crates/rcce-editor/tests/feedback_smoke.rs",
+                ),
+            ]),
         ),
         (
             "rcce-editor-core",
@@ -199,6 +212,11 @@ fn expected_targets() -> BTreeMap<&'static str, BTreeSet<(&'static str, &'static
                     "skeleton_contract",
                     "test",
                     "crates/rcce-editor-core/tests/skeleton_contract.rs",
+                ),
+                (
+                    "feedback_projection",
+                    "test",
+                    "crates/rcce-editor-core/tests/feedback_projection.rs",
                 ),
             ]),
         ),
@@ -342,15 +360,15 @@ fn cargo_metadata_pins_packages_dependencies_features_publication_and_targets() 
             normal_dependencies, expected_dependencies[name],
             "unexpected normal dependency edge for {name}"
         );
-        let expected_target = if name == "rcce-project" {
-            BTreeSet::from([
+        let expected_target = match name {
+            "rcce-editor" => BTreeSet::from([("rfd", "cfg(windows)")]),
+            "rcce-project" => BTreeSet::from([
                 ("cap-fs-ext", "cfg(windows)"),
                 ("cap-std", "cfg(windows)"),
                 ("rustix", "cfg(unix)"),
                 ("windows-sys", "cfg(windows)"),
-            ])
-        } else {
-            BTreeSet::new()
+            ]),
+            _ => BTreeSet::new(),
         };
         assert_eq!(
             target_dependencies, expected_target,

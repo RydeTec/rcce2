@@ -19,6 +19,29 @@ This ledger records execution state. It does not weaken packet acceptance, compa
 5. No dependent packet consumes a predecessor until the predecessor is accepted and integrated.
 6. No staging, local commit, cherry-pick, push, PR, migration, publication, or legacy removal occurs without its required authority.
 7. The dirty Windows coordinator checkout stores the accepted specs and this ledger; implementation changes remain in Linux worktrees.
+8. A latest Windows-runnable feedback MVP is a standing program artifact. Every accepted packet must preserve its launcher, and user-visible packets must refresh it without substituting synthetic framework content for real project evidence.
+
+## Feedback MVP continuity packet
+
+### `SE-FB-MVP-01` — Read-only project atlas
+
+| Field | Current value |
+|---|---|
+| Canonical relationship | Early feedback subset of M1 task 17; earns no task 17, P07, P06, or M1 acceptance credit |
+| Status | `Accepted; integration and exact-head CI pending` |
+| Product boundary | Windows desktop feedback build, five lenses, inspector, and zero-mutation Ledger over the explicitly selected real project `data` root |
+| Headless ownership | `rcce-editor-core` owns loading/projection; it contains no GUI types and consumes the accepted `rcce-project` snapshot |
+| UI ownership | `rcce-editor` owns the provisional eframe/egui host; the UI dependency remains replaceable and unselected for production renderer composition |
+| Launch contract | `scripts/run_super_editor_mvp.ps1`, exact Rust 1.85 through `rustup`, dedicated target cache, release by default |
+| Mutation boundary | No write, repair, rename, conversion, command, storage, or external-operation API |
+| Baseline | Exact Rust 1.85 workspace green; `rcce-editor` printed only `RCCE editor workspace placeholder; no project was opened` |
+| Current evidence | Exact 13-path aggregate `145f344f18ece56a068ed244b94e2144e78a2c26defc178643badd7b43ce6777` passed fresh specification-delta and different fresh quality review; exact Rust 1.85 workspace tests, strict Clippy, build, stable targeted rustfmt, diff check, and plan 95/11 pass; Linux real-default smoke observed 1,180 files / 351,551,965 bytes / 0 unavailable; native Windows real-current-default smoke observed 1,201 files / 358,557,047 bytes / 0 unavailable with exhaustive lens counts 115 + 289 + 715 + 74 + 8 = 1,201; native valid/missing-root smoke exits are 0/2; native visual review passed |
+| Remaining acceptance | Integration commit, push, and terminal exact-head CI |
+
+This packet exists because the project owner changed sequencing: deliver a
+feedback-worthy product slice first, then increase fidelity while preserving
+the latest runnable MVP. It does not weaken the M1 packet dependency graph or
+the rejected/unselected UI candidate evidence.
 
 ## Active packets
 
@@ -145,6 +168,7 @@ Completed implementation lanes:
 - `2026-07-21` — M1-P06's bounded Slint 1.13.1 candidate is rejected and unselected at exact 16-path aggregate SHA-256 `e118d9df563ce344b14fd5a160f833a3ff318ffa6a53dcea23e4c6df904446fb`. Its supported winit + FemtoVG-wgpu + accessibility integration requires unstable wgpu 26 resources through `BackendSelector::require_wgpu_26`; exact Rust 1.85 compiler contracts reject `rcce-render`'s wgpu 22 Instance, Adapter, Device, Queue, and Texture with preserved E0308/E0277 diagnostics. The seam suite passed 5/0 after RED capture, strict Clippy passed, and `rcce-render` remained 10/0 before and after. Full runtime, accessibility, performance, Windows, and licensing gates remain NotRun; no second GPU owner, unsafe/raw bridge, renderer migration, production dependency, or framework selection was introduced. Source `8080e985` integrated as `726bc233`. With egui, iced, and Slint all rejected under the inherited constraints, P06 returns to architecture review; the C01 reference fixture, complete machine, and memory-budget approvals remain blocked.
 - `2026-07-21` — P06 architecture review completed a disposable renderer-only wgpu 22 to exact wgpu 26.0.1 feasibility spike without integrating the migration. The isolated migration `01361496` closed 80 compiler errors, passed exact Rust 1.85 renderer tests 10/0 and strict Clippy, opened a Vulkan llvmpipe device, and produced a byte- and pixel-identical offscreen render versus wgpu 22 (SHA-256 `7afed19d...`, absolute-error pixels `0`). Fresh specification-delta and separate quality rereview accepted the final evidence aggregate `fa493765a99abb38c9f570dda66cd1de98628f53ec44ac831bd85e77f66837b7`; evidence-only program commits are `2ba11535`, `586311a9`, and `1920fc5e`. The migration remains disposable and unapproved. Windows/i686, physical-GPU, full-client, Slint runtime, accessibility, performance, and framework-selection gates remain NotRun.
 - `2026-07-21` — C01 evidence preparation tooling passed final specification-delta and separate quality review and integrated as program commits `f0cf9108`, `8f02fec3`, `9050320d`, `da52f9fc`, and `6fb3f6f7`. It reads only exact Git objects, materializes the repository default project outside the repository, enforces the canonical default-v1 path/resource ceilings, and emits a replayable `RCCE-CORPUS-TREE-V1` candidate manifest. The real default and recorded-command replay both produced 1,180 files / 351,551,965 bytes / SHA-256 `7be96d271706dc483d5497f274c0d72c6701d0cbc2b6d7b6ab41314586ef527e`. Linux tests passed 19/19, native Windows Python publication tests passed 5/5, native PowerShell profile capture passed, and the performance validator remained 70/0 plus valid. Small and large fixtures remain unavailable; license, consent, sensitivity, fixture, machine, memory-budget, and aggregate approvals remain blocked and no project bytes were added to Git.
+- `2026-07-21` — Feedback continuity packet `SE-FB-MVP-01` passed fresh specification-delta and different fresh quality review at exact 13-path aggregate SHA-256 `145f344f18ece56a068ed244b94e2144e78a2c26defc178643badd7b43ce6777`. The read-only Ledger shell opens the real selected default project through the accepted snapshot capability, routes every accepted file into five inspectable lenses, exposes exact size/classification/fingerprint evidence, rejects overlapping scans, and returns native smoke exit 0/2 for valid/missing roots. Linux exact Rust 1.85 workspace tests, strict Clippy/build, stable targeted rustfmt, diff check, and plan 95/11 passed. The native Windows current-default build opened 1,201 files / 358,557,047 bytes / 0 unavailable, with lens counts summing exactly to 1,201, and passed visual review. The provisional eframe/egui host remains unselected and earns no task 17, P06, P07, M1, renderer, accessibility, or performance acceptance credit. Integration and exact-head CI remain pending.
 
 ## Next actions
 

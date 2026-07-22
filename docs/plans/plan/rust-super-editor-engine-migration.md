@@ -5,8 +5,38 @@
 - **Stage**: `Plan`
 - **Program outcome**: one Rust-native RCCE toolchain—editor, client, server, project utilities, and build/publish pipeline—that can open and operate existing RCCE projects without BlitzForge or project-owned C/C++ application code
 - **Initial product**: the Rust super editor represented by the accepted “The Ledger” proof of concept
-- **Last updated**: `2026-07-20`
+- **Last updated**: `2026-07-21`
 - **Evidence snapshot**: repository checkout and supplied standalone PoC inspected on `2026-07-20`
+
+## Delivery continuity
+
+**Confirmed by the project owner on 2026-07-21:** the program must always leave
+a latest runnable MVP available for product feedback. Foundational compatibility,
+renderer, and evidence work increases fidelity behind that artifact; it may not
+again become the only visible output of the program.
+
+The standing feedback-build contract is:
+
+- one documented Windows launch command opens the repository's current default
+  project without requiring a copied or converted project;
+- the build is recognizably the accepted Super Editor concept, uses the five
+  lenses and Ledger vocabulary, and renders observed project data rather than a
+  synthetic framework demonstration;
+- unsupported and provisional capabilities are labeled, and unavailable
+  editing is absent or visibly disabled rather than simulated;
+- the feedback build remains read-only until the normal command/storage/write
+  gates authorize mutation;
+- each accepted increment keeps the launcher working and refreshes the visible
+  MVP when the increment adds a user-observable capability;
+- UI-host code remains replaceable. A provisional feedback host earns no
+  framework-selection, renderer-seam, accessibility, performance, task 17, or
+  milestone-exit credit until the existing acceptance gates pass.
+
+The first continuity slice is a read-only project atlas: it opens the real
+default `data` directory, inventories it through `rcce-project`, projects the
+observed paths into Records, World, Assets, Scripts, and Vault, exposes exact
+sizes/classification/fingerprints, and keeps the Ledger at zero pending,
+committed, and external operations.
 
 ## Goal (player outcome)
 

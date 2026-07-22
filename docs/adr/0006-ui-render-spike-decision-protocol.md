@@ -122,6 +122,29 @@ become the project model. A short evidence report records candidate versions,
 platform, hardware, commands, traces/screenshots, pass/fail per gate, and final
 selection or rejection.
 
+### Feedback-build continuity amendment (2026-07-21)
+
+The project owner subsequently required a runnable MVP to remain available
+throughout implementation. This permits a clearly labeled provisional UI host
+inside `rcce-editor` before framework selection, subject to all of these
+boundaries:
+
+- it consumes only GUI-independent project/session projections and does not put
+  widget state into `rcce-project`, `rcce-editor-core`, or other headless crates;
+- it opens real project data read-only and may not simulate unavailable product
+  capabilities;
+- it implements no renderer viewport seam and earns no evidence credit for this
+  ADR's device, performance, accessibility, or framework-selection gates;
+- its dependency and presentation layer are replaceable without changing the
+  headless project contract;
+- the stable Windows launcher and latest feedback behavior remain available
+  while the accepted framework decision proceeds independently.
+
+The initial host uses eframe/egui 0.29.1 solely for this feedback surface. This
+does not reverse the recorded egui candidate rejection, does not select egui for
+the production renderer composition, and does not authorize a second renderer
+device or waive any mandatory gate.
+
 ## Alternatives considered
 
 1. Select `egui` from familiarity or design screenshots. Rejected because
@@ -135,7 +158,9 @@ selection or rejection.
 
 ## Consequences
 
-- Production UI work does not begin until the spike records a passing choice.
+- Production UI acceptance does not begin until the spike records a passing
+  choice; the bounded feedback host above may continue without acceptance
+  credit.
 - Recommended dependencies can change without changing headless architecture.
 - Failure of all candidates leaves the selection pending rather than silently
   waiving accessibility or renderer gates.
