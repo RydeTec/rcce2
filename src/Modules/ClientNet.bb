@@ -1108,13 +1108,16 @@ Function UpdateNetwork()
 				Select Left$(M\MessageData$, 1)
 					; New dialog
 					Case "N"
-						RuntimeID = RCE_IntFromStr(Mid$(M\MessageData$, 6, 2))
-						If RuntimeID < 65535 Then A.ActorInstance = RuntimeIDList(RuntimeID) Else A = Null
-						D = CreateDialog(Mid$(M\MessageData$, 10), A, RCE_IntFromStr(Mid$(M\MessageData, 2, 4)), RCE_IntFromStr(Mid$(M\MessageData$, 8, 2)))
-						RCE_Send(Connection, PeerToHost, P_Dialog, "N" + Mid$(M\MessageData, 2, 4) + RCE_StrFromInt$(D), True)
-						Me\DestX# = EntityX#(Me\CollisionEN)
-						Me\DestZ# = EntityZ#(Me\CollisionEN)
-						If A <> Null
+						If Len(M\MessageData$) < 9
+							WriteLog(MainLog, "P_Dialog N: truncated packet, dropping")
+						Else
+							RuntimeID = RCE_IntFromStr(Mid$(M\MessageData$, 6, 2))
+							If RuntimeID < 65535 Then A.ActorInstance = RuntimeIDList(RuntimeID) Else A = Null
+							D = CreateDialog(Mid$(M\MessageData$, 10), A, RCE_IntFromStr(Mid$(M\MessageData, 2, 4)), RCE_IntFromStr(Mid$(M\MessageData$, 8, 2)))
+							RCE_Send(Connection, PeerToHost, P_Dialog, "N" + Mid$(M\MessageData, 2, 4) + RCE_StrFromInt$(D), True)
+							Me\DestX# = EntityX#(Me\CollisionEN)
+							Me\DestZ# = EntityZ#(Me\CollisionEN)
+							If A <> Null
 							; Face player towards dialog actor
 							PointEntity Me\CollisionEN, A\CollisionEN
 							RotateEntity Me\CollisionEN, 0.0, EntityYaw#(Me\CollisionEN) + 180.0, 0.0
@@ -1124,27 +1127,54 @@ Function UpdateNetwork()
 
 						
 						
+							EndIf
 						EndIf
 					; Dialog text
 					Case "T"
-						Red = RCE_IntFromStr(Mid$(M\MessageData$, 2, 1))
-						Green = RCE_IntFromStr(Mid$(M\MessageData$, 3, 1))
-						Blue = RCE_IntFromStr(Mid$(M\MessageData$, 4, 1))
-						D = RCE_IntFromStr(Mid$(M\MessageData$, 5, 4))
-						DialogOutput(D, Mid$(M\MessageData$, 9), Red, Green, Blue)
-						RCE_Send(Connection, PeerToHost, P_Dialog, "T" + RCE_StrFromInt$(DialogScriptHandle(D)), True)
+						If Len(M\MessageData$) < 8
+							WriteLog(MainLog, "P_Dialog T: truncated packet, dropping")
+						Else
+							Red = RCE_IntFromStr(Mid$(M\MessageData$, 2, 1))
+							Green = RCE_IntFromStr(Mid$(M\MessageData$, 3, 1))
+							Blue = RCE_IntFromStr(Mid$(M\MessageData$, 4, 1))
+							D = RCE_IntFromStr(Mid$(M\MessageData$, 5, 4))
+							DialogOutput(D, Mid$(M\MessageData$, 9), Red, Green, Blue)
+							RCE_Send(Connection, PeerToHost, P_Dialog, "T" + RCE_StrFromInt$(DialogScriptHandle(D)), True)
+						EndIf
 					; Dialog options
 					Case "O"
-						D = RCE_IntFromStr(Mid$(M\MessageData$, 2, 4))
-						Offset = 6
-						While Offset < Len(M\MessageData$)
-							NameLen = RCE_IntFromStr(Mid$(M\MessageData$, Offset, 1))
-							AddDialogOption(D, Mid$(M\MessageData$, Offset + 1, NameLen))
-							Offset = Offset + NameLen + 1
-						Wend
+						If Len(M\MessageData$) < 5
+							WriteLog(MainLog, "P_Dialog O: truncated header, dropping")
+						Else
+							D = RCE_IntFromStr(Mid$(M\MessageData$, 2, 4))
+							Offset = 6
+							DialogOptionsValid = True
+							While Offset <= Len(M\MessageData$)
+								NameLen = RCE_IntFromStr(Mid$(M\MessageData$, Offset, 1))
+								If NameLen > Len(M\MessageData$) - Offset
+									DialogOptionsValid = False
+									Exit
+								EndIf
+								Offset = Offset + NameLen + 1
+							Wend
+							If DialogOptionsValid
+								Offset = 6
+								While Offset <= Len(M\MessageData$)
+									NameLen = RCE_IntFromStr(Mid$(M\MessageData$, Offset, 1))
+									AddDialogOption(D, Mid$(M\MessageData$, Offset + 1, NameLen))
+									Offset = Offset + NameLen + 1
+								Wend
+							Else
+								WriteLog(MainLog, "P_Dialog O: truncated option, dropping")
+							EndIf
+						EndIf
 					; Close dialog
 					Case "C"
-						FreeDialog(RCE_IntFromStr(Mid$(M\MessageData$, 2)))
+						If Len(M\MessageData$) <> 5
+							WriteLog(MainLog, "P_Dialog C: bad payload length " + Len(M\MessageData$) + ", dropping")
+						Else
+							FreeDialog(RCE_IntFromStr(Mid$(M\MessageData$, 2)))
+						EndIf
 				End Select
 
 			; Actor dead
