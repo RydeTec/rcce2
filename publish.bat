@@ -4,12 +4,26 @@ setlocal
 set "ROOTDIR=%~dp0"
 if "%ROOTDIR:~-1%"=="\" set "ROOTDIR=%ROOTDIR:~0,-1%"
 
+set "HELP_ARG="
+for %%A in (%*) do (
+    if "%%~A"=="-h" set "HELP_ARG=%%~A"
+    if "%%~A"=="--help" set "HELP_ARG=%%~A"
+)
+if defined HELP_ARG goto help
+
 call "%ROOTDIR%\compile.bat" %* || (
     echo Compilation failed; aborting publish.
     endlocal
     exit /b 1
 )
+goto publish
 
+:help
+call "%ROOTDIR%\compile.bat" %HELP_ARG%
+set "HELP_STATUS=%ERRORLEVEL%"
+endlocal & exit /b %HELP_STATUS%
+
+:publish
 cd /d "%ROOTDIR%"
 
 if exist "%ROOTDIR%\release" rmdir /S /Q "%ROOTDIR%\release"
