@@ -40,7 +40,7 @@ Function CountLinesContaining%(Path$, Needle$)
 	Return Count
 End Function
 
-Function HasDamageSaveHelper%(Path$)
+Function HasDamageTypeSerializer%(Path$)
 	Local F.BBStream = ReadFile(Path$)
 	Local Line$
 	Local Stage% = 0
@@ -52,23 +52,21 @@ Function HasDamageSaveHelper%(Path$)
 		Line$ = Trim$(ReadLine$(F))
 		Select Stage
 			Case 0
-				If Line$ = "Function SaveDamageTypes%()" Then Stage = 1
+				If Line$ = "Function SaveDamageTypes(Filename$)" Then Stage = 1
 			Case 1
-				If Line$ = "Local DamageFinal$ = " + Chr$(34) + "Data\\Server Data\\Damage.dat" + Chr$(34) Then Stage = 2
+				If Line$ = "Local Temp$ = SafeWriteOpen$(Filename$)" Then Stage = 2
 			Case 2
-				If Line$ = "Local DamageTemp$ = SafeWriteOpen(DamageFinal$)" Then Stage = 3
+				If Line$ = "F = WriteFile(Temp$)" Then Stage = 3
 			Case 3
-				If Line$ = "F = WriteFile(DamageTemp$)" Then Stage = 4
+				If Line$ = "If F = 0 Then Return False" Then Stage = 4
 			Case 4
-				If Line$ = "If F = 0 Then Return False" Then Stage = 5
+				If Line$ = "For i = 0 To 19" Then Stage = 5
 			Case 5
-				If Line$ = "For i = 0 To 19" Then Stage = 6
+				If Line$ = "WriteString(F, DamageTypes$(i))" Then Stage = 6
 			Case 6
-				If Line$ = "WriteString F, DamageTypes$(i)" Then Stage = 7
+				If Line$ = "Next" Then Stage = 7
 			Case 7
-				If Line$ = "Next" Then Stage = 8
-			Case 8
-				If Line$ = "Return SafeWriteCommit(DamageTemp$, DamageFinal$, F)" Then
+				If Line$ = "Return SafeWriteCommit%(Temp$, Filename$, F)" Then
 					CloseFile F
 					Return True
 				EndIf
@@ -80,15 +78,13 @@ Function HasDamageSaveHelper%(Path$)
 End Function
 
 Test testGUEDamageTypeSaveUsesOneOutcomeHelper()
-	Local Source$ = "GUE.bb"
-	Assert(HasDamageSaveHelper%(Source$) = True)
-	Assert(CountLinesContaining%(Source$, "WriteString F, DamageTypes$(i)") = 1)
-	Assert(CountLinesContaining%(Source$, "SafeWriteCommit(DamageTemp$, DamageFinal$, F)") = 1)
+	Assert(HasDamageTypeSerializer%("Modules\\Items.bb") = True)
+	Assert(CountLinesContaining%("GUE.bb", "SafeWriteCommit(DamageTemp$, DamageFinal$, F)") = 0)
 End Test
 
 Test testGUEDamageTypeSaveRoutesKeepDirtyStateOnFailure()
 	Local Source$ = "GUE.bb"
-	Assert(CountLinesContaining%(Source$, "DamageTypesSaved = SaveDamageTypes()") = 4)
+	Assert(CountLinesContaining%(Source$, "DamageTypesSaved = SaveDamageTypes(" + Chr$(34) + "Data\\Server Data\\Damage.dat" + Chr$(34) + ")") = 4)
 	Assert(FileContains%(Source$, "If FUI_SendMessage(List, M_GETCAPTION) <> " + Chr$(34) + "Damage types" + Chr$(34) + " Or DamageTypesSaved = True") = True)
 	Assert(FileContains%(Source$, "If ParticlesSaved = False Or DamageTypesSaved = False Then Result = False") = True)
 	Assert(FileContains%(Source$, "If ParticlesSaved = True And DamageTypesSaved = True Then Result = True") = True)

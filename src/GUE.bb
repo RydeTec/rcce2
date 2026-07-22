@@ -6563,7 +6563,7 @@ Cls
 
 			; Save damage types
 			Case BDamageTypesSave
-				DamageTypesSaved = SaveDamageTypes()
+				DamageTypesSaved = SaveDamageTypes("Data\Server Data\Damage.dat")
 
 			Default
 				; Damage type names
@@ -9767,21 +9767,6 @@ Function SaveParticleEmitters%()
 
 End Function
 
-; Saves every damage type and keeps the GUE dirty state when its atomic
-; promotion cannot complete.
-Function SaveDamageTypes%()
-
-	Local DamageFinal$ = "Data\Server Data\Damage.dat"
-	Local DamageTemp$ = SafeWriteOpen(DamageFinal$)
-	F = WriteFile(DamageTemp$)
-	If F = 0 Then Return False
-	For i = 0 To 19
-		WriteString F, DamageTypes$(i)
-	Next
-	Return SafeWriteCommit(DamageTemp$, DamageFinal$, F)
-
-End Function
-
 ; Displays the saving dialog
 Function SaveDialog()
 
@@ -9850,7 +9835,7 @@ Function SaveDialog()
 						Case "Particles"
 							ParticlesSaved = SaveParticleEmitters()
 						Case "Damage types"
-							DamageTypesSaved = SaveDamageTypes()
+							DamageTypesSaved = SaveDamageTypes("Data\Server Data\Damage.dat")
 						Case "Days & seasons"
 							SaveEnvironment(True)
 							SaveSuns()
@@ -9895,7 +9880,7 @@ Function SaveDialog()
 						ParticlesSaved = SaveParticleEmitters()
 					EndIf
 					If DamageTypesSaved = False
-						DamageTypesSaved = SaveDamageTypes()
+						DamageTypesSaved = SaveDamageTypes("Data\Server Data\Damage.dat")
 					EndIf
 					If EnvironmentSaved = False
 						SaveEnvironment(True)
@@ -10715,7 +10700,7 @@ Function menuSaveAll()
 				ParticlesSaved = SaveParticleEmitters()
 				
 				; Save combat
-				DamageTypesSaved = SaveDamageTypes()
+				DamageTypesSaved = SaveDamageTypes("Data\Server Data\Damage.dat")
 				
 				; Save projectiles
 				SaveProjectiles("Data\Server Data\Projectiles.dat")
