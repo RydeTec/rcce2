@@ -1090,10 +1090,18 @@ Function UpdateNetwork()
 
 			; Scripted text input dialog
 			Case P_ScriptInput
-				NameLen = RCE_IntFromStr(Mid$(M\MessageData, 6, 2))
-				Title$ = Mid$(M\MessageData$, 8, NameLen)
-				Prompt$ = Mid$(M\MessageData$, 8 + NameLen)
-				CreateTextInput(Title$, Prompt$, RCE_IntFromStr(Mid$(M\MessageData, 5, 1)), RCE_IntFromStr(Mid$(M\MessageData, 1, 4)))
+				If Len(M\MessageData$) < 7
+					WriteLog(MainLog, "P_ScriptInput: malformed header, dropping")
+				Else
+					NameLen = RCE_IntFromStr(Mid$(M\MessageData$, 6, 2))
+					If NameLen > Len(M\MessageData$) - 7
+						WriteLog(MainLog, "P_ScriptInput: truncated title, dropping")
+					Else
+						Title$ = Mid$(M\MessageData$, 8, NameLen)
+						Prompt$ = Mid$(M\MessageData$, 8 + NameLen)
+						CreateTextInput(Title$, Prompt$, RCE_IntFromStr(Mid$(M\MessageData$, 5, 1)), RCE_IntFromStr(Mid$(M\MessageData$, 1, 4)))
+					EndIf
+				EndIf
 
 			; Dialog message
 			Case P_Dialog
