@@ -73,6 +73,37 @@ Function HasParticleSaveAggregate%(Path$)
 	Return False
 End Function
 
+Function HasExitSaveFailureContainment%(Path$)
+	Local F.BBStream = ReadFile(Path$)
+	Local Line$
+	Local Stage% = 0
+	If F = Null Then F = ReadFile("..\\" + Path$)
+	If F = Null Then F = ReadFile("..\\..\\" + Path$)
+	If F = Null Then Return False
+
+	While Not Eof(F)
+		Line$ = Trim$(ReadLine$(F))
+		Select Stage
+			Case 0
+				If Line$ = ".MainEventLoop" Then Stage = 1
+			Case 1
+				If Line$ = "Until app\Quit = True" Then Stage = 2
+			Case 2
+				If Line$ = "If SaveDialog() = False" Then Stage = 3
+			Case 3
+				If Line$ = "app\Quit = False" Then Stage = 4
+			Case 4
+				If Line$ = "Goto MainEventLoop" Then
+					CloseFile F
+					Return True
+				EndIf
+		End Select
+	Wend
+
+	CloseFile F
+	Return False
+End Function
+
 Test testGUEParticleSavesAggregateEveryEmitterOutcome()
 	Assert(HasParticleSaveAggregate%("GUE.bb") = True)
 End Test
@@ -84,4 +115,5 @@ Test testGUEParticleSaveRoutesKeepDirtyStateOnFailure()
 	Assert(FileContains%(Source$, "If ParticlesSaved = False") = True)
 	Assert(FileContains%(Source$, "If ParticlesSaved = False Then Result = False") = True)
 	Assert(FileContains%(Source$, "If FUI_SendMessage(List, M_GETCAPTION) <> " + Chr$(34) + "Particles" + Chr$(34) + " Or ParticlesSaved = True") = True)
+	Assert(HasExitSaveFailureContainment%(Source$) = True)
 End Test

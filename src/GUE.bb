@@ -2199,6 +2199,7 @@ CloseAllLogs()
 ; Event loop ------------------------------------------------------------------------------------------------------------------------
 
 DeltaTime = MilliSecs()
+.MainEventLoop
 Repeat
 
 Cls
@@ -6698,7 +6699,10 @@ Cls
 
 ;New Closing Protocol
 Until app\Quit = True
-	SaveDialog()
+	If SaveDialog() = False
+		app\Quit = False
+		Goto MainEventLoop
+	EndIf
 	FUI_Destroy()
 End
 
