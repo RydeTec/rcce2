@@ -2160,8 +2160,8 @@ Type Composer
             // GUE's "Save emitters": write every config to its own .rpc under
             // Data\Emitter Configs\. Particles_SaveAll also refreshes the
             // projectile-picker roster (Emitters_Rebuild) after a full save.
-            Local okE% = Particles_SaveAll()
-            If okE = False
+            Local okParticleSave% = Particles_SaveAll()
+            If okParticleSave = False
                 ParticlesSaved = False
                 WriteLog(LoomLog, "Composer: Particles_SaveAll FAILED")
                 Toast_Show("Save emitter configs FAILED", "danger")
