@@ -6563,15 +6563,7 @@ Cls
 
 			; Save damage types
 			Case BDamageTypesSave
-				Local DamageFinal$ = "Data\Server Data\Damage.dat"
-				Local DamageTemp$ = SafeWriteOpen(DamageFinal$)
-				F = WriteFile(DamageTemp$)
-				If F = 0 Then RuntimeError("Could not open " + DamageTemp$ + " for write")
-					For i = 0 To 19
-						WriteString F, DamageTypes$(i)
-					Next
-				SafeWriteCommit(DamageTemp$, DamageFinal$, F)
-				DamageTypesSaved = True
+				DamageTypesSaved = SaveDamageTypes()
 
 			Default
 				; Damage type names
@@ -9775,6 +9767,21 @@ Function SaveParticleEmitters%()
 
 End Function
 
+; Saves every damage type and keeps the GUE dirty state when its atomic
+; promotion cannot complete.
+Function SaveDamageTypes%()
+
+	Local DamageFinal$ = "Data\Server Data\Damage.dat"
+	Local DamageTemp$ = SafeWriteOpen(DamageFinal$)
+	F = WriteFile(DamageTemp$)
+	If F = 0 Then Return False
+	For i = 0 To 19
+		WriteString F, DamageTypes$(i)
+	Next
+	Return SafeWriteCommit(DamageTemp$, DamageFinal$, F)
+
+End Function
+
 ; Displays the saving dialog
 Function SaveDialog()
 
@@ -9843,15 +9850,7 @@ Function SaveDialog()
 						Case "Particles"
 							ParticlesSaved = SaveParticleEmitters()
 						Case "Damage types"
-							DamageFinal$ = "Data\Server Data\Damage.dat"
-							DamageTemp$ = SafeWriteOpen(DamageFinal$)
-							F = WriteFile(DamageTemp$)
-							If F = 0 Then RuntimeError("Could not open " + DamageTemp$ + " for write")
-								For i = 0 To 19
-									WriteString F, DamageTypes$(i)
-								Next
-							SafeWriteCommit(DamageTemp$, DamageFinal$, F)
-							DamageTypesSaved = True
+							DamageTypesSaved = SaveDamageTypes()
 						Case "Days & seasons"
 							SaveEnvironment(True)
 							SaveSuns()
@@ -9877,10 +9876,12 @@ Function SaveDialog()
 							If ChatBar <> Null Then Delete ChatBar
 							InterfaceSaved = True
 					End Select
-					; Keep a failed particle save selectable so it can be retried.
+					; Keep failed particle and damage-type saves selectable so either can be retried.
 					If FUI_SendMessage(List, M_GETCAPTION) <> "Particles" Or ParticlesSaved = True
-						FUI_SendMessage(List, M_DELETEINDEX, FUI_SendMessage(List, M_GETSELECTED))
-						FUI_SendMessage(List, M_SETINDEX, 1)
+						If FUI_SendMessage(List, M_GETCAPTION) <> "Damage types" Or DamageTypesSaved = True
+							FUI_SendMessage(List, M_DELETEINDEX, FUI_SendMessage(List, M_GETSELECTED))
+							FUI_SendMessage(List, M_SETINDEX, 1)
+						EndIf
 					EndIf
 				; Save all hit
 				Case BSaveAll
@@ -9894,14 +9895,7 @@ Function SaveDialog()
 						ParticlesSaved = SaveParticleEmitters()
 					EndIf
 					If DamageTypesSaved = False
-						DamageFinal$ = "Data\Server Data\Damage.dat"
-						DamageTemp$ = SafeWriteOpen(DamageFinal$)
-						F = WriteFile(DamageTemp$)
-						If F = 0 Then RuntimeError("Could not open " + DamageTemp$ + " for write")
-							For i = 0 To 19
-								WriteString F, DamageTypes$(i)
-							Next
-						SafeWriteCommit(DamageTemp$, DamageFinal$, F)
+						DamageTypesSaved = SaveDamageTypes()
 					EndIf
 					If EnvironmentSaved = False
 						SaveEnvironment(True)
@@ -9925,8 +9919,8 @@ Function SaveDialog()
 						SaveInterfaceSettings("Data\Game Data\Interface.dat")
 						If ChatBar <> Null Then Delete ChatBar
 					EndIf
-					If ParticlesSaved = False Then Result = False
-					If ParticlesSaved = True Then Result = True
+					If ParticlesSaved = False Or DamageTypesSaved = False Then Result = False
+					If ParticlesSaved = True And DamageTypesSaved = True Then Result = True
 			End Select
 			Delete(SaveEvent)
 			SaveEvent = NextSaveEvent
@@ -10721,15 +10715,7 @@ Function menuSaveAll()
 				ParticlesSaved = SaveParticleEmitters()
 				
 				; Save combat
-				DamageFinal$ = "Data\Server Data\Damage.dat"
-				DamageTemp$ = SafeWriteOpen(DamageFinal$)
-				F = WriteFile(DamageTemp$)
-				If F = 0 Then RuntimeError("Could not open " + DamageTemp$ + " for write")
-					For i = 0 To 19
-						WriteString F, DamageTypes$(i)
-					Next
-				SafeWriteCommit(DamageTemp$, DamageFinal$, F)
-				DamageTypesSaved = True
+				DamageTypesSaved = SaveDamageTypes()
 				
 				; Save projectiles
 				SaveProjectiles("Data\Server Data\Projectiles.dat")
