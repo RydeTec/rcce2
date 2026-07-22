@@ -1350,8 +1350,12 @@ Function UpdateNetwork()
 
 			; Weather change
 			Case P_WeatherChange
-				ServerArea = RCE_IntFromStr(Mid$(M\MessageData$, 1, 4))
-				If ServerArea = CurrentAreaID Then SetWeather(RCE_IntFromStr(Mid$(M\MessageData$, 5, 1)))
+				If Len(M\MessageData$) <> 5
+					WriteLog(MainLog, "P_WeatherChange: malformed packet, dropping")
+				Else
+					ServerArea = RCE_IntFromStr(Mid$(M\MessageData$, 1, 4))
+					If ServerArea = CurrentAreaID Then SetWeather(RCE_IntFromStr(Mid$(M\MessageData$, 5, 1)))
+				EndIf
 
 			; Inventory update
 			Case P_InventoryUpdate
