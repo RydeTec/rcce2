@@ -5,11 +5,11 @@ EnableGC
 ; its length gate before every decode and weather side effect without loading
 ; the renderer-heavy ClientNet dependency graph.
 Function ClientNetWeatherChangeHasExactFrameGuard%()
-	Local F.BBStream = ReadFile("Modules\\ClientNet.bb")
+	Local F.BBStream = ReadFile("Modules\ClientNet.bb")
 	Local InWeatherCase%, Stage%
 	Local Line$
-	If F = Null Then F = ReadFile("..\\Modules\\ClientNet.bb")
-	If F = Null Then F = ReadFile("..\\..\\Modules\\ClientNet.bb")
+	If F = Null Then F = ReadFile("..\Modules\ClientNet.bb")
+	If F = Null Then F = ReadFile("..\..\Modules\ClientNet.bb")
 	If F = Null Then Return False
 
 	While Not Eof(F)
@@ -24,11 +24,15 @@ Function ClientNetWeatherChangeHasExactFrameGuard%()
 				CloseFile F
 				Return False
 			EndIf
-			If Stage = 0 And Instr(Line$, "Len(M\\MessageData$) <> 5") > 0 Then Stage = 1
+			If Stage = 0 And Instr(Line$, "Len(M\MessageData$) <> 5") > 0 Then Stage = 1
 			If Stage = 1 And Instr(Line$, "P_WeatherChange: malformed packet, dropping") > 0 Then Stage = 2
 			If Stage = 2 And Trim$(Line$) = "Else" Then Stage = 3
-			If Stage = 3 And Instr(Line$, "ServerArea = RCE_IntFromStr(Mid$(M\\MessageData$, 1, 4))") > 0 Then Stage = 4
-			If Stage = 4 And Instr(Line$, "SetWeather(RCE_IntFromStr(Mid$(M\\MessageData$, 5, 1)))") > 0 Then Stage = 5
+			If Stage >= 3 And Stage < 5 And Trim$(Line$) = "EndIf"
+				CloseFile F
+				Return False
+			EndIf
+			If Stage = 3 And Instr(Line$, "ServerArea = RCE_IntFromStr(Mid$(M\MessageData$, 1, 4))") > 0 Then Stage = 4
+			If Stage = 4 And Instr(Line$, "SetWeather(RCE_IntFromStr(Mid$(M\MessageData$, 5, 1)))") > 0 Then Stage = 5
 			If Stage = 5
 				CloseFile F
 				Return True
