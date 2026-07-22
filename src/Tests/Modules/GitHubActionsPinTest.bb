@@ -77,7 +77,7 @@ Test testCIActionReferencesUseReviewedImmutablePins()
 End Test
 
 Test testCIJobsCapDurationImmediatelyAfterRunner()
-	Assert(FileOccurrenceCount%(".github\workflows\ci.yml", "timeout-minutes: 30") = 2)
+	Assert(FileOccurrenceCount%(".github\workflows\ci.yml", "timeout-minutes:") = 2)
 	Assert(JobHasImmediateTimeout%(".github\workflows\ci.yml", "build-and-test", "runs-on: windows-latest", "timeout-minutes: 30"))
 	Assert(JobHasImmediateTimeout%(".github\workflows\ci.yml", "rust-server", "runs-on: ubuntu-latest", "timeout-minutes: 30"))
 End Test
