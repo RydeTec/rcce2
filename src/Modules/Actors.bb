@@ -1500,11 +1500,13 @@ End Function
 
 
 Function CleanActorEffects()
-	Local AE.ActorEffect
-	For AE = Each ActorEffect
+	Local AE.ActorEffect = First ActorEffect
+	Local AENext.ActorEffect = Null
+	While AE <> Null
+		AENext = After AE
 		DestroyActorEffect( AE )
-	Next
-	Delete Each ActorEffect
+		AE = AENext
+	Wend
 
 End Function
 
