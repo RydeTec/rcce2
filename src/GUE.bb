@@ -6109,10 +6109,7 @@ Cls
 				EndIf
 			; Save emitters
 			Case BParticlesSave
-				For EmC.RP_EmitterConfig = Each RP_EmitterConfig
-					RP_SaveEmitterConfig(Handle(EmC), "Data\Emitter Configs\" + EmC\Name$ + ".rpc")
-				Next
-				ParticlesSaved = True
+				ParticlesSaved = SaveParticleEmitters()
 			; Delete emitter
 			Case BParticlesDelete
 				If ParticlesConfig <> 0
@@ -9762,6 +9759,18 @@ End Function
 ; shared zone loader can use it without depending on GUE.bb. Included near
 ; the top of this file; callers below resolve to it unchanged.
 
+; Saves every emitter configuration and retains the particle dirty state if any
+; independent atomic write fails.
+Function SaveParticleEmitters%()
+
+	Local SavedAll% = True
+	For EmC.RP_EmitterConfig = Each RP_EmitterConfig
+		If RP_SaveEmitterConfig(Handle(EmC), "Data\Emitter Configs\" + EmC\Name$ + ".rpc") = False Then SavedAll = False
+	Next
+	Return SavedAll
+
+End Function
+
 ; Displays the saving dialog
 Function SaveDialog()
 
@@ -9828,10 +9837,7 @@ Function SaveDialog()
 						Case "Attributes"
 							SaveAttributes("Data\Server Data\Attributes.dat") : StatsSaved = True
 						Case "Particles"
-							For EmC.RP_EmitterConfig = Each RP_EmitterConfig
-								RP_SaveEmitterConfig(Handle(EmC), "Data\Emitter Configs\" + EmC\Name$ + ".rpc")
-							Next
-							ParticlesSaved = True
+							ParticlesSaved = SaveParticleEmitters()
 						Case "Damage types"
 							DamageFinal$ = "Data\Server Data\Damage.dat"
 							DamageTemp$ = SafeWriteOpen(DamageFinal$)
@@ -9867,8 +9873,11 @@ Function SaveDialog()
 							If ChatBar <> Null Then Delete ChatBar
 							InterfaceSaved = True
 					End Select
-					FUI_SendMessage(List, M_DELETEINDEX, FUI_SendMessage(List, M_GETSELECTED))
-					FUI_SendMessage(List, M_SETINDEX, 1)
+					; Keep a failed particle save selectable so it can be retried.
+					If FUI_SendMessage(List, M_GETCAPTION) <> "Particles" Or ParticlesSaved = True
+						FUI_SendMessage(List, M_DELETEINDEX, FUI_SendMessage(List, M_GETSELECTED))
+						FUI_SendMessage(List, M_SETINDEX, 1)
+					EndIf
 				; Save all hit
 				Case BSaveAll
 					If ItemsSaved = False Then SaveItems("Data\Server Data\Items.dat")
@@ -9878,9 +9887,7 @@ Function SaveDialog()
 					If AnimsSaved = False Then SaveAnimSets("Data\Game Data\Animations.dat")
 					If StatsSaved = False Then SaveAttributes("Data\Server Data\Attributes.dat")
 					If ParticlesSaved = False
-						For EmC.RP_EmitterConfig = Each RP_EmitterConfig
-							RP_SaveEmitterConfig(Handle(EmC), "Data\Emitter Configs\" + EmC\Name$ + ".rpc")
-						Next
+						ParticlesSaved = SaveParticleEmitters()
 					EndIf
 					If DamageTypesSaved = False
 						DamageFinal$ = "Data\Server Data\Damage.dat"
@@ -9914,7 +9921,8 @@ Function SaveDialog()
 						SaveInterfaceSettings("Data\Game Data\Interface.dat")
 						If ChatBar <> Null Then Delete ChatBar
 					EndIf
-					Result = True
+					If ParticlesSaved = False Then Result = False
+					If ParticlesSaved = True Then Result = True
 			End Select
 			Delete(SaveEvent)
 			SaveEvent = NextSaveEvent
@@ -10706,10 +10714,7 @@ Function menuSaveAll()
 				FUI_CustomMessageBox( "Saving all data", "Save All", 0 )
 				
 				; Save emitters
-				For EmC.RP_EmitterConfig = Each RP_EmitterConfig
-					RP_SaveEmitterConfig(Handle(EmC), "Data\Emitter Configs\" + EmC\Name$ + ".rpc")
-				Next
-				ParticlesSaved = True
+				ParticlesSaved = SaveParticleEmitters()
 				
 				; Save combat
 				DamageFinal$ = "Data\Server Data\Damage.dat"
