@@ -1,6 +1,6 @@
 use rcce_editor_core::{
     load_feedback_project, FeedbackActorCount, FeedbackEvidence, FeedbackMediaStatus,
-    FeedbackProject, Lens,
+    FeedbackProject, FeedbackZoneStatus, Lens,
 };
 use std::{fs, path::PathBuf, time::SystemTime};
 
@@ -28,6 +28,38 @@ fn project() -> (PathBuf, FeedbackProject) {
     let path = fixture();
     let project = load_feedback_project(path.clone(), |_| {}).expect("fixture snapshot");
     (path, project)
+}
+
+fn zone_fixture() -> PathBuf {
+    let nonce = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .expect("system clock")
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!(
+        "rcce-feedback-zones-{}-{nonce}",
+        std::process::id()
+    ));
+    fs::create_dir_all(root.join("Areas/Nested")).expect("visual area fixture directory");
+    fs::create_dir_all(root.join("Server Data/Areas")).expect("gameplay area fixture directory");
+    fs::write(root.join("Areas/Paired.dat"), b"visual").expect("paired visual area");
+    fs::write(root.join("Server Data/Areas/paired.dat"), b"gameplay")
+        .expect("paired gameplay area");
+    fs::write(root.join("Areas/Visual Only.dat"), b"visual-only").expect("visual-only area");
+    fs::write(
+        root.join("Server Data/Areas/Gameplay Only.dat"),
+        b"gameplay-only",
+    )
+    .expect("gameplay-only area");
+    fs::write(root.join("Areas/Nested/Ignored.dat"), b"nested").expect("nested non-zone file");
+    fs::write(root.join("Areas/notes.txt"), b"notes").expect("non-dat area file");
+    fs::write(root.join("Areas/éabc"), b"unicode-not-dat").expect("unicode non-dat area file");
+    fs::write(root.join("Areas/Étoile.dat"), b"unicode-visual").expect("unicode visual area");
+    fs::write(
+        root.join("Server Data/Areas/Étoile.dat"),
+        b"unicode-gameplay",
+    )
+    .expect("unicode gameplay area");
+    root
 }
 
 #[test]
@@ -141,4 +173,62 @@ fn provisional_actor_catalog_remains_browsable_without_asserted_media_health() {
         actor.media_status == FeedbackMediaStatus::Provisional && actor.physical_path.is_none()
     }));
     assert!(catalog.diagnostics.is_empty());
+}
+
+#[test]
+fn projects_filename_derived_paired_zones_and_missing_half_observations() {
+    let path = zone_fixture();
+    let project = load_feedback_project(path.clone(), |_| {}).expect("zone feedback project");
+    let catalog = project.zone_catalog();
+
+    assert_eq!(catalog.zones.len(), 4);
+    assert_eq!(catalog.diagnostics.len(), 2);
+
+    let paired = catalog
+        .zones
+        .iter()
+        .find(|zone| zone.name == "Paired")
+        .expect("case-insensitive paired zone");
+    assert_eq!(paired.status, FeedbackZoneStatus::Paired);
+    assert_eq!(paired.visual_path.as_deref(), Some("Data/Areas/Paired.dat"));
+    assert_eq!(
+        paired.gameplay_path.as_deref(),
+        Some("Data/Server Data/Areas/paired.dat")
+    );
+    assert_eq!(paired.visual_size, Some(6));
+    assert_eq!(paired.gameplay_size, Some(8));
+
+    let visual_only = catalog
+        .zones
+        .iter()
+        .find(|zone| zone.name == "Visual Only")
+        .expect("visual-only zone");
+    assert_eq!(visual_only.status, FeedbackZoneStatus::VisualOnly);
+    assert_eq!(visual_only.gameplay_path, None);
+
+    let gameplay_only = catalog
+        .zones
+        .iter()
+        .find(|zone| zone.name == "Gameplay Only")
+        .expect("gameplay-only zone");
+    assert_eq!(gameplay_only.status, FeedbackZoneStatus::GameplayOnly);
+    assert_eq!(gameplay_only.visual_path, None);
+
+    assert_eq!(catalog.diagnostics[0].code, "RCCE-ZONE-VISUAL-HALF-MISSING");
+    assert_eq!(catalog.diagnostics[0].zone_name, "Gameplay Only");
+    assert_eq!(
+        catalog.diagnostics[1].code,
+        "RCCE-ZONE-GAMEPLAY-HALF-MISSING"
+    );
+    assert_eq!(catalog.diagnostics[1].zone_name, "Visual Only");
+    assert!(catalog.zones.iter().all(|zone| zone.name != "Ignored"));
+    assert!(catalog.zones.iter().all(|zone| zone.name != "éabc"));
+    let unicode = catalog
+        .zones
+        .iter()
+        .find(|zone| zone.name == "Étoile")
+        .expect("unicode dat zone identity");
+    assert_eq!(unicode.status, FeedbackZoneStatus::Paired);
+
+    fs::remove_dir_all(path).expect("fixture cleanup");
 }

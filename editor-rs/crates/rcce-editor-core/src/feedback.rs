@@ -3,7 +3,7 @@ use rcce_project::{
     ConsensusLevel, MetadataBudget, ProjectRoot, ProjectSnapshot, ReadAssurance, ScanControl,
     SnapshotProgress, StateClass,
 };
-use std::path::PathBuf;
+use std::{collections::BTreeMap, path::PathBuf};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Lens {
@@ -104,6 +104,114 @@ pub struct FeedbackActorCatalog {
     pub unavailable_reason: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FeedbackZoneStatus {
+    Paired,
+    VisualOnly,
+    GameplayOnly,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FeedbackZone {
+    pub name: String,
+    pub status: FeedbackZoneStatus,
+    pub visual_path: Option<String>,
+    pub visual_size: Option<u64>,
+    pub gameplay_path: Option<String>,
+    pub gameplay_size: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FeedbackZoneDiagnostic {
+    pub code: &'static str,
+    pub zone_name: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FeedbackZoneCatalog {
+    pub zones: Vec<FeedbackZone>,
+    pub diagnostics: Vec<FeedbackZoneDiagnostic>,
+}
+
+#[derive(Default)]
+struct ZonePairBuilder {
+    name: String,
+    visual_path: Option<String>,
+    visual_size: Option<u64>,
+    gameplay_path: Option<String>,
+    gameplay_size: Option<u64>,
+}
+
+impl FeedbackZoneCatalog {
+    fn from_world_entries(entries: &[FeedbackEntry]) -> Self {
+        let mut pairs = BTreeMap::<String, ZonePairBuilder>::new();
+        for entry in entries {
+            let Some((name, half)) = zone_identity(&entry.path) else {
+                continue;
+            };
+            let pair = pairs.entry(name.to_lowercase()).or_default();
+            match half {
+                ZoneHalf::Visual => {
+                    pair.name.clone_from(&name);
+                    pair.visual_path = Some(entry.path.clone());
+                    pair.visual_size = Some(entry.size);
+                }
+                ZoneHalf::Gameplay => {
+                    if pair.name.is_empty() {
+                        pair.name.clone_from(&name);
+                    }
+                    pair.gameplay_path = Some(entry.path.clone());
+                    pair.gameplay_size = Some(entry.size);
+                }
+            }
+        }
+
+        let zones = pairs
+            .into_values()
+            .map(|pair| {
+                let status = match (pair.visual_path.is_some(), pair.gameplay_path.is_some()) {
+                    (true, true) => FeedbackZoneStatus::Paired,
+                    (true, false) => FeedbackZoneStatus::VisualOnly,
+                    (false, true) => FeedbackZoneStatus::GameplayOnly,
+                    (false, false) => unreachable!("zone pairs have at least one observed half"),
+                };
+                FeedbackZone {
+                    name: pair.name,
+                    status,
+                    visual_path: pair.visual_path,
+                    visual_size: pair.visual_size,
+                    gameplay_path: pair.gameplay_path,
+                    gameplay_size: pair.gameplay_size,
+                }
+            })
+            .collect::<Vec<_>>();
+        let diagnostics = zones
+            .iter()
+            .filter_map(|zone| match zone.status {
+                FeedbackZoneStatus::Paired => None,
+                FeedbackZoneStatus::VisualOnly => Some(FeedbackZoneDiagnostic {
+                    code: "RCCE-ZONE-GAMEPLAY-HALF-MISSING",
+                    zone_name: zone.name.clone(),
+                    message: format!(
+                        "{} has a visual area file but no observed gameplay area file",
+                        zone.name
+                    ),
+                }),
+                FeedbackZoneStatus::GameplayOnly => Some(FeedbackZoneDiagnostic {
+                    code: "RCCE-ZONE-VISUAL-HALF-MISSING",
+                    zone_name: zone.name.clone(),
+                    message: format!(
+                        "{} has a gameplay area file but no observed visual area file",
+                        zone.name
+                    ),
+                }),
+            })
+            .collect();
+        Self { zones, diagnostics }
+    }
+}
+
 impl FeedbackActorCatalog {
     fn from_consensus(consensus: ActorMediaConsensus) -> Self {
         let evidence = match consensus.level() {
@@ -190,6 +298,7 @@ pub struct FeedbackProject {
     pub shape: String,
     pub unavailable: usize,
     actor_catalog: FeedbackActorCatalog,
+    zone_catalog: FeedbackZoneCatalog,
     by_lens: [Vec<FeedbackEntry>; 5],
     unclassified_files: usize,
     total_files: usize,
@@ -331,6 +440,7 @@ impl FeedbackProject {
         for entries in &mut by_lens {
             entries.sort_by(|left, right| left.path.as_bytes().cmp(right.path.as_bytes()));
         }
+        let zone_catalog = FeedbackZoneCatalog::from_world_entries(&by_lens[Lens::World.index()]);
         Self {
             data_root,
             shape: if inventory.files.is_empty() {
@@ -343,6 +453,7 @@ impl FeedbackProject {
             .to_owned(),
             unavailable: inventory.unavailable.len(),
             actor_catalog,
+            zone_catalog,
             by_lens,
             unclassified_files,
             total_files: inventory.files.len(),
@@ -368,6 +479,11 @@ impl FeedbackProject {
     #[must_use]
     pub const fn actor_catalog(&self) -> &FeedbackActorCatalog {
         &self.actor_catalog
+    }
+
+    #[must_use]
+    pub const fn zone_catalog(&self) -> &FeedbackZoneCatalog {
+        &self.zone_catalog
     }
 
     #[must_use]
@@ -399,6 +515,37 @@ fn canonical_data_path(path: &str) -> String {
     } else {
         format!("Data/{path}")
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ZoneHalf {
+    Visual,
+    Gameplay,
+}
+
+fn zone_identity(path: &str) -> Option<(String, ZoneHalf)> {
+    let (relative, half) = if path
+        .get(..11)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("Data/Areas/"))
+    {
+        (&path[11..], ZoneHalf::Visual)
+    } else if path
+        .get(..23)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("Data/Server Data/Areas/"))
+    {
+        (&path[23..], ZoneHalf::Gameplay)
+    } else {
+        return None;
+    };
+    if relative.contains('/') || relative.len() <= 4 {
+        return None;
+    }
+    let suffix_start = relative.len().checked_sub(4)?;
+    let suffix = relative.get(suffix_start..)?;
+    if !suffix.eq_ignore_ascii_case(".dat") {
+        return None;
+    }
+    Some((relative.get(..suffix_start)?.to_owned(), half))
 }
 
 fn lens_for(path: &str) -> Option<Lens> {

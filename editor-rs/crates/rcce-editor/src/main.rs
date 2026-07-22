@@ -4,7 +4,8 @@ use eframe::egui::{
 };
 use rcce_editor_core::{
     load_feedback_project, FeedbackActor, FeedbackActorCount, FeedbackEntry, FeedbackEvidence,
-    FeedbackLoadProgress, FeedbackMediaStatus, FeedbackProject, Lens,
+    FeedbackLoadProgress, FeedbackMediaStatus, FeedbackProject, FeedbackZone, FeedbackZoneStatus,
+    Lens,
 };
 use std::{
     path::{Path, PathBuf},
@@ -31,13 +32,15 @@ fn main() -> ExitCode {
             Ok(project) => {
                 let actor_catalog = project.actor_catalog();
                 println!(
-                    "[super-editor-mvp] ready: {} files, {} bytes, {} unavailable; actors={} actor_evidence={} actor_reference_issues={}",
+                    "[super-editor-mvp] ready: {} files, {} bytes, {} unavailable; actors={} actor_evidence={} actor_reference_issues={} zones={} zone_pairing_issues={}",
                     project.total_files(),
                     project.total_bytes(),
                     project.unavailable,
                     actor_count_smoke(actor_catalog.count),
                     evidence_label(actor_catalog.evidence).to_ascii_lowercase(),
-                    actor_catalog.diagnostics.len()
+                    actor_catalog.diagnostics.len(),
+                    project.zone_catalog().zones.len(),
+                    project.zone_catalog().diagnostics.len()
                 );
                 ExitCode::SUCCESS
             }
@@ -173,6 +176,12 @@ enum RecordsView {
     Files,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum WorldView {
+    Zones,
+    Files,
+}
+
 fn transition_records_view(
     current: RecordsView,
     target: RecordsView,
@@ -182,6 +191,19 @@ fn transition_records_view(
     if current != target {
         *selected_file = None;
         *selected_actor = None;
+    }
+    target
+}
+
+fn transition_world_view(
+    current: WorldView,
+    target: WorldView,
+    selected_file: &mut Option<String>,
+    selected_zone: &mut Option<String>,
+) -> WorldView {
+    if current != target {
+        *selected_file = None;
+        *selected_zone = None;
     }
     target
 }
@@ -217,7 +239,9 @@ struct LedgerApp {
     filter: String,
     selected: Option<String>,
     selected_actor: Option<u16>,
+    selected_zone: Option<String>,
     records_view: RecordsView,
+    world_view: WorldView,
     status: String,
     activity: Vec<String>,
     load_gate: LoadGate,
@@ -233,7 +257,9 @@ impl LedgerApp {
             filter: String::new(),
             selected: None,
             selected_actor: None,
+            selected_zone: None,
             records_view: RecordsView::Actors,
+            world_view: WorldView::Zones,
             status: "Preparing project inventory…".to_owned(),
             activity: vec!["Feedback MVP started in read-only mode".to_owned()],
             load_gate: LoadGate::default(),
@@ -256,6 +282,7 @@ impl LedgerApp {
         self.project = None;
         self.selected = None;
         self.selected_actor = None;
+        self.selected_zone = None;
         self.status = "Opening selected project…".to_owned();
         self.activity
             .insert(0, format!("Inventory requested: {}", path.display()));
@@ -292,10 +319,18 @@ impl LedgerApp {
                 LoadMessage::Progress(progress) => self.apply_progress(progress),
                 LoadMessage::Ready(project) => {
                     let actor_count = actor_count_label(project.actor_catalog().count);
+                    let zone_count = project.zone_catalog().zones.len();
                     self.status = format!(
                         "{} files indexed · {actor_count} · {} unavailable",
                         project.total_files(),
                         project.unavailable
+                    );
+                    self.activity.insert(
+                        0,
+                        format!(
+                            "Zone atlas: {zone_count} filename identities · {} observed pairing issues",
+                            project.zone_catalog().diagnostics.len()
+                        ),
                     );
                     self.activity.insert(
                         0,
@@ -392,6 +427,16 @@ impl LedgerApp {
             .find(|actor| actor.actor_id == selected)
     }
 
+    fn selected_zone(&self) -> Option<&FeedbackZone> {
+        let selected = self.selected_zone.as_deref()?;
+        self.project
+            .as_ref()?
+            .zone_catalog()
+            .zones
+            .iter()
+            .find(|zone| zone.name == selected)
+    }
+
     fn top_bar(&mut self, context: &egui::Context) {
         egui::TopBottomPanel::top("ledger_top")
             .exact_height(103.0)
@@ -476,11 +521,12 @@ impl LedgerApp {
                         self.lens = lens;
                         self.selected = None;
                         self.selected_actor = None;
+                        self.selected_zone = None;
                     }
                 }
                 ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
                     ui.label(
-                        RichText::new("Feedback build 0.2\nNo save or mutation commands exist")
+                        RichText::new("Feedback build 0.3\nNo save or mutation commands exist")
                             .size(11.0)
                             .color(MUTED),
                     );
@@ -580,6 +626,53 @@ impl LedgerApp {
                                 .color(MUTED),
                             );
                         });
+                } else if let Some(zone) = self.selected_zone() {
+                    ui.label(RichText::new(&zone.name).size(22.0).color(INK));
+                    ui.label(RichText::new("ZONE  /  FILENAME IDENTITY").size(12.0).color(BRASS));
+                    ui.add_space(16.0);
+                    property(ui, "Stable identity", &format!("{}.dat", zone.name));
+                    property(ui, "Pairing state", zone_status_label(zone.status));
+                    let visual = zone.visual_path.as_ref().map_or_else(
+                        || "Not observed".to_owned(),
+                        |path| {
+                            format!(
+                                "{} · {}",
+                                path,
+                                format_bytes(zone.visual_size.unwrap_or_default())
+                            )
+                        },
+                    );
+                    let gameplay = zone.gameplay_path.as_ref().map_or_else(
+                        || "Not observed".to_owned(),
+                        |path| {
+                            format!(
+                                "{} · {}",
+                                path,
+                                format_bytes(zone.gameplay_size.unwrap_or_default())
+                            )
+                        },
+                    );
+                    property(ui, "Visual half", &visual);
+                    property(ui, "Gameplay half", &gameplay);
+                    ui.add_space(12.0);
+                    Frame::none()
+                        .fill(Color32::from_rgb(19, 31, 27))
+                        .stroke(Stroke::new(1.0, Color32::from_rgb(54, 91, 71)))
+                        .inner_margin(Margin::same(12.0))
+                        .show(ui, |ui| {
+                            ui.label(
+                                RichText::new("INVENTORY OBSERVATION · READ ONLY")
+                                    .color(GREEN)
+                                    .strong(),
+                            );
+                            ui.label(
+                                RichText::new(
+                                    "Pairing reflects observed filenames only; zone contents are not parsed or editable in this feedback surface.",
+                                )
+                                .size(12.0)
+                                .color(MUTED),
+                            );
+                        });
                 } else if let Some(entry) = self.selected_entry() {
                     ui.label(RichText::new(file_name(&entry.path)).size(22.0).color(INK));
                     ui.label(RichText::new(&entry.path).size(12.0).color(MUTED));
@@ -621,10 +714,10 @@ impl LedgerApp {
                             );
                         });
                 } else {
-                    ui.label(RichText::new("Select a record or file").size(18.0).color(INK));
+                    ui.label(RichText::new("Select an actor, zone, or file").size(18.0).color(INK));
                     ui.label(
                         RichText::new(
-                            "Actor records expose stable identity and media health. Files expose classification and exact fingerprints.",
+                            "Actors expose media health, zones expose paired-file presence, and files expose classification plus exact fingerprints.",
                         )
                         .color(MUTED),
                     );
@@ -658,15 +751,17 @@ impl LedgerApp {
     }
 
     fn atlas(&mut self, context: &egui::Context) {
+        let actor_view = self.lens == Lens::Records && self.records_view == RecordsView::Actors;
+        let zone_view = self.lens == Lens::World && self.world_view == WorldView::Zones;
         egui::CentralPanel::default()
             .frame(Frame::none().fill(CANVAS).inner_margin(Margin::same(20.0)))
             .show(context, |ui| {
                 ui.horizontal(|ui| {
                     ui.vertical(|ui| {
-                        let title = if self.lens == Lens::Records
-                            && self.records_view == RecordsView::Actors
-                        {
+                        let title = if actor_view {
                             "Actor catalog".to_owned()
+                        } else if zone_view {
+                            "Paired zone atlas".to_owned()
                         } else {
                             format!("{} atlas", self.lens.label())
                         };
@@ -677,10 +772,10 @@ impl LedgerApp {
                                 .strong(),
                         );
                         ui.label(
-                            RichText::new(if self.lens == Lens::Records
-                                && self.records_view == RecordsView::Actors
-                            {
+                            RichText::new(if actor_view {
                                 "Client/server consensus · stable actor identities · live media health"
+                            } else if zone_view {
+                                "Filename identities · visual/gameplay pairing · directly observed gaps"
                             } else {
                                 "One project snapshot · stable observed identities"
                             })
@@ -691,10 +786,10 @@ impl LedgerApp {
                         ui.add_sized(
                             [260.0, 34.0],
                             TextEdit::singleline(&mut self.filter)
-                                .hint_text(if self.lens == Lens::Records
-                                    && self.records_view == RecordsView::Actors
-                                {
+                                .hint_text(if actor_view {
                                     "Filter actors, ids, or states…"
+                                } else if zone_view {
+                                    "Filter zones or pairing states…"
                                 } else {
                                     "Filter observed paths…"
                                 }),
@@ -726,11 +821,37 @@ impl LedgerApp {
                                 );
                             }
                         }
+                        if self.lens == Lens::World {
+                            if ui
+                                .selectable_label(self.world_view == WorldView::Files, "FILES")
+                                .clicked()
+                            {
+                                self.world_view = transition_world_view(
+                                    self.world_view,
+                                    WorldView::Files,
+                                    &mut self.selected,
+                                    &mut self.selected_zone,
+                                );
+                            }
+                            if ui
+                                .selectable_label(self.world_view == WorldView::Zones, "ZONES")
+                                .clicked()
+                            {
+                                self.world_view = transition_world_view(
+                                    self.world_view,
+                                    WorldView::Zones,
+                                    &mut self.selected,
+                                    &mut self.selected_zone,
+                                );
+                            }
+                        }
                     });
                 });
                 ui.add_space(14.0);
-                if self.lens == Lens::Records && self.records_view == RecordsView::Actors {
+                if actor_view {
                     self.actor_catalog(ui);
+                } else if zone_view {
+                    self.zone_catalog(ui);
                 } else {
                     self.file_atlas(ui);
                 }
@@ -902,6 +1023,157 @@ impl LedgerApp {
         if let Some(actor_id) = clicked_actor {
             self.selected_actor = Some(actor_id);
             self.selected = None;
+            self.selected_zone = None;
+        }
+    }
+
+    fn zone_catalog(&mut self, ui: &mut egui::Ui) {
+        let Some(project) = self.project.as_ref() else {
+            ui.vertical_centered(|ui| {
+                ui.spinner();
+                ui.label(RichText::new(&self.status).color(MUTED));
+            });
+            return;
+        };
+        let catalog = project.zone_catalog();
+        let paired = catalog
+            .zones
+            .iter()
+            .filter(|zone| zone.status == FeedbackZoneStatus::Paired)
+            .count();
+        Frame::none()
+            .fill(PANEL_RAISED)
+            .stroke(Stroke::new(1.0, Color32::from_rgb(48, 53, 51)))
+            .inner_margin(Margin::symmetric(14.0, 11.0))
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new("INVENTORY OBSERVATION")
+                            .color(GREEN)
+                            .strong(),
+                    );
+                    ui.separator();
+                    ui.label(
+                        RichText::new(format!("{} zones · {paired} paired", catalog.zones.len()))
+                            .color(INK),
+                    );
+                    ui.separator();
+                    ui.label(
+                        RichText::new(format!(
+                            "{} observed pairing issues",
+                            catalog.diagnostics.len()
+                        ))
+                        .color(if catalog.diagnostics.is_empty() {
+                            GREEN
+                        } else {
+                            ISSUE
+                        }),
+                    );
+                });
+                ui.label(
+                    RichText::new(
+                        "A zone is paired only when both Data/Areas and Data/Server Data/Areas contain its .dat filename.",
+                    )
+                    .size(12.0)
+                    .color(MUTED),
+                );
+            });
+        ui.add_space(8.0);
+
+        let filter = self.filter.to_lowercase();
+        let mut clicked_zone = None;
+        ScrollArea::vertical()
+            .max_height(ui.available_height())
+            .show(ui, |ui| {
+                for diagnostic in &catalog.diagnostics {
+                    let searchable = format!(
+                        "{} {} {}",
+                        diagnostic.code, diagnostic.zone_name, diagnostic.message
+                    )
+                    .to_lowercase();
+                    if !filter.is_empty() && !searchable.contains(&filter) {
+                        continue;
+                    }
+                    let response = Frame::none()
+                        .fill(Color32::from_rgb(42, 29, 25))
+                        .stroke(Stroke::new(1.0, Color32::from_rgb(104, 62, 48)))
+                        .inner_margin(Margin::symmetric(13.0, 9.0))
+                        .show(ui, |ui| {
+                            ui.set_min_width(ui.available_width());
+                            ui.label(
+                                RichText::new(format!(
+                                    "{}  ·  {}",
+                                    diagnostic.code, diagnostic.zone_name
+                                ))
+                                .size(10.0)
+                                .color(ISSUE)
+                                .strong(),
+                            );
+                            ui.label(RichText::new(&diagnostic.message).size(12.0).color(INK));
+                        })
+                        .response;
+                    if response.interact(Sense::click()).clicked() {
+                        clicked_zone = Some(diagnostic.zone_name.clone());
+                    }
+                    ui.add_space(5.0);
+                }
+
+                for zone in &catalog.zones {
+                    let searchable =
+                        format!("{} {}", zone.name, zone_status_label(zone.status)).to_lowercase();
+                    if !filter.is_empty() && !searchable.contains(&filter) {
+                        continue;
+                    }
+                    let selected = self.selected_zone.as_deref() == Some(zone.name.as_str());
+                    let response = Frame::none()
+                        .fill(if selected {
+                            Color32::from_rgb(59, 49, 31)
+                        } else {
+                            Color32::from_rgb(25, 30, 30)
+                        })
+                        .stroke(Stroke::new(
+                            1.0,
+                            if selected {
+                                BRASS
+                            } else {
+                                Color32::from_rgb(48, 53, 51)
+                            },
+                        ))
+                        .inner_margin(Margin::symmetric(13.0, 10.0))
+                        .show(ui, |ui| {
+                            ui.set_min_width(ui.available_width());
+                            ui.horizontal(|ui| {
+                                ui.vertical(|ui| {
+                                    ui.label(
+                                        RichText::new(&zone.name).size(16.0).color(INK).strong(),
+                                    );
+                                    ui.horizontal(|ui| {
+                                        zone_half_label(ui, "VISUAL", zone.visual_size);
+                                        ui.label(RichText::new("·").color(MUTED));
+                                        zone_half_label(ui, "GAMEPLAY", zone.gameplay_size);
+                                    });
+                                });
+                                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                    ui.label(
+                                        RichText::new(zone_status_badge(zone.status))
+                                            .size(10.0)
+                                            .color(zone_status_color(zone.status))
+                                            .strong(),
+                                    );
+                                });
+                            });
+                        })
+                        .response;
+                    if response.interact(Sense::click()).clicked() {
+                        clicked_zone = Some(zone.name.clone());
+                    }
+                    ui.add_space(5.0);
+                }
+            });
+        if let Some(zone_name) = clicked_zone {
+            self.selected_zone = Some(zone_name);
+            self.selected = None;
+            self.selected_actor = None;
         }
     }
 
@@ -966,6 +1238,7 @@ impl LedgerApp {
                         if response.clicked() {
                             self.selected = Some(entry.path.clone());
                             self.selected_actor = None;
+                            self.selected_zone = None;
                         }
                     }
                 });
@@ -1059,6 +1332,37 @@ const fn media_status_color(status: FeedbackMediaStatus) -> Color32 {
     }
 }
 
+const fn zone_status_label(status: FeedbackZoneStatus) -> &'static str {
+    match status {
+        FeedbackZoneStatus::Paired => "Visual and gameplay halves observed",
+        FeedbackZoneStatus::VisualOnly => "Gameplay half not observed",
+        FeedbackZoneStatus::GameplayOnly => "Visual half not observed",
+    }
+}
+
+const fn zone_status_badge(status: FeedbackZoneStatus) -> &'static str {
+    match status {
+        FeedbackZoneStatus::Paired => "PAIRED",
+        FeedbackZoneStatus::VisualOnly => "VISUAL ONLY",
+        FeedbackZoneStatus::GameplayOnly => "GAMEPLAY ONLY",
+    }
+}
+
+const fn zone_status_color(status: FeedbackZoneStatus) -> Color32 {
+    match status {
+        FeedbackZoneStatus::Paired => GREEN,
+        FeedbackZoneStatus::VisualOnly | FeedbackZoneStatus::GameplayOnly => ISSUE,
+    }
+}
+
+fn zone_half_label(ui: &mut egui::Ui, label: &str, size: Option<u64>) {
+    let (text, color) = size.map_or_else(
+        || (format!("{label} MISSING"), ISSUE),
+        |size| (format!("{label} {}", format_bytes(size)), GREEN),
+    );
+    ui.label(RichText::new(text).size(10.0).color(color).strong());
+}
+
 fn format_bytes(bytes: u64) -> String {
     const KIB: f64 = 1024.0;
     const MIB: f64 = KIB * 1024.0;
@@ -1077,7 +1381,7 @@ fn format_bytes(bytes: u64) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{transition_records_view, LoadGate, RecordsView};
+    use super::{transition_records_view, transition_world_view, LoadGate, RecordsView, WorldView};
 
     #[test]
     fn only_one_project_load_can_be_active() {
@@ -1103,5 +1407,22 @@ mod tests {
         assert_eq!(view, RecordsView::Files);
         assert_eq!(selected_file, None);
         assert_eq!(selected_actor, None);
+    }
+
+    #[test]
+    fn world_view_transition_clears_incompatible_selection() {
+        let mut selected_file = Some("Data/Areas/Start.dat".to_owned());
+        let mut selected_zone = Some("Start".to_owned());
+
+        let view = transition_world_view(
+            WorldView::Zones,
+            WorldView::Files,
+            &mut selected_file,
+            &mut selected_zone,
+        );
+
+        assert_eq!(view, WorldView::Files);
+        assert_eq!(selected_file, None);
+        assert_eq!(selected_zone, None);
     }
 }

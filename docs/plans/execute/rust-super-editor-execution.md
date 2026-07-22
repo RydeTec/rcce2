@@ -48,13 +48,26 @@ the rejected/unselected UI candidate evidence.
 | Field | Current value |
 |---|---|
 | Canonical relationship | Feedback-only preview of the M1 tasks 17–18 actor/media vertical slice; earns no P07, P08, task 17, task 18, P06, or M1 acceptance credit |
-| Status | `Accepted and functionally integrated at 616029f1f61b0d69ec8a060aa84cd81eb8151ce6; ledger closeout pending` |
+| Status | `Accepted and integrated through ledger closeout fdc4f539f426ea2f1634a592df99afa56b6bf4c7` |
 | Product boundary | Records gains a real actor catalog, stable actor selection, base-mesh health, and navigable missing-catalog/file issue cards while the exhaustive file atlas remains available |
 | Evidence boundary | Missing-media issues render only for `Consensus`; `Provisional` actor slices remain browsable and explicitly withhold authoritative diagnostics |
 | Root compatibility | The sealed actor/media consensus accepts either an explicit project root containing `Data/` or the MVP's explicit `data` root, while retaining canonical `Data/...` evidence paths |
 | Mutation boundary | Read-only; no repair, save, rename, conversion, storage, process, or external-operation path |
-| Current evidence | Corrected exact nine-path aggregate `618f8b0478170f89f52beae4072ea3c7a32e1d6ab303e886e9cc8285d8c4476b` passed fresh specification and different fresh quality review after adding durable ambiguity, provisional-withholding, and Records-subview selection regressions; final accepted pre-commit aggregate `c103e0c341724d3983702a6d7dc799fc757e9419d792e6ae164ab863128c788d` passed both narrow ledger-delta confirmations; GREEN fixture/native visual flow reports 4 consensus actors / 2 issues and diagnostic-to-actor navigation; native real-current-default smoke reports 1,201 files / 358,557,047 bytes / 0 unavailable / 6 provisional actors / diagnostics withheld with valid/missing-root exits 0/2; exact Rust 1.85 workspace tests (editor 2, smoke 1, feedback projection 4, consensus 10, and all prior suites), strict Clippy/build, targeted stable rustfmt, diff check, and plan 95/11 pass; exact functional head CI passed `Build and test` in 6m31s and `Rust server (Linux)` in 3m56s |
-| Remaining acceptance | Ledger closeout commit, push, and terminal-success exact-head CI; formal M1/P06/P07/P08/tasks 17–18 gates remain unchanged |
+| Current evidence | Corrected exact nine-path aggregate `618f8b0478170f89f52beae4072ea3c7a32e1d6ab303e886e9cc8285d8c4476b` passed fresh specification and different fresh quality review after adding durable ambiguity, provisional-withholding, and Records-subview selection regressions; final accepted pre-commit aggregate `c103e0c341724d3983702a6d7dc799fc757e9419d792e6ae164ab863128c788d` passed both narrow ledger-delta confirmations; GREEN fixture/native visual flow reports 4 consensus actors / 2 issues and diagnostic-to-actor navigation; native real-current-default smoke reports 1,201 files / 358,557,047 bytes / 0 unavailable / 6 provisional actors / diagnostics withheld with valid/missing-root exits 0/2; exact Rust 1.85 workspace tests (editor 2, smoke 1, feedback projection 4, consensus 10, and all prior suites), strict Clippy/build, targeted stable rustfmt, diff check, and plan 95/11 pass; exact functional head CI passed `Build and test` in 6m31s and `Rust server (Linux)` in 3m56s; closeout head CI passed `Build and test` in 6m54s and the unchanged Linux rerun in 3m55s after the first attempt stopped at package installation before project build/test |
+| Remaining acceptance | None for this feedback continuity packet; formal M1/P06/P07/P08/tasks 17–18 gates remain unchanged |
+
+### `SE-FB-MVP-03` — Paired-zone intelligence
+
+| Field | Current value |
+|---|---|
+| Canonical relationship | Feedback-only preview of paired-zone discovery in M5 tasks 50 and 54; earns no task 17, task 18, task 50, task 54, P06, P07, P08, M1, or M5 acceptance credit |
+| Status | `Implementation candidate; independent review pending` |
+| Product boundary | World gains a filename-derived zone catalog, visual/gameplay half presence and size, stable selection, and navigable missing-half observations while the exhaustive World file atlas remains available |
+| Evidence boundary | Pairing proves only accepted inventory filenames under `Data/Areas` and `Data/Server Data/Areas`; it does not parse either zone format, assert semantic parity, or treat nested/non-`.dat` files as zones |
+| Identity boundary | Zone identity remains the observed `.dat` filename stem; pairing is case-insensitive across the two directories and display spelling prefers the visual half when present |
+| Mutation boundary | Read-only; no create, repair, save, rename, delete, conversion, storage, process, or external-operation path |
+| Current evidence | RED captured absent public zone projection APIs and absent World transition behavior; GREEN synthetic projection reports 4 zones / 2 observed pairing issues, case-insensitive pairing with canonical `Data/...` paths, ignored nested/non-`.dat` files, and World selection reset; Linux repository-default smoke reports 1,180 files / 6 zones / 2 observed pairing issues; exact Rust 1.85 targeted projection/editor/smoke tests pass |
+| Remaining acceptance | Native Windows rebuild/smoke/visual exercise, complete local gates, exact freeze, independent specification/quality review, commit, push, and terminal-success exact-head CI |
 
 ## Active packets
 

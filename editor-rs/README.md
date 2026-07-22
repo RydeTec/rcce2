@@ -15,6 +15,14 @@ catalog/file diagnostics appear only when the consensus layer marks the slice
 authoritative; provisional projects remain browsable without presenting those
 diagnostics as proven facts.
 
+The World lens projects the two legacy area directories into a paired-zone
+atlas. Zone identity remains the observed `.dat` filename stem; each card shows
+the visual and gameplay files, their exact observed sizes, and whether one half
+is absent. These are inventory observations only: the feedback surface does
+not parse zone contents, infer semantic parity, or expose create/save/repair
+actions. The exhaustive World file atlas remains available beside the zone
+view.
+
 On Windows, launch the latest feedback build from the repository root:
 
 ```powershell
@@ -49,8 +57,8 @@ The observed toolchain was `rustc 1.85.0 (4d91de4e4 2025-02-17)` and
 
 | Crate | Reserved responsibility at later packets | Current behavior |
 |---|---|---|
-| `rcce-editor` | Desktop composition; the only production crate allowed to acquire a GUI framework | Replaceable feedback-MVP host with five read-only lenses and actor-focused Records surface |
-| `rcce-editor-core` | GUI-independent session, query, selection, and diagnostic orchestration | Real inventory plus actor/media consensus projection with no write authority |
+| `rcce-editor` | Desktop composition; the only production crate allowed to acquire a GUI framework | Replaceable feedback-MVP host with five read-only lenses, actor-focused Records, and paired-zone World surfaces |
+| `rcce-editor-core` | GUI-independent session, query, selection, and diagnostic orchestration | Real inventory, actor/media consensus, and filename-derived zone-pair projection with no write authority |
 | `rcce-project` | Root-confined project model, inventory, identity, and legacy document interpretation | Explicit read-only `ProjectRoot`, validated `ProjectRelativePath`, bounded read/walk, and truthful assurance reporting |
 | `rcce-validation` | Pure diagnostics over project evidence | Empty library boundary |
 | `rcce-storage` | Format-agnostic command storage after write-capable milestones authorize it | Empty library boundary; no persistence API |
