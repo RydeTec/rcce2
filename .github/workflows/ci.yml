@@ -208,7 +208,7 @@ jobs:
 
       - name: Validate Unix shell syntax
         shell: bash
-        run: bash -n compile.sh test.sh scripts/*.sh
+        run: bash -n compile.sh test.sh publish.sh scripts/*.sh
 
       - name: Set up Rust 1.85.0 (server)
         # dtolnay/rust-toolchain@1.85.0
