@@ -64,6 +64,94 @@ Function HasZoneSaveFailureGuard%(Path$)
 	Return False
 End Function
 
+Function HasParticleSaveAggregateContract%(Path$)
+	Local F.BBStream = ReadFile(Path$)
+	Local Line$
+	Local Stage% = 0
+	If F = Null Then F = ReadFile("..\" + Path$)
+	If F = Null Then F = ReadFile("..\..\" + Path$)
+	If F = Null Then Return False
+
+	While Not Eof(F)
+		Line$ = Trim$(ReadLine$(F))
+		Select Stage
+			Case 0
+				If Line$ = "Function Particles_SaveAll%()" Then Stage = 1
+			Case 1
+				If Line$ = "Local SavedAll% = True" Then Stage = 2
+			Case 2
+				If Left$(Line$, Len("For C.RP_EmitterConfig = Each RP_EmitterConfig")) = "For C.RP_EmitterConfig = Each RP_EmitterConfig" Then Stage = 3
+			Case 3
+				If Line$ = "Return True" Or Line$ = "Return False" Then
+					CloseFile F
+					Return False
+				EndIf
+				If Instr(Line$, "If RP_SaveEmitterConfig") = 1 And Instr(Line$, "= False Then SavedAll = False") > 0 Then Stage = 4
+			Case 4
+				If Line$ = "Next" Then Stage = 5
+			Case 5
+				If Line$ = "If SavedAll = False Then Return False" Then Stage = 6
+			Case 6
+				If Line$ = "Emitters_Rebuild()" Then Stage = 7
+			Case 7
+				If Line$ = "Return True" Then
+					CloseFile F
+					Return True
+				EndIf
+		End Select
+	Wend
+
+	CloseFile F
+	Return False
+End Function
+
+Function HasParticleSaveFailureGuard%(Path$)
+	Local F.BBStream = ReadFile(Path$)
+	Local Line$
+	Local Stage% = 0
+	If F = Null Then F = ReadFile("..\" + Path$)
+	If F = Null Then F = ReadFile("..\..\" + Path$)
+	If F = Null Then Return False
+
+	While Not Eof(F)
+		Line$ = Trim$(ReadLine$(F))
+		Select Stage
+			Case 0
+				If Line$ = "If kind = " + Chr$(34) + "particle" + Chr$(34) Then Stage = 1
+			Case 1
+				If Line$ = "Local okParticleSave% = Particles_SaveAll()" Then Stage = 2
+			Case 2
+				If Line$ = "If okParticleSave = False" Then Stage = 3
+			Case 3
+				If Line$ = "ParticlesSaved = True" Then
+					CloseFile F
+					Return False
+				EndIf
+				If Line$ = "ParticlesSaved = False" Then Stage = 4
+			Case 4
+				If Line$ = "ParticlesSaved = True" Then
+					CloseFile F
+					Return False
+				EndIf
+				If Line$ = "Return" Then Stage = 5
+			Case 5
+				If Line$ = "ParticlesSaved = True" Then
+					CloseFile F
+					Return False
+				EndIf
+				If Line$ = "EndIf" Then Stage = 6
+			Case 6
+				If Line$ = "ParticlesSaved = True" Then
+					CloseFile F
+					Return True
+				EndIf
+		End Select
+	Wend
+
+	CloseFile F
+	Return False
+End Function
+
 Function HasExitSaveFailureGuard%(Path$)
 	Local F.BBStream = ReadFile(Path$)
 	Local Line$
@@ -97,6 +185,16 @@ Test testZoneSaveFailureKeepsTheZoneDirty()
 	Local Source$ = "Modules\Loom\Composer.bb"
 	Assert(HasZoneSaveFailureGuard%(Source$) = True)
 	Assert(FileContains%(Source$, "Save Zone FAILED") = True)
+End Test
+
+Test testParticleSaveFailureKeepsParticlesDirty()
+	Local EditorSource$ = "Modules\Loom\ParticleEditor.bb"
+	Local ComposerSource$ = "Modules\Loom\Composer.bb"
+	Assert(FileContains%(EditorSource$, "Local SavedAll% = True") = True)
+	Assert(FileContains%(EditorSource$, "If SavedAll = False Then Return False") = True)
+	Assert(HasParticleSaveAggregateContract%(EditorSource$) = True)
+	Assert(HasParticleSaveFailureGuard%(ComposerSource$) = True)
+	Assert(FileContains%(ComposerSource$, "Save emitter configs FAILED") = True)
 End Test
 
 Test testSaveAllCountsOnlyConfirmedSaves()
