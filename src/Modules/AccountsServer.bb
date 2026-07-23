@@ -307,6 +307,30 @@ Function SaveAccounts()
 
 End Function
 
+; Checks the next account's metadata record before LoadAccounts allocates an
+; Account or publishes its counters/UI row. ReadInt and ReadByte zero-fill at
+; EOF, so every variable-length field and fixed tail needs this boundary.
+Function AccountBoundedStringIsComplete%(F, FileBytes, Limit)
+	If FilePos(F) + 4 > FileBytes Then Return False
+	StringBytes = ReadInt(F)
+	If StringBytes < 0 Or StringBytes > Limit Then Return False
+	If FilePos(F) + StringBytes > FileBytes Then Return False
+	SeekFile F, FilePos(F) + StringBytes
+	Return True
+End Function
+
+Function AccountRecordIsComplete%(F, FileBytes)
+	If AccountBoundedStringIsComplete(F, FileBytes, 256) = False Then Return False
+	If AccountBoundedStringIsComplete(F, FileBytes, 256) = False Then Return False
+	If AccountBoundedStringIsComplete(F, FileBytes, 256) = False Then Return False
+	If FilePos(F) + 2 > FileBytes Then Return False
+	SeekFile F, FilePos(F) + 2
+	If AccountBoundedStringIsComplete(F, FileBytes, 4096) = False Then Return False
+	If FilePos(F) + 1 > FileBytes Then Return False
+	SeekFile F, FilePos(F) + 1
+	Return True
+End Function
+
 ; Loads all game accounts and returns the number loaded
 Function LoadAccounts()
 
@@ -326,6 +350,7 @@ Function LoadAccounts()
 			SetGadgetText(Accounts\BannedLabel, "Banned accounts: 0")
 			Return 0
 		EndIf
+	FileBytes = FileSize("Data\Server Data\Accounts.dat")
 
 		; Detect format version by peeking the first 4 bytes for the
 		; magic header. If absent (pre-v1 file), seek back to 0 and
@@ -355,6 +380,9 @@ Function LoadAccounts()
 		;   QuestLog entry text: 1024 bytes
 		;   ActionBar slot text: 256 bytes
 		While Eof(F) = False
+			RecordPos = FilePos(F)
+			If AccountRecordIsComplete(F, FileBytes) = False Then Exit
+			SeekFile F, RecordPos
 			Accounts\TotalAccounts = Accounts\TotalAccounts + 1
 			A.Account = New Account
 			A\User$ = ReadBoundedString$(F, 256)

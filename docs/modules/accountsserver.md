@@ -182,7 +182,7 @@ Return value: Number of accounts loaded
   
 Parameters: None  
   
-This function loads all accounts and characters from the Accounts.dat file and returns the total number loaded. It also displays all the loaded accounts on the server's Accounts window.
+This function loads all complete accounts and characters from the Accounts.dat file and returns the total number loaded. It also displays all loaded accounts on the server's Accounts window. Before it allocates an account or changes the window counters, it verifies that the account metadata record (user, password hash, email, GM/ban flags, ignore list, and character count) is complete. A truncated final record is left unpublished, while earlier complete records and the existing per-character EOF tolerance remain intact.
 
   
   
