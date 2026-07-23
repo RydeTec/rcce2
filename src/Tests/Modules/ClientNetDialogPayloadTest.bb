@@ -5,25 +5,17 @@ EnableGC
 ; too broad for a standalone runtime test, so this contract pins the guards
 ; before their decode, mutation, and acknowledgement boundaries.
 
-Function FileContains%(Path$, Needle$)
-	Local F.BBStream = ReadFile(Path$)
-	Local Line$
-	If F = Null Then F = ReadFile("..\" + Path$)
-	If F = Null Then Return False
-	While Not Eof(F)
-		Line$ = ReadLine$(F)
-		If Instr(Line$, Needle$) > 0
-			CloseFile F
-			Return True
-		EndIf
-	Wend
-	CloseFile F
-	Return False
+Function LeadingTabs%(Line$)
+	Local Index%
+	For Index = 1 To Len(Line$)
+		If Mid$(Line$, Index, 1) <> Chr$(9) Then Return Index - 1
+	Next
+	Return Len(Line$)
 End Function
 
-Function DialogCaseContainsOrdered%(Path$, FirstNeedle$, Second$, Third$, Fourth$)
+Function DialogCaseContainsContained%(Path$, CaseNeedle$, GuardNeedle$, SensitiveNeedle$)
 	Local F.BBStream = ReadFile(Path$)
-	Local InDialog%, Stage%
+	Local InDialog%, InCase%, InElse%, GuardIndent% = -1, Indent%
 	Local Line$
 	If F = Null Then F = ReadFile("..\" + Path$)
 	If F = Null Then Return False
@@ -32,22 +24,49 @@ Function DialogCaseContainsOrdered%(Path$, FirstNeedle$, Second$, Third$, Fourth
 		If Instr(Line$, "Case P_Dialog") > 0 Then InDialog = True
 		If InDialog = True And Instr(Line$, "Case P_ActorDead") > 0 Then Exit
 		If InDialog = True
-			If Stage = 0 And Instr(Line$, FirstNeedle$) > 0 Then Stage = 1
-			If Stage = 1 And Instr(Line$, Second$) > 0 Then Stage = 2
-			If Stage = 2 And Instr(Line$, Third$) > 0 Then Stage = 3
-			If Stage = 3 And Instr(Line$, Fourth$) > 0 Then Stage = 4
+			If InCase = False
+				If Instr(Line$, CaseNeedle$) > 0 Then InCase = True
+			Else If GuardIndent < 0
+				If Instr(Line$, GuardNeedle$) > 0 Then GuardIndent = LeadingTabs(Line$)
+			Else If InElse = False
+				If LeadingTabs(Line$) = GuardIndent And Instr(Line$, "Else") > 0 Then InElse = True
+			Else
+				Indent = LeadingTabs(Line$)
+				If Indent = GuardIndent And Instr(Line$, "EndIf") > 0 Then Exit
+				If Instr(Line$, SensitiveNeedle$) > 0
+					CloseFile F
+					Return True
+				EndIf
+			EndIf
 		EndIf
 	Wend
 	CloseFile F
-	Return Stage = 4
+	Return False
 End Function
 
 Test testDialogGuardsContainSensitiveWork()
-	Assert(DialogCaseContainsOrdered%("Modules\ClientNet.bb", "Case " + Chr$(34) + "N" + Chr$(34), "If Len(M\MessageData$) < 9", "Else", "D = CreateDialog") = True)
-	Assert(DialogCaseContainsOrdered%("Modules\ClientNet.bb", "Case " + Chr$(34) + "T" + Chr$(34), "If Len(M\MessageData$) < 8", "Else", "DialogOutput") = True)
-	Assert(DialogCaseContainsOrdered%("Modules\ClientNet.bb", "Case " + Chr$(34) + "C" + Chr$(34), "If Len(M\MessageData$) <> 5", "Else", "FreeDialog") = True)
+	Assert(DialogCaseContainsContained%("Modules\ClientNet.bb", "Case " + Chr$(34) + "N" + Chr$(34), "If Len(M\MessageData$) < 9", "RuntimeIDList") = True)
+	Assert(DialogCaseContainsContained%("Modules\ClientNet.bb", "Case " + Chr$(34) + "N" + Chr$(34), "If Len(M\MessageData$) < 9", "D = CreateDialog") = True)
+	Assert(DialogCaseContainsContained%("Modules\ClientNet.bb", "Case " + Chr$(34) + "T" + Chr$(34), "If Len(M\MessageData$) < 8", "DialogOutput") = True)
+	Assert(DialogCaseContainsContained%("Modules\ClientNet.bb", "Case " + Chr$(34) + "C" + Chr$(34), "If Len(M\MessageData$) <> 5", "FreeDialog") = True)
 End Test
 Test testDialogOptionFramePrevalidatesEveryDeclaredLength()
-	Assert(DialogCaseContainsOrdered%("Modules\ClientNet.bb", "Case " + Chr$(34) + "O" + Chr$(34), "If Len(M\MessageData$) < 5", "If DialogOptionsValid", "AddDialogOption") = True)
-	Assert(FileContains%("Modules\ClientNet.bb", "If NameLen > Len(M\MessageData$) - Offset") = True)
+	Assert(DialogCaseContainsContained%("Modules\ClientNet.bb", "Case " + Chr$(34) + "O" + Chr$(34), "If Len(M\MessageData$) < 5", "If NameLen > Len(M\MessageData$) - Offset") = True)
+	Assert(DialogCaseContainsContained%("Modules\ClientNet.bb", "Case " + Chr$(34) + "O" + Chr$(34), "If Len(M\MessageData$) < 5", "AddDialogOption") = True)
+End Test
+
+Test testDialogGuardContractRejectsEscapedWork()
+	Local Fixture$ = "ClientNetDialogPayloadEscapeFixture.bb"
+	Local F.BBStream = WriteFile(Fixture$)
+	Assert(F <> Null)
+	If F = Null Then Return
+	WriteLine F, "Case P_Dialog"
+	WriteLine F, Chr$(9) + "Case " + Chr$(34) + "N" + Chr$(34)
+	WriteLine F, Chr$(9) + Chr$(9) + "If Len(M\MessageData$) < 9"
+	WriteLine F, Chr$(9) + Chr$(9) + "Else"
+	WriteLine F, Chr$(9) + Chr$(9) + "EndIf"
+	WriteLine F, Chr$(9) + Chr$(9) + "D = CreateDialog"
+	CloseFile F
+	Assert(DialogCaseContainsContained%(Fixture$, "Case " + Chr$(34) + "N" + Chr$(34), "If Len(M\MessageData$) < 9", "D = CreateDialog") = False)
+	DeleteFile Fixture$
 End Test
