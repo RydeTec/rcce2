@@ -1,7 +1,0 @@
-Idle;1;30;
-Walk;31;64;
-Run;65;89;
-Idle fight;90;118;
-Jump;119;158;
-Punch;159;165;
-Death;166;190;

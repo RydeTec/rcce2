@@ -1,9 +1,0 @@
-// Attack script, used if you set the combat damage formula to "scripted"
-
-// You are responsible for applying any damage to the actor, but not for animating actors or blood effects
-// The actor is the attacker, and the context actor is the actor being attacked
-Function Main()
-
-
-
-End Function
