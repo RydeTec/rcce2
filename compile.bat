@@ -130,6 +130,7 @@ if errorlevel 1 (
     exit /b 1
 )
 rem Rust client (client-rs) -> bin\ClientRS.exe
+if not exist "%ROOTDIR%\bin" mkdir "%ROOTDIR%\bin"
 cd /d "%ROOTDIR%\client-rs"
 cargo build --release --locked -p rcce-client --bin client-window || (cd /d "%ROOTDIR%" & endlocal & exit /b 1)
 copy /Y "%ROOTDIR%\client-rs\target\release\client-window.exe" "%ROOTDIR%\bin\ClientRS.exe" >nul || (cd /d "%ROOTDIR%" & endlocal & exit /b 1)
