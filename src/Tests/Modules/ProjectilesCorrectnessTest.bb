@@ -211,3 +211,28 @@ Test testLoadProjectilesRejectsTruncatedStringTailBeforePublish()
 	ClearProjectiles()
 	CleanupProjFile()
 End Test
+
+; The fixed scalar tail is also part of the record boundary. Stopping in the
+; two-byte Damage field must not publish the otherwise complete template.
+Test testLoadProjectilesRejectsTruncatedScalarTailBeforePublish()
+	ClearProjectiles()
+	CleanupProjFile()
+	Local F.BBStream = WriteFile(ProjTestFile$)
+	WriteShort F, 8
+	WriteString F, "Scalar tail"
+	WriteShort F, 12
+	WriteString F, "FirstEmitter.rpc"
+	WriteString F, "SecondEmitter.rpc"
+	WriteShort F, 1
+	WriteShort F, 2
+	WriteByte F, 1
+	WriteByte F, 85
+	WriteByte F, 7
+	CloseFile(F)
+
+	Assert(LoadProjectiles(ProjTestFile$) = 0)
+	Assert(ProjectileList(8) = Null)
+
+	ClearProjectiles()
+	CleanupProjFile()
+End Test
