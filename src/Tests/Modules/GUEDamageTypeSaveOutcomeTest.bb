@@ -87,5 +87,5 @@ Test testGUEDamageTypeSaveRoutesKeepDirtyStateOnFailure()
 	Assert(CountLinesContaining%(Source$, "DamageTypesSaved = SaveDamageTypes(" + Chr$(34) + "Data\Server Data\Damage.dat" + Chr$(34) + ")") = 4)
 	Assert(FileContains%(Source$, "If FUI_SendMessage(List, M_GETCAPTION) <> " + Chr$(34) + "Damage types" + Chr$(34) + " Or DamageTypesSaved = True") = True)
 	Assert(FileContains%(Source$, "If DamageTypesSaved = False Then Result = False") = True)
-	Assert(FileContains%(Source$, "If ParticlesSaved = True And DamageTypesSaved = True Then Result = True") = True)
+	Assert(FileContains%(Source$, "If ParticlesSaved = True And DamageTypesSaved = True And EnvironmentSaved = True Then Result = True") = True)
 End Test
