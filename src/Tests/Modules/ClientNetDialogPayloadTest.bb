@@ -21,7 +21,7 @@ Function FileContains%(Path$, Needle$)
 	Return False
 End Function
 
-Function DialogCaseContainsOrdered%(Path$, First$, Second$, Third$, Fourth$)
+Function DialogCaseContainsOrdered%(Path$, FirstNeedle$, Second$, Third$, Fourth$)
 	Local F.BBStream = ReadFile(Path$)
 	Local InDialog%, Stage%
 	Local Line$
@@ -32,7 +32,7 @@ Function DialogCaseContainsOrdered%(Path$, First$, Second$, Third$, Fourth$)
 		If Instr(Line$, "Case P_Dialog") > 0 Then InDialog = True
 		If InDialog = True And Instr(Line$, "Case P_ActorDead") > 0 Then Exit
 		If InDialog = True
-			If Stage = 0 And Instr(Line$, First$) > 0 Then Stage = 1
+			If Stage = 0 And Instr(Line$, FirstNeedle$) > 0 Then Stage = 1
 			If Stage = 1 And Instr(Line$, Second$) > 0 Then Stage = 2
 			If Stage = 2 And Instr(Line$, Third$) > 0 Then Stage = 3
 			If Stage = 3 And Instr(Line$, Fourth$) > 0 Then Stage = 4
