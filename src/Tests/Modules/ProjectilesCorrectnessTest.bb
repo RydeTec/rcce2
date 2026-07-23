@@ -158,8 +158,56 @@ Test testLoadProjectilesRejectsOutOfRangeID()
 	CleanupProjFile()
 	Local F.BBStream = WriteFile(ProjTestFile$)
 	WriteShort F, 6000
+	WriteString F, "Out of range"
+	WriteShort F, 0
+	WriteString F, ""
+	WriteString F, ""
+	WriteShort F, 0
+	WriteShort F, 0
+	WriteByte F, 0
+	WriteByte F, 0
+	WriteShort F, 0
+	WriteShort F, 0
+	WriteByte F, 0
 	CloseFile(F)
 	Assert(LoadProjectiles(ProjTestFile$) = 0)
+	ClearProjectiles()
+	CleanupProjFile()
+End Test
+
+; An ID-only record must not be published as a default Projectile. The old
+; loader allocated and indexed P immediately after this two-byte read.
+Test testLoadProjectilesRejectsIdOnlyRecordBeforePublish()
+	ClearProjectiles()
+	CleanupProjFile()
+	Local F.BBStream = WriteFile(ProjTestFile$)
+	WriteShort F, 7
+	CloseFile(F)
+
+	Assert(LoadProjectiles(ProjTestFile$) = 0)
+	Assert(ProjectileList(7) = Null)
+
+	ClearProjectiles()
+	CleanupProjFile()
+End Test
+
+; A tail that ends partway through a length-prefixed string must also remain
+; unpublished rather than accepting EOF-zero-filled fields as a template.
+Test testLoadProjectilesRejectsTruncatedStringTailBeforePublish()
+	ClearProjectiles()
+	CleanupProjFile()
+	Local F.BBStream = WriteFile(ProjTestFile$)
+	WriteShort F, 7
+	WriteString F, "Partial"
+	WriteShort F, 12
+	WriteString F, "FirstEmitter.rpc"
+	WriteInt F, 4
+	WriteByte F, Asc("x")
+	CloseFile(F)
+
+	Assert(LoadProjectiles(ProjTestFile$) = 0)
+	Assert(ProjectileList(7) = Null)
+
 	ClearProjectiles()
 	CleanupProjFile()
 End Test
