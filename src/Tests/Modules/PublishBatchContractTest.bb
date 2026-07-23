@@ -150,3 +150,31 @@ Test testPublishKeepsRecentProjectStateOutOfTheRelease()
 	Assert(FileContains%("publish.bat", "if exist " + Chr$(34) + "%ROOTDIR%\release\res\Recent.dat" + Chr$(34) + " del " + Chr$(34) + "%ROOTDIR%\release\res\Recent.dat" + Chr$(34)) = True)
 	Assert(RecentCleanupFollowsRequiredCopies%("publish.bat") = True)
 End Test
+
+Function WindowsPublishHelpSmokePrecedesCompile%(Path$)
+	Local F.BBStream = ReadFile(Path$)
+	Local Line$
+	Local Stage% = 0
+	If F = Null Then F = ReadFile("..\" + Path$)
+	If F = Null Then F = ReadFile("..\..\" + Path$)
+	If F = Null Then Return False
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		If Stage = 0 And Instr(Line$, "- name: Smoke-test Windows publish help") > 0 Then Stage = 1
+		If Stage = 1 And Instr(Line$, "shell: cmd") > 0 Then Stage = 2
+		If Stage = 2 And Instr(Line$, "call publish.bat --help") > 0 Then Stage = 3
+		If Stage = 3 And Instr(Line$, "if errorlevel 1 exit /b %errorlevel%") > 0 Then Stage = 4
+		If Stage = 4 And Instr(Line$, "if exist release (") > 0 Then Stage = 5
+		If Stage = 5 And Instr(Line$, "exit /b 1") > 0 Then Stage = 6
+		If Stage = 6 And Instr(Line$, "- name: Resolve BlitzForge submodule SHA") > 0
+			CloseFile F
+			Return True
+		EndIf
+	Wend
+	CloseFile F
+	Return False
+End Function
+
+Test testWindowsCiSmokesPublishHelpBeforeCompilation()
+	Assert(WindowsPublishHelpSmokePrecedesCompile%(".github\workflows\ci.yml") = True)
+End Test

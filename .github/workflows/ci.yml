@@ -43,6 +43,19 @@ jobs:
             exit 1
           }
 
+      # Exercise the release wrapper's non-destructive help path before any
+      # compiler build or packaging work. This catches CMD label/delegation
+      # regressions while proving that help cannot create release output.
+      - name: Smoke-test Windows publish help
+        shell: cmd
+        run: |
+          call publish.bat --help
+          if errorlevel 1 exit /b %errorlevel%
+          if exist release (
+            echo release directory created by publish.bat --help
+            exit /b 1
+          )
+
       # Cache the BlitzForge runtime binaries keyed on the submodule SHA.
       # rcce2 PRs rarely change the BlitzForge pointer, so the common-case
       # CI run avoids the ~3min MSBuild step entirely.
