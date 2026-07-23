@@ -15,22 +15,23 @@ Function AccountMetadataPreflightPrecedesPublish%(Path$)
 	While Not Eof(F)
 		Line$ = ReadLine$(F)
 		If Stage = 0 And Instr(Line$, "Function LoadAccounts()") > 0 Then Stage = 1
-		If Stage = 1 And (Instr(Line$, "Accounts\TotalAccounts =") > 0 Or Instr(Line$, "A.Account = New Account") > 0 Or Instr(Line$, "AddListBoxItem Accounts\List") > 0)
+		If Stage = 1 And Instr(Line$, "While Eof(F) = False") > 0 Then Stage = 2
+		If Stage = 2 And (Instr(Line$, "Accounts\TotalAccounts =") > 0 Or Instr(Line$, "A.Account = New Account") > 0 Or Instr(Line$, "AddListBoxItem Accounts\List") > 0)
 			CloseFile F
 			Return False
 		EndIf
 		Select Stage
-			Case 1
-				If Instr(Line$, "RecordPos = FilePos(F)") > 0 Then Stage = 2
 			Case 2
-				If Instr(Line$, "If AccountRecordIsComplete(F, FileBytes) = False Then Exit") > 0 Then Stage = 3
+				If Instr(Line$, "RecordPos = FilePos(F)") > 0 Then Stage = 3
 			Case 3
-				If Instr(Line$, "SeekFile F, RecordPos") > 0 Then Stage = 4
+				If Instr(Line$, "If AccountRecordIsComplete(F, FileBytes) = False Then Exit") > 0 Then Stage = 4
 			Case 4
-				If Instr(Line$, "Accounts\TotalAccounts = Accounts\TotalAccounts + 1") > 0 Then Stage = 5
+				If Instr(Line$, "SeekFile F, RecordPos") > 0 Then Stage = 5
 			Case 5
-				If Instr(Line$, "A.Account = New Account") > 0 Then Stage = 6
+				If Instr(Line$, "Accounts\TotalAccounts = Accounts\TotalAccounts + 1") > 0 Then Stage = 6
 			Case 6
+				If Instr(Line$, "A.Account = New Account") > 0 Then Stage = 7
+			Case 7
 				If Instr(Line$, "AddListBoxItem Accounts\List") > 0
 					CloseFile F
 					Return True
