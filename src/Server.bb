@@ -346,8 +346,10 @@ Repeat
 	ggTrayClearEvents()*/
 
 	; Process window events
-	Local E.Event	
-	For E.Event = Each Event
+	Local E.Event = First Event
+	Local ENext.Event = Null
+	While E <> Null
+		ENext = After E
 		Select E\EventID
 			Case Game\RefreshScriptsButton
 				Bvm_RefreshScripts()
@@ -533,7 +535,8 @@ Repeat
 				EndIf
 		End Select
 		Delete E
-	Next
+		E = ENext
+	Wend
 
 
 	; Things to do only if the server is unlocked

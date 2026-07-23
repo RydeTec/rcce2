@@ -198,15 +198,92 @@ End Test
 ; so the `< 0` arm is unreachable. The `> 65534` arm is what actually
 ; rejects wrapped negatives, and only -1 (= 65535) is out of range; any
 ; other wrapped negative lands in a valid high slot. Pinned: the reject
-; works for the 65535 case.
+; works for the 65535 case. The record must otherwise be complete so this
+; reaches the ID guard rather than the incomplete-record guard.
 Test testLoadSpellsRejectsOutOfRangeID()
 	ClearSpells()
 	CleanupSpellsFile()
 	Local F.BBStream = WriteFile(SpellsTestFile$)
 	WriteShort F, 65535
+	WriteString F, "Out of range"
+	WriteString F, ""
+	WriteShort F, 0
+	WriteString F, ""
+	WriteString F, ""
+	WriteInt F, 0
+	WriteString F, ""
+	WriteString F, ""
 	CloseFile(F)
 	Assert(LoadSpells(SpellsTestFile$) = 0)
 	Assert(SpellsList(65534) = Null)
+	ClearSpells()
+	CleanupSpellsFile()
+End Test
+
+; An ID-only tail must not be published as a zero-default Spell. The loader
+; used to allocate and index a Spell immediately after this two-byte read.
+Test testLoadSpellsRejectsIdOnlyRecordBeforePublish()
+	ClearSpells()
+	CleanupSpellsFile()
+	Local F.BBStream = WriteFile(SpellsTestFile$)
+	WriteShort F, 7
+	CloseFile(F)
+
+	Assert(LoadSpells(SpellsTestFile$) = 0)
+	Assert(SpellsList(7) = Null)
+
+	ClearSpells()
+	CleanupSpellsFile()
+End Test
+
+; A length prefix with fewer bytes than promised is an incomplete record and
+; must not publish the partial template.
+Test testLoadSpellsRejectsTruncatedStringTailBeforePublish()
+	ClearSpells()
+	CleanupSpellsFile()
+	Local F.BBStream = WriteFile(SpellsTestFile$)
+	WriteShort F, 7
+	WriteString F, "Partial"
+	WriteInt F, 4
+	WriteByte F, Asc("x")
+	CloseFile(F)
+
+	Assert(LoadSpells(SpellsTestFile$) = 0)
+	Assert(SpellsList(7) = Null)
+
+	ClearSpells()
+	CleanupSpellsFile()
+End Test
+
+; A complete record before a truncated scalar tail remains loaded, while the
+; incomplete second record is left unpublished.
+Test testLoadSpellsRetainsCompleteRecordBeforeTruncatedScalarTail()
+	ClearSpells()
+	CleanupSpellsFile()
+	Local F.BBStream = WriteFile(SpellsTestFile$)
+	WriteShort F, 3
+	WriteString F, "Complete"
+	WriteString F, ""
+	WriteShort F, 0
+	WriteString F, ""
+	WriteString F, ""
+	WriteInt F, 100
+	WriteString F, ""
+	WriteString F, ""
+	WriteShort F, 8
+	WriteString F, "Scalar tail"
+	WriteString F, ""
+	WriteShort F, 0
+	WriteString F, ""
+	WriteString F, ""
+	WriteShort F, 1
+	CloseFile(F)
+
+	Assert(LoadSpells(SpellsTestFile$) = 1)
+	Assert(SpellsList(3) <> Null)
+	Assert(SpellsList(3)\Name$ = "Complete")
+	Assert(SpellsList(8) = Null)
+
 	ClearSpells()
 	CleanupSpellsFile()
 End Test

@@ -79,7 +79,7 @@ Parameters:
 
 *   _Filename$_ — Path to the projectile data file (typically `Data\Server Data\Projectiles.dat`).
 
-Reads projectile templates from disk and registers each one in `ProjectileList`. Each record carries a 2-byte `ID` followed by the projectile's fields; an out-of-range `ID` or a malformed length-prefixed string aborts the load defensively rather than crashing the server. String fields go through `ReadBoundedString$` (see [Logging.bb](logging.md)) with a 256-byte cap.
+Reads projectile templates from disk and registers each one in `ProjectileList`. Each record carries a 2-byte `ID` followed by the projectile's fields; the loader verifies the complete bounded record layout before publishing any template, so an incomplete or malformed trailing record loads no partial/default projectile. An out-of-range `ID` or malformed length-prefixed string also aborts the load defensively rather than crashing the server. String fields go through `ReadBoundedString$` (see [Logging.bb](logging.md)) with a 256-byte cap; the on-disk format itself is unchanged.
 
   
 

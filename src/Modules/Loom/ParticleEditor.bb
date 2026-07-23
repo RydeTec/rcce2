@@ -68,16 +68,16 @@ End Function
 
 // =============================================================================
 // Particles_SaveAll -- write every config to Data\Emitter Configs\<Name>.rpc.
-// Byte-identical to GUE's "Save emitters" button loop. RP_SaveEmitterConfig
-// soft-fails per file (returns False on a bad handle / unwritable path)
-// without aborting the loop, so this always returns True. After the write,
-// refresh the projectile-picker roster so a newly-created / renamed emitter
-// name resolves there.
+// Attempt every independent emitter save, but report a failed aggregate when
+// any write cannot be committed. Rebuild the projectile-picker roster only
+// after every emitter reached durable storage.
 // =============================================================================
 Function Particles_SaveAll%()
+    Local SavedAll% = True
     For C.RP_EmitterConfig = Each RP_EmitterConfig
-        RP_SaveEmitterConfig(Handle(C), "Data\Emitter Configs\" + C\Name$ + ".rpc")
+        If RP_SaveEmitterConfig(Handle(C), "Data\Emitter Configs\" + C\Name$ + ".rpc") = False Then SavedAll = False
     Next
+    If SavedAll = False Then Return False
     Emitters_Rebuild()
     Return True
 End Function

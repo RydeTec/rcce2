@@ -106,7 +106,7 @@ Parameters:
 
 *   _Filename$_ — Path to the spell data file (typically `Data\Server Data\Spells.dat`).
 
-Reads spell templates from disk into `SpellsList`. Each record carries a 2-byte `ID` followed by the spell's fields. An out-of-range `ID` aborts the load defensively (preserving any spells already parsed) rather than corrupt memory via a `Dim` out-of-range write. String fields go through `ReadBoundedString$` ([Logging.bb](logging.md)): 256 bytes for `Name$` / `ExclusiveRace$` / `ExclusiveClass$`, 1024 for `Description$` and 1024 for `Script$` / `SMethod$`.
+Reads spell templates from disk into `SpellsList`. Each record carries a 2-byte `ID` followed by the spell's fields. The loader verifies that each bounded record is complete before publishing it, so an incomplete trailing record cannot enter the catalog as a partial/default template; previously complete records remain loaded. An out-of-range `ID` aborts the load defensively (preserving any spells already parsed) rather than corrupt memory via a `Dim` out-of-range write. String fields go through `ReadBoundedString$` ([Logging.bb](logging.md)): 256 bytes for `Name$` / `ExclusiveRace$` / `ExclusiveClass$`, 1024 for `Description$` and 1024 for `Script$` / `SMethod$`. The on-disk format is unchanged.
 
   
 

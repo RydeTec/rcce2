@@ -19,6 +19,7 @@ jobs:
   build-and-test:
     name: Build and test
     runs-on: windows-latest
+    timeout-minutes: 30
 
     steps:
       - name: Check out repository
@@ -28,6 +29,19 @@ jobs:
           # BlitzForge submodule; nested reshade deps are not needed for
           # compile/test so we skip recursive to keep the checkout fast.
           submodules: true
+
+      # This diagnostic is only needed for the intermittent graphics launch
+      # investigation, so parse it here without launching the probe or a game.
+      - name: Validate PowerShell syntax
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $parseErrors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile("scripts/gfxprobe_loop.ps1", [ref]$tokens, [ref]$parseErrors)
+          if ($parseErrors.Count -gt 0) {
+            $parseErrors | ForEach-Object { Write-Error $_ }
+            exit 1
+          }
 
       # Cache the BlitzForge runtime binaries keyed on the submodule SHA.
       # rcce2 PRs rarely change the BlitzForge pointer, so the common-case
@@ -186,6 +200,7 @@ jobs:
   rust-server:
     name: Rust server (Linux)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Check out repository
         # actions/checkout@v4
@@ -193,7 +208,7 @@ jobs:
 
       - name: Validate Unix shell syntax
         shell: bash
-        run: bash -n compile.sh test.sh scripts/*.sh
+        run: bash -n compile.sh test.sh publish.sh scripts/*.sh
 
       - name: Set up Rust 1.85.0 (server)
         # dtolnay/rust-toolchain@1.85.0
