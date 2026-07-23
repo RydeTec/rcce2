@@ -40,11 +40,40 @@ Function CountLinesContaining%(Path$, Needle$)
 	Return Count
 End Function
 
+Function SaveEnvironmentAndSunsContract%(Path$)
+	Local F.BBStream = ReadFile(Path$)
+	Local Line$
+	Local InHelper% = False
+	Local SavedEnvironment% = False
+	Local SavedSuns% = False
+	Local ReturnsAggregate% = False
+	If F = Null Then F = ReadFile("..\\" + Path$)
+	If F = Null Then F = ReadFile("..\\..\\" + Path$)
+	If F = Null Then Return False
+
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		If Instr(Line$, "Function SaveEnvironmentAndSuns%()") > 0 Then InHelper = True
+		If InHelper = True
+			If Instr(Line$, "If SaveEnvironment(True) = False Then SavedAll = False") > 0 Then SavedEnvironment = True
+			If Instr(Line$, "If SaveSuns() = False Then SavedAll = False") > 0 Then SavedSuns = True
+			If SavedEnvironment = True And SavedSuns = True
+				If Instr(Line$, "Return SavedAll") > 0 Then ReturnsAggregate = True
+			EndIf
+			If Instr(Line$, "End Function") > 0
+				CloseFile F
+				Return ReturnsAggregate
+			EndIf
+		EndIf
+	Wend
+
+	CloseFile F
+	Return False
+End Function
+
 Test testGUEEnvironmentSaveRequiresBothAtomicWrites()
 	Local Source$ = "GUE.bb"
-	Assert(FileContains%(Source$, "Function SaveEnvironmentAndSuns%()") = True)
-	Assert(FileContains%(Source$, "If SaveEnvironment(True) = False Then SavedAll = False") = True)
-	Assert(FileContains%(Source$, "If SaveSuns() = False Then SavedAll = False") = True)
+	Assert(SaveEnvironmentAndSunsContract%(Source$) = True)
 End Test
 
 Test testGUEEnvironmentSaveRoutesKeepDirtyStateOnFailure()
