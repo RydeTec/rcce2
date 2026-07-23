@@ -154,9 +154,11 @@ Type Ribbon
                 LoomTextCentered(sw / 2, 6, brokenLabel, LOOM_DANGER_R, LOOM_DANGER_G, LOOM_DANGER_B)
             EndIf
 
-            If brkHover And clicked And self\brokenRefs <> Null
-                BrokenRefs::openModal(self\brokenRefs)
-                consumed = True
+            If brkHover And clicked
+                If self\brokenRefs <> Null
+                    BrokenRefs::openModal(self\brokenRefs)
+                    consumed = True
+                EndIf
             EndIf
         Else
             // No broken refs but warning/info issues may still be in the
@@ -170,9 +172,11 @@ Type Ribbon
             Else
                 LoomTextCentered(sw / 2, 6, emptyLabel, LOOM_STONE_300_R, LOOM_STONE_300_G, LOOM_STONE_300_B)
             EndIf
-            If emptyHover And clicked And self\brokenRefs <> Null
-                BrokenRefs::openModal(self\brokenRefs)
-                consumed = True
+            If emptyHover And clicked
+                If self\brokenRefs <> Null
+                    BrokenRefs::openModal(self\brokenRefs)
+                    consumed = True
+                EndIf
             EndIf
         EndIf
 

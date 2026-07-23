@@ -43,7 +43,10 @@ set /a PASSED=0
 set /a FAILED=0
 set "FAILED_FILES="
 
-for /R %%f in (!GLOB!) do (
+REM Collect full paths before invoking the compiler. `for /R` follows the
+REM filesystem's enumeration order, which makes contributor logs vary between
+REM machines; `sort` gives every run one stable lexical order.
+for /F "delims=" %%f in ('dir /B /S /A-D "!TESTDIR!\!GLOB!" 2^>nul ^| sort') do (
     set /a TOTAL+=1
     echo [RUN ] %%~nxf
     "%BLITZPATH%\bin\blitzcc.exe" -t -w "%ROOTDIR%\src" "%%f"

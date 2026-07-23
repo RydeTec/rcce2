@@ -55,9 +55,10 @@ Function FileContainsOrderedNonComment%(Path$, StartNeedle$, FirstNeedle$, Secon
 End Function
 
 Test testLinuxCISyntaxGateCoversUnixEntrypoints()
-	Assert(FileContains%(".github/workflows/ci.yml", "bash -n compile.sh test.sh scripts/*.sh") = True)
+	Assert(FileContains%(".github/workflows/ci.yml", "bash -n compile.sh test.sh publish.sh scripts/*.sh") = True)
+	Assert(FileContains%(".github/workflows/ci.yml", "bash -n compile.sh test.sh scripts/*.sh") = False)
 End Test
 
 Test testLinuxCISyntaxGateRunsBeforeRustSetup()
-	Assert(FileContainsOrderedNonComment%(".github/workflows/ci.yml", "rust-server:", "- name: Validate Unix shell syntax", "bash -n compile.sh test.sh scripts/*.sh", "- name: Set up Rust 1.85.0 (server)") = True)
+	Assert(FileContainsOrderedNonComment%(".github/workflows/ci.yml", "rust-server:", "- name: Validate Unix shell syntax", "bash -n compile.sh test.sh publish.sh scripts/*.sh", "- name: Set up Rust 1.85.0 (server)") = True)
 End Test

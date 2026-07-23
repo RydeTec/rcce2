@@ -22,6 +22,23 @@ Function FileContains%(Path$, Needle$)
 	Return False
 End Function
 
+Function FileLineContains%(Path$, Prefix$, Needle$)
+	Local F.BBStream = ReadFile(Path$)
+	Local Line$
+	If F = Null Then F = ReadFile("..\\" + Path$)
+	If F = Null Then F = ReadFile("..\\..\\" + Path$)
+	If F = Null Then Return False
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		If Left$(Line$, Len(Prefix$)) = Prefix$ And Instr(Line$, Needle$) > 0
+			CloseFile F
+			Return True
+		EndIf
+	Wend
+	CloseFile F
+	Return False
+End Function
+
 Test testLoomLauncherAndWindowIdentifyTheShippedBeta()
 	Assert(FileContains%("Project Manager.bb", "Loom (Beta)") = True)
 	Assert(FileContains%("Loom.bb", "AppTitle(" + Chr$(34) + "Loom -- World Editor (Beta) -- Realm Crafter ") = True)
@@ -30,6 +47,11 @@ End Test
 Test testLoomGuidanceMatchesTheBetaLauncher()
 	Assert(FileContains%("docs\\loom\\README.md", "**Loom (Beta)**") = True)
 	Assert(FileContains%("CLAUDE.md", "## Loom (beta redesigned editor)") = True)
+End Test
+
+Test testLoomGuidePositionsTheBetaAsParallelToGUE()
+	Assert(FileContains%("docs\\loom\\README.md", "A parallel beta editor with thread navigation, search, and a custom-drawn aesthetic, with editing parity for primary GUE workflows. GUE remains the established editor.") = True)
+	Assert(FileContains%("docs\\loom\\README.md", "A full-featured GUE replacement with thread navigation, search, and a custom-drawn aesthetic.") = False)
 End Test
 
 Test testCurrentFacingGuidanceCannotRegressToAlpha()
@@ -90,4 +112,25 @@ Test testLoomGuidanceDocumentsEveryShippedBrowserCategory()
 	Assert(FileContains%("Modules\\Loom\\Browser.bb", "Browser::addCategory(self, " + Quote$ + "settings" + Quote$ + ", " + Quote$ + "Settings" + Quote$ + ")") = True)
 	Assert(FileContains%("docs\\loom\\README.md", "with seven categories") = False)
 	Assert(FileContains%("docs\\loom\\architecture.md", "Seven categories") = False)
+End Test
+
+Test testLoomPrototypeMappingMatchesShippedBeta()
+	Local PrototypeMap$ = "docs\\loom\\prototype\\README.md"
+	Assert(FileContains%(PrototypeMap$, "| Prototype surface | Shipped in beta? | Where |") = True)
+	Assert(FileContains%(PrototypeMap$, "| Prototype surface | Shipped in alpha? | Where |") = False)
+	Assert(FileLineContains%(PrototypeMap$, "| Spatial scene view (prototype SVG actors / scenery) |", "partial") = True)
+	Assert(FileLineContains%(PrototypeMap$, "| Spatial scene view (prototype SVG actors / scenery) |", "Shipped **World mode** renders and edits real terrain, scenery, and water") = True)
+	Assert(FileLineContains%(PrototypeMap$, "| Spatial scene view (prototype SVG actors / scenery) |", "frozen SVG scene remains a visual reference") = True)
+	Assert(FileLineContains%(PrototypeMap$, "| Command palette (Ctrl+K) |", "shipped") = True)
+	Assert(FileLineContains%(PrototypeMap$, "| Command palette (Ctrl+K) |", "Palette.bb") = True)
+	Assert(FileLineContains%(PrototypeMap$, "| Validation conscience ribbon |", "shipped") = True)
+	Assert(FileLineContains%(PrototypeMap$, "| Validation conscience ribbon |", "Ribbon.bb") = True)
+	Assert(FileLineContains%(PrototypeMap$, "| World atlas (spatial zone map) |", "shipped") = True)
+	Assert(FileLineContains%(PrototypeMap$, "| Session timeline scrubber |", "shipped") = True)
+	Assert(FileLineContains%(PrototypeMap$, "| Walk-in playtest modal |", "deferred") = True)
+	Assert(FileLineContains%(PrototypeMap$, "| Walk-in playtest modal |", "Requires a server bridge") = True)
+	Assert(FileLineContains%(PrototypeMap$, "| Command palette (Ctrl+K) |", "next-up") = False)
+	Assert(FileLineContains%(PrototypeMap$, "| Validation conscience ribbon |", "deferred") = False)
+	Assert(FileLineContains%(PrototypeMap$, "| World atlas (spatial zone map) |", "deferred") = False)
+	Assert(FileLineContains%(PrototypeMap$, "| Session timeline scrubber |", "deferred") = False)
 End Test

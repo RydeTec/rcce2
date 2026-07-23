@@ -149,6 +149,12 @@ Test testWindowsCIExercisesRustReleasePackaging()
 	Assert(FileContains%(".github\workflows\ci.yml", "if not exist bin\ServerRS.exe (") = True)
 End Test
 
+Test testWindowsRustOnlyBuildCreatesOutputDirectoryBeforeCopies()
+	Local BinDirectory$ = "if not exist " + Chr$(34) + "%ROOTDIR%\bin" + Chr$(34) + " mkdir " + Chr$(34) + "%ROOTDIR%\bin" + Chr$(34)
+	Assert(FileContainsSequenceBefore%("compile.bat", "if not %BUILD_RUST%==1 goto skip_rust", BinDirectory$, "copy /Y " + Chr$(34) + "%ROOTDIR%\client-rs\target\release\client-window.exe" + Chr$(34), ":skip_rust") = True)
+	Assert(FileContainsSequenceBefore%("compile.bat", "if not %BUILD_RUST%==1 goto skip_rust", BinDirectory$, "copy /Y " + Chr$(34) + "%ROOTDIR%\server-rs\target\release\rcce-server.exe" + Chr$(34), ":skip_rust") = True)
+End Test
+
 Test testLinuxCIExercisesRustReleasePackaging()
 	Assert(FileContainsOrderedSequence10%(".github\workflows\ci.yml", "- name: Install Linux audio build dependency", "sudo apt-get install --yes libasound2-dev", "- name: Package Rust apps for Linux", "./compile.sh -e -t -r", "test -x bin/ClientRS", "test -x bin/ServerRS", "- name: Build + test (server workspace, locked)", "- name: Build Rust server Docker image", "- name: Smoke-test Rust server Docker startup", "- name: Clippy (server workspace, -D warnings)") = True)
 End Test

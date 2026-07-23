@@ -66,6 +66,35 @@ Function DuplicateProjectileTemplate(srcID)
 	Return Dst\ID
 End Function
 
+; Checks the complete variable-length Projectiles.dat layout before the
+; normal reader allocates or indexes any live Projectile. ReadShort and
+; ReadInt zero-fill at EOF, so an incomplete record must not become a
+; zero-default template in ProjectileList.
+Function ProjectileBoundedStringIsComplete%(F, FileBytes)
+	If FilePos(F) + 4 > FileBytes Then Return False
+	NameBytes = ReadInt(F)
+	If NameBytes < 0 Or NameBytes > 256 Then Return False
+	If FilePos(F) + NameBytes > FileBytes Then Return False
+	SeekFile F, FilePos(F) + NameBytes
+	Return True
+End Function
+
+Function ProjectileFileIsComplete%(F, FileBytes)
+	While Not Eof(F)
+		If FilePos(F) + 2 > FileBytes Then Return False
+		SeekFile F, FilePos(F) + 2
+		If ProjectileBoundedStringIsComplete(F, FileBytes) = False Then Return False
+		If FilePos(F) + 2 > FileBytes Then Return False
+		SeekFile F, FilePos(F) + 2
+		If ProjectileBoundedStringIsComplete(F, FileBytes) = False Then Return False
+		If ProjectileBoundedStringIsComplete(F, FileBytes) = False Then Return False
+		; Emitter texture IDs, homing, hit chance, damage, damage type, speed.
+		If FilePos(F) + 11 > FileBytes Then Return False
+		SeekFile F, FilePos(F) + 11
+	Wend
+	Return True
+End Function
+
 ; Loads all projectiles from a file and returns how many were loaded
 Function LoadProjectiles(Filename$)
 
@@ -73,6 +102,11 @@ Function LoadProjectiles(Filename$)
 
 	F = ReadFile(Filename$)
 	If F = 0 Then Return -1
+	If ProjectileFileIsComplete(F, FileSize(Filename$)) = False
+		CloseFile F
+		Return 0
+	EndIf
+	SeekFile F, 0
 
 		While Not Eof(F)
 			P.Projectile = New Projectile
