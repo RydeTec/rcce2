@@ -8,7 +8,7 @@ EnableGC
 Function FileContains%(Path$, Needle$)
 	Local F.BBStream = ReadFile(Path$)
 	Local Line$
-	If F = Null Then F = ReadFile("..\\" + Path$)
+	If F = Null Then F = ReadFile("..\" + Path$)
 	If F = Null Then Return False
 	While Not Eof(F)
 		Line$ = ReadLine$(F)
@@ -25,7 +25,7 @@ Function DialogCaseContainsOrdered%(Path$, FirstNeedle$, Second$, Third$, Fourth
 	Local F.BBStream = ReadFile(Path$)
 	Local InDialog%, Stage%
 	Local Line$
-	If F = Null Then F = ReadFile("..\\" + Path$)
+	If F = Null Then F = ReadFile("..\" + Path$)
 	If F = Null Then Return False
 	While Not Eof(F)
 		Line$ = ReadLine$(F)
@@ -43,11 +43,11 @@ Function DialogCaseContainsOrdered%(Path$, FirstNeedle$, Second$, Third$, Fourth
 End Function
 
 Test testDialogGuardsContainSensitiveWork()
-	Assert(DialogCaseContainsOrdered%("Modules\\ClientNet.bb", "Case " + Chr$(34) + "N" + Chr$(34), "If Len(M\\MessageData$) < 9", "Else", "D = CreateDialog") = True)
-	Assert(DialogCaseContainsOrdered%("Modules\\ClientNet.bb", "Case " + Chr$(34) + "T" + Chr$(34), "If Len(M\\MessageData$) < 8", "Else", "DialogOutput") = True)
-	Assert(DialogCaseContainsOrdered%("Modules\\ClientNet.bb", "Case " + Chr$(34) + "C" + Chr$(34), "If Len(M\\MessageData$) <> 5", "Else", "FreeDialog") = True)
+	Assert(DialogCaseContainsOrdered%("Modules\ClientNet.bb", "Case " + Chr$(34) + "N" + Chr$(34), "If Len(M\MessageData$) < 9", "Else", "D = CreateDialog") = True)
+	Assert(DialogCaseContainsOrdered%("Modules\ClientNet.bb", "Case " + Chr$(34) + "T" + Chr$(34), "If Len(M\MessageData$) < 8", "Else", "DialogOutput") = True)
+	Assert(DialogCaseContainsOrdered%("Modules\ClientNet.bb", "Case " + Chr$(34) + "C" + Chr$(34), "If Len(M\MessageData$) <> 5", "Else", "FreeDialog") = True)
 End Test
 Test testDialogOptionFramePrevalidatesEveryDeclaredLength()
-	Assert(DialogCaseContainsOrdered%("Modules\\ClientNet.bb", "Case " + Chr$(34) + "O" + Chr$(34), "If Len(M\\MessageData$) < 5", "If DialogOptionsValid", "AddDialogOption") = True)
-	Assert(FileContains%("Modules\\ClientNet.bb", "If NameLen > Len(M\\MessageData$) - Offset") = True)
+	Assert(DialogCaseContainsOrdered%("Modules\ClientNet.bb", "Case " + Chr$(34) + "O" + Chr$(34), "If Len(M\MessageData$) < 5", "If DialogOptionsValid", "AddDialogOption") = True)
+	Assert(FileContains%("Modules\ClientNet.bb", "If NameLen > Len(M\MessageData$) - Offset") = True)
 End Test
