@@ -73,14 +73,47 @@ Function DuplicateSpellTemplate(srcID)
 	Return Dst\ID
 End Function
 
+; Checks one complete variable-length Spells.dat record before the normal
+; reader allocates or indexes a live Spell. ReadShort and ReadInt zero-fill at
+; EOF, so an incomplete record must not become a default template in
+; SpellsList.
+Function SpellBoundedStringIsComplete%(F, FileBytes, Limit)
+	If FilePos(F) + 4 > FileBytes Then Return False
+	NameBytes = ReadInt(F)
+	If NameBytes < 0 Or NameBytes > Limit Then Return False
+	If FilePos(F) + NameBytes > FileBytes Then Return False
+	SeekFile F, FilePos(F) + NameBytes
+	Return True
+End Function
+
+Function SpellRecordIsComplete%(F, FileBytes)
+	If FilePos(F) + 2 > FileBytes Then Return False
+	SeekFile F, FilePos(F) + 2
+	If SpellBoundedStringIsComplete(F, FileBytes, 256) = False Then Return False
+	If SpellBoundedStringIsComplete(F, FileBytes, 1024) = False Then Return False
+	If FilePos(F) + 2 > FileBytes Then Return False
+	SeekFile F, FilePos(F) + 2
+	If SpellBoundedStringIsComplete(F, FileBytes, 256) = False Then Return False
+	If SpellBoundedStringIsComplete(F, FileBytes, 256) = False Then Return False
+	If FilePos(F) + 4 > FileBytes Then Return False
+	SeekFile F, FilePos(F) + 4
+	If SpellBoundedStringIsComplete(F, FileBytes, 1024) = False Then Return False
+	If SpellBoundedStringIsComplete(F, FileBytes, 1024) = False Then Return False
+	Return True
+End Function
+
 ; Loads all spells from file
 Function LoadSpells(Filename$)
 
 	F = ReadFile(Filename$)
 	If F = 0 Then Return -1
+	FileBytes = FileSize(Filename$)
 
 		Local Number = 0
 		While Not Eof(F)
+			RecordPos = FilePos(F)
+			If SpellRecordIsComplete(F, FileBytes) = False Then Exit
+			SeekFile F, RecordPos
 			S.Spell = New Spell
 			S\ID = ReadShort(F)
 			; Same defensive bound as LoadItems: ReadShort is signed, the list is
