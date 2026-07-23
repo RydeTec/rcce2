@@ -9,8 +9,8 @@ Function RevertInvalidatesWorldCache%(Path$)
     Local F.BBStream = ReadFile(Path$)
     Local Line$, Trimmed$
     Local InMethod%, Stage%
-    If F = Null Then F = ReadFile("..\\" + Path$)
-    If F = Null Then F = ReadFile("..\\..\\" + Path$)
+    If F = Null Then F = ReadFile("..\" + Path$)
+    If F = Null Then F = ReadFile("..\..\" + Path$)
     If F = Null Then Return False
 
     While Not Eof(F)
@@ -21,9 +21,9 @@ Function RevertInvalidatesWorldCache%(Path$)
 
         Select Stage
             Case 0
-                If Trimmed$ = "Composer::writeField(self\\composer, e\\Kind, e\\RefID, e\\FieldId, e\\OldValue)" Then Stage = 1
+                If Trimmed$ = "Composer::writeField(self\composer, e\Kind, e\RefID, e\FieldId, e\OldValue)" Then Stage = 1
             Case 1
-                If Trimmed$ = "Composer::markDirtyForKind(self\\composer, e\\Kind)" Then Stage = 2
+                If Trimmed$ = "Composer::markDirtyForKind(self\composer, e\Kind)" Then Stage = 2
             Case 2
                 If Trimmed$ = "WorldCache_Invalidate()" Then Stage = 3
         End Select
@@ -42,9 +42,9 @@ Function WriteInvalidTimelineRevertFixture(Path$, EarlyInvalidation%)
     Local F.BBStream = WriteFile(Path$)
     If F = Null Then Return
     WriteLine(F, "Method revertEntry(e.TimelineEntry)")
-    WriteLine(F, "Composer::writeField(self\\composer, e\\Kind, e\\RefID, e\\FieldId, e\\OldValue)")
+    WriteLine(F, "Composer::writeField(self\composer, e\Kind, e\RefID, e\FieldId, e\OldValue)")
     If EarlyInvalidation = True Then WriteLine(F, "WorldCache_Invalidate()")
-    WriteLine(F, "Composer::markDirtyForKind(self\\composer, e\\Kind)")
+    WriteLine(F, "Composer::markDirtyForKind(self\composer, e\Kind)")
     WriteLine(F, "End Method")
     CloseFile F
 End Function
@@ -54,7 +54,7 @@ Function DeleteTimelineRevertFixture(Path$)
 End Function
 
 Test testTimelineRevertInvalidatesWorldCacheAfterMutation()
-    Assert(RevertInvalidatesWorldCache%("Modules\\Loom\\Timeline.bb") = True)
+    Assert(RevertInvalidatesWorldCache%("Modules\Loom\Timeline.bb") = True)
 
     Local MissingFixture$ = "loom_timeline_cache_missing.bb"
     Local EarlyFixture$ = "loom_timeline_cache_early.bb"
