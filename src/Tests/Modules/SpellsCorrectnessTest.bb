@@ -210,3 +210,71 @@ Test testLoadSpellsRejectsOutOfRangeID()
 	ClearSpells()
 	CleanupSpellsFile()
 End Test
+
+; An ID-only tail must not be published as a zero-default Spell. The loader
+; used to allocate and index a Spell immediately after this two-byte read.
+Test testLoadSpellsRejectsIdOnlyRecordBeforePublish()
+	ClearSpells()
+	CleanupSpellsFile()
+	Local F.BBStream = WriteFile(SpellsTestFile$)
+	WriteShort F, 7
+	CloseFile(F)
+
+	Assert(LoadSpells(SpellsTestFile$) = 0)
+	Assert(SpellsList(7) = Null)
+
+	ClearSpells()
+	CleanupSpellsFile()
+End Test
+
+; A length prefix with fewer bytes than promised is an incomplete record and
+; must not publish the partial template.
+Test testLoadSpellsRejectsTruncatedStringTailBeforePublish()
+	ClearSpells()
+	CleanupSpellsFile()
+	Local F.BBStream = WriteFile(SpellsTestFile$)
+	WriteShort F, 7
+	WriteString F, "Partial"
+	WriteInt F, 4
+	WriteByte F, Asc("x")
+	CloseFile(F)
+
+	Assert(LoadSpells(SpellsTestFile$) = 0)
+	Assert(SpellsList(7) = Null)
+
+	ClearSpells()
+	CleanupSpellsFile()
+End Test
+
+; A complete record before a truncated scalar tail remains loaded, while the
+; incomplete second record is left unpublished.
+Test testLoadSpellsRetainsCompleteRecordBeforeTruncatedScalarTail()
+	ClearSpells()
+	CleanupSpellsFile()
+	Local F.BBStream = WriteFile(SpellsTestFile$)
+	WriteShort F, 3
+	WriteString F, "Complete"
+	WriteString F, ""
+	WriteShort F, 0
+	WriteString F, ""
+	WriteString F, ""
+	WriteInt F, 100
+	WriteString F, ""
+	WriteString F, ""
+	WriteShort F, 8
+	WriteString F, "Scalar tail"
+	WriteString F, ""
+	WriteShort F, 0
+	WriteString F, ""
+	WriteString F, ""
+	WriteShort F, 1
+	CloseFile(F)
+
+	Assert(LoadSpells(SpellsTestFile$) = 1)
+	Assert(SpellsList(3) <> Null)
+	Assert(SpellsList(3)\Name$ = "Complete")
+	Assert(SpellsList(8) = Null)
+
+	ClearSpells()
+	CleanupSpellsFile()
+End Test
