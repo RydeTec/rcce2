@@ -481,12 +481,30 @@ Function SaveItems(Filename$)
 
 End Function
 
-; Loads damage type names from file. Bound each name against a corrupted
-; DamageTypes.dat (same shape as the rest of the data-loader sweep).
+; Check the complete fixed-count Damage.dat layout before changing the
+; live name table. ReadBoundedString$ stops at EOF, so per-string bounds
+; alone cannot prevent a truncated tail from publishing partial names.
+Function DamageTypesFileIsComplete%(F, FileBytes)
+	For i = 0 To 19
+		If FilePos(F) + 4 > FileBytes Then Return False
+		NameBytes = ReadInt(F)
+		If NameBytes < 0 Or NameBytes > 256 Then Return False
+		If FilePos(F) + NameBytes > FileBytes Then Return False
+		SeekFile F, FilePos(F) + NameBytes
+	Next
+	Return True
+End Function
+
+; Loads all validated damage type names from file.
 Function LoadDamageTypes(Filename$)
 
 	F = ReadFile(Filename$)
 	If F = 0 Then Return False
+	If DamageTypesFileIsComplete(F, FileSize(Filename$)) = False
+		CloseFile F
+		Return False
+	EndIf
+	SeekFile F, 0
 		For i = 0 To 19
 			DamageTypes$(i) = ReadBoundedString$(F, 256)
 		Next

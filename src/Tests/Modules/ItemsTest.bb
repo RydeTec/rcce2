@@ -70,13 +70,20 @@ Function LanguageString$(key$)
 End Function
 
 ; --- ReadBoundedString$ stub -----------------------------------------------
-; LoadItems / LoadDamageTypes route every length-prefixed string through
-; ReadBoundedString$ (Logging.bb) so a corrupted Items.dat can't hang the
-; server. This test build doesn't exercise the load path -- the existing
-; tests construct items in-memory via CreateItem -- so a no-op stub is
-; sufficient to let Items.bb compile under Strict.
+; Match the production bounded reader closely enough to exercise
+; LoadDamageTypes against real temporary files without pulling Logging.bb
+; into this focused Strict test build.
 Function ReadBoundedString$(F, MaxLen)
-	Return ""
+	If F = 0 Then Return ""
+	Local L = ReadInt(F)
+	If L < 0 Or L > MaxLen Then Return ""
+	Local s$ = ""
+	Local i
+	For i = 1 To L
+		If Eof(F) Then Exit
+		s$ = s$ + Chr$(ReadByte(F))
+	Next
+	Return s$
 End Function
 
 Include "Modules\Items.bb"
@@ -206,4 +213,39 @@ End Test
 ; missing-case branch with a name guaranteed to be absent.
 Test testFindDamageTypeReturnsNegativeOneWhenMissing()
 	Assert(FindDamageType("__no_such_damage_type__") = -1)
+End Test
+
+Function WriteDamageTypesFixture(Filename$, Count)
+	Local F = WriteFile(Filename$)
+	Assert(F <> 0)
+	Local i
+	For i = 0 To Count - 1
+		WriteString(F, "DamageType" + i)
+	Next
+	CloseFile(F)
+End Function
+
+Test testLoadDamageTypesAcceptsCompleteTwentyRecordFile()
+	Local Filename$ = "ItemsTest-DamageTypes-valid.dat"
+	WriteDamageTypesFixture(Filename$, 20)
+
+	Assert(LoadDamageTypes(Filename$) = True)
+	Assert(FindDamageType("DamageType19") = 19)
+
+	DeleteFile(Filename$)
+End Test
+
+; A partial record must fail before any global damage name is replaced.
+Test testLoadDamageTypesRejectsTruncatedPayloadWithoutPublishing()
+	Local Filename$ = "ItemsTest-DamageTypes-truncated.dat"
+	Local F = WriteFile(Filename$)
+	Assert(F <> 0)
+	WriteInt(F, 10) ; Declares ten bytes but deliberately writes no payload.
+	CloseFile(F)
+
+	SetDamageTypeName(0, "SentinelDamageType")
+	Assert(LoadDamageTypes(Filename$) = False)
+	Assert(FindDamageType("SentinelDamageType") = 0)
+
+	DeleteFile(Filename$)
 End Test
