@@ -42,12 +42,12 @@ Six auth-related handlers form an interlocked state machine hardened across PRs 
 
 | Handler | Purpose | Hardening |
 |---|---|---|
-| `P_CreateAccount` (2309) | Register new account | LoginAttemptOk/Record rate limit |
-| `P_VerifyAccount` (2363) | Username / password check | State-machine collapse: "P" response for every failure mode; ban / loggedon disclosure only after password verifies. Constant-time `ConstantTimeStrEq` to prevent timing oracle. |
+| `P_CreateAccount` (2466) | Register new account | LoginAttemptOk/Record rate limit |
+| `P_VerifyAccount` (2522) | Username / password check | State-machine collapse: "P" response for every failure mode; ban / loggedon disclosure only after password verifies. Constant-time `ConstantTimeStrEq` to prevent timing oracle. |
 | `P_ChangePassword` (2657) | Password rotation | Same collapse + rate limit. |
-| `P_FetchCharacter` (2555) | Load saved character | LoginAttemptOk gate; ban check. |
-| `P_CreateCharacter` (2679) | New character | Same. |
-| `P_DeleteCharacter` (2883) | Delete character | Same. |
+| `P_FetchCharacter` (2733) | Load saved character | LoginAttemptOk gate; ban check. |
+| `P_CreateCharacter` (2857) | New character | Same. |
+| `P_DeleteCharacter` (3073) | Delete character | Same. |
 
 See [`AccountEnumerationTest.bb`](../../src/Tests/Modules/AccountEnumerationTest.bb) / [`ChangePasswordEnumerationTest.bb`](../../src/Tests/Modules/ChangePasswordEnumerationTest.bb) for the pinned response-code state machine.
 

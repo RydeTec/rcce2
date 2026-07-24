@@ -37,3 +37,16 @@ Test testMD5DocsListOnlyCurrentMainMenuPasswordSenders()
 	Assert(FileContains%("Modules\\MainMenu.bb", "P_ChangePassword") = False)
 	Assert(FileContains%("Modules\\ServerNet.bb", "Case P_ChangePassword") = True)
 End Test
+
+Test testAuthenticationReferenceUsesCurrentAnchorsAndThrottleHistory()
+	Assert(FileContains%("docs\\modules\\servernet.md", "| `P_CreateAccount` (2466) |") = True)
+	Assert(FileContains%("docs\\modules\\servernet.md", "| `P_VerifyAccount` (2522) |") = True)
+	Assert(FileContains%("docs\\modules\\servernet.md", "| `P_ChangePassword` (2657) |") = True)
+	Assert(FileContains%("docs\\modules\\servernet.md", "| `P_FetchCharacter` (2733) |") = True)
+	Assert(FileContains%("docs\\modules\\servernet.md", "| `P_CreateCharacter` (2857) |") = True)
+	Assert(FileContains%("docs\\modules\\servernet.md", "| `P_DeleteCharacter` (3073) |") = True)
+	Assert(FileContains%("docs\\protocol\\packets\\P_VerifyAccount.md", "P_ChangePassword` was subsequently rate-limited by PR [#687]") = True)
+	Assert(FileContains%("docs\\protocol\\packets\\P_VerifyAccount.md", "P_ChangePassword` was **not** included — see") = False)
+	Assert(FileContains%("Modules\\ServerNet.bb", "Case P_ChangePassword") = True)
+	Assert(FileContains%("Modules\\ServerNet.bb", "LoginAttemptOk(M\\FromID)") = True)
+End Test
