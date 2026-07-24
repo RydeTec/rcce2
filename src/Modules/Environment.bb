@@ -158,63 +158,35 @@ Function LoadEnvironmentFromFile(Filename$, CreateMissing = False)
 
 End Function
 
-; Saves all environment settings.
-;
-; Two modes:
-;   FullSave=True  — rewrites the whole file (time fields + season/month
-;                    config tables). Atomic temp+rename to avoid partial
-;                    writes on crash.
-;   FullSave=False — updates only the time fields at the start of the
-;                    existing file (OpenFile, no truncate). Refuse this
-;                    path if the file doesn't already exist OR is too small
-;                    to hold the full config — otherwise LoadEnvironment
-;                    later reads past EOF for TimeFactor/Seasons/Months and
-;                    silently sets them to zero (TimeFactor=0 then triggers
-;                    divide-by-zero in UpdateEnvironment).
+; Saves all environment settings through the complete atomic writer. The
+; default time-save callers use the same promotion path so a stopped process
+; cannot leave Environment.dat with only a partially updated header.
 Function SaveEnvironment(FullSave = False)
 
 	Local FinalPath$ = "Data\Server Data\Environment.dat"
-
-	If FullSave = True
-		Local TempPath$ = SafeWriteOpen(FinalPath$)
-		F = WriteFile(TempPath$)
-		If F = 0
-			WriteLog(MainLog, "SaveEnvironment: cannot open " + TempPath$ + " for write")
-			Return False
-		EndIf
-		WriteInt F, Year
-		WriteInt F, Day
-		WriteInt F, TimeH
-		WriteInt F, TimeM
-		WriteInt F, TimeFactor
-		For i = 0 To 11
-			WriteString F, SeasonName$(i)
-			WriteInt F, SeasonStartDay(i)
-			WriteInt F, SeasonDuskH(i)
-			WriteInt F, SeasonDawnH(i)
-		Next
-		For i = 0 To 19
-			WriteString F, MonthName$(i)
-			WriteInt F, MonthStartDay(i)
-		Next
-		Return SafeWriteCommit(TempPath$, FinalPath$, F)
-	EndIf
-
-	; Mid-session time-only update path.
-	If FileType(FinalPath$) <> 1
-		; No full save has ever happened. Refuse to write a half file that
-		; LoadEnvironment would parse as TimeFactor=0 + zeroed Seasons/Months.
-		WriteLog(MainLog, "SaveEnvironment: refusing partial save before a FullSave has been committed")
+	If FullSave = False Then Return SaveEnvironment(True)
+	Local TempPath$ = SafeWriteOpen(FinalPath$)
+	F = WriteFile(TempPath$)
+	If F = 0
+		WriteLog(MainLog, "SaveEnvironment: cannot open " + TempPath$ + " for write")
 		Return False
 	EndIf
-	F = OpenFile(FinalPath$)
-	If F = 0 Then Return False
-		WriteInt F, Year
-		WriteInt F, Day
-		WriteInt F, TimeH
-		WriteInt F, TimeM
-	CloseFile(F)
-	Return True
+	WriteInt F, Year
+	WriteInt F, Day
+	WriteInt F, TimeH
+	WriteInt F, TimeM
+	WriteInt F, TimeFactor
+	For i = 0 To 11
+		WriteString F, SeasonName$(i)
+		WriteInt F, SeasonStartDay(i)
+		WriteInt F, SeasonDuskH(i)
+		WriteInt F, SeasonDawnH(i)
+	Next
+	For i = 0 To 19
+		WriteString F, MonthName$(i)
+		WriteInt F, MonthStartDay(i)
+	Next
+	Return SafeWriteCommit(TempPath$, FinalPath$, F)
 
 End Function
 

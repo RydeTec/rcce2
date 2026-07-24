@@ -66,6 +66,32 @@ Function WriteEnvironmentLoadTestFile%(IncludeMonths = True)
 	Return True
 End Function
 
+; SaveEnvironment's default is used by server lock, shutdown, and BVM save
+; state. Keep that path on the complete atomic writer: a direct header update
+; can leave Environment.dat only partly updated if the process stops mid-save.
+Function EnvironmentDefaultSaveUsesAtomicFullWriter%()
+	Local F.BBStream = ReadFile("Modules\\Environment.bb")
+	Local Line$
+	Local Stage = 0
+	Local DirectOpen = False
+	If F = Null Then F = ReadFile("..\\Modules\\Environment.bb")
+	If F = Null Then F = ReadFile("..\\..\\Modules\\Environment.bb")
+	If F = Null Then Return False
+
+	While Not Eof(F)
+		Line$ = Trim$(ReadLine$(F))
+		If Instr(Line$, "Function SaveEnvironment(FullSave = False)") > 0 Then Stage = 1
+		If Stage = 1 And Line$ = "If FullSave = False Then Return SaveEnvironment(True)" Then Stage = 2
+		If Stage = 2 And Instr(Line$, "Local TempPath$ = SafeWriteOpen(FinalPath$)") > 0 Then Stage = 4
+		If Stage = 4 And Instr(Line$, "Return SafeWriteCommit(TempPath$, FinalPath$, F)") > 0 Then Stage = 5
+		If Instr(Line$, "F = OpenFile(FinalPath$)") > 0 Then DirectOpen = True
+		If Instr(Line$, "End Function") > 0 And Stage > 0 Then Exit
+	Wend
+
+	CloseFile(F)
+	Return Stage = 5 And DirectOpen = False
+End Function
+
 Function ClearSunLoadTestState()
 	If FileType(SunLoadTestFile$) = 1 Then DeleteFile(SunLoadTestFile$)
 	Local S.Sun = First Sun
@@ -219,4 +245,8 @@ Test testLoadEnvironmentFromFileRejectsTruncatedRequiredRecords()
 	Assert(WriteEnvironmentLoadTestFile(False) = True)
 	Assert(LoadEnvironmentFromFile(EnvironmentLoadTestFile$) = False)
 	ClearEnvironmentLoadTestState()
+End Test
+
+Test testDefaultSaveEnvironmentUsesCompleteAtomicWriter()
+	Assert(EnvironmentDefaultSaveUsesAtomicFullWriter() = True)
 End Test
