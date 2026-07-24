@@ -44,7 +44,7 @@ Six auth-related handlers form an interlocked state machine hardened across PRs 
 |---|---|---|
 | `P_CreateAccount` (2309) | Register new account | LoginAttemptOk/Record rate limit |
 | `P_VerifyAccount` (2363) | Username / password check | State-machine collapse: "P" response for every failure mode; ban / loggedon disclosure only after password verifies. Constant-time `ConstantTimeStrEq` to prevent timing oracle. |
-| `P_ChangePassword` (2498) | Password rotation | Same collapse + rate limit. |
+| `P_ChangePassword` (2657) | Password rotation | Same collapse + rate limit. |
 | `P_FetchCharacter` (2555) | Load saved character | LoginAttemptOk gate; ban check. |
 | `P_CreateCharacter` (2679) | New character | Same. |
 | `P_DeleteCharacter` (2883) | Delete character | Same. |

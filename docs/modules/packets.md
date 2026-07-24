@@ -21,7 +21,7 @@ This list of constants gives IDs for each type of network packet sent or receive
 *   P\_FetchCharacter - Request from the client to retrieve full information for a particular character
 *   P\_CreateCharacter - Request from the client to create a new character
 *   P\_DeleteCharacter - Request from the client to delete an existing character
-*   P\_ChangePassword - Request from the client to change the password on an account (not implemented)
+*   P\_ChangePassword - Request from the client to change an account password; the server handler is live, but the shipping client has no sender/UI
 *   P\_FetchActors - Request from the client to retrieve details of all actors in the game (also retrieves items etc.)
 *   P\_FetchItems - Request from the client to retrieve details of all items in the game (unused)
 *   P\_ChangeArea - Request from the client to move to a different zone
