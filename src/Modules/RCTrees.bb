@@ -488,22 +488,34 @@ Next
 End Function
 
 Function UnloadTrees(deltree=True)
- For Rt.Tree=Each tree
-  If deltree=True Then  FreeEntity RT\MainEnt
-   Delete rt
-   Next
+ Local Rt.Tree=First tree
+ Local RtNext.Tree=Null
+ While Rt<>Null
+  RtNext=After Rt
+  If deltree=True Then FreeEntity RT\MainEnt
+  Delete Rt
+  Rt=RtNext
+ Wend
 
-For RtG.RCGRASS=Each rcgrass
+Local RtG.RCGRASS=First rcgrass
+Local RtGNext.RCGRASS=Null
+While RtG<>Null
+  RtGNext=After RtG
   If deltree=True Then FreeEntity RTg\ent
-  Delete rtg
-  Next
+  Delete RtG
+  RtG=RtGNext
+Wend
 
-For gt.GrassTextures=Each grasstextures
+Local gt.GrassTextures=First grasstextures
+Local gtNext.GrassTextures=Null
+While gt<>Null
+  gtNext=After gt
 ;  FreeBrush gt\Brush
 ;  FreeTexture gt\tex
   DebugLog "freed a grasstexture"
   Delete gt
-Next
+  gt=gtNext
+Wend
 
 End Function
 
