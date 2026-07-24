@@ -34,7 +34,7 @@ Function CleanupAnimationsRecordTestFile()
 	If FileType(AnimationsRecordTestFile$ + ".bak") = 1 Then DeleteFile(AnimationsRecordTestFile$ + ".bak")
 End Function
 
-Function WriteCompleteAnimSet(F, ID, Name$)
+Function WriteCompleteAnimSet(F.BBStream, ID, Name$)
 	WriteShort F, ID
 	WriteString F, Name$
 	For i = 0 To 149
@@ -50,6 +50,22 @@ Test testLoadAnimSetsRejectsIdOnlyRecordBeforePublish()
 	CleanupAnimationsRecordTestFile()
 	Local F.BBStream = WriteFile(AnimationsRecordTestFile$)
 	WriteShort F, 7
+	CloseFile F
+
+	Assert(LoadAnimSets(AnimationsRecordTestFile$) = 0)
+	Assert(AnimList(7) = Null)
+
+	ClearAnimSets()
+	CleanupAnimationsRecordTestFile()
+End Test
+
+Test testLoadAnimSetsRejectsTruncatedSetNameBeforePublish()
+	ClearAnimSets()
+	CleanupAnimationsRecordTestFile()
+	Local F.BBStream = WriteFile(AnimationsRecordTestFile$)
+	WriteShort F, 7
+	WriteInt F, 4
+	WriteByte F, Asc("x")
 	CloseFile F
 
 	Assert(LoadAnimSets(AnimationsRecordTestFile$) = 0)
