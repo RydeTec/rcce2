@@ -78,8 +78,10 @@ Test testDialogGuardsContainSensitiveWork()
 	Assert(DialogCaseContainsContained%("Modules\ClientNet.bb", "Case " + Chr$(34) + "N" + Chr$(34), "If Len(M\MessageData$) < 9", "D = CreateDialog") = True)
 	Assert(DialogCaseContainsContained%("Modules\ClientNet.bb", "Case " + Chr$(34) + "N" + Chr$(34), "If Len(M\MessageData$) < 9", "RCE_Send(Connection, PeerToHost, P_Dialog, " + Chr$(34) + "N" + Chr$(34)) = True)
 	Assert(DialogCaseContainsContained%("Modules\ClientNet.bb", "Case " + Chr$(34) + "N" + Chr$(34), "If Len(M\MessageData$) < 9", "Me\DestX#") = True)
+	Assert(DialogCaseContainsContained%("Modules\ClientNet.bb", "Case " + Chr$(34) + "N" + Chr$(34), "If Len(M\MessageData$) < 9", "Me\DestZ#") = True)
 	Assert(DialogCaseContainsContained%("Modules\ClientNet.bb", "Case " + Chr$(34) + "N" + Chr$(34), "If Len(M\MessageData$) < 9", "PointEntity Me\CollisionEN") = True)
 	Assert(DialogCaseContainsContained%("Modules\ClientNet.bb", "Case " + Chr$(34) + "T" + Chr$(34), "If Len(M\MessageData$) < 8", "DialogOutput") = True)
+	Assert(DialogCaseContainsContained%("Modules\ClientNet.bb", "Case " + Chr$(34) + "T" + Chr$(34), "If Len(M\MessageData$) < 8", "RCE_Send(Connection, PeerToHost, P_Dialog, " + Chr$(34) + "T" + Chr$(34)) = True)
 	Assert(DialogCaseContainsContained%("Modules\ClientNet.bb", "Case " + Chr$(34) + "C" + Chr$(34), "If Len(M\MessageData$) <> 5", "FreeDialog") = True)
 End Test
 Test testDialogOptionFramePrevalidatesEveryDeclaredLength()
@@ -99,6 +101,12 @@ Test testDialogGuardContractRejectsEscapedWork()
 	WriteLine F, Chr$(9) + Chr$(9) + "Else"
 	WriteLine F, Chr$(9) + Chr$(9) + "EndIf"
 	WriteLine F, Chr$(9) + Chr$(9) + "D = CreateDialog"
+	WriteLine F, Chr$(9) + Chr$(9) + "Me\DestZ# = EntityZ#(Me\CollisionEN)"
+	WriteLine F, Chr$(9) + "Case " + Chr$(34) + "T" + Chr$(34)
+	WriteLine F, Chr$(9) + Chr$(9) + "If Len(M\MessageData$) < 8"
+	WriteLine F, Chr$(9) + Chr$(9) + "Else"
+	WriteLine F, Chr$(9) + Chr$(9) + "EndIf"
+	WriteLine F, Chr$(9) + Chr$(9) + "RCE_Send(Connection, PeerToHost, P_Dialog, " + Chr$(34) + "T" + Chr$(34) + ")"
 	WriteLine F, Chr$(9) + "Case " + Chr$(34) + "O" + Chr$(34)
 	WriteLine F, Chr$(9) + Chr$(9) + "If DialogOptionsValid"
 	WriteLine F, Chr$(9) + Chr$(9) + "Else"
@@ -106,6 +114,8 @@ Test testDialogGuardContractRejectsEscapedWork()
 	WriteLine F, Chr$(9) + Chr$(9) + "EndIf"
 	CloseFile F
 	Assert(DialogCaseContainsContained%(Fixture$, "Case " + Chr$(34) + "N" + Chr$(34), "If Len(M\MessageData$) < 9", "D = CreateDialog") = False)
+	Assert(DialogCaseContainsContained%(Fixture$, "Case " + Chr$(34) + "N" + Chr$(34), "If Len(M\MessageData$) < 9", "Me\DestZ#") = False)
+	Assert(DialogCaseContainsContained%(Fixture$, "Case " + Chr$(34) + "T" + Chr$(34), "If Len(M\MessageData$) < 8", "RCE_Send(Connection, PeerToHost, P_Dialog, " + Chr$(34) + "T" + Chr$(34)) = False)
 	Assert(DialogCaseContainsTrueBranch%(Fixture$, "Case " + Chr$(34) + "O" + Chr$(34), "If DialogOptionsValid", "AddDialogOption") = False)
 	DeleteFile Fixture$
 End Test
