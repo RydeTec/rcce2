@@ -27,7 +27,8 @@ Test testLegacyModuleDocsDescribeTheLivePasswordChangeHandler()
 	Assert(FileContains%("docs\\modules\\packets.md", "(not implemented)") = False)
 	Assert(FileContains%("docs\\modules\\servernet.md", "| `P_ChangePassword` (2657) | Password rotation |") = True)
 	Assert(FileContains%("docs\\protocol\\packets\\P_ChangePassword.md", "**Server handler:** [ServerNet.bb:2657]") = True)
-	Assert(FileContains%("docs\\protocol\\packets\\P_ChangePassword.md", "ServerNet.bb:2600") = False)
+	Assert(FileContains%("docs\\protocol\\packets\\P_ChangePassword.md", "ServerNet.bb:260") = False)
+	Assert(FileContains%("docs\\protocol\\packets\\P_ChangePassword.md", "ServerNet.bb:2665-2691") = True)
 End Test
 
 Test testMD5DocsListOnlyCurrentMainMenuPasswordSenders()
