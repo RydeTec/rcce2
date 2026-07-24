@@ -23,7 +23,7 @@ Function FileContains%(Path$, Needle$)
 End Function
 
 Test testLegacyModuleDocsDescribeTheLivePasswordChangeHandler()
-	Assert(FileContains%("docs\\modules\\packets.md", "P\\_ChangePassword - Request from the client to change an account password; the server handler is live, but the shipping client has no sender/UI") = True)
+	Assert(FileContains%("docs\\modules\\packets.md", "P\_ChangePassword - Request from the client to change an account password; the server handler is live, but the shipping client has no sender/UI") = True)
 	Assert(FileContains%("docs\\modules\\packets.md", "(not implemented)") = False)
 	Assert(FileContains%("docs\\modules\\servernet.md", "| `P_ChangePassword` (2657) | Password rotation |") = True)
 	Assert(FileContains%("docs\\protocol\\packets\\P_ChangePassword.md", "**Server handler:** [ServerNet.bb:2657]") = True)
