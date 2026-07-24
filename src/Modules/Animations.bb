@@ -114,6 +114,32 @@ Function CreateAnimSet()
 
 End Function
 
+; Checks a length-prefixed Animations.dat string without publishing any of
+; the surrounding record. LoadAnimSets uses this before allocation so a
+; truncated tail cannot become a default-valued AnimSet in AnimList.
+Function AnimSetBoundedStringIsComplete%(F, FileBytes, Limit)
+	If FilePos(F) + 4 > FileBytes Then Return False
+	NameBytes = ReadInt(F)
+	If NameBytes < 0 Or NameBytes > Limit Then Return False
+	If FilePos(F) + NameBytes > FileBytes Then Return False
+	SeekFile F, FilePos(F) + NameBytes
+	Return True
+End Function
+
+; Every animation-set record has an ID, a set name, and 150 clip entries.
+; Each clip stores a bounded name plus start/end shorts and a speed float.
+Function AnimSetRecordIsComplete%(F, FileBytes)
+	If FilePos(F) + 2 > FileBytes Then Return False
+	SeekFile F, FilePos(F) + 2
+	If AnimSetBoundedStringIsComplete(F, FileBytes, 256) = False Then Return False
+	For i = 0 To 149
+		If AnimSetBoundedStringIsComplete(F, FileBytes, 256) = False Then Return False
+		If FilePos(F) + 8 > FileBytes Then Return False
+		SeekFile F, FilePos(F) + 8
+	Next
+	Return True
+End Function
+
 ; Loads all animation sets
 Function LoadAnimSets(Filename$)
 
@@ -121,8 +147,12 @@ Function LoadAnimSets(Filename$)
 
 	F = ReadFile(Filename$)
 	If F = 0 Then Return -1
+	FileBytes = FileSize(Filename$)
 
 		While Not Eof(F)
+			RecordPos = FilePos(F)
+			If AnimSetRecordIsComplete(F, FileBytes) = False Then Exit
+			SeekFile F, RecordPos
 			A.AnimSet = New AnimSet
 			A\ID = ReadShort(F)
 			; AnimList is Dim'd 0..999. ReadShort is signed, so a malformed
