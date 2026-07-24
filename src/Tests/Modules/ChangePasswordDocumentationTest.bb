@@ -22,6 +22,27 @@ Function FileContains%(Path$, Needle$)
 	Return False
 End Function
 
+Function ChangePasswordGuardIsBounded%(Path$)
+	Local F.BBStream = ReadFile(Path$)
+	Local InCase%
+	Local Line$
+	If F = Null Then F = ReadFile("..\\" + Path$)
+	If F = Null Then Return False
+
+	While Not Eof(F)
+		Line$ = ReadLine$(F)
+		If Instr(Line$, "Case P_ChangePassword") > 0 Then InCase = True
+		If InCase = True And Instr(Line$, "Case P_FetchCharacter") > 0 Then Exit
+		If InCase = True And Instr(Line$, "If Not LoginAttemptOk(M" + Chr$(92) + "FromID)") > 0
+			CloseFile F
+			Return True
+		EndIf
+	Wend
+
+	CloseFile F
+	Return False
+End Function
+
 Test testLegacyModuleDocsDescribeTheLivePasswordChangeHandler()
 	Assert(FileContains%("docs\\modules\\packets.md", "P\_ChangePassword - Request from the client to change an account password; the server handler is live, but the shipping client has no sender/UI") = True)
 	Assert(FileContains%("docs\\modules\\packets.md", "(not implemented)") = False)
@@ -48,6 +69,5 @@ Test testAuthenticationReferenceUsesCurrentAnchorsAndThrottleHistory()
 	Assert(FileContains%("docs\\protocol\\packets\\P_VerifyAccount.md", "P_ChangePassword` was subsequently rate-limited by PR [#688]") = True)
 	Assert(FileContains%("docs\\protocol\\packets\\P_VerifyAccount.md", "fixing [#687](https://github.com/RydeTec/rcce2/issues/687)") = True)
 	Assert(FileContains%("docs\\protocol\\packets\\P_VerifyAccount.md", "P_ChangePassword` was **not** included — see") = False)
-	Assert(FileContains%("Modules\\ServerNet.bb", "Case P_ChangePassword") = True)
-	Assert(FileContains%("Modules\\ServerNet.bb", "LoginAttemptOk(M\\FromID)") = True)
+	Assert(ChangePasswordGuardIsBounded%("Modules\\ServerNet.bb") = True)
 End Test
