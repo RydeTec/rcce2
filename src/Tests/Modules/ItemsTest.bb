@@ -73,7 +73,7 @@ End Function
 ; Match the production bounded reader closely enough to exercise
 ; LoadDamageTypes against real temporary files without pulling Logging.bb
 ; into this focused Strict test build.
-Function ReadBoundedString$(F, MaxLen)
+Function ReadBoundedString$(F.BBStream, MaxLen)
 	If F = 0 Then Return ""
 	Local L% = ReadInt(F)
 	If L < 0 Or L > MaxLen Then Return ""
