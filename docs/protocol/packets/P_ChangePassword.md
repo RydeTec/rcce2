@@ -3,7 +3,7 @@
 **Direction:** C -> S (request), S -> C (single-byte result reply)
 **Numeric ID:** 6 ([Packets.bb:7](../../../src/Modules/Packets.bb#L7))
 **Client send site:** **none in the current engine** — see "No live sender" below. The only sender in the tree is the legacy snapshot at [Tools/Modules_old/ServerNet.bb:1728](../../../src/Tools/Modules_old/ServerNet.bb#L1728) (not built).
-**Server handler:** [ServerNet.bb:2600](../../../src/Modules/ServerNet.bb#L2600) (`Case P_ChangePassword`)
+**Server handler:** [ServerNet.bb:2657](../../../src/Modules/ServerNet.bb#L2657) (`Case P_ChangePassword`)
 
 ## Purpose
 
@@ -13,7 +13,7 @@ The session check ([`RequesterOwnsAccountSession`](../../../src/Modules/Accounts
 
 ### No live sender
 
-Grep of `src/Modules` finds `P_ChangePassword` only in [Packets.bb](../../../src/Modules/Packets.bb#L7) (the constant) and [ServerNet.bb](../../../src/Modules/ServerNet.bb#L2600) (the handler). The current [MainMenu.bb](../../../src/Modules/MainMenu.bb) has **no** "change password" UI or `RCE_Send(..., P_ChangePassword, ...)` call — the only client-side sender is the un-built legacy copy under `Tools/Modules_old/`. The handler is therefore live and hardened but currently unreachable from the shipping client. The field layout below is reconstructed from the handler's reads and the legacy sender's writes (the two agree on framing); a future client that re-adds the feature must match it.
+Grep of `src/Modules` finds `P_ChangePassword` only in [Packets.bb](../../../src/Modules/Packets.bb#L7) (the constant) and [ServerNet.bb](../../../src/Modules/ServerNet.bb#L2657) (the handler). The current [MainMenu.bb](../../../src/Modules/MainMenu.bb) has **no** "change password" UI or `RCE_Send(..., P_ChangePassword, ...)` call — the only client-side sender is the un-built legacy copy under `Tools/Modules_old/`. The handler is therefore live and hardened but currently unreachable from the shipping client. The field layout below is reconstructed from the handler's reads and the legacy sender's writes (the two agree on framing); a future client that re-adds the feature must match it.
 
 ## Field layout
 

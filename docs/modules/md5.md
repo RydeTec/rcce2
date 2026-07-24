@@ -29,13 +29,13 @@ The remaining 10 functions in this file are internal helpers (`MD5_F` / `_G` / `
 ### How callers use it
 
 ```basic
-; MainMenu.bb login flow (line 804, 869, 1193)
+; MainMenu.bb verification flow (line 815)
 MD5Pass$ = MD5$(Pass$)                            ; hash the user's typed plaintext
 Pa$ = RCE_StrFromInt$(Len(Name$), 1) + Name$ + RCE_StrFromInt$(Len(MD5Pass$), 1) + MD5Pass$
 RCE_Send(Connection, PeerToHost, P_VerifyAccount, Pa$, True)
 ```
 
-The 32-hex-char MD5 digest is what travels in `P_VerifyAccount` / `P_CreateAccount` / `P_ChangePassword`. The server then takes that digest as the "password" input and runs it through salted SHA-256 + per-account salt for storage and constant-time comparison. From the wire's perspective, the MD5 hex string IS the password — clients that bypass MainMenu and send raw plaintext would be authenticated against an MD5-hash of the stored salted SHA-256 verifier, which won't match.
+The 32-hex-char MD5 digest is what travels in `P_VerifyAccount` / `P_CreateAccount`; it does not currently send `P_ChangePassword`. The server then takes that digest as the "password" input and runs it through salted SHA-256 + per-account salt for storage and constant-time comparison. From the wire's perspective, the MD5 hex string IS the password — clients that bypass MainMenu and send raw plaintext would be authenticated against an MD5-hash of the stored salted SHA-256 verifier, which won't match.
 
 ### Why MD5 specifically (history)
 
@@ -58,11 +58,11 @@ Migration to salted SHA-256-only (drop the MD5 wrapper, store salted SHA-256(pla
 - **Don't use `MD5$` for new security primitives.** Anything new that needs a hash should use [`PasswordHash.bb`](../../src/Modules/PasswordHash.bb)'s salted SHA-256 path or a different module's MD5-replacement (filename hashing, deterministic-asset-ID generation, etc. — none of those exist today; they'd be added separately).
 - **Don't call the internal helpers (`MD5_F` / `MD5_FF` / etc.) from outside this file.** They're not part of the public contract.
 - **Don't add helpers that mutate `MD5_x` outside `MD5$`.** The scratch array is owned by `MD5$` for the duration of one call.
-- **Migration to salted-SHA-256-only is non-trivial.** The three `MD5$(Pass$)` call sites in [`MainMenu.bb`](mainmenu.md) are the *client-side* deletions; on the server side [`PasswordHash.bb`](../../src/Modules/PasswordHash.bb)'s `SHA256Hex$(Salt + ClientMD5)` shape would also need to change, every stored verifier (`$1$<salt>$<sha256-64-hex>` in the account record) would need re-hashing during a forced-reset window, and the `MD5.bb` include itself dropped from [`Client.bb:149`](../../src/Client.bb#L149). The "drop the wrapper" framing is the client-side picture only.
+- **Migration to salted-SHA-256-only is non-trivial.** The three `MD5$(Pass$)` call sites in [`MainMenu.bb`](mainmenu.md) are verification at :815, post-login credential retention at :880, and account creation at :1204; a future password-change UI would need to participate in any migration. On the server side [`PasswordHash.bb`](../../src/Modules/PasswordHash.bb)'s `SHA256Hex$(Salt + ClientMD5)` shape would also need to change, every stored verifier (`$1$<salt>$<sha256-64-hex>` in the account record) would need re-hashing during a forced-reset window, and the `MD5.bb` include itself dropped from [`Client.bb:149`](../../src/Client.bb#L149). The "drop the wrapper" framing is the client-side picture only.
 
 ## Related modules
 
-- [`MainMenu.bb`](mainmenu.md) — the **only** caller. Three sites at MainMenu.bb:804, :869, :1193 wrap the user's typed password before sending `P_VerifyAccount` / `P_CreateAccount` / `P_ChangePassword`.
+- [`MainMenu.bb`](mainmenu.md) — the **only** caller. Verification at MainMenu.bb:815 and account creation at :1204 wrap the user's typed password before sending `P_VerifyAccount` / `P_CreateAccount`; :880 retains the MD5 after login for the session. MainMenu does not currently send `P_ChangePassword`.
 - [`PasswordHash.bb`](../../src/Modules/PasswordHash.bb) — the actual production defense. Server-side. salted SHA-256 + constant-time-compare + dummy-hash path. The `MD5$` output is its input.
 - [`AccountsServer.bb`](accountsserver.md) — flat-file account path; the audit comment at line 121 explicitly documents the "broken-MD5" role.
 
