@@ -75,7 +75,7 @@ End Function
 ; into this focused Strict test build.
 Function ReadBoundedString$(F, MaxLen)
 	If F = 0 Then Return ""
-	Local L = ReadInt(F)
+	Local L% = ReadInt(F)
 	If L < 0 Or L > MaxLen Then Return ""
 	Local s$ = ""
 	Local i
