@@ -3885,9 +3885,7 @@ Cls
 				EndIf
 			; Save clicked
 			Case BSeasonSave
-				SaveEnvironment(True)
-				SaveSuns()
-				EnvironmentSaved = True
+				EnvironmentSaved = SaveEnvironmentAndSuns()
 
 			; Projectiles tab events ------------------------------------------------------------------------------------------------
 
@@ -9767,6 +9765,17 @@ Function SaveParticleEmitters%()
 
 End Function
 
+; Saves the paired days-and-seasons files and retains the dirty state if either
+; independent atomic write fails.
+Function SaveEnvironmentAndSuns%()
+
+	Local SavedAll% = True
+	If SaveEnvironment(True) = False Then SavedAll = False
+	If SaveSuns() = False Then SavedAll = False
+	Return SavedAll
+
+End Function
+
 ; Displays the saving dialog
 Function SaveDialog()
 
@@ -9837,9 +9846,7 @@ Function SaveDialog()
 						Case "Damage types"
 							DamageTypesSaved = SaveDamageTypes("Data\Server Data\Damage.dat")
 						Case "Days & seasons"
-							SaveEnvironment(True)
-							SaveSuns()
-							EnvironmentSaved = True
+							EnvironmentSaved = SaveEnvironmentAndSuns()
 						Case "Current zone"
 							ZoneSave()
 						Case "Abilities"
@@ -9861,11 +9868,13 @@ Function SaveDialog()
 							If ChatBar <> Null Then Delete ChatBar
 							InterfaceSaved = True
 					End Select
-					; Keep failed particle and damage-type saves selectable so either can be retried.
+					; Keep failed persistence saves selectable so each can be retried.
 					If FUI_SendMessage(List, M_GETCAPTION) <> "Particles" Or ParticlesSaved = True
 						If FUI_SendMessage(List, M_GETCAPTION) <> "Damage types" Or DamageTypesSaved = True
-							FUI_SendMessage(List, M_DELETEINDEX, FUI_SendMessage(List, M_GETSELECTED))
-							FUI_SendMessage(List, M_SETINDEX, 1)
+							If FUI_SendMessage(List, M_GETCAPTION) <> "Days & seasons" Or EnvironmentSaved = True
+								FUI_SendMessage(List, M_DELETEINDEX, FUI_SendMessage(List, M_GETSELECTED))
+								FUI_SendMessage(List, M_SETINDEX, 1)
+							EndIf
 						EndIf
 					EndIf
 				; Save all hit
@@ -9883,8 +9892,7 @@ Function SaveDialog()
 						DamageTypesSaved = SaveDamageTypes("Data\Server Data\Damage.dat")
 					EndIf
 					If EnvironmentSaved = False
-						SaveEnvironment(True)
-						SaveSuns()
+						EnvironmentSaved = SaveEnvironmentAndSuns()
 					EndIf
 					If ZoneSaved = False Then ZoneSave()
 					If SpellsSaved = False Then SaveSpells("Data\Server Data\Spells.dat")
@@ -9906,7 +9914,8 @@ Function SaveDialog()
 					EndIf
 					If ParticlesSaved = False Then Result = False
 					If DamageTypesSaved = False Then Result = False
-					If ParticlesSaved = True And DamageTypesSaved = True Then Result = True
+					If EnvironmentSaved = False Then Result = False
+					If ParticlesSaved = True And DamageTypesSaved = True And EnvironmentSaved = True Then Result = True
 			End Select
 			Delete(SaveEvent)
 			SaveEvent = NextSaveEvent
@@ -10729,9 +10738,7 @@ Function menuSaveAll()
 				ItemsSaved = True
 				
 				; Save environment
-				SaveEnvironment(True)
-				SaveSuns()
-				EnvironmentSaved = True
+				EnvironmentSaved = SaveEnvironmentAndSuns()
 				
 				; Save zone
 				ZoneSave()

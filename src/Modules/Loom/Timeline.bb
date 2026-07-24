@@ -337,6 +337,8 @@ Type Timeline
         EndIf
         Composer::writeField(self\composer, e\Kind, e\RefID, e\FieldId, e\OldValue)
         Composer::markDirtyForKind(self\composer, e\Kind)
+        // Reverts mutate the same shared entity state as composer edits.
+        WorldCache_Invalidate()
         WriteLog(LoomLog, "Timeline: reverted " + e\Kind + "#" + Str(e\RefID) + "." + e\FieldId + " back to " + Chr(34) + e\OldValue + Chr(34))
     End Method
 
