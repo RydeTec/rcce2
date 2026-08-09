@@ -216,6 +216,68 @@ fn provisional_actor_catalog_remains_browsable_without_asserted_media_health() {
 }
 
 #[test]
+fn projects_consensus_actor_base_mesh_relationships_without_inventing_assets() {
+    let data_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../test-data/consensus/happy/Data")
+        .canonicalize()
+        .expect("consensus fixture data root");
+    let project = load_feedback_project(data_root, |_| {}).expect("feedback consensus project");
+    let catalog = project.asset_catalog();
+
+    assert_eq!(catalog.evidence, FeedbackEvidence::Consensus);
+    assert_eq!(catalog.meshes.len(), 3);
+    assert!(catalog
+        .meshes
+        .windows(2)
+        .all(|pair| pair[0].mesh_id < pair[1].mesh_id));
+    assert!(catalog.meshes.iter().all(|mesh| !mesh.actors.is_empty()));
+    let mut referenced_actor_ids = catalog
+        .meshes
+        .iter()
+        .flat_map(|mesh| mesh.actors.iter())
+        .map(|actor| actor.actor_id)
+        .collect::<Vec<_>>();
+    referenced_actor_ids.sort_unstable();
+    assert_eq!(referenced_actor_ids, vec![2, 3, 4]);
+
+    let present = catalog
+        .meshes
+        .iter()
+        .find(|mesh| mesh.media_status == FeedbackMediaStatus::Present)
+        .expect("present actor base mesh");
+    assert_eq!(
+        present.physical_path.as_deref(),
+        Some("Data/Meshes/Hero.b3d")
+    );
+    assert!(catalog
+        .meshes
+        .iter()
+        .any(|mesh| mesh.media_status == FeedbackMediaStatus::MissingCatalog));
+    assert!(catalog
+        .meshes
+        .iter()
+        .any(|mesh| mesh.media_status == FeedbackMediaStatus::MissingPhysical));
+}
+
+#[test]
+fn provisional_actor_base_mesh_relationships_withhold_media_conclusions() {
+    let data_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../test-data/consensus/provisional/Data")
+        .canonicalize()
+        .expect("provisional fixture data root");
+    let project = load_feedback_project(data_root, |_| {}).expect("provisional feedback project");
+    let catalog = project.asset_catalog();
+
+    assert_eq!(catalog.evidence, FeedbackEvidence::Provisional);
+    assert!(!catalog.meshes.is_empty());
+    assert!(catalog.meshes.iter().all(|mesh| {
+        mesh.media_status == FeedbackMediaStatus::Provisional
+            && mesh.physical_path.is_none()
+            && !mesh.actors.is_empty()
+    }));
+}
+
+#[test]
 fn projects_filename_derived_paired_zones_and_missing_half_observations() {
     let path = zone_fixture();
     let project = load_feedback_project(path.clone(), |_| {}).expect("zone feedback project");

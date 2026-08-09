@@ -29,6 +29,7 @@ fn smoke_contract_distinguishes_openable_and_missing_roots() {
     assert!(valid_stdout.contains("actors="));
     assert!(valid_stdout.contains("actor_evidence="));
     assert!(valid_stdout.contains("actor_reference_issues="));
+    assert!(valid_stdout.contains("actor_base_meshes="));
     assert!(valid_stdout.contains("zones="));
     assert!(valid_stdout.contains("zone_pairing_issues="));
     assert!(valid_stdout.contains("scripts="));

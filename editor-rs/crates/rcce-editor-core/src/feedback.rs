@@ -104,6 +104,28 @@ pub struct FeedbackActorCatalog {
     pub unavailable_reason: Option<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FeedbackActorReference {
+    pub actor_id: u16,
+    pub race: String,
+    pub race_is_lossy: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FeedbackActorMesh {
+    pub mesh_id: u16,
+    pub media_status: FeedbackMediaStatus,
+    pub physical_path: Option<String>,
+    pub actors: Vec<FeedbackActorReference>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FeedbackAssetCatalog {
+    pub evidence: FeedbackEvidence,
+    pub meshes: Vec<FeedbackActorMesh>,
+    pub unavailable_reason: Option<String>,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FeedbackZoneStatus {
     Paired,
@@ -479,12 +501,67 @@ impl FeedbackActorCatalog {
     }
 }
 
+impl FeedbackAssetCatalog {
+    fn from_actor_catalog(actor_catalog: &FeedbackActorCatalog) -> Self {
+        let mut actors_by_mesh = BTreeMap::<u16, Vec<&FeedbackActor>>::new();
+        for actor in &actor_catalog.actors {
+            if let Some(mesh_id) = actor.base_mesh {
+                actors_by_mesh.entry(mesh_id).or_default().push(actor);
+            }
+        }
+
+        let meshes = actors_by_mesh
+            .into_iter()
+            .map(|(mesh_id, actors)| {
+                let first_status = actors
+                    .first()
+                    .map_or(FeedbackMediaStatus::Provisional, |actor| actor.media_status);
+                let media_status = if actors
+                    .iter()
+                    .all(|actor| actor.media_status == first_status)
+                {
+                    first_status
+                } else {
+                    FeedbackMediaStatus::Provisional
+                };
+                let first_path = actors.first().and_then(|actor| actor.physical_path.clone());
+                let physical_path = (actor_catalog.evidence == FeedbackEvidence::Consensus
+                    && actors.iter().all(|actor| actor.physical_path == first_path))
+                .then_some(first_path)
+                .flatten();
+                let mut actors = actors
+                    .into_iter()
+                    .map(|actor| FeedbackActorReference {
+                        actor_id: actor.actor_id,
+                        race: actor.race.clone(),
+                        race_is_lossy: actor.race_is_lossy,
+                    })
+                    .collect::<Vec<_>>();
+                actors.sort_by_key(|actor| actor.actor_id);
+                FeedbackActorMesh {
+                    mesh_id,
+                    media_status,
+                    physical_path,
+                    actors,
+                }
+            })
+            .collect();
+
+        Self {
+            evidence: actor_catalog.evidence,
+            meshes,
+            unavailable_reason: actor_catalog.unavailable_reason.clone(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FeedbackProject {
     pub data_root: PathBuf,
     pub shape: String,
     pub unavailable: usize,
     actor_catalog: FeedbackActorCatalog,
+    asset_catalog: FeedbackAssetCatalog,
     zone_catalog: FeedbackZoneCatalog,
     script_catalog: FeedbackScriptCatalog,
     by_lens: [Vec<FeedbackEntry>; 5],
@@ -631,6 +708,7 @@ impl FeedbackProject {
         let zone_catalog = FeedbackZoneCatalog::from_world_entries(&by_lens[Lens::World.index()]);
         let script_catalog =
             FeedbackScriptCatalog::from_script_entries(&by_lens[Lens::Scripts.index()]);
+        let asset_catalog = FeedbackAssetCatalog::from_actor_catalog(&actor_catalog);
         Self {
             data_root,
             shape: if inventory.files.is_empty() {
@@ -643,6 +721,7 @@ impl FeedbackProject {
             .to_owned(),
             unavailable: inventory.unavailable.len(),
             actor_catalog,
+            asset_catalog,
             zone_catalog,
             script_catalog,
             by_lens,
@@ -670,6 +749,11 @@ impl FeedbackProject {
     #[must_use]
     pub const fn actor_catalog(&self) -> &FeedbackActorCatalog {
         &self.actor_catalog
+    }
+
+    #[must_use]
+    pub const fn asset_catalog(&self) -> &FeedbackAssetCatalog {
+        &self.asset_catalog
     }
 
     #[must_use]
@@ -868,4 +952,69 @@ fn hex(bytes: &[u8]) -> String {
         output.push(char::from(HEX[usize::from(byte & 0x0f)]));
     }
     output
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        FeedbackActor, FeedbackActorCatalog, FeedbackActorCount, FeedbackAssetCatalog,
+        FeedbackEvidence, FeedbackMediaStatus,
+    };
+
+    #[test]
+    fn asset_catalog_groups_shared_meshes_with_ordered_actor_backlinks() {
+        let actor_catalog = FeedbackActorCatalog {
+            evidence: FeedbackEvidence::Consensus,
+            count: FeedbackActorCount::Agreed(2),
+            actors: vec![
+                FeedbackActor {
+                    actor_id: 9,
+                    race: "Second".to_owned(),
+                    race_is_lossy: false,
+                    base_mesh: Some(7),
+                    media_status: FeedbackMediaStatus::Present,
+                    physical_path: Some("Data/Meshes/Shared.b3d".to_owned()),
+                },
+                FeedbackActor {
+                    actor_id: 3,
+                    race: "First".to_owned(),
+                    race_is_lossy: false,
+                    base_mesh: Some(7),
+                    media_status: FeedbackMediaStatus::Present,
+                    physical_path: Some("Data/Meshes/Shared.b3d".to_owned()),
+                },
+            ],
+            diagnostics: Vec::new(),
+            unavailable_reason: None,
+        };
+
+        let assets = FeedbackAssetCatalog::from_actor_catalog(&actor_catalog);
+
+        assert_eq!(assets.meshes.len(), 1);
+        assert_eq!(assets.meshes[0].mesh_id, 7);
+        assert_eq!(
+            assets.meshes[0]
+                .actors
+                .iter()
+                .map(|actor| actor.actor_id)
+                .collect::<Vec<_>>(),
+            vec![3, 9]
+        );
+    }
+
+    #[test]
+    fn asset_catalog_preserves_unavailable_state_without_relationships() {
+        let actor_catalog = FeedbackActorCatalog::unavailable(
+            "Actor catalog unavailable for this snapshot".to_owned(),
+        );
+
+        let assets = FeedbackAssetCatalog::from_actor_catalog(&actor_catalog);
+
+        assert_eq!(assets.evidence, FeedbackEvidence::Unavailable);
+        assert!(assets.meshes.is_empty());
+        assert_eq!(
+            assets.unavailable_reason.as_deref(),
+            Some("Actor catalog unavailable for this snapshot")
+        );
+    }
 }

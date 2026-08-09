@@ -32,13 +32,14 @@ fn main() -> ExitCode {
             Ok(project) => {
                 let actor_catalog = project.actor_catalog();
                 println!(
-                    "[super-editor-mvp] ready: {} files, {} bytes, {} unavailable; actors={} actor_evidence={} actor_reference_issues={} zones={} zone_pairing_issues={} scripts={} script_adjuncts={} script_inventory_issues={}",
+                    "[super-editor-mvp] ready: {} files, {} bytes, {} unavailable; actors={} actor_evidence={} actor_reference_issues={} actor_base_meshes={} zones={} zone_pairing_issues={} scripts={} script_adjuncts={} script_inventory_issues={}",
                     project.total_files(),
                     project.total_bytes(),
                     project.unavailable,
                     actor_count_smoke(actor_catalog.count),
                     evidence_label(actor_catalog.evidence).to_ascii_lowercase(),
                     actor_catalog.diagnostics.len(),
+                    project.asset_catalog().meshes.len(),
                     project.zone_catalog().zones.len(),
                     project.zone_catalog().diagnostics.len(),
                     project.script_catalog().scripts.len(),
@@ -186,6 +187,12 @@ enum WorldView {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AssetsView {
+    Relationships,
+    Files,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ScriptsView {
     Catalog,
     Files,
@@ -213,6 +220,19 @@ fn transition_world_view(
     if current != target {
         *selected_file = None;
         *selected_zone = None;
+    }
+    target
+}
+
+fn transition_assets_view(
+    current: AssetsView,
+    target: AssetsView,
+    selected_file: &mut Option<String>,
+    selected_mesh: &mut Option<u16>,
+) -> AssetsView {
+    if current != target {
+        *selected_file = None;
+        *selected_mesh = None;
     }
     target
 }
@@ -261,10 +281,12 @@ struct LedgerApp {
     filter: String,
     selected: Option<String>,
     selected_actor: Option<u16>,
+    selected_mesh: Option<u16>,
     selected_zone: Option<String>,
     selected_script: Option<String>,
     records_view: RecordsView,
     world_view: WorldView,
+    assets_view: AssetsView,
     scripts_view: ScriptsView,
     script_family: Option<FeedbackScriptFamily>,
     status: String,
@@ -282,10 +304,12 @@ impl LedgerApp {
             filter: String::new(),
             selected: None,
             selected_actor: None,
+            selected_mesh: None,
             selected_zone: None,
             selected_script: None,
             records_view: RecordsView::Actors,
             world_view: WorldView::Zones,
+            assets_view: AssetsView::Relationships,
             scripts_view: ScriptsView::Catalog,
             script_family: None,
             status: "Preparing project inventory…".to_owned(),
@@ -310,6 +334,7 @@ impl LedgerApp {
         self.project = None;
         self.selected = None;
         self.selected_actor = None;
+        self.selected_mesh = None;
         self.selected_zone = None;
         self.selected_script = None;
         self.status = "Opening selected project…".to_owned();
@@ -348,12 +373,20 @@ impl LedgerApp {
                 LoadMessage::Progress(progress) => self.apply_progress(progress),
                 LoadMessage::Ready(project) => {
                     let actor_count = actor_count_label(project.actor_catalog().count);
+                    let actor_base_mesh_count = project.asset_catalog().meshes.len();
                     let zone_count = project.zone_catalog().zones.len();
                     let script_count = project.script_catalog().scripts.len();
                     self.status = format!(
                         "{} files indexed · {actor_count} · {} unavailable",
                         project.total_files(),
                         project.unavailable
+                    );
+                    self.activity.insert(
+                        0,
+                        format!(
+                            "Asset relationships: {actor_base_mesh_count} actor-referenced base mesh IDs · {} evidence",
+                            evidence_label(project.asset_catalog().evidence).to_ascii_lowercase()
+                        ),
                     );
                     self.activity.insert(
                         0,
@@ -569,13 +602,14 @@ impl LedgerApp {
                         self.lens = lens;
                         self.selected = None;
                         self.selected_actor = None;
+                        self.selected_mesh = None;
                         self.selected_zone = None;
                         self.selected_script = None;
                     }
                 }
                 ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
                     ui.label(
-                        RichText::new("Feedback build 0.4\nNo save or mutation commands exist")
+                        RichText::new("Feedback build 0.5\nNo save or mutation commands exist")
                             .size(11.0)
                             .color(MUTED),
                     );
@@ -670,6 +704,94 @@ impl LedgerApp {
                                     "Client and server parser evidence agrees; no edit path exists."
                                 } else {
                                     "The consensus layer marked this slice provisional; missing-media diagnostics are withheld."
+                                })
+                                .size(12.0)
+                                .color(MUTED),
+                            );
+                        });
+                } else if let Some(mesh) = self.selected_mesh.and_then(|selected| {
+                    self.project
+                        .as_ref()?
+                        .asset_catalog()
+                        .meshes
+                        .iter()
+                        .find(|mesh| mesh.mesh_id == selected)
+                }) {
+                    let evidence = self
+                        .project
+                        .as_ref()
+                        .map(|project| project.asset_catalog().evidence)
+                        .unwrap_or(FeedbackEvidence::Unavailable);
+                    let actor_links = mesh
+                        .actors
+                        .iter()
+                        .map(|actor| {
+                            format!(
+                                "{} (#{}{})",
+                                actor.race,
+                                actor.actor_id,
+                                if actor.race_is_lossy {
+                                    ", lossy display"
+                                } else {
+                                    ""
+                                }
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                        .join(" · ");
+                    ui.label(
+                        RichText::new(format!("Mesh #{}", mesh.mesh_id))
+                            .size(22.0)
+                            .color(INK),
+                    );
+                    ui.label(
+                        RichText::new("BASE MESH  /  ACTOR RELATIONSHIP")
+                            .size(12.0)
+                            .color(BRASS),
+                    );
+                    ui.add_space(16.0);
+                    property(ui, "Raw identity", &format!("Mesh #{}", mesh.mesh_id));
+                    property(ui, "Actor backlinks", &actor_links);
+                    property(ui, "Media state", media_status_label(mesh.media_status));
+                    property(
+                        ui,
+                        "Physical source",
+                        mesh.physical_path.as_deref().unwrap_or("Not asserted"),
+                    );
+                    ui.add_space(12.0);
+                    Frame::none()
+                        .fill(if evidence == FeedbackEvidence::Consensus {
+                            Color32::from_rgb(19, 31, 27)
+                        } else {
+                            Color32::from_rgb(37, 31, 20)
+                        })
+                        .stroke(Stroke::new(
+                            1.0,
+                            if evidence == FeedbackEvidence::Consensus {
+                                Color32::from_rgb(54, 91, 71)
+                            } else {
+                                BRASS_SOFT
+                            },
+                        ))
+                        .inner_margin(Margin::same(12.0))
+                        .show(ui, |ui| {
+                            ui.label(
+                                RichText::new(format!(
+                                    "{} · ACTOR-BASE SLICE ONLY",
+                                    evidence_label(evidence)
+                                ))
+                                .color(if evidence == FeedbackEvidence::Consensus {
+                                    GREEN
+                                } else {
+                                    BRASS
+                                })
+                                .strong(),
+                            );
+                            ui.label(
+                                RichText::new(if evidence == FeedbackEvidence::Consensus {
+                                    "Backlinks and media observations come from accepted actor/media consensus; this is not a complete asset catalog."
+                                } else {
+                                    "Raw mesh IDs and actor backlinks remain visible, but catalog and physical-file conclusions are withheld."
                                 })
                                 .size(12.0)
                                 .color(MUTED),
@@ -818,13 +940,13 @@ impl LedgerApp {
                         });
                 } else {
                     ui.label(
-                        RichText::new("Select an actor, zone, script, or file")
+                        RichText::new("Select an actor, asset relationship, zone, script, or file")
                             .size(18.0)
                             .color(INK),
                     );
                     ui.label(
                         RichText::new(
-                            "Actors expose media health, zones expose paired-file presence, scripts expose source/adjunct relationships, and files expose classification plus exact fingerprints.",
+                            "Actors expose media health, Assets exposes actor↔base-mesh backlinks, zones expose paired-file presence, scripts expose source/adjunct relationships, and files expose classification plus exact fingerprints.",
                         )
                         .color(MUTED),
                     );
@@ -860,6 +982,7 @@ impl LedgerApp {
     fn atlas(&mut self, context: &egui::Context) {
         let actor_view = self.lens == Lens::Records && self.records_view == RecordsView::Actors;
         let zone_view = self.lens == Lens::World && self.world_view == WorldView::Zones;
+        let asset_view = self.lens == Lens::Assets && self.assets_view == AssetsView::Relationships;
         let script_view = self.lens == Lens::Scripts && self.scripts_view == ScriptsView::Catalog;
         egui::CentralPanel::default()
             .frame(Frame::none().fill(CANVAS).inner_margin(Margin::same(20.0)))
@@ -870,6 +993,8 @@ impl LedgerApp {
                             "Actor catalog".to_owned()
                         } else if zone_view {
                             "Paired zone atlas".to_owned()
+                        } else if asset_view {
+                            "Actor base-mesh relationships".to_owned()
                         } else if script_view {
                             "Script constellation".to_owned()
                         } else {
@@ -886,6 +1011,8 @@ impl LedgerApp {
                                 "Client/server consensus · stable actor identities · live media health"
                             } else if zone_view {
                                 "Filename identities · visual/gameplay pairing · directly observed gaps"
+                            } else if asset_view {
+                                "Raw mesh IDs · actor backlinks · evidence-qualified media observations"
                             } else if script_view {
                                 "Active .rsl anchors · literal-prefix families · observed same-stem adjuncts"
                             } else {
@@ -902,6 +1029,8 @@ impl LedgerApp {
                                     "Filter actors, ids, or states…"
                                 } else if zone_view {
                                     "Filter zones or pairing states…"
+                                } else if asset_view {
+                                    "Filter mesh IDs, actors, or states…"
                                 } else if script_view {
                                     "Filter scripts, families, or paths…"
                                 } else {
@@ -959,6 +1088,33 @@ impl LedgerApp {
                                 );
                             }
                         }
+                        if self.lens == Lens::Assets {
+                            if ui
+                                .selectable_label(self.assets_view == AssetsView::Files, "FILES")
+                                .clicked()
+                            {
+                                self.assets_view = transition_assets_view(
+                                    self.assets_view,
+                                    AssetsView::Files,
+                                    &mut self.selected,
+                                    &mut self.selected_mesh,
+                                );
+                            }
+                            if ui
+                                .selectable_label(
+                                    self.assets_view == AssetsView::Relationships,
+                                    "RELATIONSHIPS",
+                                )
+                                .clicked()
+                            {
+                                self.assets_view = transition_assets_view(
+                                    self.assets_view,
+                                    AssetsView::Relationships,
+                                    &mut self.selected,
+                                    &mut self.selected_mesh,
+                                );
+                            }
+                        }
                         if self.lens == Lens::Scripts {
                             if ui
                                 .selectable_label(self.scripts_view == ScriptsView::Files, "FILES")
@@ -993,6 +1149,8 @@ impl LedgerApp {
                     self.actor_catalog(ui);
                 } else if zone_view {
                     self.zone_catalog(ui);
+                } else if asset_view {
+                    self.asset_relationships(ui);
                 } else if script_view {
                     self.script_catalog(ui);
                 } else {
@@ -1166,6 +1324,150 @@ impl LedgerApp {
         if let Some(actor_id) = clicked_actor {
             self.selected_actor = Some(actor_id);
             self.selected = None;
+            self.selected_mesh = None;
+            self.selected_zone = None;
+            self.selected_script = None;
+        }
+    }
+
+    fn asset_relationships(&mut self, ui: &mut egui::Ui) {
+        let Some(project) = self.project.as_ref() else {
+            ui.vertical_centered(|ui| {
+                ui.spinner();
+                ui.label(RichText::new(&self.status).color(MUTED));
+            });
+            return;
+        };
+        let catalog = project.asset_catalog();
+        let evidence_color = match catalog.evidence {
+            FeedbackEvidence::Consensus => GREEN,
+            FeedbackEvidence::Provisional => BRASS,
+            FeedbackEvidence::Unavailable => ISSUE,
+        };
+        Frame::none()
+            .fill(PANEL_RAISED)
+            .stroke(Stroke::new(1.0, Color32::from_rgb(48, 53, 51)))
+            .inner_margin(Margin::symmetric(14.0, 11.0))
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new(evidence_label(catalog.evidence))
+                            .color(evidence_color)
+                            .strong(),
+                    );
+                    ui.separator();
+                    ui.label(
+                        RichText::new(format!(
+                            "{} actor-referenced base mesh IDs",
+                            catalog.meshes.len()
+                        ))
+                        .color(INK),
+                    );
+                });
+                ui.label(
+                    RichText::new(asset_evidence_copy(catalog.evidence))
+                        .size(12.0)
+                        .color(MUTED),
+                );
+                if let Some(reason) = &catalog.unavailable_reason {
+                    ui.label(RichText::new(reason).size(12.0).color(MUTED));
+                }
+            });
+        ui.add_space(8.0);
+
+        let filter = self.filter.to_ascii_lowercase();
+        let mut clicked_mesh = None;
+        ScrollArea::vertical()
+            .max_height(ui.available_height())
+            .show(ui, |ui| {
+                for mesh in &catalog.meshes {
+                    let actor_search = mesh
+                        .actors
+                        .iter()
+                        .map(|actor| format!("{} {}", actor.race, actor.actor_id))
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    let searchable = format!(
+                        "{} {} {} {}",
+                        mesh.mesh_id,
+                        media_status_label(mesh.media_status),
+                        mesh.physical_path.as_deref().unwrap_or_default(),
+                        actor_search
+                    )
+                    .to_ascii_lowercase();
+                    if !filter.is_empty() && !searchable.contains(&filter) {
+                        continue;
+                    }
+                    let selected = self.selected_mesh == Some(mesh.mesh_id);
+                    let response = Frame::none()
+                        .fill(if selected {
+                            Color32::from_rgb(59, 49, 31)
+                        } else {
+                            Color32::from_rgb(25, 30, 30)
+                        })
+                        .stroke(Stroke::new(
+                            1.0,
+                            if selected {
+                                BRASS
+                            } else {
+                                Color32::from_rgb(48, 53, 51)
+                            },
+                        ))
+                        .inner_margin(Margin::symmetric(13.0, 10.0))
+                        .show(ui, |ui| {
+                            ui.set_min_width(ui.available_width());
+                            ui.horizontal(|ui| {
+                                ui.vertical(|ui| {
+                                    ui.label(
+                                        RichText::new(format!("Mesh #{:05}", mesh.mesh_id))
+                                            .size(16.0)
+                                            .color(INK)
+                                            .strong(),
+                                    );
+                                    ui.label(
+                                        RichText::new(format!(
+                                            "{} ACTOR BACKLINK{} · {}",
+                                            mesh.actors.len(),
+                                            if mesh.actors.len() == 1 { "" } else { "S" },
+                                            media_status_label(mesh.media_status)
+                                        ))
+                                        .size(10.0)
+                                        .color(MUTED),
+                                    );
+                                    ui.horizontal_wrapped(|ui| {
+                                        for actor in &mesh.actors {
+                                            ui.label(
+                                                RichText::new(format!(
+                                                    "{}  #{}",
+                                                    actor.race, actor.actor_id
+                                                ))
+                                                .size(11.0)
+                                                .color(BRASS),
+                                            );
+                                        }
+                                    });
+                                });
+                                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                    ui.label(
+                                        RichText::new(media_status_badge(mesh.media_status))
+                                            .size(10.0)
+                                            .color(media_status_color(mesh.media_status))
+                                            .strong(),
+                                    );
+                                });
+                            });
+                        })
+                        .response;
+                    if response.interact(Sense::click()).clicked() {
+                        clicked_mesh = Some(mesh.mesh_id);
+                    }
+                    ui.add_space(5.0);
+                }
+            });
+        if let Some(mesh_id) = clicked_mesh {
+            self.selected_mesh = Some(mesh_id);
+            self.selected = None;
+            self.selected_actor = None;
             self.selected_zone = None;
             self.selected_script = None;
         }
@@ -1318,6 +1620,7 @@ impl LedgerApp {
             self.selected_zone = Some(zone_name);
             self.selected = None;
             self.selected_actor = None;
+            self.selected_mesh = None;
             self.selected_script = None;
         }
     }
@@ -1517,6 +1820,7 @@ impl LedgerApp {
             self.selected_script = Some(source_path);
             self.selected = None;
             self.selected_actor = None;
+            self.selected_mesh = None;
             self.selected_zone = None;
         }
     }
@@ -1582,6 +1886,7 @@ impl LedgerApp {
                         if response.clicked() {
                             self.selected = Some(entry.path.clone());
                             self.selected_actor = None;
+                            self.selected_mesh = None;
                             self.selected_zone = None;
                             self.selected_script = None;
                         }
@@ -1620,6 +1925,20 @@ const fn evidence_label(evidence: FeedbackEvidence) -> &'static str {
         FeedbackEvidence::Consensus => "CONSENSUS",
         FeedbackEvidence::Provisional => "PROVISIONAL",
         FeedbackEvidence::Unavailable => "UNAVAILABLE",
+    }
+}
+
+const fn asset_evidence_copy(evidence: FeedbackEvidence) -> &'static str {
+    match evidence {
+        FeedbackEvidence::Consensus => {
+            "Derived only from the accepted actor/media slice; this does not assert a complete asset catalog or global orphan status."
+        }
+        FeedbackEvidence::Provisional => {
+            "Raw IDs and actor backlinks remain browsable; catalog and physical-file conclusions are withheld."
+        }
+        FeedbackEvidence::Unavailable => {
+            "Actor/base-mesh relationships are unavailable; use Files for exhaustive accepted asset inventory."
+        }
     }
 }
 
@@ -1746,8 +2065,9 @@ fn format_bytes(bytes: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        script_family_observation, transition_records_view, transition_scripts_view,
-        transition_world_view, FeedbackScriptFamily, LoadGate, RecordsView, ScriptsView, WorldView,
+        asset_evidence_copy, script_family_observation, transition_assets_view,
+        transition_records_view, transition_scripts_view, transition_world_view, AssetsView,
+        FeedbackEvidence, FeedbackScriptFamily, LoadGate, RecordsView, ScriptsView, WorldView,
     };
 
     #[test]
@@ -1791,6 +2111,35 @@ mod tests {
         assert_eq!(view, WorldView::Files);
         assert_eq!(selected_file, None);
         assert_eq!(selected_zone, None);
+    }
+
+    #[test]
+    fn assets_view_transition_clears_incompatible_selection() {
+        let mut selected_file = Some("Data/Meshes/Hero.b3d".to_owned());
+        let mut selected_mesh = Some(7);
+
+        let view = transition_assets_view(
+            AssetsView::Relationships,
+            AssetsView::Files,
+            &mut selected_file,
+            &mut selected_mesh,
+        );
+
+        assert_eq!(view, AssetsView::Files);
+        assert_eq!(selected_file, None);
+        assert_eq!(selected_mesh, None);
+    }
+
+    #[test]
+    fn asset_evidence_copy_distinguishes_provisional_from_unavailable() {
+        assert_eq!(
+            asset_evidence_copy(FeedbackEvidence::Provisional),
+            "Raw IDs and actor backlinks remain browsable; catalog and physical-file conclusions are withheld."
+        );
+        assert_eq!(
+            asset_evidence_copy(FeedbackEvidence::Unavailable),
+            "Actor/base-mesh relationships are unavailable; use Files for exhaustive accepted asset inventory."
+        );
     }
 
     #[test]
