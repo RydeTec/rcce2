@@ -1,0 +1,22 @@
+Host: WSL2 Ubuntu under Windows 11; DISPLAY=:0; WAYLAND_DISPLAY=wayland-0
+Toolchain: rustc 1.85.0
+Backend selected: Vulkan llvmpipe (LLVM 20.1.2, 256 bits)
+
+2026-07-21 bounded rerun:
+WINIT_UNIX_BACKEND=wayland RUST_LOG=error \
+  editor-rs/spikes/ui-render/target/debug/rcce-ui-render-spike \
+  --frames 10 --trace editor-rs/spikes/ui-render/traces/standard-v1.json \
+  --viewport-count 2 --scale-percent 200 \
+  --output editor-rs/spikes/ui-render/evidence-out/linux-rerun2
+
+Observed stdout before teardown:
+[ui-spike] one device/queue generation=1 adapter='llvmpipe (LLVM 20.1.2, 256 bits)' backend=Vulkan window=1024x768 native-scale=1 override=200%, viewports=2
+[ui-spike] frames=10 generation=1 rows-built-last=15 selected=false evidence=editor-rs/spikes/ui-render/evidence-out/linux-rerun2
+
+Observed stderr included EGL DRI2 driver-selection errors and ZINK failing to choose a physical device.
+The process then terminated with exit 139 after writing its ten-frame evidence.
+
+Earlier X11 initialization was separately blocked by missing libxkbcommon-x11.so.
+
+Status: Linux compile Pass; Linux runtime Fail. Evidence written before abnormal teardown does not
+convert the runtime gate to Pass.

@@ -1,0 +1,231 @@
+# Rust super editor execution ledger
+
+## Authority and status
+
+- **Stage**: `Execute`
+- **Requirements authority**: [`../plan/rust-super-editor-engine-migration.md`](../plan/rust-super-editor-engine-migration.md)
+- **Packet/dependency authority**: [`../plan/rust-super-editor-implementation.md`](../plan/rust-super-editor-implementation.md)
+- **Current base**: `origin/develop` at `ee0977405cdee6591e6facdb9b88794d21ba65d3`; accepted packet worktrees were authored from `23ef44f6` and the intervening upstream delta is disjoint
+- **Program status**: M0 and corrective packet `SE-M0-C01` are accepted and integrated; M1-P01 through M1-P05 are accepted and integrated; egui, iced, and Slint are rejected and unselected. A disposable wgpu 26 renderer-only spike is feasible, but its migration is not integrated or approved; P06 cannot select a framework until the client/Windows stage and C01's fixture, machine, and memory prerequisites are approved
+
+This ledger records execution state. It does not weaken packet acceptance, compatibility, safety, or retirement gates in the authorities above.
+
+## Operating rules
+
+1. One implementer owns a capability packet and its leased paths.
+2. Research may fan out read-only; research output is evidence, not acceptance.
+3. A fresh agent reviews specification compliance before a different fresh agent reviews quality.
+4. Failed review returns to the implementer and is re-reviewed.
+5. No dependent packet consumes a predecessor until the predecessor is accepted and integrated.
+6. No staging, local commit, cherry-pick, push, PR, migration, publication, or legacy removal occurs without its required authority.
+7. The dirty Windows coordinator checkout stores the accepted specs and this ledger; implementation changes remain in Linux worktrees.
+8. A latest Windows-runnable feedback MVP is a standing program artifact. Every accepted packet must preserve its launcher, and user-visible packets must refresh it without substituting synthetic framework content for real project evidence.
+
+## Feedback MVP continuity packet
+
+### `SE-FB-MVP-01` — Read-only project atlas
+
+| Field | Current value |
+|---|---|
+| Canonical relationship | Early feedback subset of M1 task 17; earns no task 17, P07, P06, or M1 acceptance credit |
+| Status | `Accepted and integrated at 696585279feb77d97a97ec54d126347781698df5` |
+| Product boundary | Windows desktop feedback build, five lenses, inspector, and zero-mutation Ledger over the explicitly selected real project `data` root |
+| Headless ownership | `rcce-editor-core` owns loading/projection; it contains no GUI types and consumes the accepted `rcce-project` snapshot |
+| UI ownership | `rcce-editor` owns the provisional eframe/egui host; the UI dependency remains replaceable and unselected for production renderer composition |
+| Launch contract | `scripts/run_super_editor_mvp.ps1`, exact Rust 1.85 through `rustup`, dedicated target cache, release by default |
+| Mutation boundary | No write, repair, rename, conversion, command, storage, or external-operation API |
+| Baseline | Exact Rust 1.85 workspace green; `rcce-editor` printed only `RCCE editor workspace placeholder; no project was opened` |
+| Current evidence | Exact 13-path aggregate `145f344f18ece56a068ed244b94e2144e78a2c26defc178643badd7b43ce6777` passed fresh specification-delta and different fresh quality review; exact Rust 1.85 workspace tests, strict Clippy, build, stable targeted rustfmt, diff check, and plan 95/11 pass; Linux real-default smoke observed 1,180 files / 351,551,965 bytes / 0 unavailable; native Windows real-current-default smoke observed 1,201 files / 358,557,047 bytes / 0 unavailable with exhaustive lens counts 115 + 289 + 715 + 74 + 8 = 1,201; native valid/missing-root smoke exits are 0/2; native visual review passed |
+| Remaining acceptance | None for this continuity packet; later fidelity packets must preserve it |
+
+This packet exists because the project owner changed sequencing: deliver a
+feedback-worthy product slice first, then increase fidelity while preserving
+the latest runnable MVP. It does not weaken the M1 packet dependency graph or
+the rejected/unselected UI candidate evidence.
+
+### `SE-FB-MVP-02` — Actor intelligence
+
+| Field | Current value |
+|---|---|
+| Canonical relationship | Feedback-only preview of the M1 tasks 17–18 actor/media vertical slice; earns no P07, P08, task 17, task 18, P06, or M1 acceptance credit |
+| Status | `Accepted and integrated through ledger closeout fdc4f539f426ea2f1634a592df99afa56b6bf4c7` |
+| Product boundary | Records gains a real actor catalog, stable actor selection, base-mesh health, and navigable missing-catalog/file issue cards while the exhaustive file atlas remains available |
+| Evidence boundary | Missing-media issues render only for `Consensus`; `Provisional` actor slices remain browsable and explicitly withhold authoritative diagnostics |
+| Root compatibility | The sealed actor/media consensus accepts either an explicit project root containing `Data/` or the MVP's explicit `data` root, while retaining canonical `Data/...` evidence paths |
+| Mutation boundary | Read-only; no repair, save, rename, conversion, storage, process, or external-operation path |
+| Current evidence | Corrected exact nine-path aggregate `618f8b0478170f89f52beae4072ea3c7a32e1d6ab303e886e9cc8285d8c4476b` passed fresh specification and different fresh quality review after adding durable ambiguity, provisional-withholding, and Records-subview selection regressions; final accepted pre-commit aggregate `c103e0c341724d3983702a6d7dc799fc757e9419d792e6ae164ab863128c788d` passed both narrow ledger-delta confirmations; GREEN fixture/native visual flow reports 4 consensus actors / 2 issues and diagnostic-to-actor navigation; native real-current-default smoke reports 1,201 files / 358,557,047 bytes / 0 unavailable / 6 provisional actors / diagnostics withheld with valid/missing-root exits 0/2; exact Rust 1.85 workspace tests (editor 2, smoke 1, feedback projection 4, consensus 10, and all prior suites), strict Clippy/build, targeted stable rustfmt, diff check, and plan 95/11 pass; exact functional head CI passed `Build and test` in 6m31s and `Rust server (Linux)` in 3m56s; closeout head CI passed `Build and test` in 6m54s and the unchanged Linux rerun in 3m55s after the first attempt stopped at package installation before project build/test |
+| Remaining acceptance | None for this feedback continuity packet; formal M1/P06/P07/P08/tasks 17–18 gates remain unchanged |
+
+### `SE-FB-MVP-03` — Paired-zone intelligence
+
+| Field | Current value |
+|---|---|
+| Canonical relationship | Feedback-only preview of paired-zone discovery in M5 tasks 50 and 54; earns no task 17, task 18, task 50, task 54, P06, P07, P08, M1, or M5 acceptance credit |
+| Status | `Accepted and integrated at bdc17fc51a69606ea1892bcd4175cc8d73be71ff` |
+| Product boundary | World gains a filename-derived zone catalog, visual/gameplay half presence and size, stable selection, and navigable missing-half observations while the exhaustive World file atlas remains available |
+| Evidence boundary | Pairing proves only accepted inventory filenames under `Data/Areas` and `Data/Server Data/Areas`; it does not parse either zone format, assert semantic parity, or treat nested/non-`.dat` files as zones |
+| Identity boundary | Zone identity remains the observed `.dat` filename stem; pairing is case-insensitive across the two directories and display spelling prefers the visual half when present |
+| Mutation boundary | Read-only; no create, repair, save, rename, delete, conversion, storage, process, or external-operation path |
+| Current evidence | Corrected exact seven-file aggregate `3b12d9fd2d454ed2de734db12698b254d45500ca0bdd9f19e52445694e87ec4e` passed fresh specification and different fresh quality review after an external Unicode filename exposed unsafe suffix slicing; RED reproduced the panic and GREEN added boundary-safe Unicode non-`.dat` exclusion plus valid Unicode zone identity coverage. Linux repository-default smoke reports 1,180 files / 6 zones / 2 observed pairing issues; native Windows smoke reports 1,201 files / 6 zones / 2 observed pairing issues with valid/missing-root exits 0/2; exact Rust 1.85 workspace tests, strict Clippy/build, stable targeted formatting, plan 95/11, and diff hygiene passed; exact-head CI passed `Build and test` in 6m27s and `Rust server (Linux)` in 3m54s |
+| Remaining acceptance | None for this feedback continuity packet; formal M1/M5 and framework/write/migration gates remain unchanged |
+
+### `SE-FB-MVP-04` — Script constellation
+
+| Field | Current value |
+|---|---|
+| Canonical relationship | Feedback-only preview of script discovery needed by M7 tasks 68–69; earns no task 17, task 18, task 68, task 69, P06, P07, P08, M1, or M7 acceptance credit |
+| Status | `Accepted and integrated at 895c9aac651c125f3a875e9b79697e604530b001` |
+| Product boundary | Scripts gains an active `.rsl` source catalog, literal-prefix family filters, exact same-stem `.rcm` / `.rcscript` observations, stable selection, and direct unanchored-adjunct observations while the exhaustive Scripts file atlas remains available |
+| Evidence boundary | The catalog consumes accepted immediate filenames under `Data/Server Data/Scripts`; it does not read or parse source text, assert script behavior, treat `.rcscript` as active, or claim that same-stem adjuncts were generated from the `.rsl` source |
+| Identity boundary | Each accepted immediate `.rsl` path anchors one active source identity; family labels reflect only case-insensitive literal `Click_`, `Init_`, `Item_`, `Quest_`, and `Spell_` prefixes, with every other source grouped as `Other` |
+| Mutation boundary | Read-only; no edit, create, compile, regenerate, save, rename, delete, conversion, storage, process, playtest, or external-operation path |
+| Current evidence | Accepted exact seven-path aggregate `cea78aaeae8115fa0641b94d668751fb8df56d9d924745ee8bef0fd185a27d1c` passed fresh specification and different fresh quality review after focused RED/GREEN correction made the `Other` fallback truthful in cards, inspector, and README. GREEN synthetic projection reports 3 active sources / 3 adjunct files / 1 unanchored-adjunct observation with exact canonical paths/sizes, case-insensitive same-stem grouping, active-source spelling, literal-prefix families, nested/unrelated exclusion, Unicode-safe extension handling, and Scripts selection reset. Linux repository-default smoke reports 1,180 files / 55 active sources / 13 observed adjuncts / 0 script inventory issues; native Windows real-current-default smoke reports 1,201 files / 55 active sources / 13 observed adjuncts / 0 script inventory issues with valid/missing-root exits 0/2; the corrected native UI is responsive and visually confirms exact paths/sizes, adjunct-only evidence, and `no recognized literal prefix`. Exact Rust 1.85 workspace tests, strict all-target Clippy, build, stable targeted formatting, plan 95/11, and diff hygiene pass. Exact functional head CI passed `Build and test` in 6m49s and `Rust server (Linux)` in 3m47s |
+| Remaining acceptance | None for this feedback continuity packet; formal M1/M7 and framework/write/migration gates remain unchanged |
+
+### `SE-FB-MVP-05` — Actor/base-mesh relationship intelligence
+
+| Field | Current value |
+|---|---|
+| Canonical relationship | Feedback-only reuse of the accepted M1-P05 actor/media slice; earns no task 17, task 18, P06, P07, P08, M1, M4, framework, authoring, migration, publication, or retirement credit |
+| Status | `Accepted in source commit 99e5a56d51756ca89d7dc6e3606d3c40164e81b7; program integration and exact-head CI pending` |
+| Product boundary | Assets gains a relationship view that groups actor-referenced raw base-mesh IDs, shows ordered actor backlinks, preserves stable selection, and retains the exhaustive Assets file atlas |
+| Evidence boundary | The view derives only from accepted actor/media evidence. Consensus may expose the inherited media status/path; provisional evidence exposes raw mesh IDs and backlinks but withholds catalog and physical-file conclusions; unavailable evidence exposes no relationship rows and directs the creator to Files |
+| Completeness boundary | The relationship view is not a complete asset catalog and makes no global orphan claim. Extra catalog/media records remain outside this actor-base slice unless separately accepted evidence expands it |
+| Mutation boundary | Read-only; no create, import, edit, repair, save, rename, delete, conversion, storage, process, preview, publication, or external-operation path |
+| Current evidence | Exact six-file pre-commit aggregate SHA-256 `9ca09a36ea34b59a34bca3872b5699a2fbf6ae19b0cd911cb7d9130a1fdf9f12` passed fresh specification review, corrected specification rereview, final specification-delta confirmation, and a different fresh quality review. RED captured missing `asset_catalog`, unordered shared-mesh backlinks `[9, 3]` versus `[3, 9]`, and missing three-state UI copy; GREEN proves deterministic many-to-one grouping, provisional withholding, unavailable empty state/reason, subview selection reset, and smoke output. Exact Rust 1.85 workspace tests, strict all-target/all-feature Clippy, workspace build, targeted stable rustfmt, diff hygiene, and plan 95/11 pass. Linux repository-default smoke reports 1,180 files / 6 provisional actors / 4 actor-referenced base-mesh IDs. Native Windows real-current-default smoke reports 1,201 files / 6 provisional actors / 4 actor-referenced base-mesh IDs with valid/missing-root exits 0/2; visual review confirms mesh #83 groups Ork #2, Orc #4, and Orc #5, with physical source `Not asserted`, and confirms the 715-file Assets fallback. The native MVP remains responsive and available on the new surface |
+| Rejected shortcuts | No filename-derived mesh semantics, no catalog-wide completeness/orphan claim, no provisional path inference, no project-data mutation, and no production UI-framework selection |
+| Remaining acceptance | Program-branch integration, push to draft PR #833, exact-head CI, and durable-state closeout; all formal milestone and framework/write/migration gates remain unchanged |
+
+## Active packets
+
+### `SE-M0-P01` — Project-format matrix
+
+| Field | Current value |
+|---|---|
+| Canonical task | 1 |
+| Status | `Accepted and integrated` |
+| Implementer | subagent `m0_p01_implementer` |
+| Owned path | `docs/compat/project-format-matrix.md` only |
+| Worktree | `/home/ryan/.codex/worktrees/super-editor/m0-p01-format` |
+| Branch | `coreyrdean/super-editor-m0-p01` |
+| Baseline | Clean worktree at `23ef44f6`; target file absent (`test ! -e ...` exit 0) |
+| Implementation | Revision 4 frozen at SHA-256 `2d0f702fa4fa3ee60eb8e13d8bd22e466f8da0e9126f8122b14bdb16d136ba86`; 82 rows / 189 citations; implementation verification passed |
+| Spec review | `ACCEPT` after two correction rounds; fresh reviewer confirmed all findings resolved |
+| Quality review | `ACCEPT`; different fresh reviewer confirmed all findings resolved on revision 4 |
+| Integration | Source commit `200e3e28`; current-base program commit `a6e562fa` |
+
+Read-only evidence lanes:
+
+- canonical records/settings/media: `/home/ryan/.codex/worktrees/super-editor/m0-p01-records-research`;
+- paired world/specialist/project/publish state: `/home/ryan/.codex/worktrees/super-editor/m0-p01-world-research`.
+
+### `SE-M0-P02` — Editor-capability matrix
+
+| Field | Current value |
+|---|---|
+| Canonical task | 2 |
+| Status | `Accepted and integrated` |
+| Implementer | subagent `m0_p02_implementer` |
+| Owned path | `docs/compat/editor-capability-matrix.md` only |
+| Worktree | `/home/ryan/.codex/worktrees/super-editor/m0-p02-capabilities` |
+| Branch | `coreyrdean/super-editor-m0-p02` |
+| Baseline | Clean worktree at `23ef44f6`; output absent (exit 0) |
+| Implementation | Revision 4 frozen at SHA-256 `77def986c7dbbf97e5de7ed1fe762fed44db7468256292d33de04433bac9974e`; 19 applications × 12 families = 228 cells; 19 retirement rows |
+| Spec review | `ACCEPT` after two bounded correction rounds |
+| Quality review | `ACCEPT`; different fresh reviewer confirmed exact routes, retention gates, Loom evidence, and mechanical quality |
+| Integration | Source commit `687f51ab`; current-base program commit `db8e4439` |
+
+Prepared integration lane:
+
+- worktree `/home/ryan/.codex/worktrees/super-editor/program-integration`;
+- branch `coreyrdean/super-editor-program`;
+- based on `ee0977405cdee6591e6facdb9b88794d21ba65d3`;
+- accepted packets integrated as P01 `a6e562fa`, P02 `db8e4439`, P03 `b77ef1bc`, P06 `a24baf89`, and P04 `a33cb8cb`; worktree clean after cherry-pick.
+
+### Accepted foundation packets
+
+| Packet | Status | Accepted evidence | Integration |
+|---|---|---|---|
+| `SE-M0-P03` Rust baselines | `Accepted and integrated` | Two-document spec/quality acceptance; client full-workspace gates truthfully blocked on ALSA, server `267/0`, diagnostic subset `147/0`, 48 dependency rows; blobs `01ae6358...` and `c2bc9c87...` | Source `3e348a96`; program `b77ef1bc` |
+| `SE-M0-P04` Corpus policy | `Accepted and integrated` | Spec/quality/final-delta acceptance; closed Draft 2020-12 schema, permanent-history consent, withdrawal limits, pre-open ceilings; four frozen SHA-256 hashes recorded in review | Source `e0b04c6e`; program `a33cb8cb` |
+| `SE-M0-P06` ADR set | `Accepted and integrated` | Spec/quality/final-delta acceptance; nine decisions, aggregate SHA-256 `3cdddc66cc475829917bdae0d0a8ad90bc77514c2b63709674589d265df0677e` | Source `04384d97`; program `a24baf89` |
+| `SE-M0-P07` State classes | `Accepted and integrated` | Spec/quality/final-delta acceptance; exact seven classes, eight operation policies, 17 classification cases, six hostile tree cases; aggregate `c57bd5ed...` | Source `ddd838e7`; program `51ef6317` |
+| `SE-M0-P05` Safe scanner | `Accepted and integrated` | Spec/quality/final-delta acceptance; Linux 36/0 and Windows 25/0, exact P07 oracle, pinned schema, no-follow/reparse/hardlink/mount/redaction proofs; aggregate `e52066f8...` | Source `4d9b8b66`; program `1823669b` |
+
+Completed implementation lanes:
+
+- `SE-M0-P05`: `/home/ryan/.codex/worktrees/super-editor/m0-p05-safe-scanner`, source branch `coreyrdean/super-editor-m0-p05`;
+- `SE-M0-P07`: `/home/ryan/.codex/worktrees/super-editor/m0-p07-state-classes`, source branch `coreyrdean/super-editor-m0-p07`;
+- hardlink/Secret-memory evidence correction: source `1f29d6ba`, program `f47ef496`, final ADR aggregate `dc8047eabc29d869c3246b38a2cc83d1a495a9689bc81385919164e7c6df26da`.
+
+## Milestone register
+
+| Milestone | Status | Accepted packets | Next gate |
+|---|---|---|---|
+| M0 | Accepted; C01 integrated | P01, P02, P03, P04, P05, P06, P07 | Approve C01 fixtures, machines, and memory budgets before M1-P06 selection; commit duration is a pre-write M2 gate |
+| M1 | In progress | P01, P02, P03, P04, P05 | Obtain explicit Stage 2 authority and prove the full client plus native Windows/i686 path; approve C01 fixtures, machine, and memory budgets before framework selection |
+| M2 | Planned | — | M1 accepted |
+| M3 | Planned | — | M2 accepted |
+| M4 | Planned | — | M3 accepted |
+| M5 | Planned | — | M4 accepted |
+| M6 | Planned | — | M5 integration points accepted |
+| M7 | Planned | — | M3 identities and named parity dependencies accepted |
+| M8 | Planned | — | M2 command/storage and M3 project identity accepted |
+| M9 | Planned | — | M6–M8 disposition evidence accepted |
+| M10 | Planned | — | M9 corpus rehearsal accepted and explicit removal approval later obtained |
+
+## Evidence log
+
+- `2026-07-20` — Executed/observed remote-base check: local `origin/develop` and `git ls-remote origin refs/heads/develop` both returned `23ef44f6a287a300c9ddfa4f5f059577a13c1347`.
+- `2026-07-20` — Executed/observed Linux worktree checks: all three active sandboxes were clean, on their declared branches, and pinned to `23ef44f6`.
+- `2026-07-20` — A Windows-mounted worktree initialization timed out and is not active. It remains intact pending separately authorized cleanup; see the scoped durable state file.
+- `2026-07-20` — Executed/observed P01 implementation freeze: one untracked owned file, 73 unique rows, 162 resolving citations, no trailing whitespace, final newline present, SHA-256 `da61c6e9c372423ece2d9f0747aa45ece015c2a3875d0820245309a9e33b7ab5`.
+- `2026-07-20` — Executed/observed P02 sandbox: clean branch `coreyrdean/super-editor-m0-p02` at `23ef44f6`; lease is limited to `docs/compat/editor-capability-matrix.md`.
+- `2026-07-20` — Fresh P01 specification review returned `REQUEST CHANGES` with four important findings. Revision returned to the original implementer; quality review remains gated.
+- `2026-07-20` — Executed/observed P01 revision 2 freeze: 82 unique rows, versioned support disposition, separated script representations, bundled-output families, and path-specific asset authorities; exact hash `dbbd1ed096c2c88098e6db90b0e3e8e59e5284db9b9cdff0ec47fc0f344fd626` dispatched for re-review.
+- `2026-07-20` — Fresh P01 specification reviewer accepted revision 3 at `2a63daaa2542095fd0b1ed5a08454c2729637c8fe19d5bf3f9fd37a8a329940b` after the final Tree Magik operation-evidence correction. A different fresh quality reviewer was dispatched.
+- `2026-07-20` — Executed/observed P02 implementation freeze: 19 applications, 12 canonical capability families, 228 cells, 19 retirement-evidence rows, 31 resolving local links, no whitespace defects, exact hash `85e028a184a2d0984e719b09261d0f43f08ed17c013cb6c97d32efbe80775082`; fresh spec review dispatched.
+- `2026-07-20` — Different fresh P01 quality reviewer returned `REQUEST CHANGES`: active valid Sounds.dat records are not currently readable by Rust and must remain I0; the Rust server actively misdecodes the six-field fixed-attribute file through the five-field client parser; two state qualifiers and the provisional marker needed schema normalization. Corrections returned to the original implementer.
+- `2026-07-20` — Fresh P02 specification reviewer returned `REQUEST CHANGES`: current and successor envelopes were mixed; attachment/admin/Spell Wizard/Workshop cells needed correction; three source anchors were too broad. Revision returned to its original implementer.
+- `2026-07-20` — P01 accepted at exact hash `2d0f702fa4fa3ee60eb8e13d8bd22e466f8da0e9126f8122b14bdb16d136ba86`: fresh spec reviewer `ACCEPT`, different fresh quality reviewer `ACCEPT`, final spec-delta confirmation `ACCEPT`. Integration remains pending commit/cherry-pick authority.
+- `2026-07-20` — Different fresh P02 quality reviewer returned `REQUEST CHANGES`: required retention must keep retirement red, route tokens must expand to exact canonical IDs, and Loom's broad capability row needs direct module evidence. Corrections returned to the original implementer.
+- `2026-07-20` — P02 accepted at exact hash `77def986c7dbbf97e5de7ed1fe762fed44db7468256292d33de04433bac9974e`: fresh spec reviewer `ACCEPT`, different fresh quality reviewer `ACCEPT`, final spec-delta confirmation `ACCEPT`; 184 route-token occurrences resolve to canonical workbook IDs and all 42 evidence links resolve.
+- `2026-07-20` — Executed/observed upstream drift: `origin/develop` advanced to `ee097740`; the four intervening commits touch only `src/GUE.bb` and `src/Tests/Modules/GUEEventIteratorTest.bb`, disjoint from accepted P01/P02 paths.
+- `2026-07-20` — Prepared clean integration worktree `coreyrdean/super-editor-program` at exact current base `ee097740`. Initial checkout timed out at 98%; no Git process remained, the zero-byte stale lock was moved recoverably to `/tmp/rcce2-super-editor-program-index.lock-20260720-2000`, and the missing index/worktree were reconstructed exactly from HEAD with `git read-tree HEAD` plus `git checkout-index -a -f`. Final status was clean with 4,153 tracked paths.
+- `2026-07-20` — User established resending the active goal as standing authorization for normal in-scope implementation actions. P01 and P02 were committed independently (`200e3e28`, `687f51ab`) and cherry-picked cleanly onto the current-base program branch (`a6e562fa`, `db8e4439`). No push or PR occurred at this integration step.
+- `2026-07-20` — P03 passed fresh specification and different fresh quality review after corrections to evidence labels and the endian contradiction census; committed as `3e348a96` and integrated as `b77ef1bc` with exact blobs preserved.
+- `2026-07-20` — P06 passed specification, quality, and final specification-delta review after strengthening recovery durability, journal torn-write handling, replacement authority, hardlink confinement, external-operation lifecycle, plugin isolation, and UI measurement. Committed as `04384d97` and integrated as `a24baf89`; aggregate hash reproduced after integration.
+- `2026-07-20` — P04 passed specification, quality, and final specification-delta review after adding a closed machine-readable schema, permanent-public-history consent semantics, withdrawal limits, and pre-open traversal ceilings. Committed as `e0b04c6e` and integrated as `a33cb8cb`; all four accepted hashes reproduced.
+- `2026-07-20` — Dependency-ready P05 and P07 implementation worktrees started from exact accepted program head `a33cb8cb`; owned paths are disjoint and neither may mutate a real project corpus.
+- `2026-07-20` — P07 passed fresh specification, different quality, and final delta review; committed as `ddd838e7` and integrated as `51ef6317`. Integrated validator self-test passed 17 classification and six hostile tree cases at aggregate `c57bd5ed...`.
+- `2026-07-20` — Implementation evidence forced a reviewed ADR-0003/0005/0007 correction for transient hardlinks, speculative read quarantine, and Secret-memory authority. After spec/quality/delta acceptance it was committed as `1f29d6ba` and integrated as `f47ef496`; final aggregate `dc8047eabc29d869c3246b38a2cc83d1a495a9689bc81385919164e7c6df26da` reproduced.
+- `2026-07-20` — P05 passed fresh specification, different quality, and final delta review after closing schema trust, registry-oracle, Windows reparse, mount, hardlink-race, and error-redaction findings. Source `4d9b8b66` integrated as `1823669b`; integrated Rust 1.85 tests passed 36/0 and strict Clippy passed.
+- `2026-07-20` — Draft PR `#833` preserves the program branch. Exact-head CI passed at `51ef6317`; later integrated heads require their own refreshed checks before any merge claim.
+- `2026-07-20` — Independent M0 exit review requested four evidence-control corrections. P01 citation delta `86dbfd5f` changed the current format-matrix SHA-256 to `dc810973198bd483f59a1d795529a4077aaf4c0bb33c071f1a8f92921f73ce60` while preserving 82 row IDs and support levels; the original packet-acceptance hash above remains historical evidence. Master-spec delta `f22f33ca` removed the nonexistent Loom feedback citation and retained only current source-bounded claims. P03/runtime-evidence delta `cba88a23` changed the current `rust-baselines.md` Git blob to `f9c1fb694ef7e6717106d3548e6f4fee7520f850`, left dependency-ledger blob `c2bc9c87b874d8df18e89218c29ba508234641d8` unchanged, and added durable Windows evidence SHA-256 `63cadc72d985d1826af829af989bd63558b139afcd8751f6d72cd22cb0419e60`. The independent exit rereview confirmed all four substantive findings resolved and independently re-executed the preserved native Windows 25/0, Clippy, build, capability, and expected exit-2 gates; final M0 acceptance remains gated on this ledger delta and terminal exact-head CI.
+- `2026-07-21` — Fresh independent M0 exit reviewer returned `M0 ACCEPT` at exact integrated/pushed head `52c5decea47aa7843213336e8759a001015dcbc2`. The branch was clean and synchronized with origin; `git diff --check`, the 95/11 plan checker, P07 validation, Linux scanner 36/0 plus strict Clippy/build, all matrix/dependency counts, and no-M1/project-mutation boundaries passed. Draft PR `#833` matched the exact head and both required checks were terminal `SUCCESS`: `Build and test` 6m58s and `Rust server (Linux)` 3m58s.
+- `2026-07-21` — M1-P01 passed fresh specification review, different fresh quality review, and final specification-delta confirmation at aggregate SHA-256 `91346c44f4130eb4c43f250c16d4f3add777006ec134dd10d68ae516e8dd338a`. Source `1bcc39e4` integrated and pushed as `e1460ae7`; exact Rust 1.85 tests, strict Clippy, build, metadata, CLI behavior, and the 95/11 plan checker passed. Exact Rust 1.85 rustfmt remains unavailable because that installed toolchain lacks `cargo-fmt`; stable rustfmt passed and is not relabeled exact.
+- `2026-07-21` — M1-P02 root capability and M1-P06 disposable UI/render spike started from exact accepted head `e1460ae7` in disjoint worktrees. P02 owns the shared confined-root capability plus the minimum scanner consumer refactor; P06 owns spike/evidence paths only and cannot select a production framework without all ADR-0006 gates. M1-P03 is read-only implementation research until P02 is accepted and integrated.
+- `2026-07-21` — Ledger-only head `c4660b39159798a2a5e288d7ca624d40452157df` passed both required draft-PR checks: `Build and test` 6m51s and `Rust server (Linux)` 3m50s.
+- `2026-07-21` — M1-P02 passed three adversarial correction rounds, fresh specification review, different fresh quality review, and final specification-delta confirmation at aggregate SHA-256 `f2f6f44f36833f4c1be555efd711f432694c1ca4e49e291c4064c842dd6f52c1`. Source `af1a36a7` integrated as `194cabb6`. The sole descriptor-relative backend now belongs to `rcce-project`; scanner policy consumes it. Linux editor 36/0 and scanner 23/0, native Windows editor/scanner gates, strict Clippy/build, platform assurance, alias, retained-root, plan, and hygiene gates passed. Integrated Linux editor/scanner tests and the exact aggregate reproduced.
+- `2026-07-21` — M1-P06's first egui candidate remains rejected and unselected. Revision 2 records a full 29-row gate table and six native Windows release cases; all six observed p95 frame times were about 50 ms and failed the inherited 16.67 ms gate. The failed-candidate evidence remains under provenance correction before preservation; the bounded next experiment is an iced 0.13.1 shared-device seam probe, then Slint only if required.
+- `2026-07-21` — Rejected egui evidence was preserved at program commit `f1d1f393`. Rejected iced 0.13.1 evidence was preserved at program commit `d884d2b6`: the compiler-backed seam confirms `iced_wgpu` 0.13.5 uses wgpu 0.19.4 and cannot consume `rcce-render`'s wgpu 22.1.0 device, queue, encoder, and texture-view types. Neither framework is selected; Slint is the next bounded seam candidate.
+- `2026-07-21` — Corrective packet `SE-M0-C01` started after review confirmed M0 lacked approved content-addressed performance workloads, a complete reference machine, raw memory budgets, and a representative commit-duration path. It defines a closed reference-evidence contract and moves real commit-duration measurement to the pre-write M2 gate; acceptance remains pending independent quality corrections.
+- `2026-07-21` — `SE-M0-C01` passed specification-delta and independent engineering-conformance review at aggregate SHA-256 `7e6b83cebaf6393bdec3d39702b7ef5ee055a1188334af51d755e9f5b1e3c52a`. Source commit `388b7df3` records the closed evidence-tree contract, deterministic resource limits, strict approval bytes, Linux validation backend, and exact-byte Windows capture path. Fixture, reference-machine, and memory-budget approvals remain explicitly blocked; representative commit-duration measurement remains a pre-write M2 gate.
+- `2026-07-21` — `SE-M0-C01` integrated and pushed as `03fb6669`; exact-head draft-PR checks passed (`Build and test` 6m56s, `Rust server (Linux)` 3m49s). Local self-tests passed 70/0, the canonical and external Draft 2020-12 validators reported valid, and the plan checker remained 95/11.
+- `2026-07-21` — `SE-M1-P03` passed fresh specification review and different fresh implementation-quality review at exact ten-path aggregate SHA-256 `1cc0dda0af4368b9950193ca8998402c292a9f29ac50ead3c63d3d9cc3c88bc5`. Linux exact Rust 1.85 passed inventory 16/0, library 27/0, confinement 15/0, skeleton 3/0, scanner 23/0, P07 17+6, strict Clippy/build, and plan 95/11; native Windows exact Rust 1.85 passed inventory 15/0, library 17/0, confinement 9/0, and skeleton 3/0. Source `31a56479` integrated as `b3c032ee`; exact-head CI remains pending.
+- `2026-07-21` — Integrated skeleton verification exposed a base-order mismatch: later accepted egui/iced files under the disposable `editor-rs/spikes/` evidence tree were included by P03's exact production-workspace topology walk. A one-line integration correction excludes only that exact top-level evidence tree while preserving all production file, Cargo metadata, dependency, target, build/FFI, and source-token assertions. Specification-delta and separate quality rereview accepted delta SHA-256 `a702243de321d0f0c7bfec18862e74cfbdee259353595fb8a7329f46eb01d7ce`; program correction `3a7702f2` passes the complete integrated local gates. Exact-head CI remains pending.
+- `2026-07-21` — `SE-M1-P03` exact pushed head `89a68670` passed draft-PR checks (`Build and test` 6m42s, `Rust server (Linux)` 3m54s).
+- `2026-07-21` — `SE-M1-P04` passed fresh specification review, correction rereview, separate quality review, final specification-delta confirmation, and quality rereview at exact five-path aggregate SHA-256 `5395982141e52b62445188eac018089616b3ce9f1bd81e3d6f584bf395067b33`. It adds typed raw identities, authoritative raw/display separation, checked spans, exact P03 provenance reuse without rehashing, and a sealed immutable no-write legacy envelope; real byte binding and consensus fixtures remain deferred to P05. Linux exact Rust 1.85 passed library 32/0, identity 4/0, inventory 16/0, confinement 15/0, doctests 10/0, skeleton 3/0, full workspace, strict Clippy/build, scanner 23/0, P07 17+6, and plan 95/11. Native Windows exact Rust 1.85 passed library 22/0, identity 4/0, inventory 15/0, confinement 9/0, doctests 10/0, skeleton 3/0, and strict Clippy. Source `410085b1` integrated as `95dffeb8`; exact-head CI remains pending.
+- `2026-07-21` — `SE-M1-P05` passed fresh specification review, final specification-delta confirmation, and a different fresh quality review at exact 42-path aggregate SHA-256 `7ff53f289ab7a396035b84ddf286c36ed8d301925e3674e397a3b2dcc211fc42`. It binds exact P03 inventory evidence to sealed P04 actor/mesh documents, adds raw-span-aware client/server parser evidence, and records only proven or provisional compatibility outcomes for `Actors.dat`, `Meshes.dat`, and physical `Data/Meshes` files. Review corrections removed long-lived Windows inventory handles, preserved malformed alias evidence, made duplicate IDs provisional, rejected linked fixture roots, supported validated nested legacy paths without changing raw bytes, and scoped unreferenced catalog evidence to the selected actor-base slice. The closed synthetic corpus contains 22 files. Integrated exact Rust 1.85 gates passed the full editor workspace, strict Clippy/build, client-data 70+4+48, server-core 41+2, scanner 23/0 plus strict Clippy/build, P07 17+6, performance self-tests 70/0 and canonical validation, fixture generation, and plan 95/11. The scanner's required `--locked` fan-out exposed a missing generated dependency closure; exact Rust 1.85 offline regeneration produced lock SHA-256 `b86bf14aa398a8a2a7d6ab0c69d2a575afb90c5ce314c89a1b3d9c65e996dd9a`, and fresh review accepted the lock-only correction. Native Windows component evidence passed before the final Linux-only nested-path/slice correction. Full client Linux workspace testing remains unavailable at the existing ALSA `alsa.pc` boundary, and exact Rust 1.85 rustfmt is unavailable. Source `13579186` integrated as `4f417ae3`; scanner lock correction `6dd9f2d6`; exact-head CI remains pending.
+- `2026-07-21` — `SE-M1-P05` exact pushed head `6a3e14c581e8f242a480caab111848509649ffcf` passed draft-PR checks (`Build and test` 6m36s, `Rust server (Linux)` 3m53s).
+- `2026-07-21` — M1-P06's bounded Slint 1.13.1 candidate is rejected and unselected at exact 16-path aggregate SHA-256 `e118d9df563ce344b14fd5a160f833a3ff318ffa6a53dcea23e4c6df904446fb`. Its supported winit + FemtoVG-wgpu + accessibility integration requires unstable wgpu 26 resources through `BackendSelector::require_wgpu_26`; exact Rust 1.85 compiler contracts reject `rcce-render`'s wgpu 22 Instance, Adapter, Device, Queue, and Texture with preserved E0308/E0277 diagnostics. The seam suite passed 5/0 after RED capture, strict Clippy passed, and `rcce-render` remained 10/0 before and after. Full runtime, accessibility, performance, Windows, and licensing gates remain NotRun; no second GPU owner, unsafe/raw bridge, renderer migration, production dependency, or framework selection was introduced. Source `8080e985` integrated as `726bc233`. With egui, iced, and Slint all rejected under the inherited constraints, P06 returns to architecture review; the C01 reference fixture, complete machine, and memory-budget approvals remain blocked.
+- `2026-07-21` — P06 architecture review completed a disposable renderer-only wgpu 22 to exact wgpu 26.0.1 feasibility spike without integrating the migration. The isolated migration `01361496` closed 80 compiler errors, passed exact Rust 1.85 renderer tests 10/0 and strict Clippy, opened a Vulkan llvmpipe device, and produced a byte- and pixel-identical offscreen render versus wgpu 22 (SHA-256 `7afed19d...`, absolute-error pixels `0`). Fresh specification-delta and separate quality rereview accepted the final evidence aggregate `fa493765a99abb38c9f570dda66cd1de98628f53ec44ac831bd85e77f66837b7`; evidence-only program commits are `2ba11535`, `586311a9`, and `1920fc5e`. The migration remains disposable and unapproved. Windows/i686, physical-GPU, full-client, Slint runtime, accessibility, performance, and framework-selection gates remain NotRun.
+- `2026-07-21` — C01 evidence preparation tooling passed final specification-delta and separate quality review and integrated as program commits `f0cf9108`, `8f02fec3`, `9050320d`, `da52f9fc`, and `6fb3f6f7`. It reads only exact Git objects, materializes the repository default project outside the repository, enforces the canonical default-v1 path/resource ceilings, and emits a replayable `RCCE-CORPUS-TREE-V1` candidate manifest. The real default and recorded-command replay both produced 1,180 files / 351,551,965 bytes / SHA-256 `7be96d271706dc483d5497f274c0d72c6701d0cbc2b6d7b6ab41314586ef527e`. Linux tests passed 19/19, native Windows Python publication tests passed 5/5, native PowerShell profile capture passed, and the performance validator remained 70/0 plus valid. Small and large fixtures remain unavailable; license, consent, sensitivity, fixture, machine, memory-budget, and aggregate approvals remain blocked and no project bytes were added to Git.
+- `2026-07-21` — Feedback continuity packet `SE-FB-MVP-01` passed fresh specification-delta and different fresh quality review at exact 13-path aggregate SHA-256 `145f344f18ece56a068ed244b94e2144e78a2c26defc178643badd7b43ce6777`. The read-only Ledger shell opens the real selected default project through the accepted snapshot capability, routes every accepted file into five inspectable lenses, exposes exact size/classification/fingerprint evidence, rejects overlapping scans, and returns native smoke exit 0/2 for valid/missing roots. Linux exact Rust 1.85 workspace tests, strict Clippy/build, stable targeted rustfmt, diff check, and plan 95/11 passed. The native Windows current-default build opened 1,201 files / 358,557,047 bytes / 0 unavailable, with lens counts summing exactly to 1,201, and passed visual review. The provisional eframe/egui host remains unselected and earns no task 17, P06, P07, M1, renderer, accessibility, or performance acceptance credit. It integrated at `696585279feb77d97a97ec54d126347781698df5`; exact-head CI passed `Build and test` in 6m42s and `Rust server (Linux)` in 3m58s.
+
+## Next actions
+
+1. After `SE-FB-MVP-05` exact-head closeout, take the dependency-ready feedback slice that makes accepted actor/base-mesh relationships navigable across Records and Assets without expanding parser or write authority.
+2. Keep the wgpu 26 migration isolated until an explicitly approved Stage 2 can prove the full client and native Windows/i686 path; do not treat renderer-only feasibility as framework selection.
+3. Resolve the blocked C01 reference fixture, complete machine, and memory-budget approval inputs before any framework selection.
+4. Keep real project migration/publication and M10 legacy removal behind their explicit approval gates.

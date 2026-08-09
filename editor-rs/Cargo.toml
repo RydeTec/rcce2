@@ -1,0 +1,41 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/rcce-editor",
+    "crates/rcce-editor-core",
+    "crates/rcce-project",
+    "crates/rcce-validation",
+    "crates/rcce-storage",
+    "crates/rcce-migrate",
+    "crates/rcce-admin",
+    "crates/rcce-project-cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+rust-version = "1.85"
+publish = false
+
+[workspace.dependencies]
+rcce-editor-core = { path = "crates/rcce-editor-core" }
+rcce-project = { path = "crates/rcce-project" }
+rcce-validation = { path = "crates/rcce-validation" }
+rcce-storage = { path = "crates/rcce-storage" }
+rcce-migrate = { path = "crates/rcce-migrate" }
+rcce-admin = { path = "crates/rcce-admin" }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+# Mirror the existing client/server policy. Strict Clippy still denies every
+# warning not explicitly allowed here.
+[workspace.lints.clippy]
+too_many_arguments = "allow"
+type_complexity = "allow"
+field_reassign_with_default = "allow"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

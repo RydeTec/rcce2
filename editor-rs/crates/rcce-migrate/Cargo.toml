@@ -1,0 +1,15 @@
+[package]
+name = "rcce-migrate"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+description = "Reserved project-conversion boundary for the RCCE Rust editor."
+
+[dependencies]
+rcce-project.workspace = true
+rcce-storage.workspace = true
+
+[lints]
+workspace = true

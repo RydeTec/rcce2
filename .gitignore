@@ -78,6 +78,8 @@ compiler/Mavless B3D/
 compiler/Decls/
 
 projects/
+!test-data/projects/
+!test-data/projects/**
 
 res/Recent.dat
 

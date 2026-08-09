@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rcce.example/schemas/performance-reference-schema-v1.json",
+  "title": "RCCE Super Editor performance reference contract v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "schema", "record_id", "record_revision", "approval_policy_revision", "authority_revision", "approval_validation_authority", "status", "hash_algorithm", "fixture_hash_domain", "blocking_reasons", "approvals", "protocols", "evidence", "machines", "fixtures", "gates", "budgets"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "schema": {"const": "performance-reference-schema-v1.json"},
+    "record_id": {"const": "rcce-super-editor-performance-reference-v1"},
+    "record_revision": {"type": "integer", "minimum": 1},
+    "approval_policy_revision": {"const": 1},
+    "authority_revision": {"$ref": "#/$defs/gitSha"},
+    "approval_validation_authority": {"const": "linux-descriptor-v1"},
+    "status": {"enum": ["blocked", "approved"]},
+    "hash_algorithm": {"const": "sha256"},
+    "fixture_hash_domain": {"const": "RCCE-CORPUS-TREE-V1"},
+    "blocking_reasons": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "approvals": {"type": "array", "items": {"$ref": "#/$defs/approval"}},
+    "protocols": {"$ref": "#/$defs/protocols"},
+    "evidence": {"type": "array", "maxItems": 4096, "items": {"$ref": "#/$defs/evidence"}},
+    "machines": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/machine"}},
+    "fixtures": {"type": "array", "minItems": 3, "items": {"$ref": "#/$defs/fixture"}},
+    "gates": {"type": "array", "minItems": 6, "items": {"$ref": "#/$defs/gate"}},
+    "budgets": {"type": "array", "minItems": 9, "items": {"$ref": "#/$defs/budget"}}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "approved"}}, "required": ["status"]},
+      "then": {
+        "properties": {
+          "blocking_reasons": {"maxItems": 0},
+          "approvals": {"minItems": 1},
+          "protocols": {
+            "properties": {
+              "ui": {"properties": {"status": {"const": "validated"}}},
+              "cache": {"properties": {"status": {"const": "validated"}}},
+              "memory": {"properties": {"status": {"const": "validated"}}}
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "gitSha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "timestamp": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"},
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+    "ids": {"type": "array", "items": {"$ref": "#/$defs/id"}, "uniqueItems": true},
+    "nonPlaceholder": {"type": "string", "minLength": 1, "pattern": "^(?!<)(?!.*(?:unavailable|unassigned|not yet implemented|validated harness)).+$"},
+    "protocols": {
+      "type": "object", "additionalProperties": false,
+      "required": ["ui", "cache", "memory", "commit"],
+      "properties": {
+        "ui": {
+          "type": "object", "additionalProperties": false,
+          "required": ["status", "tool", "command_template", "warmup_runs", "measured_runs", "run_duration_seconds", "trace_requirements", "evidence_ids"],
+          "properties": {
+            "status": {"enum": ["unimplemented", "validated"]}, "tool": {"type": "string", "minLength": 1},
+            "command_template": {"type": "string", "minLength": 1}, "warmup_runs": {"type": "integer", "minimum": 1},
+            "measured_runs": {"type": "integer", "minimum": 1}, "run_duration_seconds": {"type": "integer", "minimum": 1},
+            "trace_requirements": {"type": "string", "minLength": 1}, "evidence_ids": {"$ref": "#/$defs/ids"}
+          },
+          "allOf": [{"if": {"properties": {"status": {"const": "validated"}}}, "then": {"properties": {"tool": {"$ref": "#/$defs/nonPlaceholder"}, "command_template": {"$ref": "#/$defs/nonPlaceholder"}, "evidence_ids": {"minItems": 1}}}}]
+        },
+        "cache": {
+          "type": "object", "additionalProperties": false,
+          "required": ["status", "cold_definition", "warm_definition", "reset_command_template", "evidence_ids"],
+          "properties": {"status": {"enum": ["unvalidated", "validated"]}, "cold_definition": {"type": "string", "minLength": 1}, "warm_definition": {"type": "string", "minLength": 1}, "reset_command_template": {"type": "string", "minLength": 1}, "evidence_ids": {"$ref": "#/$defs/ids"}},
+          "allOf": [{"if": {"properties": {"status": {"const": "validated"}}}, "then": {"properties": {"reset_command_template": {"$ref": "#/$defs/nonPlaceholder"}, "evidence_ids": {"minItems": 1}}}}]
+        },
+        "memory": {
+          "type": "object", "additionalProperties": false,
+          "required": ["status", "metrics", "sample_interval_ms", "steady_window_seconds", "command_template", "evidence_ids"],
+          "properties": {"status": {"enum": ["unvalidated", "validated"]}, "metrics": {"type": "array", "const": ["peak_working_set_bytes", "steady_state_working_set_bytes"]}, "sample_interval_ms": {"type": "integer", "minimum": 1}, "steady_window_seconds": {"type": "integer", "minimum": 1}, "command_template": {"type": "string", "minLength": 1}, "evidence_ids": {"$ref": "#/$defs/ids"}},
+          "allOf": [{"if": {"properties": {"status": {"const": "validated"}}}, "then": {"properties": {"command_template": {"$ref": "#/$defs/nonPlaceholder"}, "evidence_ids": {"minItems": 1}}}}]
+        },
+        "commit": {
+          "type": "object", "additionalProperties": false,
+          "required": ["status", "phase", "semantic_requirement", "command_template", "prohibition", "evidence_ids"],
+          "properties": {"status": {"enum": ["deferred", "validated"]}, "phase": {"const": "pre-write-m2"}, "semantic_requirement": {"type": "string", "minLength": 1}, "command_template": {"type": "string", "minLength": 1}, "prohibition": {"type": "string", "minLength": 1}, "evidence_ids": {"$ref": "#/$defs/ids"}},
+          "allOf": [{"if": {"properties": {"status": {"const": "validated"}}}, "then": {"properties": {"command_template": {"$ref": "#/$defs/nonPlaceholder"}, "evidence_ids": {"minItems": 1}}}}]
+        }
+      }
+    },
+    "evidence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "path", "sha256", "bytes", "kind", "subject_id", "artifact_revision", "captured_at"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"}, "path": {"type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!.*\\\\)(?!.*//)[^/]+(?:/[^/]+)*$"}, "sha256": {"$ref": "#/$defs/sha256"},
+        "bytes": {"type": "integer", "minimum": 1, "maximum": 67108864},
+        "kind": {"enum": ["machine-profile", "fixture-source-identity", "fixture-content-identity", "fixture-license-review", "fixture-consent-review", "fixture-sensitivity-review", "fixture-materialization", "protocol-proof", "raw-samples", "approval-record"]},
+        "subject_id": {"$ref": "#/$defs/id"}, "artifact_revision": {"type": "integer", "minimum": 1}, "captured_at": {"$ref": "#/$defs/timestamp"}
+      }
+    },
+    "evidenceBinding": {
+      "type": "object", "additionalProperties": false, "required": ["evidence_id", "sha256"],
+      "properties": {"evidence_id": {"$ref": "#/$defs/id"}, "sha256": {"$ref": "#/$defs/sha256"}}
+    },
+    "approval": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "subject_kind", "subject_id", "decision", "reviewer_identity", "reviewer_role", "approved_at", "artifact_revision", "subject_canonical_sha256", "approval_record_evidence_id", "approval_record_sha256", "subject_evidence_bindings"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"}, "subject_kind": {"enum": ["machine", "fixture", "memory-budget", "commit-budget", "record"]},
+        "subject_id": {"$ref": "#/$defs/id"}, "decision": {"const": "approved"}, "reviewer_identity": {"$ref": "#/$defs/nonPlaceholder"},
+        "reviewer_role": {"$ref": "#/$defs/nonPlaceholder"}, "approved_at": {"$ref": "#/$defs/timestamp"},
+        "artifact_revision": {"type": "integer", "minimum": 1}, "subject_canonical_sha256": {"$ref": "#/$defs/sha256"}, "approval_record_evidence_id": {"$ref": "#/$defs/id"},
+        "approval_record_sha256": {"$ref": "#/$defs/sha256"}, "subject_evidence_bindings": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/evidenceBinding"}}
+      }
+    },
+    "machine": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "role", "status", "os_name", "os_version", "os_build", "kernel_version", "architecture", "cpu_model", "physical_cores", "logical_processors", "ram_bytes", "gpu_model", "gpu_backend", "gpu_driver_version", "storage_model", "storage_media_type", "filesystem", "display_width_pixels", "display_height_pixels", "display_refresh_hz", "applied_dpi", "display_physical_size", "power_plan", "power_source", "rustc", "storage_path_binding", "evidence_ids", "approval_ids", "missing_fields"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"}, "role": {"type": "string", "minLength": 1}, "status": {"enum": ["incomplete", "approved"]},
+        "os_name": {"type": "string"}, "os_version": {"type": "string"}, "os_build": {"type": "string"}, "kernel_version": {"type": "string"}, "architecture": {"type": "string"},
+        "cpu_model": {"type": "string"}, "physical_cores": {"type": "integer", "minimum": 0}, "logical_processors": {"type": "integer", "minimum": 0}, "ram_bytes": {"type": "integer", "minimum": 0},
+        "gpu_model": {"type": "string"}, "gpu_backend": {"type": "string"}, "gpu_driver_version": {"type": "string"}, "storage_model": {"type": "string"}, "storage_media_type": {"type": "string"}, "filesystem": {"type": "string"},
+        "display_width_pixels": {"type": "integer", "minimum": 0}, "display_height_pixels": {"type": "integer", "minimum": 0}, "display_refresh_hz": {"type": "integer", "minimum": 0}, "applied_dpi": {"type": "integer", "minimum": 0},
+        "display_physical_size": {"type": "string"}, "power_plan": {"type": "string"}, "power_source": {"type": "string"}, "rustc": {"type": "string"}, "storage_path_binding": {"type": "string"},
+        "evidence_ids": {"$ref": "#/$defs/ids"}, "approval_ids": {"$ref": "#/$defs/ids"}, "missing_fields": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+      },
+      "allOf": [{"if": {"properties": {"status": {"const": "approved"}}}, "then": {"properties": {"missing_fields": {"maxItems": 0}, "evidence_ids": {"minItems": 1}, "approval_ids": {"minItems": 1}, "physical_cores": {"minimum": 1}, "logical_processors": {"minimum": 1}, "ram_bytes": {"minimum": 1}, "display_width_pixels": {"minimum": 1}, "display_height_pixels": {"minimum": 1}, "display_refresh_hz": {"minimum": 1}, "applied_dpi": {"minimum": 1}, "os_name": {"$ref": "#/$defs/nonPlaceholder"}, "os_version": {"$ref": "#/$defs/nonPlaceholder"}, "os_build": {"$ref": "#/$defs/nonPlaceholder"}, "kernel_version": {"$ref": "#/$defs/nonPlaceholder"}, "architecture": {"$ref": "#/$defs/nonPlaceholder"}, "cpu_model": {"$ref": "#/$defs/nonPlaceholder"}, "gpu_model": {"$ref": "#/$defs/nonPlaceholder"}, "gpu_backend": {"$ref": "#/$defs/nonPlaceholder"}, "gpu_driver_version": {"$ref": "#/$defs/nonPlaceholder"}, "storage_model": {"$ref": "#/$defs/nonPlaceholder"}, "storage_media_type": {"$ref": "#/$defs/nonPlaceholder"}, "filesystem": {"$ref": "#/$defs/nonPlaceholder"}, "display_physical_size": {"$ref": "#/$defs/nonPlaceholder"}, "power_plan": {"$ref": "#/$defs/nonPlaceholder"}, "power_source": {"$ref": "#/$defs/nonPlaceholder"}, "rustc": {"$ref": "#/$defs/nonPlaceholder"}, "storage_path_binding": {"$ref": "#/$defs/nonPlaceholder"}}}}]
+    },
+    "fixture": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "tier", "status", "source_kind", "source_locator", "source_revision", "source_git_tree_sha1", "content_sha256", "materialization_protocol", "materialization_command", "license_status", "consent_status", "sensitivity_status", "materialization_status", "file_count", "byte_count", "identity_evidence_ids", "license_evidence_ids", "consent_evidence_ids", "sensitivity_evidence_ids", "materialization_evidence_ids", "approval_ids", "missing_fields"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"}, "tier": {"enum": ["small", "default", "large"]}, "status": {"enum": ["unavailable", "candidate", "approved"]},
+        "source_kind": {"type": "string", "minLength": 1}, "source_locator": {"type": "string", "minLength": 1}, "source_revision": {"type": "string", "minLength": 1},
+        "source_git_tree_sha1": {"type": "string", "pattern": "^$|^[0-9a-f]{40}$"}, "content_sha256": {"type": "string", "pattern": "^$|^[0-9a-f]{64}$"},
+        "materialization_protocol": {"type": "string", "minLength": 1}, "materialization_command": {"type": "string", "minLength": 1},
+        "license_status": {"enum": ["pending", "approved"]}, "consent_status": {"enum": ["pending", "approved"]}, "sensitivity_status": {"enum": ["pending", "approved"]}, "materialization_status": {"enum": ["not-started", "approved"]},
+        "file_count": {"type": "integer", "minimum": 0, "maximum": 100000}, "byte_count": {"type": "integer", "minimum": 0},
+        "identity_evidence_ids": {"$ref": "#/$defs/ids"}, "license_evidence_ids": {"$ref": "#/$defs/ids"}, "consent_evidence_ids": {"$ref": "#/$defs/ids"}, "sensitivity_evidence_ids": {"$ref": "#/$defs/ids"}, "materialization_evidence_ids": {"$ref": "#/$defs/ids"}, "approval_ids": {"$ref": "#/$defs/ids"},
+        "missing_fields": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+      },
+      "allOf": [{"if": {"properties": {"status": {"const": "approved"}}}, "then": {"properties": {"content_sha256": {"$ref": "#/$defs/sha256"}, "materialization_protocol": {"$ref": "#/$defs/nonPlaceholder"}, "materialization_command": {"$ref": "#/$defs/nonPlaceholder"}, "license_status": {"const": "approved"}, "consent_status": {"const": "approved"}, "sensitivity_status": {"const": "approved"}, "materialization_status": {"const": "approved"}, "file_count": {"minimum": 1}, "byte_count": {"minimum": 1}, "identity_evidence_ids": {"minItems": 1}, "license_evidence_ids": {"minItems": 1}, "consent_evidence_ids": {"minItems": 1}, "sensitivity_evidence_ids": {"minItems": 1}, "materialization_evidence_ids": {"minItems": 1}, "approval_ids": {"minItems": 1}, "missing_fields": {"maxItems": 0}}}}]
+    },
+    "gate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "metric", "statistic", "direction", "threshold", "unit", "fixture_scope", "machine_scope", "authority"],
+      "properties": {"id": {"type": "string"}, "metric": {"type": "string"}, "statistic": {"enum": ["maximum", "p95"]}, "direction": {"const": "lte"}, "threshold": {"type": "number", "exclusiveMinimum": 0}, "unit": {"const": "milliseconds"}, "fixture_scope": {"type": "string"}, "machine_scope": {"const": "all-approved"}, "authority": {"const": "inherited-accepted-program"}},
+      "allOf": [
+        {"if": {"properties": {"id": {"const": "visible-open-progress"}}}, "then": {"properties": {"metric": {"const": "project_open_visible_progress_latency"}, "statistic": {"const": "maximum"}, "threshold": {"const": 250.0}, "fixture_scope": {"const": "all-approved"}, "machine_scope": {"const": "all-approved"}}}},
+        {"if": {"properties": {"id": {"const": "default-project-ready"}}}, "then": {"properties": {"metric": {"const": "default_project_ready_latency"}, "statistic": {"const": "maximum"}, "threshold": {"const": 5000.0}, "fixture_scope": {"const": "default"}, "machine_scope": {"const": "all-approved"}}}},
+        {"if": {"properties": {"id": {"const": "lens-focus-feedback"}}}, "then": {"properties": {"metric": {"const": "lens_or_focus_feedback_latency"}, "statistic": {"const": "p95"}, "threshold": {"const": 100.0}, "fixture_scope": {"const": "all-approved"}, "machine_scope": {"const": "all-approved"}}}},
+        {"if": {"properties": {"id": {"const": "incremental-diagnostics"}}}, "then": {"properties": {"metric": {"const": "incremental_diagnostics_latency"}, "statistic": {"const": "p95"}, "threshold": {"const": 250.0}, "fixture_scope": {"const": "all-approved"}, "machine_scope": {"const": "all-approved"}}}},
+        {"if": {"properties": {"id": {"const": "cancellation-acknowledgement"}}}, "then": {"properties": {"metric": {"const": "cancellation_acknowledgement_latency"}, "statistic": {"const": "maximum"}, "threshold": {"const": 250.0}, "fixture_scope": {"const": "all-approved"}, "machine_scope": {"const": "all-approved"}}}},
+        {"if": {"properties": {"id": {"const": "one-viewport-frame-time"}}}, "then": {"properties": {"metric": {"const": "interactive_world_viewport_frame_time"}, "statistic": {"const": "p95"}, "threshold": {"const": 16.67}, "fixture_scope": {"const": "reference"}, "machine_scope": {"const": "all-approved"}}}}
+      ]
+    },
+    "budget": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "budget_type", "tier", "status", "phase", "metric", "statistic", "unit", "raw_sample_evidence_ids", "protocol_evidence_ids", "approval_ids"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"}, "budget_type": {"enum": ["memory", "commit-duration"]}, "tier": {"enum": ["small", "default", "large"]},
+        "status": {"enum": ["not-measured", "deferred-to-pre-write-m2", "approved-measured"]}, "phase": {"enum": ["m1-selection", "pre-write-m2"]},
+        "metric": {"type": "string"}, "statistic": {"enum": ["maximum", "p95"]}, "unit": {"enum": ["bytes", "milliseconds"]},
+        "threshold_value": {"type": "number", "exclusiveMinimum": 0}, "observed_value": {"type": "number", "minimum": 0}, "outcome": {"enum": ["pass", "fail"]}, "sample_count_per_cache": {"type": "integer", "minimum": 1},
+        "trace_sha256": {"$ref": "#/$defs/sha256"}, "source_revision": {"$ref": "#/$defs/gitSha"}, "lock_sha256": {"$ref": "#/$defs/sha256"},
+        "fixture_id": {"$ref": "#/$defs/id"}, "fixture_sha256": {"$ref": "#/$defs/sha256"}, "machine_id": {"$ref": "#/$defs/id"},
+        "cache_states": {"type": "array", "const": ["cold", "warm"]}, "run_protocol_id": {"$ref": "#/$defs/id"}, "run_command": {"type": "string", "minLength": 1},
+        "raw_sample_evidence_ids": {"$ref": "#/$defs/ids"}, "protocol_evidence_ids": {"$ref": "#/$defs/ids"}, "approval_ids": {"$ref": "#/$defs/ids"}
+      },
+      "allOf": [
+        {"if": {"properties": {"id": {"const": "memory-small-peak"}}}, "then": {"properties": {"budget_type": {"const": "memory"}, "tier": {"const": "small"}, "metric": {"const": "peak_working_set_bytes"}, "statistic": {"const": "maximum"}, "unit": {"const": "bytes"}, "phase": {"const": "m1-selection"}}}},
+        {"if": {"properties": {"id": {"const": "memory-small-steady"}}}, "then": {"properties": {"budget_type": {"const": "memory"}, "tier": {"const": "small"}, "metric": {"const": "steady_state_working_set_bytes"}, "statistic": {"const": "maximum"}, "unit": {"const": "bytes"}, "phase": {"const": "m1-selection"}}}},
+        {"if": {"properties": {"id": {"const": "memory-default-peak"}}}, "then": {"properties": {"budget_type": {"const": "memory"}, "tier": {"const": "default"}, "metric": {"const": "peak_working_set_bytes"}, "statistic": {"const": "maximum"}, "unit": {"const": "bytes"}, "phase": {"const": "m1-selection"}}}},
+        {"if": {"properties": {"id": {"const": "memory-default-steady"}}}, "then": {"properties": {"budget_type": {"const": "memory"}, "tier": {"const": "default"}, "metric": {"const": "steady_state_working_set_bytes"}, "statistic": {"const": "maximum"}, "unit": {"const": "bytes"}, "phase": {"const": "m1-selection"}}}},
+        {"if": {"properties": {"id": {"const": "memory-large-peak"}}}, "then": {"properties": {"budget_type": {"const": "memory"}, "tier": {"const": "large"}, "metric": {"const": "peak_working_set_bytes"}, "statistic": {"const": "maximum"}, "unit": {"const": "bytes"}, "phase": {"const": "m1-selection"}}}},
+        {"if": {"properties": {"id": {"const": "memory-large-steady"}}}, "then": {"properties": {"budget_type": {"const": "memory"}, "tier": {"const": "large"}, "metric": {"const": "steady_state_working_set_bytes"}, "statistic": {"const": "maximum"}, "unit": {"const": "bytes"}, "phase": {"const": "m1-selection"}}}},
+        {"if": {"properties": {"id": {"const": "commit-duration-small"}}}, "then": {"properties": {"budget_type": {"const": "commit-duration"}, "tier": {"const": "small"}, "metric": {"const": "representative_adr0005_commit_duration"}, "statistic": {"const": "p95"}, "unit": {"const": "milliseconds"}, "phase": {"const": "pre-write-m2"}}}},
+        {"if": {"properties": {"id": {"const": "commit-duration-default"}}}, "then": {"properties": {"budget_type": {"const": "commit-duration"}, "tier": {"const": "default"}, "metric": {"const": "representative_adr0005_commit_duration"}, "statistic": {"const": "p95"}, "unit": {"const": "milliseconds"}, "phase": {"const": "pre-write-m2"}}}},
+        {"if": {"properties": {"id": {"const": "commit-duration-large"}}}, "then": {"properties": {"budget_type": {"const": "commit-duration"}, "tier": {"const": "large"}, "metric": {"const": "representative_adr0005_commit_duration"}, "statistic": {"const": "p95"}, "unit": {"const": "milliseconds"}, "phase": {"const": "pre-write-m2"}}}},
+        {"if": {"properties": {"status": {"const": "approved-measured"}}}, "then": {"required": ["threshold_value", "observed_value", "outcome", "sample_count_per_cache", "trace_sha256", "source_revision", "lock_sha256", "fixture_id", "fixture_sha256", "machine_id", "cache_states", "run_protocol_id", "run_command"], "properties": {"run_command": {"$ref": "#/$defs/nonPlaceholder"}, "raw_sample_evidence_ids": {"minItems": 2}, "protocol_evidence_ids": {"minItems": 1}, "approval_ids": {"minItems": 1}}}},
+        {"if": {"properties": {"status": {"enum": ["not-measured", "deferred-to-pre-write-m2"]}}}, "then": {"not": {"anyOf": [{"required": ["threshold_value"]}, {"required": ["observed_value"]}, {"required": ["sample_count_per_cache"]}, {"required": ["trace_sha256"]}, {"required": ["run_command"]}]}}}
+      ]
+    }
+  }
+}

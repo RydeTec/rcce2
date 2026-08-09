@@ -1,0 +1,15 @@
+{
+  "algorithm": "sha256",
+  "bindings": {
+    "environment.json": "7552eaac5622360f750ed3b6b7ec08924d9dac456b6335abbf4b2a02319c621e",
+    "frames.json": "b11582c4bbbad5d482587633d5dfa2e34829352a664d9e6c412dee39f997c3c7",
+    "gate-snapshot.json": "aed953f77d40f6d110bc18d02bab00aa7f367ec9aec596a8689f149d309b0a98",
+    "picks.json": "193389f6a25b961563bfcd720bc142d7bfb0604573a416ef00a0cd08375a141c",
+    "screenshot": "ab85b7f2a610035dea00038edcb3121323f05781a6e8c25ead99807385346271",
+    "summary.json": "9b34cee4695a43ff860cf0afdada3dd9e6e2715b55b683d2901a88a465d3271b"
+  },
+  "cargo_lock_sha256": "c55eca8575eb1646598c04dc8b2b1f6c9333e24de0b45ec905ab0c9d035826f4",
+  "executable_source_sha256": "8de40bf480449196f1ffa8c52d674646f07637a9fc7c2a537bf434e4de3eab48",
+  "schema": 1,
+  "trace_sha256": "01d3cdae1a416cf1abb0a8f1dd3de93e7a0a340ab28713ed27af1f2538d10301"
+}

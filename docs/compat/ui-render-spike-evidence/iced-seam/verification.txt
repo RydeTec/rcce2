@@ -1,0 +1,68 @@
+Revision under test:
+f1d1f393132fd342df8bb5c61368995aacf07174
+
+Toolchain:
+rustc 1.85.0 (4d91de4e4 2025-02-17)
+host: x86_64-unknown-linux-gnu
+LLVM version: 19.1.7
+
+BASELINE
+$ /home/ryan/.cargo/bin/rustup run 1.85.0 cargo test --manifest-path client-rs/Cargo.toml -p rcce-render --locked
+PASS: 10 passed; 0 failed (plus 0-test bin/doc targets)
+
+RED
+$ /home/ryan/.cargo/bin/rustup run 1.85.0 cargo test --manifest-path editor-rs/spikes/ui-render-iced-seam/Cargo.toml --locked
+EXPECTED FAIL: 3 passed; 1 failed; trybuild created the missing stderr fixture.
+Compiler result: E0308 for Adapter, Device, Queue, and TextureView; rustc states that two
+different versions of crate wgpu are being used. Exit 101.
+
+GREEN
+$ /home/ryan/.cargo/bin/rustup run 1.85.0 cargo test --manifest-path editor-rs/spikes/ui-render-iced-seam/Cargo.toml --locked
+PASS: 4 passed; 0 failed; compile-fail fixture ok; library and doc-test targets also pass.
+
+DELTA REGRESSION
+$ /home/ryan/.cargo/bin/rustup run 1.85.0 cargo test --manifest-path client-rs/Cargo.toml -p rcce-render --locked
+PASS: 10 passed; 0 failed (plus 0-test bin/doc targets).
+
+Runtime ownership counters: NotRun. The shared-resource seam does not compile, so constructing a
+second device merely to run counters would violate the experiment contract.
+
+Full candidate harness: NotRun. The seam stop rule rejected iced before two-viewport execution.
+
+OFFLINE BOUNDARY
+$ /home/ryan/.cargo/bin/rustup run 1.85.0 cargo test --manifest-path editor-rs/spikes/ui-render-iced-seam/Cargo.toml --locked --offline
+PASS on `x86_64-unknown-linux-gnu`: 4 passed; 0 failed; compile-fail fixture ok; library and
+doc-test targets also pass.
+
+$ /home/ryan/.cargo/bin/rustup run 1.85.0 cargo metadata --manifest-path editor-rs/spikes/ui-render-iced-seam/Cargo.toml --locked --offline --no-deps --format-version 1
+PASS: host-independent manifest graph emitted without fetching packages.
+
+$ /home/ryan/.cargo/bin/rustup run 1.85.0 cargo metadata --manifest-path editor-rs/spikes/ui-render-iced-seam/Cargo.toml --locked --offline --format-version 1
+EXPECTED ENVIRONMENT LIMIT: exit 101 because `android-activity` 0.6.1 is absent from the local
+cache and Cargo refuses the network under `--offline`. This all-target metadata limitation does
+not affect the executed Linux-host tests; it is not reported as an offline-complete dependency
+closure.
+
+LINT AND FORMAT
+$ /home/ryan/.cargo/bin/rustup run 1.85.0 cargo clippy --manifest-path editor-rs/spikes/ui-render-iced-seam/Cargo.toml --locked --offline --all-targets -- -D warnings
+PASS: no warnings.
+
+$ /home/ryan/.cargo/bin/rustup run stable cargo fmt --manifest-path editor-rs/spikes/ui-render-iced-seam/Cargo.toml -- --check
+PASS with rustfmt 1.8.0-stable (e408947bfd 2026-03-25).
+
+The pinned 1.85 toolchain does not have its rustfmt component installed. No toolchain component
+was installed unattended; the installed stable rustfmt performed the deterministic formatting,
+while all compilation, tests, and clippy checks used exact Rust 1.85.
+
+PROVENANCE AND HYGIENE
+$ sha256sum -c docs/compat/ui-render-spike-evidence/iced-seam/subject-tree.sha256
+PASS: all 13 decision-bearing source/evidence files match.
+
+$ sha256sum docs/compat/ui-render-spike-evidence/iced-seam/subject-tree.sha256
+PASS: aggregate matches `provenance.json`.
+
+$ python3 -m json.tool docs/compat/ui-render-spike-evidence/iced-seam/provenance.json
+PASS.
+
+$ git diff --check
+PASS.

@@ -1,0 +1,26 @@
+{
+  "base_revision": "f1d1f393132fd342df8bb5c61368995aacf07174",
+  "candidate": "iced 0.13.1",
+  "renderer": "iced_wgpu 0.13.5",
+  "toolchain": "rustc 1.85.0 (4d91de4e4 2025-02-17)",
+  "lock_adjustment": "wayland-protocols 0.32.13 -> 0.32.12 for Rust 1.85",
+  "subject_tree": {
+    "path": "docs/compat/ui-render-spike-evidence/iced-seam/subject-tree.sha256",
+    "sha256": "47f9d08799c553076208e6146d95f461a8e05856eb22944618ad69463bdc0e2a",
+    "excludes": [
+      "docs/compat/ui-render-spike-evidence/iced-seam/provenance.json",
+      "docs/compat/ui-render-spike-evidence/iced-seam/subject-tree.sha256"
+    ]
+  },
+  "registry_source_inputs": {
+    "iced_wgpu-0.13.5/Cargo.toml": "543153a73e8ceba8a0fb5bbff2966e818e7773f32905ae627aaab735ab8550d1",
+    "iced_wgpu-0.13.5/src/engine.rs": "195200dbd6b2d7c3ce87e2808af81ae997758a760a3650c81d99c60348e5b798",
+    "iced_wgpu-0.13.5/src/lib.rs": "93693d16e20579a177274594a1ce4088d885eb4c77ce01723e3f0b332a6f263f"
+  },
+  "outcome": "rejected_at_compile_time_seam",
+  "test_process_executed": true,
+  "gpu_runtime_executed": false,
+  "second_device_created": false,
+  "unsafe_bridge_used": false,
+  "production_renderer_changed": false
+}

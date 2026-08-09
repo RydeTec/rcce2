@@ -1,0 +1,6 @@
+[2026-07-21T07:28:24Z WARN  wgpu_hal::vulkan::conv] Unrecognized present mode 1000361000
+[2026-07-21T07:28:24Z WARN  wgpu_hal::vulkan::conv] Unrecognized present mode 1000361000
+[2026-07-21T07:28:24Z WARN  wgpu_hal::vulkan::conv] Unrecognized present mode 1000361000
+[2026-07-21T07:28:24Z WARN  wgpu_hal::vulkan::conv] Unrecognized present mode 1000361000
+[2026-07-21T07:28:24Z WARN  wgpu_hal::vulkan::conv] Unrecognized present mode 1000361000
+[2026-07-21T07:28:24Z WARN  wgpu_hal::vulkan::conv] Unrecognized present mode 1000361000

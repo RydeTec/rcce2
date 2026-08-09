@@ -96,20 +96,70 @@ pub struct ActorCatalog {
     pub templates: HashMap<u16, ActorTemplate>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RawSpan {
+    pub start: usize,
+    pub end: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ActorRecordEvidence {
+    pub id: u16,
+    pub span: RawSpan,
+    pub race_span: RawSpan,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ActorParseCompletion {
+    Complete,
+    Truncated { offset: usize },
+}
+
+#[derive(Debug, Clone)]
+pub struct ActorParseEvidence {
+    pub value: ActorCatalog,
+    pub records: Vec<ActorRecordEvidence>,
+    pub completion: ActorParseCompletion,
+}
+
 impl ActorCatalog {
     pub fn parse(data: &[u8]) -> Result<ActorCatalog, ReadError> {
+        Ok(Self::parse_with_evidence(data).value)
+    }
+
+    /// Parse while retaining additive byte-span and completion evidence.
+    /// Existing callers keep the same tolerant [`Self::parse`] view.
+    pub fn parse_with_evidence(data: &[u8]) -> ActorParseEvidence {
         let mut r = BlitzReader::new(data);
         let mut templates = HashMap::new();
+        let mut records = Vec::new();
+        let mut completion = ActorParseCompletion::Complete;
         // Records run until EOF; a parse error means we hit the tail/corruption.
         while !r.eof() {
+            let start = r.position();
             match parse_record(&mut r) {
-                Ok(t) => {
+                Ok((t, race_span)) => {
+                    records.push(ActorRecordEvidence {
+                        id: t.id,
+                        span: RawSpan {
+                            start,
+                            end: r.position(),
+                        },
+                        race_span,
+                    });
                     templates.insert(t.id, t);
                 }
-                Err(_) => break,
+                Err(_) => {
+                    completion = ActorParseCompletion::Truncated { offset: start };
+                    break;
+                }
             }
         }
-        Ok(ActorCatalog { templates })
+        ActorParseEvidence {
+            value: ActorCatalog { templates },
+            records,
+            completion,
+        }
     }
 
     /// Locomotion environment for a template `id`, or [`environment::AMPHIBIOUS`]
@@ -117,7 +167,10 @@ impl ActorCatalog {
     /// soft-default the swim/anim code wants for an unresolved actor (never
     /// spuriously blocks movement or forces a swim clip). MOVE-8 / ANIM-4.
     pub fn environment_for(&self, id: u16) -> u8 {
-        self.templates.get(&id).map(|t| t.environment).unwrap_or(environment::AMPHIBIOUS)
+        self.templates
+            .get(&id)
+            .map(|t| t.environment)
+            .unwrap_or(environment::AMPHIBIOUS)
     }
 
     /// Base body mesh id for an actor of `id` with `gender` (0 male / 1 female).
@@ -138,7 +191,11 @@ impl ActorCatalog {
     /// unset (`65535`). Mirrors `mesh_for`'s soft-fail.
     pub fn speech_id(&self, id: u16, gender: u8, slot: usize) -> Option<u16> {
         let t = self.templates.get(&id)?;
-        let arr = if gender == 0 { &t.male_speech } else { &t.female_speech };
+        let arr = if gender == 0 {
+            &t.male_speech
+        } else {
+            &t.female_speech
+        };
         arr.get(slot).copied().filter(|&s| s != 65535)
     }
 }
@@ -152,9 +209,14 @@ pub mod speech {
     pub const DEATH: usize = 9;
 }
 
-fn parse_record(r: &mut BlitzReader) -> Result<ActorTemplate, ReadError> {
+fn parse_record(r: &mut BlitzReader) -> Result<(ActorTemplate, RawSpan), ReadError> {
     let id = r.read_short_u()?;
+    let race_prefix = r.position();
     let race = r.read_string(256)?;
+    let race_span = RawSpan {
+        start: race_prefix + 4,
+        end: r.position(),
+    };
     let class = r.read_string(256)?;
     let _description = r.read_string(4096)?;
     let _start_area = r.read_string(256)?;
@@ -221,32 +283,35 @@ fn parse_record(r: &mut BlitzReader) -> Result<ActorTemplate, ReadError> {
     let _xp_multiplier = r.read_int()?;
     let _poly_collision = r.read_byte()?;
 
-    Ok(ActorTemplate {
-        id,
-        race,
-        class,
-        attr_value,
-        attr_max,
-        scale,
-        radius,
-        mesh_ids,
-        m_anim_set,
-        f_anim_set,
-        beard_ids,
-        male_hair_ids,
-        female_hair_ids,
-        male_face_ids,
-        female_face_ids,
-        male_body_ids,
-        female_body_ids,
-        male_speech,
-        female_speech,
-        genders,
-        playable,
-        aggressiveness,
-        blood_tex,
-        environment,
-    })
+    Ok((
+        ActorTemplate {
+            id,
+            race,
+            class,
+            attr_value,
+            attr_max,
+            scale,
+            radius,
+            mesh_ids,
+            m_anim_set,
+            f_anim_set,
+            beard_ids,
+            male_hair_ids,
+            female_hair_ids,
+            male_face_ids,
+            female_face_ids,
+            male_body_ids,
+            female_body_ids,
+            male_speech,
+            female_speech,
+            genders,
+            playable,
+            aggressiveness,
+            blood_tex,
+            environment,
+        },
+        race_span,
+    ))
 }
 
 #[cfg(test)]
@@ -255,7 +320,10 @@ mod tests {
 
     #[test]
     fn speech_id_resolves_per_gender_and_soft_fails() {
-        let mut t = ActorTemplate { id: 3, ..Default::default() };
+        let mut t = ActorTemplate {
+            id: 3,
+            ..Default::default()
+        };
         t.male_speech[speech::ATTACK1] = 100;
         t.male_speech[speech::DEATH] = 105;
         t.female_speech[speech::ATTACK1] = 200;
@@ -278,7 +346,11 @@ mod tests {
     fn blood_tex_defaults_to_none() {
         // Captured from Actors.dat; default 0 = no blood (the gate is `> 0`).
         assert_eq!(ActorTemplate::default().blood_tex, 0);
-        let t = ActorTemplate { id: 5, blood_tex: 42, ..Default::default() };
+        let t = ActorTemplate {
+            id: 5,
+            blood_tex: 42,
+            ..Default::default()
+        };
         assert_eq!(t.blood_tex, 42);
     }
 
@@ -288,9 +360,30 @@ mod tests {
     #[test]
     fn environment_resolves_and_defaults_amphibious() {
         let mut cat = ActorCatalog::default();
-        cat.templates.insert(1, ActorTemplate { id: 1, environment: environment::WALK, ..Default::default() });
-        cat.templates.insert(2, ActorTemplate { id: 2, environment: environment::AMPHIBIOUS, ..Default::default() });
-        cat.templates.insert(3, ActorTemplate { id: 3, environment: environment::FLY, ..Default::default() });
+        cat.templates.insert(
+            1,
+            ActorTemplate {
+                id: 1,
+                environment: environment::WALK,
+                ..Default::default()
+            },
+        );
+        cat.templates.insert(
+            2,
+            ActorTemplate {
+                id: 2,
+                environment: environment::AMPHIBIOUS,
+                ..Default::default()
+            },
+        );
+        cat.templates.insert(
+            3,
+            ActorTemplate {
+                id: 3,
+                environment: environment::FLY,
+                ..Default::default()
+            },
+        );
         assert_eq!(cat.environment_for(1), environment::WALK);
         assert_eq!(cat.environment_for(2), environment::AMPHIBIOUS);
         assert_eq!(cat.environment_for(3), environment::FLY);

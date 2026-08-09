@@ -14,7 +14,9 @@
 //! each parser below. The index is read with `SeekFile F, ID * 4`
 //! (`Media.bb:806`), so the header is exactly `65535 * 4 = 262_140` bytes.
 
+use crate::actors::RawSpan;
 use crate::reader::{BlitzReader, ReadError};
+use std::collections::HashMap;
 
 /// Number of addressable IDs (0..=65534). The index has one i32 per ID.
 pub const CATALOG_SLOTS: usize = 65535;
@@ -42,6 +44,45 @@ pub struct MeshCatalog {
     pub entries: Vec<MeshEntry>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MeshSlotDisposition {
+    Gap,
+    Record { offset: usize },
+    Alias { target: u16 },
+    InvalidOffset(i32),
+    DecodeFailed { offset: usize },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MeshRecordEvidence {
+    pub id: u16,
+    pub record_span: RawSpan,
+    pub filename_span: RawSpan,
+}
+
+#[derive(Debug, Clone)]
+pub struct MeshParseEvidence {
+    pub value: MeshCatalog,
+    pub skipped: Vec<(u16, &'static str)>,
+    pub records: Vec<MeshRecordEvidence>,
+    occupied_slots: Vec<(u16, MeshSlotDisposition)>,
+}
+
+impl MeshParseEvidence {
+    #[must_use]
+    pub fn slot(&self, id: u16) -> MeshSlotDisposition {
+        self.occupied_slots
+            .binary_search_by_key(&id, |(slot, _)| *slot)
+            .map(|index| self.occupied_slots[index].1)
+            .unwrap_or(MeshSlotDisposition::Gap)
+    }
+
+    #[must_use]
+    pub fn occupied_slots(&self) -> &[(u16, MeshSlotDisposition)] {
+        &self.occupied_slots
+    }
+}
+
 impl MeshCatalog {
     /// Parse a whole `Meshes.dat` image.
     ///
@@ -51,6 +92,15 @@ impl MeshCatalog {
     /// engine, where `GetMesh` simply returns 0 for a bad entry and the rest of
     /// the world still loads. Skips are returned for the caller to log.
     pub fn parse(data: &[u8]) -> Result<ParsedCatalog<MeshCatalog>, ReadError> {
+        let evidence = Self::parse_with_evidence(data)?;
+        Ok(ParsedCatalog {
+            value: evidence.value,
+            skipped: evidence.skipped,
+        })
+    }
+
+    /// Parse with additive record spans and sparse-slot topology evidence.
+    pub fn parse_with_evidence(data: &[u8]) -> Result<MeshParseEvidence, ReadError> {
         if data.len() < INDEX_BYTES {
             return Err(ReadError::UnexpectedEof {
                 offset: 0,
@@ -60,6 +110,9 @@ impl MeshCatalog {
         }
         let mut entries = Vec::new();
         let mut skipped = Vec::new();
+        let mut records = Vec::new();
+        let mut occupied_slots = Vec::new();
+        let mut first_by_offset = HashMap::new();
 
         for id in 0..CATALOG_SLOTS {
             let i = id * 4;
@@ -69,21 +122,48 @@ impl MeshCatalog {
             }
             if offset < 0 {
                 skipped.push((id as u16, "negative offset"));
+                occupied_slots.push((id as u16, MeshSlotDisposition::InvalidOffset(offset)));
                 continue;
             }
+            let disposition = if let Some(target) = first_by_offset.get(&offset).copied() {
+                MeshSlotDisposition::Alias { target }
+            } else {
+                first_by_offset.insert(offset, id as u16);
+                MeshSlotDisposition::Record {
+                    offset: offset as usize,
+                }
+            };
+            occupied_slots.push((id as u16, disposition));
             match Self::parse_record(data, id as u16, offset as usize) {
-                Ok(entry) => entries.push(entry),
-                Err(_) => skipped.push((id as u16, "record decode failed")),
+                Ok((entry, record)) => {
+                    entries.push(entry);
+                    records.push(record);
+                }
+                Err(_) => {
+                    skipped.push((id as u16, "record decode failed"));
+                    let slot = &mut occupied_slots.last_mut().expect("just inserted slot").1;
+                    if matches!(slot, MeshSlotDisposition::Record { .. }) {
+                        *slot = MeshSlotDisposition::DecodeFailed {
+                            offset: offset as usize,
+                        };
+                    }
+                }
             }
         }
 
-        Ok(ParsedCatalog {
+        Ok(MeshParseEvidence {
             value: MeshCatalog { entries },
             skipped,
+            records,
+            occupied_slots,
         })
     }
 
-    fn parse_record(data: &[u8], id: u16, offset: usize) -> Result<MeshEntry, ReadError> {
+    fn parse_record(
+        data: &[u8],
+        id: u16,
+        offset: usize,
+    ) -> Result<(MeshEntry, MeshRecordEvidence), ReadError> {
         let mut r = BlitzReader::new(data);
         r.seek(offset)?;
         let is_anim = r.read_byte()? != 0;
@@ -92,15 +172,27 @@ impl MeshCatalog {
         let y = r.read_float()?;
         let z = r.read_float()?;
         let shader = r.read_short()?;
+        let filename_prefix = r.position();
         let filename = r.read_string(260)?;
-        Ok(MeshEntry {
-            id,
-            is_anim,
-            scale,
-            offset: [x, y, z],
-            shader,
-            filename,
-        })
+        let end = r.position();
+        Ok((
+            MeshEntry {
+                id,
+                is_anim,
+                scale,
+                offset: [x, y, z],
+                shader,
+                filename,
+            },
+            MeshRecordEvidence {
+                id,
+                record_span: RawSpan { start: offset, end },
+                filename_span: RawSpan {
+                    start: filename_prefix + 4,
+                    end,
+                },
+            },
+        ))
     }
 
     /// Look up an entry by ID (linear; entries are ID-sorted so callers that
@@ -222,7 +314,10 @@ impl MusicCatalog {
             let parsed = (|| {
                 r.seek(offset as usize)?;
                 let filename = r.read_string(260)?;
-                Ok::<_, ReadError>(MusicEntry { id: id as u16, filename })
+                Ok::<_, ReadError>(MusicEntry {
+                    id: id as u16,
+                    filename,
+                })
             })();
             match parsed {
                 Ok(e) if !e.filename.is_empty() => entries.push(e),
@@ -261,7 +356,9 @@ impl SoundEntry {
 
     /// The filename with any trailing 3D-marker byte removed (usable as a path).
     pub fn clean_name(&self) -> &str {
-        self.filename.strip_suffix('\u{1}').unwrap_or(&self.filename)
+        self.filename
+            .strip_suffix('\u{1}')
+            .unwrap_or(&self.filename)
     }
 }
 
@@ -295,7 +392,10 @@ impl SoundCatalog {
             let parsed = (|| {
                 r.seek(offset as usize)?;
                 let filename = r.read_string(260)?;
-                Ok::<_, ReadError>(SoundEntry { id: id as u16, filename })
+                Ok::<_, ReadError>(SoundEntry {
+                    id: id as u16,
+                    filename,
+                })
             })();
             match parsed {
                 Ok(e) if !e.filename.is_empty() => entries.push(e),

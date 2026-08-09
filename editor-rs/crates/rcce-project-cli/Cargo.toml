@@ -1,0 +1,15 @@
+[package]
+name = "rcce-project-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+description = "Sole project and migration CLI composition root for RCCE."
+
+[[bin]]
+name = "rcce-project"
+path = "src/main.rs"
+
+[lints]
+workspace = true

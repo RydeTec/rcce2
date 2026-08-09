@@ -16,7 +16,10 @@ pub mod rng;
 pub mod update_files;
 pub mod world;
 
-pub use actor_catalog::{ActorCatalog, ActorTemplate};
+pub use actor_catalog::{
+    ActorCatalog, ActorParseCompletion, ActorParseEvidence, ActorRecordEvidence, ActorTemplate,
+    RawSpan,
+};
 pub use area::{Area, Portal, SpawnPoint};
 pub use environment::Environment;
 pub use faction::FactionData;

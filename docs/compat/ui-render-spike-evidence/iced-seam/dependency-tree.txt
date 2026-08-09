@@ -1,0 +1,23 @@
+Exact manifest: editor-rs/spikes/ui-render-iced-seam/Cargo.toml
+Exact lock: editor-rs/spikes/ui-render-iced-seam/Cargo.lock
+
+$ cargo tree --manifest-path editor-rs/spikes/ui-render-iced-seam/Cargo.toml --locked -i wgpu@0.19.4
+wgpu v0.19.4
+├── iced_glyphon v0.6.0
+│   └── iced_wgpu v0.13.5
+│       ├── iced_renderer v0.13.0
+│       │   ├── iced v0.13.1
+│       │   │   └── rcce-ui-render-iced-seam v0.0.0
+│       │   └── iced_widget v0.13.4
+│       │       └── iced v0.13.1
+│       └── rcce-ui-render-iced-seam v0.0.0
+└── iced_wgpu v0.13.5
+
+$ cargo tree --manifest-path editor-rs/spikes/ui-render-iced-seam/Cargo.toml --locked -i wgpu@22.1.0
+wgpu v22.1.0
+├── rcce-render v0.1.0
+│   └── rcce-ui-render-iced-seam v0.0.0
+└── rcce-ui-render-iced-seam v0.0.0
+
+Lock narrowing for exact Rust 1.85:
+wayland-protocols 0.32.13 (requires Rust 1.86) -> 0.32.12

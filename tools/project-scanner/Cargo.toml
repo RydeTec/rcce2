@@ -1,0 +1,37 @@
+[package]
+name = "rcce-project-scanner"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+description = "Read-only, no-follow validator for the RCCE compatibility corpus"
+
+[dependencies]
+rcce-project = { path = "../../editor-rs/crates/rcce-project" }
+clap = { version = "4.5", features = ["derive"] }
+hex = "0.4"
+jsonschema = { version = "=0.18.3", default-features = false, features = ["draft202012"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+thiserror = "2"
+toml = "0.8"
+unicode-normalization = "0.1"
+# jsonschema 0.18 declares broad transitive ranges whose 2026 newest releases
+# exceed the repository's accepted Rust 1.85 MSRV. Keep the compatible resolver
+# choices explicit so a fresh lockfile cannot silently raise the toolchain.
+idna = "=1.0.3"
+idna_adapter = "=1.1.0"
+time = "=0.3.41"
+url = "=2.5.4"
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints.rust]
+unsafe_code = "deny"
+
+[lints.clippy]
+too_many_arguments = "allow"
+type_complexity = "allow"
+field_reassign_with_default = "allow"

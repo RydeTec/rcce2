@@ -1,0 +1,42 @@
+Baseline commit: e1460ae7fbb3ac0fe0fb6fd3167a878d20a1ad20
+Branch: coreyrdean/super-editor-m1-p06-ui-spike
+
+GREEN: rustup run 1.85.0 cargo clippy --manifest-path editor-rs/spikes/ui-render/Cargo.toml --all-targets --locked -- -D warnings
+Result: no warnings.
+
+GREEN: rustup run 1.85.0 cargo test --manifest-path editor-rs/spikes/ui-render/Cargo.toml --all-targets --locked
+Result: 8 passed; 0 failed (plus empty lib/bin unit targets).
+
+The eight contracts cover checked-in trace equality/seed, full matrix declaration, exact
+snapshot-vs-input deltas, reduced-motion camera behavior, picking IDs, DPI physical extents,
+percentiles, and fail-closed candidate selection.
+
+GREEN: Windows rustup run 1.85.0 cargo.exe build --release --manifest-path <WSL UNC>/editor-rs/spikes/ui-render/Cargo.toml --locked
+Result: optimized executable built with rustc 1.85.0.
+
+EXECUTED: native Windows standard-v1 matrix
+Cases: one and two active viewports at deterministic 100/150/200 percent egui scale override.
+Each case: 300 warmup frames plus 1800 measured frames, warm cache, raw 100 ms memory samples.
+Result: six processes wrote completion markers and evidence; all measured p95 frame times exceed
+the inherited 16.67 ms gate. This is a gate failure, not a verification-command failure.
+
+Frozen identity shared by all six retained runs and their environment, summary, memory summary,
+screenshot sidecar, and per-run provenance files:
+- executable_source_sha256: 8de40bf480449196f1ffa8c52d674646f07637a9fc7c2a537bf434e4de3eab48
+- cargo_lock_sha256: c55eca8575eb1646598c04dc8b2b1f6c9333e24de0b45ec905ab0c9d035826f4
+- trace_sha256: 01d3cdae1a416cf1abb0a8f1dd3de93e7a0a340ab28713ed27af1f2538d10301
+
+The executable-source aggregate includes Cargo.toml, executable Rust modules, and WGSL only.
+Tests, runner scripts, reports, adjudication, evidence, and the standalone provenance utility are
+excluded because they are not compiled into the measured executable.
+
+GREEN: rustup run 1.85.0 cargo test --manifest-path client-rs/Cargo.toml -p rcce-render --locked
+Result: 10 passed; 0 failed.
+
+FAIL: native Linux WSLg runtime
+Result: ten frames and evidence written, then process exit 139 after EGL/ZINK errors.
+
+GREEN: installed stable rustfmt --edition 2021 --check on every spike Rust source/test file.
+Rust 1.85's rustfmt component is absent and was not installed unattended.
+
+GREEN: git diff --check

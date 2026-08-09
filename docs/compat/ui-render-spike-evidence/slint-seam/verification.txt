@@ -1,0 +1,68 @@
+Revision under test:
+dbb122a109ec73d4fa7e6be8a40b08a2479741fc
+
+Toolchain:
+rustc 1.85.0 (4d91de4e4 2025-02-17)
+host: x86_64-unknown-linux-gnu
+LLVM version: 19.1.7
+cargo 1.85.0 (d73d2caf9 2024-12-31)
+
+BASELINE
+$ /home/ryan/.cargo/bin/rustup run 1.85.0 cargo test --manifest-path client-rs/Cargo.toml -p rcce-render --locked
+PASS: 10 passed; 0 failed (plus 0-test bin/doc targets).
+
+MSRV LOCK NARROWING
+The first unpinned resolution stopped before compilation because newer transitive patches declared
+Rust 1.86-1.90. Cargo.lock was narrowed to the exact compatible versions listed in seam-report.md.
+No production manifest was changed.
+
+SUPPORTED FEATURE CONTRACT
+The probe enables `backend-winit`, `renderer-femtovg-wgpu`, `accessibility`, and
+`unstable-wgpu-26`. Both positive and negative manual configurations are passed through
+`BackendSelector::require_wgpu_26`; no backend selection or GPU runtime is executed.
+
+RED
+$ /home/ryan/.cargo/bin/rustup run 1.85.0 cargo test --manifest-path editor-rs/spikes/ui-render-slint-seam/Cargo.toml --locked
+EXPECTED FAIL: 4 passed; 1 failed; trybuild created the missing stderr fixture.
+Compiler result: E0308 for Instance, Adapter, Device, and Queue; E0277 for Texture. Exit 101.
+The four passing contracts include the positive wgpu 26 backend-selector entry point. The wgpu 22
+fixture failed before that selector could be formed. Duration: 208.25 seconds.
+
+GREEN
+$ /home/ryan/.cargo/bin/rustup run 1.85.0 cargo test --manifest-path editor-rs/spikes/ui-render-slint-seam/Cargo.toml --locked
+PASS: 5 passed; 0 failed; compile-fail fixture ok; library and doc-test targets also pass.
+The supported backend-selector positive contract and reviewed negative diagnostic both ran.
+
+LINT AND FORMAT
+$ /home/ryan/.cargo/bin/rustup run 1.85.0 cargo clippy --manifest-path editor-rs/spikes/ui-render-slint-seam/Cargo.toml --locked --all-targets -- -D warnings
+PASS: no warnings.
+
+$ /home/ryan/.cargo/bin/rustup run stable cargo fmt --manifest-path editor-rs/spikes/ui-render-slint-seam/Cargo.toml -- --check
+PASS with rustfmt 1.8.0-stable (e408947bfd 2026-03-25).
+
+The pinned 1.85 toolchain does not have its rustfmt component installed. No toolchain component
+was installed unattended; all compilation, tests, and clippy checks used exact Rust 1.85.
+
+DELTA REGRESSION
+$ /home/ryan/.cargo/bin/rustup run 1.85.0 cargo test --manifest-path client-rs/Cargo.toml -p rcce-render --locked
+PASS: 10 passed; 0 failed (plus 0-test bin/doc targets).
+
+RUNTIME BOUNDARY
+Runtime ownership counters: NotRun. The shared-resource seam does not compile, so constructing a
+second device merely to run counters would violate the experiment contract.
+
+Full candidate harness: NotRun. The seam stop rule rejected Slint before two-viewport execution.
+The `unstable-wgpu-26` API may change in a Slint minor release; this result is exact to 1.13.1.
+
+DEPENDENCY AND PROVENANCE
+$ /home/ryan/.cargo/bin/rustup run 1.85.0 cargo tree --manifest-path editor-rs/spikes/ui-render-slint-seam/Cargo.toml --locked -e normal
+PASS: exact graph recorded in dependency-tree.txt; both wgpu 22.1.0 and wgpu 26.0.1 are present.
+
+$ sha256sum -c docs/compat/ui-render-spike-evidence/slint-seam/subject-tree.sha256
+PASS: all 14 decision-bearing source/evidence files match.
+
+$ python3 -m json.tool docs/compat/ui-render-spike-evidence/slint-seam/provenance.json
+PASS.
+
+$ git diff --check
+PASS.

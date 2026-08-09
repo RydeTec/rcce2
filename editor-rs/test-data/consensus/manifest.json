@@ -1,0 +1,473 @@
+{
+  "fixtures": {
+    "duplicate-id": {
+      "actor_records": [
+        {
+          "id": 12,
+          "race": [
+            6,
+            11
+          ],
+          "record": [
+            0,
+            454
+          ]
+        },
+        {
+          "id": 12,
+          "race": [
+            460,
+            466
+          ],
+          "record": [
+            454,
+            909
+          ]
+        }
+      ],
+      "expected": "duplicate actor IDs remain record-count evidence but force provisional consensus",
+      "mesh_records": []
+    },
+    "happy": {
+      "actor_records": [
+        {
+          "id": 1,
+          "race": [
+            6,
+            12
+          ],
+          "record": [
+            0,
+            455
+          ]
+        },
+        {
+          "id": 2,
+          "race": [
+            461,
+            466
+          ],
+          "record": [
+            455,
+            909
+          ]
+        },
+        {
+          "id": 3,
+          "race": [
+            915,
+            926
+          ],
+          "record": [
+            909,
+            1369
+          ]
+        },
+        {
+          "id": 4,
+          "race": [
+            1375,
+            1379
+          ],
+          "record": [
+            1369,
+            1822
+          ]
+        }
+      ],
+      "expected": "four actors; actor 1 base mesh None; actor 2 present; actor 3 missing catalog slot; actor 4 missing physical",
+      "mesh_records": [
+        {
+          "filename": [
+            262163,
+            262171
+          ],
+          "id": 7,
+          "record": [
+            262140,
+            262171
+          ]
+        },
+        {
+          "filename": [
+            262194,
+            262202
+          ],
+          "id": 8,
+          "record": [
+            262171,
+            262202
+          ]
+        }
+      ]
+    },
+    "missing-catalog": {
+      "actor_records": [
+        {
+          "id": 1,
+          "race": [
+            6,
+            12
+          ],
+          "record": [
+            0,
+            455
+          ]
+        },
+        {
+          "id": 2,
+          "race": [
+            461,
+            466
+          ],
+          "record": [
+            455,
+            909
+          ]
+        },
+        {
+          "id": 3,
+          "race": [
+            915,
+            926
+          ],
+          "record": [
+            909,
+            1369
+          ]
+        },
+        {
+          "id": 4,
+          "race": [
+            1375,
+            1379
+          ],
+          "record": [
+            1369,
+            1822
+          ]
+        }
+      ],
+      "expected": "catalog absent",
+      "mesh_records": []
+    },
+    "missing-physical": {
+      "actor_records": [
+        {
+          "id": 1,
+          "race": [
+            6,
+            12
+          ],
+          "record": [
+            0,
+            455
+          ]
+        },
+        {
+          "id": 2,
+          "race": [
+            461,
+            466
+          ],
+          "record": [
+            455,
+            909
+          ]
+        },
+        {
+          "id": 3,
+          "race": [
+            915,
+            926
+          ],
+          "record": [
+            909,
+            1369
+          ]
+        },
+        {
+          "id": 4,
+          "race": [
+            1375,
+            1379
+          ],
+          "record": [
+            1369,
+            1822
+          ]
+        }
+      ],
+      "expected": "catalog present; physical files absent",
+      "mesh_records": [
+        {
+          "filename": [
+            262163,
+            262171
+          ],
+          "id": 7,
+          "record": [
+            262140,
+            262171
+          ]
+        },
+        {
+          "filename": [
+            262194,
+            262202
+          ],
+          "id": 8,
+          "record": [
+            262171,
+            262202
+          ]
+        }
+      ]
+    },
+    "nested-paths": {
+      "actor_records": [
+        {
+          "id": 20,
+          "race": [
+            6,
+            19
+          ],
+          "record": [
+            0,
+            462
+          ]
+        },
+        {
+          "id": 21,
+          "race": [
+            468,
+            481
+          ],
+          "record": [
+            462,
+            924
+          ]
+        }
+      ],
+      "expected": "nested backslash present/missing lookups plus entry 22 unreferenced by selected actor-base evidence",
+      "mesh_records": [
+        {
+          "filename": [
+            262163,
+            262181
+          ],
+          "id": 20,
+          "record": [
+            262140,
+            262181
+          ]
+        },
+        {
+          "filename": [
+            262204,
+            262220
+          ],
+          "id": 21,
+          "record": [
+            262181,
+            262220
+          ]
+        },
+        {
+          "filename": [
+            262243,
+            262252
+          ],
+          "id": 22,
+          "record": [
+            262220,
+            262252
+          ]
+        }
+      ]
+    },
+    "nested-traversal": {
+      "actor_records": [
+        {
+          "id": 22,
+          "race": [
+            6,
+            15
+          ],
+          "record": [
+            0,
+            458
+          ]
+        }
+      ],
+      "expected": "legacy traversal path preserves raw bytes and remains provisional",
+      "mesh_records": [
+        {
+          "filename": [
+            262163,
+            262177
+          ],
+          "id": 22,
+          "record": [
+            262140,
+            262177
+          ]
+        }
+      ]
+    },
+    "provisional": {
+      "actor_records": [
+        {
+          "id": 1,
+          "race": [
+            6,
+            12
+          ],
+          "record": [
+            0,
+            455
+          ]
+        },
+        {
+          "id": 2,
+          "race": [
+            461,
+            471
+          ],
+          "record": [
+            455,
+            914
+          ]
+        },
+        {
+          "id": 65535,
+          "race": [
+            920,
+            924
+          ],
+          "record": [
+            914,
+            1367
+          ]
+        },
+        {
+          "id": 3,
+          "race": [
+            1373,
+            1378
+          ],
+          "record": [
+            1367,
+            1821
+          ]
+        }
+      ],
+      "expected": "preserve high-id disagreement, non-UTF8 raw/display split, truncated tail, alias, gap, selected-slice-unreferenced entry, and invalid offset",
+      "mesh_records": [
+        {
+          "filename": [
+            262163,
+            262173
+          ],
+          "id": 7,
+          "record": [
+            262140,
+            262173
+          ]
+        },
+        {
+          "filename": [
+            262196,
+            262213
+          ],
+          "id": 10,
+          "record": [
+            262173,
+            262213
+          ]
+        }
+      ]
+    },
+    "unique-case": {
+      "actor_records": [
+        {
+          "id": 1,
+          "race": [
+            6,
+            12
+          ],
+          "record": [
+            0,
+            455
+          ]
+        },
+        {
+          "id": 2,
+          "race": [
+            461,
+            466
+          ],
+          "record": [
+            455,
+            909
+          ]
+        },
+        {
+          "id": 3,
+          "race": [
+            915,
+            926
+          ],
+          "record": [
+            909,
+            1369
+          ]
+        },
+        {
+          "id": 4,
+          "race": [
+            1375,
+            1379
+          ],
+          "record": [
+            1369,
+            1822
+          ]
+        }
+      ],
+      "expected": "unique portable case resolution",
+      "mesh_records": [
+        {
+          "filename": [
+            262163,
+            262171
+          ],
+          "id": 7,
+          "record": [
+            262140,
+            262171
+          ]
+        },
+        {
+          "filename": [
+            262194,
+            262202
+          ],
+          "id": 8,
+          "record": [
+            262171,
+            262202
+          ]
+        }
+      ]
+    }
+  },
+  "license": "MIT",
+  "limits": {
+    "max_file_bytes": 300000,
+    "max_files": 32,
+    "max_total_bytes": 2000000
+  },
+  "provenance": "Entirely synthetic; generated from literals without reading repository data or real projects.",
+  "schema": "rcce-se-m1-p05-actor-media-consensus-v1"
+}

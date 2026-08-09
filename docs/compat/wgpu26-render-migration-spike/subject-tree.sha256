@@ -1,0 +1,12 @@
+59c2a4de4c1e6b8f391a7575771103c5d273a28d0fb37aca4515d91dd7a493f3  client-rs/Cargo.lock
+30feb818556a0520e2a9649f061cef725827e6790b09071eb01b34785b64e759  client-rs/crates/rcce-render/Cargo.toml
+c17137b47fd3bd3562e03123134437196c78f0fb0412966b44caac5ff55a3a0f  client-rs/crates/rcce-render/src/bloom.rs
+2a029b43232e0e60388458e5c76464d34cef2f26ce6d2a9713d85f91460dd5f2  client-rs/crates/rcce-render/src/gpu.rs
+f7966125032dd3bb42293ad766f4fad7e6d21127d9896e8da29580efc0a00640  client-rs/crates/rcce-render/src/lib.rs
+e5b112f4c0d6eb88c72b6c9017d6915bda5ddb004b28ad85365cfa7c8fc1f3d4  client-rs/crates/rcce-render/src/overlay.rs
+e9bcf86509b03018dec017470d8501b487b223f72cdf3a668527e44944fcb30b  client-rs/crates/rcce-render/src/render.rs
+7ee45af7174f2caf634fb30c0265bfe7722c5d50b0301e63e89afa4166ca5e24  client-rs/crates/rcce-render/src/render3d.rs
+64fd8449c264152cc3d008a6bd4f01e223772e617d88fb2c8a58b6095191b1c5  client-rs/crates/rcce-render/src/scene.rs
+624715021daf4f7d500562d2279e87d218857e15957ad7133632fe40780fc2f4  client-rs/crates/rcce-render/src/world_view.rs
+
+aggregate 5c9531a9574267771feace87bbf9635eeb0d7871aa8cddad9960a98f01569a4e

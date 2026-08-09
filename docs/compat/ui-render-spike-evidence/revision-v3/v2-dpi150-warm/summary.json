@@ -1,0 +1,13 @@
+{
+  "cargo_lock_sha256": "c55eca8575eb1646598c04dc8b2b1f6c9333e24de0b45ec905ab0c9d035826f4",
+  "cpu_work_ms_p50": 9.933000000000002,
+  "cpu_work_ms_p95": 50.1072,
+  "elapsed_seconds": 36.0873137,
+  "executable_source_sha256": "8de40bf480449196f1ffa8c52d674646f07637a9fc7c2a537bf434e4de3eab48",
+  "frame_ms_p50": 10.1639,
+  "frame_ms_p95": 50.2836,
+  "measured_sample_count": 1800,
+  "sample_count": 2100,
+  "schema": 1,
+  "trace_sha256": "01d3cdae1a416cf1abb0a8f1dd3de93e7a0a340ab28713ed27af1f2538d10301"
+}
