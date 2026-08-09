@@ -101,14 +101,15 @@ the rejected/unselected UI candidate evidence.
 | Field | Current value |
 |---|---|
 | Canonical relationship | Feedback-only navigation over the accepted M1-P05 actor/media slice and `SE-FB-MVP-05`; earns no task 17, task 18, P06, P07, P08, M1, M4, framework, authoring, migration, publication, or retirement credit |
-| Status | `Accepted in source commit 556d0566b00344a9eb316ee849fa6eb57f674388; program integration and exact-head CI pending` |
+| Status | `Accepted and integrated through 5a67fb5e703843d3c1e2065d48b8f4aab0634eef` |
 | Product boundary | Actor inspectors expose a focusable route to the actor's raw base-mesh relationship when present; relationship inspectors expose one focusable return route per ordered actor backlink. Each route selects the exact raw identity in Records/Actors or Assets/Relationships and clears stale filter, file, and unrelated semantic selection state; the exhaustive Assets Files fallback remains available |
 | Evidence boundary | Routes preserve only accepted actor/media identity and backlink evidence. Consensus and provisional slices both expose observed raw routes; provisional slices continue to withhold catalog, physical-file, parsed-meaning, compatibility, provenance, and completeness conclusions; unavailable evidence exposes no relationship routes |
 | Navigation boundary | This slice proves direct bidirectional focus targets only. It does not claim a complete relationship graph, browser history/back-stack, persistence, keyboard or assistive-technology acceptance, or production-framework selection |
 | Mutation boundary | Read-only; no create, import, edit, repair, save, rename, delete, conversion, storage, process, preview, publication, or external-operation path |
 | Current evidence | Accepted exact three-file pre-commit aggregate SHA-256 `024eae78c2aaf9d6e49288377fdc93ee61f5048ebb06ef2e94b8d6f11b4cf714` passed fresh specification review and a different fresh quality rereview after correction. RED captured missing navigation targets; the first review rejected an unscrollable many-backlink inspector and acceptance-implying provisional hover copy. GREEN adds a fixed-heading scrollable inspector, evidence-neutral observed-raw wording, exact route/state-reset regressions, no-base/no-`#0` coverage, consensus/provisional bidirectional projection coverage, and a 512-backlink ordering/reachability regression. Exact Rust 1.85 workspace tests and strict all-target/all-feature Clippy pass; GUI tests report 11/0, projection tests 8/0, smoke 1/0, skeleton 3/0, workspace build, targeted stable rustfmt, diff hygiene, and plan 95/11 pass. Native Windows real-current-default smoke reports 1,201 files / 358,557,047 bytes / 0 unavailable / 6 provisional actors / 4 actor-referenced base meshes / 0 actor-reference issues with valid/missing-root exits 0/2. Visual execution followed Orc #4 to Mesh #83, observed ordered backlinks Ork #2 / Orc #4 / Orc #5, returned to Ork #2, and confirmed the 715-file Assets fallback; the corrected MVP remains responsive on Mesh #83 |
+| Exact-head CI | Integrated head `5a67fb5e703843d3c1e2065d48b8f4aab0634eef` passed workflow run `31326345769`: `Build and test` 4m33s and `Rust server (Linux)` 3m40s |
 | Rejected shortcuts | No filename-derived mesh semantics, no provisional acceptance language, no unbounded unreachable inspector actions, no graph/history/accessibility claims, no project-data mutation, and no production UI-framework selection |
-| Remaining acceptance | Program integration, push, final exact-head CI, and durable-state closeout; all formal milestone and framework/write/migration gates remain unchanged |
+| Remaining acceptance | Ledger-only closeout publication and durable-state closeout; all formal milestone and framework/write/migration gates remain unchanged |
 
 ## Active packets
 
@@ -239,7 +240,7 @@ Completed implementation lanes:
 
 ## Next actions
 
-1. Complete `SE-FB-MVP-06` program integration, exact-head CI, and durable-state closeout without expanding parser, write, framework, or milestone authority.
+1. After `SE-FB-MVP-06` ledger and durable-state closeout, take `SE-FB-MVP-07`: add an explicit read-only snapshot reload that atomically refreshes accepted counts and diagnostics while retaining the prior accepted session on failure.
 2. Keep the wgpu 26 migration isolated until an explicitly approved Stage 2 can prove the full client and native Windows/i686 path; do not treat renderer-only feasibility as framework selection.
 3. Resolve the blocked C01 reference fixture, complete machine, and memory-budget approval inputs before any framework selection.
 4. Keep real project migration/publication and M10 legacy removal behind their explicit approval gates.
