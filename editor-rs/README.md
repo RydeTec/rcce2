@@ -22,7 +22,11 @@ media paths and states. On provisional projects the mesh IDs and backlinks
 remain visible while catalog and physical-file conclusions are withheld. This
 is not a complete asset catalog and does not establish global orphan status;
 the exhaustive Assets file atlas remains available beside the relationship
-view.
+view. A selected actor with a raw base-mesh reference can follow that observed
+relationship into Assets, and each ordered actor backlink can return to the
+exact actor in Records. These focusable routes clear stale filters and
+incompatible selections; they do not add parsed meaning, integrity enforcement,
+history, repair, or broader relationship-graph evidence.
 
 The World lens projects the two legacy area directories into a paired-zone
 atlas. Zone identity remains the observed `.dat` filename stem; each card shows
@@ -75,7 +79,7 @@ The observed toolchain was `rustc 1.85.0 (4d91de4e4 2025-02-17)` and
 
 | Crate | Reserved responsibility at later packets | Current behavior |
 |---|---|---|
-| `rcce-editor` | Desktop composition; the only production crate allowed to acquire a GUI framework | Replaceable feedback-MVP host with five read-only lenses and focused actor, actor/base-mesh, paired-zone, and script-relationship surfaces |
+| `rcce-editor` | Desktop composition; the only production crate allowed to acquire a GUI framework | Replaceable feedback-MVP host with five read-only lenses, focused actor/base-mesh cross-navigation, and paired-zone and script-relationship surfaces |
 | `rcce-editor-core` | GUI-independent session, query, selection, and diagnostic orchestration | Real inventory, actor/media consensus and base-mesh backlinks, filename-derived zone pairs, and active-source script grouping with no write authority |
 | `rcce-project` | Root-confined project model, inventory, identity, and legacy document interpretation | Explicit read-only `ProjectRoot`, validated `ProjectRelativePath`, bounded read/walk, and truthful assurance reporting |
 | `rcce-validation` | Pure diagnostics over project evidence | Empty library boundary |

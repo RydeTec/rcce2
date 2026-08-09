@@ -30,6 +30,44 @@ fn project() -> (PathBuf, FeedbackProject) {
     (path, project)
 }
 
+fn assert_actor_mesh_threads_resolve(project: &FeedbackProject) {
+    let actors = &project.actor_catalog().actors;
+    let meshes = &project.asset_catalog().meshes;
+
+    for actor in actors {
+        match actor.base_mesh {
+            Some(mesh_id) => {
+                let mesh = meshes
+                    .iter()
+                    .find(|mesh| mesh.mesh_id == mesh_id)
+                    .expect("every actor base-mesh route resolves");
+                assert!(mesh
+                    .actors
+                    .iter()
+                    .any(|backlink| backlink.actor_id == actor.actor_id));
+            }
+            None => assert!(meshes.iter().all(|mesh| mesh
+                .actors
+                .iter()
+                .all(|backlink| { backlink.actor_id != actor.actor_id }))),
+        }
+    }
+
+    for mesh in meshes {
+        assert!(mesh
+            .actors
+            .windows(2)
+            .all(|pair| pair[0].actor_id < pair[1].actor_id));
+        for backlink in &mesh.actors {
+            let actor = actors
+                .iter()
+                .find(|actor| actor.actor_id == backlink.actor_id)
+                .expect("every mesh backlink route resolves");
+            assert_eq!(actor.base_mesh, Some(mesh.mesh_id));
+        }
+    }
+}
+
 fn zone_fixture() -> PathBuf {
     let nonce = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
@@ -222,6 +260,7 @@ fn projects_consensus_actor_base_mesh_relationships_without_inventing_assets() {
         .canonicalize()
         .expect("consensus fixture data root");
     let project = load_feedback_project(data_root, |_| {}).expect("feedback consensus project");
+    assert_actor_mesh_threads_resolve(&project);
     let catalog = project.asset_catalog();
 
     assert_eq!(catalog.evidence, FeedbackEvidence::Consensus);
@@ -266,6 +305,7 @@ fn provisional_actor_base_mesh_relationships_withhold_media_conclusions() {
         .canonicalize()
         .expect("provisional fixture data root");
     let project = load_feedback_project(data_root, |_| {}).expect("provisional feedback project");
+    assert_actor_mesh_threads_resolve(&project);
     let catalog = project.asset_catalog();
 
     assert_eq!(catalog.evidence, FeedbackEvidence::Provisional);

@@ -193,6 +193,26 @@ enum AssetsView {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RelationshipTarget {
+    Actor(u16),
+    Mesh(u16),
+}
+
+const fn actor_mesh_target(base_mesh: Option<u16>) -> Option<RelationshipTarget> {
+    match base_mesh {
+        Some(mesh_id) => Some(RelationshipTarget::Mesh(mesh_id)),
+        None => None,
+    }
+}
+
+fn actor_thread_targets(actor_ids: impl IntoIterator<Item = u16>) -> Vec<RelationshipTarget> {
+    actor_ids
+        .into_iter()
+        .map(RelationshipTarget::Actor)
+        .collect()
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ScriptsView {
     Catalog,
     Files,
@@ -235,6 +255,39 @@ fn transition_assets_view(
         *selected_mesh = None;
     }
     target
+}
+
+fn navigate_relationship(
+    target: RelationshipTarget,
+    lens: &mut Lens,
+    records_view: &mut RecordsView,
+    assets_view: &mut AssetsView,
+    filter: &mut String,
+    selected_file: &mut Option<String>,
+    selected_actor: &mut Option<u16>,
+    selected_mesh: &mut Option<u16>,
+    selected_zone: &mut Option<String>,
+    selected_script: &mut Option<String>,
+) {
+    *selected_file = None;
+    *selected_actor = None;
+    *selected_mesh = None;
+    *selected_zone = None;
+    *selected_script = None;
+    filter.clear();
+
+    match target {
+        RelationshipTarget::Actor(actor_id) => {
+            *lens = Lens::Records;
+            *records_view = RecordsView::Actors;
+            *selected_actor = Some(actor_id);
+        }
+        RelationshipTarget::Mesh(mesh_id) => {
+            *lens = Lens::Assets;
+            *assets_view = AssetsView::Relationships;
+            *selected_mesh = Some(mesh_id);
+        }
+    }
 }
 
 fn transition_scripts_view(
@@ -609,7 +662,7 @@ impl LedgerApp {
                 }
                 ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
                     ui.label(
-                        RichText::new("Feedback build 0.5\nNo save or mutation commands exist")
+                        RichText::new("Feedback build 0.6\nNo save or mutation commands exist")
                             .size(11.0)
                             .color(MUTED),
                     );
@@ -618,6 +671,7 @@ impl LedgerApp {
     }
 
     fn inspector(&mut self, context: &egui::Context) {
+        let mut pending_relationship = None;
         egui::SidePanel::right("inspector")
             .exact_width(325.0)
             .frame(
@@ -634,6 +688,10 @@ impl LedgerApp {
                         .strong(),
                 );
                 ui.add_space(8.0);
+                ScrollArea::vertical()
+                    .id_salt("inspector_body")
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
                 if let Some(actor) = self.selected_actor() {
                     let evidence = self
                         .project
@@ -709,6 +767,35 @@ impl LedgerApp {
                                 .color(MUTED),
                             );
                         });
+                    ui.add_space(12.0);
+                    if let Some(RelationshipTarget::Mesh(mesh_id)) =
+                        actor_mesh_target(actor.base_mesh)
+                    {
+                        if ui
+                            .add_sized(
+                                [ui.available_width(), 34.0],
+                                egui::Button::new(
+                                    RichText::new(format!(
+                                        "OPEN MESH #{mesh_id} RELATIONSHIP"
+                                    ))
+                                    .color(BRASS)
+                                    .strong(),
+                                ),
+                            )
+                            .on_hover_text(
+                                "Open this observed raw actor/base-mesh relationship in Assets",
+                            )
+                            .clicked()
+                        {
+                            pending_relationship = Some(RelationshipTarget::Mesh(mesh_id));
+                        }
+                    } else {
+                        ui.label(
+                            RichText::new("No actor-referenced base mesh to open")
+                                .size(12.0)
+                                .color(MUTED),
+                        );
+                    }
                 } else if let Some(mesh) = self.selected_mesh.and_then(|selected| {
                     self.project
                         .as_ref()?
@@ -797,6 +884,33 @@ impl LedgerApp {
                                 .color(MUTED),
                             );
                         });
+                    ui.add_space(12.0);
+                    ui.label(
+                        RichText::new("ACTOR THREADS")
+                            .size(10.0)
+                            .color(MUTED)
+                            .strong(),
+                    );
+                    let thread_targets =
+                        actor_thread_targets(mesh.actors.iter().map(|actor| actor.actor_id));
+                    for (actor, target) in mesh.actors.iter().zip(thread_targets) {
+                        if ui
+                            .add_sized(
+                                [ui.available_width(), 32.0],
+                                egui::Button::new(
+                                    RichText::new(format!(
+                                        "OPEN ACTOR #{:05}  ·  {}",
+                                        actor.actor_id, actor.race
+                                    ))
+                                    .color(BRASS),
+                                ),
+                            )
+                            .on_hover_text("Open this observed raw backlink in Records")
+                            .clicked()
+                        {
+                            pending_relationship = Some(target);
+                        }
+                    }
                 } else if let Some(zone) = self.selected_zone() {
                     ui.label(RichText::new(&zone.name).size(22.0).color(INK));
                     ui.label(RichText::new("ZONE  /  FILENAME IDENTITY").size(12.0).color(BRASS));
@@ -951,7 +1065,31 @@ impl LedgerApp {
                         .color(MUTED),
                     );
                 }
+                    });
             });
+        if let Some(target) = pending_relationship {
+            let activity = match target {
+                RelationshipTarget::Actor(actor_id) => {
+                    format!("Followed actor thread to Actor #{actor_id}")
+                }
+                RelationshipTarget::Mesh(mesh_id) => {
+                    format!("Followed base-mesh thread to Mesh #{mesh_id}")
+                }
+            };
+            navigate_relationship(
+                target,
+                &mut self.lens,
+                &mut self.records_view,
+                &mut self.assets_view,
+                &mut self.filter,
+                &mut self.selected,
+                &mut self.selected_actor,
+                &mut self.selected_mesh,
+                &mut self.selected_zone,
+                &mut self.selected_script,
+            );
+            self.activity.insert(0, activity);
+        }
     }
 
     fn ledger(&mut self, context: &egui::Context) {
@@ -2065,9 +2203,11 @@ fn format_bytes(bytes: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        asset_evidence_copy, script_family_observation, transition_assets_view,
-        transition_records_view, transition_scripts_view, transition_world_view, AssetsView,
-        FeedbackEvidence, FeedbackScriptFamily, LoadGate, RecordsView, ScriptsView, WorldView,
+        actor_mesh_target, actor_thread_targets, asset_evidence_copy, navigate_relationship,
+        script_family_observation, transition_assets_view, transition_records_view,
+        transition_scripts_view, transition_world_view, AssetsView, FeedbackEvidence,
+        FeedbackScriptFamily, Lens, LoadGate, RecordsView, RelationshipTarget, ScriptsView,
+        WorldView,
     };
 
     #[test]
@@ -2128,6 +2268,99 @@ mod tests {
         assert_eq!(view, AssetsView::Files);
         assert_eq!(selected_file, None);
         assert_eq!(selected_mesh, None);
+    }
+
+    #[test]
+    fn actor_to_mesh_navigation_opens_relationship_and_clears_hidden_context() {
+        let mut lens = Lens::Records;
+        let mut records_view = RecordsView::Files;
+        let mut assets_view = AssetsView::Files;
+        let mut filter = "Ork".to_owned();
+        let mut selected_file = Some("Data/Server Data/Actors.dat".to_owned());
+        let mut selected_actor = Some(2);
+        let mut selected_mesh = None;
+        let mut selected_zone = Some("Start".to_owned());
+        let mut selected_script = Some("Data/Server Data/Scripts/Attack.rsl".to_owned());
+
+        navigate_relationship(
+            RelationshipTarget::Mesh(83),
+            &mut lens,
+            &mut records_view,
+            &mut assets_view,
+            &mut filter,
+            &mut selected_file,
+            &mut selected_actor,
+            &mut selected_mesh,
+            &mut selected_zone,
+            &mut selected_script,
+        );
+
+        assert_eq!(lens, Lens::Assets);
+        assert_eq!(assets_view, AssetsView::Relationships);
+        assert!(filter.is_empty());
+        assert_eq!(selected_file, None);
+        assert_eq!(selected_actor, None);
+        assert_eq!(selected_mesh, Some(83));
+        assert_eq!(selected_zone, None);
+        assert_eq!(selected_script, None);
+    }
+
+    #[test]
+    fn actor_without_base_mesh_has_no_relationship_target() {
+        assert_eq!(actor_mesh_target(None), None);
+        assert_eq!(
+            actor_mesh_target(Some(83)),
+            Some(RelationshipTarget::Mesh(83))
+        );
+    }
+
+    #[test]
+    fn shared_mesh_exposes_every_ordered_actor_thread_without_truncation() {
+        let actor_ids = (0_u16..512).collect::<Vec<_>>();
+        let targets = actor_thread_targets(actor_ids.iter().copied());
+
+        assert_eq!(targets.len(), actor_ids.len());
+        assert_eq!(targets.first(), Some(&RelationshipTarget::Actor(0)));
+        assert_eq!(targets.last(), Some(&RelationshipTarget::Actor(511)));
+        assert!(targets.windows(2).all(|pair| match pair {
+            [RelationshipTarget::Actor(left), RelationshipTarget::Actor(right)] => left < right,
+            _ => false,
+        }));
+    }
+
+    #[test]
+    fn mesh_to_actor_navigation_opens_record_and_clears_hidden_context() {
+        let mut lens = Lens::Assets;
+        let mut records_view = RecordsView::Files;
+        let mut assets_view = AssetsView::Files;
+        let mut filter = "83".to_owned();
+        let mut selected_file = Some("Data/Meshes/Orc.b3d".to_owned());
+        let mut selected_actor = None;
+        let mut selected_mesh = Some(83);
+        let mut selected_zone = Some("Start".to_owned());
+        let mut selected_script = Some("Data/Server Data/Scripts/Attack.rsl".to_owned());
+
+        navigate_relationship(
+            RelationshipTarget::Actor(4),
+            &mut lens,
+            &mut records_view,
+            &mut assets_view,
+            &mut filter,
+            &mut selected_file,
+            &mut selected_actor,
+            &mut selected_mesh,
+            &mut selected_zone,
+            &mut selected_script,
+        );
+
+        assert_eq!(lens, Lens::Records);
+        assert_eq!(records_view, RecordsView::Actors);
+        assert!(filter.is_empty());
+        assert_eq!(selected_file, None);
+        assert_eq!(selected_actor, Some(4));
+        assert_eq!(selected_mesh, None);
+        assert_eq!(selected_zone, None);
+        assert_eq!(selected_script, None);
     }
 
     #[test]
