@@ -82,6 +82,20 @@ the rejected/unselected UI candidate evidence.
 | Current evidence | Accepted exact seven-path aggregate `cea78aaeae8115fa0641b94d668751fb8df56d9d924745ee8bef0fd185a27d1c` passed fresh specification and different fresh quality review after focused RED/GREEN correction made the `Other` fallback truthful in cards, inspector, and README. GREEN synthetic projection reports 3 active sources / 3 adjunct files / 1 unanchored-adjunct observation with exact canonical paths/sizes, case-insensitive same-stem grouping, active-source spelling, literal-prefix families, nested/unrelated exclusion, Unicode-safe extension handling, and Scripts selection reset. Linux repository-default smoke reports 1,180 files / 55 active sources / 13 observed adjuncts / 0 script inventory issues; native Windows real-current-default smoke reports 1,201 files / 55 active sources / 13 observed adjuncts / 0 script inventory issues with valid/missing-root exits 0/2; the corrected native UI is responsive and visually confirms exact paths/sizes, adjunct-only evidence, and `no recognized literal prefix`. Exact Rust 1.85 workspace tests, strict all-target Clippy, build, stable targeted formatting, plan 95/11, and diff hygiene pass. Exact functional head CI passed `Build and test` in 6m49s and `Rust server (Linux)` in 3m47s |
 | Remaining acceptance | None for this feedback continuity packet; formal M1/M7 and framework/write/migration gates remain unchanged |
 
+### `SE-FB-MVP-05` — Actor/base-mesh relationship intelligence
+
+| Field | Current value |
+|---|---|
+| Canonical relationship | Feedback-only reuse of the accepted M1-P05 actor/media slice; earns no task 17, task 18, P06, P07, P08, M1, M4, framework, authoring, migration, publication, or retirement credit |
+| Status | `Accepted in source commit 99e5a56d51756ca89d7dc6e3606d3c40164e81b7; program integration and exact-head CI pending` |
+| Product boundary | Assets gains a relationship view that groups actor-referenced raw base-mesh IDs, shows ordered actor backlinks, preserves stable selection, and retains the exhaustive Assets file atlas |
+| Evidence boundary | The view derives only from accepted actor/media evidence. Consensus may expose the inherited media status/path; provisional evidence exposes raw mesh IDs and backlinks but withholds catalog and physical-file conclusions; unavailable evidence exposes no relationship rows and directs the creator to Files |
+| Completeness boundary | The relationship view is not a complete asset catalog and makes no global orphan claim. Extra catalog/media records remain outside this actor-base slice unless separately accepted evidence expands it |
+| Mutation boundary | Read-only; no create, import, edit, repair, save, rename, delete, conversion, storage, process, preview, publication, or external-operation path |
+| Current evidence | Exact six-file pre-commit aggregate SHA-256 `9ca09a36ea34b59a34bca3872b5699a2fbf6ae19b0cd911cb7d9130a1fdf9f12` passed fresh specification review, corrected specification rereview, final specification-delta confirmation, and a different fresh quality review. RED captured missing `asset_catalog`, unordered shared-mesh backlinks `[9, 3]` versus `[3, 9]`, and missing three-state UI copy; GREEN proves deterministic many-to-one grouping, provisional withholding, unavailable empty state/reason, subview selection reset, and smoke output. Exact Rust 1.85 workspace tests, strict all-target/all-feature Clippy, workspace build, targeted stable rustfmt, diff hygiene, and plan 95/11 pass. Linux repository-default smoke reports 1,180 files / 6 provisional actors / 4 actor-referenced base-mesh IDs. Native Windows real-current-default smoke reports 1,201 files / 6 provisional actors / 4 actor-referenced base-mesh IDs with valid/missing-root exits 0/2; visual review confirms mesh #83 groups Ork #2, Orc #4, and Orc #5, with physical source `Not asserted`, and confirms the 715-file Assets fallback. The native MVP remains responsive and available on the new surface |
+| Rejected shortcuts | No filename-derived mesh semantics, no catalog-wide completeness/orphan claim, no provisional path inference, no project-data mutation, and no production UI-framework selection |
+| Remaining acceptance | Program-branch integration, push to draft PR #833, exact-head CI, and durable-state closeout; all formal milestone and framework/write/migration gates remain unchanged |
+
 ## Active packets
 
 ### `SE-M0-P01` — Project-format matrix
@@ -211,6 +225,7 @@ Completed implementation lanes:
 
 ## Next actions
 
-1. Keep the wgpu 26 migration isolated until an explicitly approved Stage 2 can prove the full client and native Windows/i686 path; do not treat renderer-only feasibility as framework selection.
-2. Resolve the blocked C01 reference fixture, complete machine, and memory-budget approval inputs before any framework selection.
-3. Keep real project migration/publication and M10 legacy removal behind their explicit approval gates.
+1. After `SE-FB-MVP-05` exact-head closeout, take the dependency-ready feedback slice that makes accepted actor/base-mesh relationships navigable across Records and Assets without expanding parser or write authority.
+2. Keep the wgpu 26 migration isolated until an explicitly approved Stage 2 can prove the full client and native Windows/i686 path; do not treat renderer-only feasibility as framework selection.
+3. Resolve the blocked C01 reference fixture, complete machine, and memory-budget approval inputs before any framework selection.
+4. Keep real project migration/publication and M10 legacy removal behind their explicit approval gates.
