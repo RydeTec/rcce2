@@ -125,6 +125,21 @@ the rejected/unselected UI candidate evidence.
 | Rejected shortcuts | No clear-before-load, no accepted-root switch before successful replacement, no test mutation embedded in production source, no topology bypass, no watcher/live-sync/conflict/repair/write claim, and no production UI-framework selection |
 | Remaining acceptance | Ledger-only closeout publication and durable-state closeout; all formal milestone and framework/write/migration gates remain unchanged |
 
+### `SE-FB-MVP-08` — Read-only find-anywhere palette
+
+| Field | Current value |
+|---|---|
+| Canonical relationship | Feedback-only preview of M1 task 17's unified find/focus outcome over already accepted projections; earns no task 17, task 18, task 19, P06, P07, P08, M1, framework, accessibility, performance, history, authoring, migration, publication, or retirement credit |
+| Status | `Accepted functional aggregate at 29126a768799712184a5b450f1604c6222919c2d; program integration and exact-head CI pending` |
+| Product boundary | The provisional Windows MVP exposes one visible `FIND ANYTHING` / Ctrl+K palette over every accepted file plus raw actor, actor-referenced base-mesh, filename-derived zone, and active `.rsl` script identities. Literal exact, prefix, and substring matches route to the exact owning lens and subview while clearing stale atlas and semantic focus state |
+| Evidence boundary | Search consumes only the atomically accepted `FeedbackProject`. File paths and raw numeric identities remain authoritative; actor race text is display-only, zone names remain filename-derived, scripts remain immediate active `.rsl` observations, provisional actor/mesh routes remain visibly provisional, and unavailable semantic slices are excluded |
+| Ordering and reachability boundary | The core index lowercases only for matching, preserves stored identity bytes, returns every match in deterministic rank/raw-identity order, and keeps File and Script routes distinct. The GUI caches results per accepted snapshot/query, virtualizes fixed-height rows without a hard cap, gives same-frame text edits precedence before Enter, gives keyboard movement precedence over stationary hover, and revalidates every activation against the current accepted snapshot |
+| Reload boundary | Failed or in-flight replacement retains the prior palette snapshot and state. Successful Open/Reload atomically rebuilds results from the replacement, retains the query, resets highlight/scroll deterministically, and makes stale activation a truthful no-op |
+| Mutation boundary | Read-only; no command execution, content parsing, fuzzy/semantic search, repair, save, rename, delete, conversion, storage, process, publication, or external-operation path |
+| Current evidence | Exact six-file pre-commit aggregate SHA-256 `9bc32193aaf3515d4db6721670d1376110be4ccc2fc0020a869c1efefb4a634a` passed fresh specification and different fresh quality review after two adversarial correction rounds. RED/GREEN coverage proves candidate categories/counts, distinct File/Script identities, provisional/unavailable boundaries, deterministic exhaustive 12,000-result ordering, all five exact routes, stale-target rejection, atomic reload replacement, same-frame Text+Enter behavior, keyboard-over-hover priority, correct egui virtual stride, deep-scroll reset, and fixed-height 4,096-byte path rendering with full hover text. Exact Rust 1.85 full-workspace/all-target/all-feature tests pass, including GUI 23/0, native smoke 1/0, core unit 3/0, projection 11/0, and topology 3/0; strict workspace Clippy with warnings denied, workspace build, targeted stable rustfmt, diff hygiene, and plan 95/11 pass. Native Windows real-current-default smoke reports 1,201 files / 358,557,047 bytes / 0 unavailable / 6 provisional actors / 4 actor-referenced base meshes / 6 zones / 55 active scripts / 13 adjuncts / 0 script inventory issues with valid/missing-root exits 0/2. Release executable SHA-256 is `688a562a3fcd42511663b33fe6e0bf5158c322fa339205570c7be67294d04046`; the FB08 window is responsive at PID 27552. Visual interaction is not independently observed because the configured UI-control documentation API is unavailable, so no visual, keyboard, or accessibility acceptance is claimed |
+| Rejected shortcuts | No normalized identity routing, inferred mesh filename/path, parsed script/zone meaning, fuzzy or content search, silent result cap, stale activation, pre-edit Enter target, unbounded row layout, provisional acceptance language, project-data mutation, or production UI-framework selection |
+| Remaining acceptance | Program-lane integration, exact-head local reproduction, push/draft-PR head verification, terminal exact-head CI, ledger closeout, and durable-state closeout; all formal milestone and framework/write/migration gates remain unchanged |
+
 ## Active packets
 
 ### `SE-M0-P01` — Project-format matrix
@@ -254,7 +269,8 @@ Completed implementation lanes:
 
 ## Next actions
 
-1. After `SE-FB-MVP-07` ledger and durable-state closeout, scope `SE-FB-MVP-08` as a read-only find-anywhere palette over accepted raw file, actor, mesh, zone, and script identities, with exact cross-lens routing and no inferred semantics or formal shell/framework credit.
-2. Keep the wgpu 26 migration isolated until an explicitly approved Stage 2 can prove the full client and native Windows/i686 path; do not treat renderer-only feasibility as framework selection.
-3. Resolve the blocked C01 reference fixture, complete machine, and memory-budget approval inputs before any framework selection.
-4. Keep real project migration/publication and M10 legacy removal behind their explicit approval gates.
+1. Integrate and close `SE-FB-MVP-08` only after exact-head local reproduction, draft-PR head verification, terminal CI, and durable-state closeout.
+2. After owner goal confirmation, the recommended next feedback increment is a narrow read-only return trail over accepted raw focus identities: direct threads and find-anywhere now support non-linear jumps, but the provisional MVP still has no bounded way to return to the prior focus. Keep it separate from formal session-history, accessibility, framework, and milestone credit.
+3. Keep the wgpu 26 migration isolated until an explicitly approved Stage 2 can prove the full client and native Windows/i686 path; do not treat renderer-only feasibility as framework selection.
+4. Resolve the blocked C01 reference fixture, complete machine, and memory-budget approval inputs before any framework selection.
+5. Keep real project migration/publication and M10 legacy removal behind their explicit approval gates.
