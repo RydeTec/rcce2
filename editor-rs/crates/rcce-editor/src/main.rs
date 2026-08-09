@@ -15,6 +15,10 @@ use std::{
     time::Duration,
 };
 
+#[cfg(test)]
+#[path = "../tests/support/reload.rs"]
+mod reload_test_support;
+
 const INK: Color32 = Color32::from_rgb(221, 218, 205);
 const MUTED: Color32 = Color32::from_rgb(143, 147, 143);
 const BRASS: Color32 = Color32::from_rgb(194, 151, 70);
@@ -326,10 +330,106 @@ impl LoadGate {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LoadPurpose {
+    Initial,
+    #[cfg(any(windows, test))]
+    Open,
+    Reload,
+}
+
+impl LoadPurpose {
+    const fn action(self) -> &'static str {
+        match self {
+            Self::Initial => "Open",
+            #[cfg(any(windows, test))]
+            Self::Open => "Open",
+            Self::Reload => "Reload",
+        }
+    }
+
+    const fn progress(self) -> &'static str {
+        match self {
+            Self::Initial => "Opening selected project…",
+            #[cfg(any(windows, test))]
+            Self::Open => "Opening selected project…",
+            Self::Reload => "Reloading accepted snapshot…",
+        }
+    }
+
+    const fn accepted(self) -> &'static str {
+        match self {
+            Self::Initial => "Snapshot accepted",
+            #[cfg(any(windows, test))]
+            Self::Open => "Snapshot accepted",
+            Self::Reload => "Snapshot reloaded",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PendingLoad {
+    root: PathBuf,
+    purpose: LoadPurpose,
+}
+
+fn retain_resolved_focus(
+    project: &FeedbackProject,
+    selected_file: &mut Option<String>,
+    selected_actor: &mut Option<u16>,
+    selected_mesh: &mut Option<u16>,
+    selected_zone: &mut Option<String>,
+    selected_script: &mut Option<String>,
+) {
+    if selected_file
+        .as_ref()
+        .is_some_and(|selected| !project.all_entries().any(|entry| entry.path == *selected))
+    {
+        *selected_file = None;
+    }
+    if selected_actor.as_ref().is_some_and(|selected| {
+        !project
+            .actor_catalog()
+            .actors
+            .iter()
+            .any(|actor| actor.actor_id == *selected)
+    }) {
+        *selected_actor = None;
+    }
+    if selected_mesh.as_ref().is_some_and(|selected| {
+        !project
+            .asset_catalog()
+            .meshes
+            .iter()
+            .any(|mesh| mesh.mesh_id == *selected)
+    }) {
+        *selected_mesh = None;
+    }
+    if selected_zone.as_ref().is_some_and(|selected| {
+        !project
+            .zone_catalog()
+            .zones
+            .iter()
+            .any(|zone| zone.name == *selected)
+    }) {
+        *selected_zone = None;
+    }
+    if selected_script.as_ref().is_some_and(|selected| {
+        !project
+            .script_catalog()
+            .scripts
+            .iter()
+            .any(|script| script.source_path == *selected)
+    }) {
+        *selected_script = None;
+    }
+}
+
 struct LedgerApp {
     data_root: PathBuf,
     project: Option<FeedbackProject>,
     receiver: Option<Receiver<LoadMessage>>,
+    pending_load: Option<PendingLoad>,
     lens: Lens,
     filter: String,
     selected: Option<String>,
@@ -348,11 +448,12 @@ struct LedgerApp {
 }
 
 impl LedgerApp {
-    fn new(data_root: PathBuf) -> Self {
-        let mut app = Self {
+    fn shell(data_root: PathBuf) -> Self {
+        Self {
             data_root,
             project: None,
             receiver: None,
+            pending_load: None,
             lens: Lens::Records,
             filter: String::new(),
             selected: None,
@@ -368,12 +469,16 @@ impl LedgerApp {
             status: "Preparing project inventory…".to_owned(),
             activity: vec!["Feedback MVP started in read-only mode".to_owned()],
             load_gate: LoadGate::default(),
-        };
-        app.begin_load();
+        }
+    }
+
+    fn new(data_root: PathBuf) -> Self {
+        let mut app = Self::shell(data_root.clone());
+        app.begin_load(data_root, LoadPurpose::Initial);
         app
     }
 
-    fn begin_load(&mut self) {
+    fn begin_load(&mut self, path: PathBuf, purpose: LoadPurpose) {
         if !self.load_gate.try_begin() {
             self.activity.insert(
                 0,
@@ -381,18 +486,17 @@ impl LedgerApp {
             );
             return;
         }
-        let path = self.data_root.clone();
         let (sender, receiver) = mpsc::channel();
         self.receiver = Some(receiver);
-        self.project = None;
-        self.selected = None;
-        self.selected_actor = None;
-        self.selected_mesh = None;
-        self.selected_zone = None;
-        self.selected_script = None;
-        self.status = "Opening selected project…".to_owned();
-        self.activity
-            .insert(0, format!("Inventory requested: {}", path.display()));
+        self.pending_load = Some(PendingLoad {
+            root: path.clone(),
+            purpose,
+        });
+        self.status = purpose.progress().to_owned();
+        self.activity.insert(
+            0,
+            format!("{} requested: {}", purpose.action(), path.display()),
+        );
         thread::spawn(move || {
             let result = load_feedback_project(path, |progress| {
                 let _ = sender.send(LoadMessage::Progress(progress));
@@ -416,76 +520,115 @@ impl LedgerApp {
                     return;
                 }
                 Err(mpsc::TryRecvError::Disconnected) => {
-                    self.status = "Project inventory ended unexpectedly".to_owned();
-                    self.activity.insert(0, self.status.clone());
-                    self.load_gate.finish();
+                    self.finish_disconnected();
                     return;
                 }
             };
             match message {
                 LoadMessage::Progress(progress) => self.apply_progress(progress),
                 LoadMessage::Ready(project) => {
-                    let actor_count = actor_count_label(project.actor_catalog().count);
-                    let actor_base_mesh_count = project.asset_catalog().meshes.len();
-                    let zone_count = project.zone_catalog().zones.len();
-                    let script_count = project.script_catalog().scripts.len();
-                    self.status = format!(
-                        "{} files indexed · {actor_count} · {} unavailable",
-                        project.total_files(),
-                        project.unavailable
-                    );
-                    self.activity.insert(
-                        0,
-                        format!(
-                            "Asset relationships: {actor_base_mesh_count} actor-referenced base mesh IDs · {} evidence",
-                            evidence_label(project.asset_catalog().evidence).to_ascii_lowercase()
-                        ),
-                    );
-                    self.activity.insert(
-                        0,
-                        format!(
-                            "Zone atlas: {zone_count} filename identities · {} observed pairing issues",
-                            project.zone_catalog().diagnostics.len()
-                        ),
-                    );
-                    self.activity.insert(
-                        0,
-                        format!(
-                            "Actor catalog: {actor_count} · {}",
-                            diagnostic_count_label(
-                                project.actor_catalog().evidence,
-                                project.actor_catalog().diagnostics.len()
-                            )
-                        ),
-                    );
-                    self.activity.insert(
-                        0,
-                        format!(
-                            "Snapshot accepted: {} across {}",
-                            format_bytes(project.total_bytes()),
-                            project.shape
-                        ),
-                    );
-                    self.activity.insert(
-                        0,
-                        format!(
-                            "Script constellation: {script_count} active .rsl identities · {} observed adjuncts · {} inventory issues",
-                            project.script_catalog().adjunct_files,
-                            project.script_catalog().diagnostics.len()
-                        ),
-                    );
-                    self.project = Some(*project);
-                    self.load_gate.finish();
+                    self.finish_ready(project);
                     return;
                 }
                 LoadMessage::Failed(error) => {
-                    self.status = error.clone();
-                    self.activity.insert(0, format!("Open failed: {error}"));
-                    self.load_gate.finish();
+                    self.finish_failed(error);
                     return;
                 }
             }
         }
+    }
+
+    fn finish_ready(&mut self, project: Box<FeedbackProject>) {
+        let purpose = self
+            .pending_load
+            .take()
+            .map_or(LoadPurpose::Initial, |pending| {
+                self.data_root = pending.root;
+                pending.purpose
+            });
+        let actor_count = actor_count_label(project.actor_catalog().count);
+        let actor_base_mesh_count = project.asset_catalog().meshes.len();
+        let zone_count = project.zone_catalog().zones.len();
+        let script_count = project.script_catalog().scripts.len();
+        self.status = format!(
+            "{} files indexed · {actor_count} · {} unavailable",
+            project.total_files(),
+            project.unavailable
+        );
+        self.activity.insert(
+            0,
+            format!(
+                "Asset relationships: {actor_base_mesh_count} actor-referenced base mesh IDs · {} evidence",
+                evidence_label(project.asset_catalog().evidence).to_ascii_lowercase()
+            ),
+        );
+        self.activity.insert(
+            0,
+            format!(
+                "Zone atlas: {zone_count} filename identities · {} observed pairing issues",
+                project.zone_catalog().diagnostics.len()
+            ),
+        );
+        self.activity.insert(
+            0,
+            format!(
+                "Actor catalog: {actor_count} · {}",
+                diagnostic_count_label(
+                    project.actor_catalog().evidence,
+                    project.actor_catalog().diagnostics.len()
+                )
+            ),
+        );
+        self.activity.insert(
+            0,
+            format!(
+                "{}: {} across {}",
+                purpose.accepted(),
+                format_bytes(project.total_bytes()),
+                project.shape
+            ),
+        );
+        self.activity.insert(
+            0,
+            format!(
+                "Script constellation: {script_count} active .rsl identities · {} observed adjuncts · {} inventory issues",
+                project.script_catalog().adjunct_files,
+                project.script_catalog().diagnostics.len()
+            ),
+        );
+        retain_resolved_focus(
+            &project,
+            &mut self.selected,
+            &mut self.selected_actor,
+            &mut self.selected_mesh,
+            &mut self.selected_zone,
+            &mut self.selected_script,
+        );
+        self.project = Some(*project);
+        self.receiver = None;
+        self.load_gate.finish();
+    }
+
+    fn finish_failed(&mut self, error: String) {
+        let purpose = self
+            .pending_load
+            .take()
+            .map_or(LoadPurpose::Initial, |pending| pending.purpose);
+        self.status = if self.project.is_some() {
+            format!(
+                "{} failed: {error}; prior accepted snapshot remains visible",
+                purpose.action()
+            )
+        } else {
+            format!("{} failed: {error}", purpose.action())
+        };
+        self.activity.insert(0, self.status.clone());
+        self.receiver = None;
+        self.load_gate.finish();
+    }
+
+    fn finish_disconnected(&mut self) {
+        self.finish_failed("project inventory ended unexpectedly".to_owned());
     }
 
     fn apply_progress(&mut self, progress: FeedbackLoadProgress) {
@@ -523,14 +666,20 @@ impl LedgerApp {
             .set_title("Select an RCCE project or data folder")
             .pick_folder()
         {
-            self.data_root = normalize_selected_root(path);
-            self.begin_load();
+            self.begin_load(normalize_selected_root(path), LoadPurpose::Open);
         }
         #[cfg(not(windows))]
         self.activity.insert(
             0,
             "Folder selection is enabled in the Windows feedback build".to_owned(),
         );
+    }
+
+    fn reload_snapshot(&mut self) {
+        if self.load_gate.is_active() || self.project.is_none() {
+            return;
+        }
+        self.begin_load(self.data_root.clone(), LoadPurpose::Reload);
     }
 
     fn selected_entry(&self) -> Option<&FeedbackEntry> {
@@ -603,6 +752,18 @@ impl LedgerApp {
                         {
                             self.open_project();
                         }
+                        if ui
+                            .add_enabled(
+                                self.project.is_some() && !self.load_gate.is_active(),
+                                egui::Button::new(RichText::new("RELOAD SNAPSHOT").color(BRASS)),
+                            )
+                            .on_hover_text(
+                                "Re-inventory the accepted project from disk; no files are written",
+                            )
+                            .clicked()
+                        {
+                            self.reload_snapshot();
+                        }
                         ui.label(
                             RichText::new("●  READ ONLY")
                                 .size(12.0)
@@ -662,7 +823,7 @@ impl LedgerApp {
                 }
                 ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
                     ui.label(
-                        RichText::new("Feedback build 0.6\nNo save or mutation commands exist")
+                        RichText::new("Feedback build 0.7\nNo save or mutation commands exist")
                             .size(11.0)
                             .color(MUTED),
                     );
@@ -2202,12 +2363,13 @@ fn format_bytes(bytes: u64) -> String {
 
 #[cfg(test)]
 mod tests {
+    use super::reload_test_support::ReloadFixture;
     use super::{
         actor_mesh_target, actor_thread_targets, asset_evidence_copy, navigate_relationship,
         script_family_observation, transition_assets_view, transition_records_view,
         transition_scripts_view, transition_world_view, AssetsView, FeedbackEvidence,
-        FeedbackScriptFamily, Lens, LoadGate, RecordsView, RelationshipTarget, ScriptsView,
-        WorldView,
+        FeedbackMediaStatus, FeedbackScriptFamily, LedgerApp, Lens, LoadGate, LoadPurpose,
+        PendingLoad, RecordsView, RelationshipTarget, ScriptsView, WorldView,
     };
 
     #[test]
@@ -2402,5 +2564,183 @@ mod tests {
             script_family_observation(FeedbackScriptFamily::Other),
             "no recognized literal prefix"
         );
+    }
+
+    #[test]
+    fn failed_open_and_disconnected_reload_preserve_the_accepted_session() {
+        let fixture = ReloadFixture::new("failure-preserves");
+        let accepted_root = fixture.root().to_path_buf();
+        let accepted_project = fixture.project();
+        let attempted_root = accepted_root.with_file_name("missing-replacement");
+        let mut app = LedgerApp::shell(accepted_root.clone());
+        app.project = Some(accepted_project.clone());
+        app.lens = Lens::Assets;
+        app.filter = "83".to_owned();
+        app.selected = Some("Data/Meshes/Hero.b3d".to_owned());
+        app.selected_mesh = Some(83);
+
+        assert!(app.load_gate.try_begin());
+        app.pending_load = Some(PendingLoad {
+            root: attempted_root,
+            purpose: LoadPurpose::Open,
+        });
+        app.finish_failed("replacement rejected".to_owned());
+
+        assert_eq!(app.data_root, accepted_root);
+        assert_eq!(app.project.as_ref(), Some(&accepted_project));
+        assert_eq!(app.lens, Lens::Assets);
+        assert_eq!(app.filter, "83");
+        assert_eq!(app.selected.as_deref(), Some("Data/Meshes/Hero.b3d"));
+        assert_eq!(app.selected_mesh, Some(83));
+        assert!(app
+            .status
+            .contains("prior accepted snapshot remains visible"));
+        assert!(!app.load_gate.is_active());
+        assert!(app.pending_load.is_none());
+
+        assert!(app.load_gate.try_begin());
+        app.pending_load = Some(PendingLoad {
+            root: accepted_root.clone(),
+            purpose: LoadPurpose::Reload,
+        });
+        app.finish_disconnected();
+
+        assert_eq!(app.data_root, accepted_root);
+        assert_eq!(app.project.as_ref(), Some(&accepted_project));
+        assert_eq!(app.lens, Lens::Assets);
+        assert_eq!(app.filter, "83");
+        assert_eq!(app.selected.as_deref(), Some("Data/Meshes/Hero.b3d"));
+        assert_eq!(app.selected_mesh, Some(83));
+        assert!(app
+            .status
+            .contains("prior accepted snapshot remains visible"));
+        assert!(!app.load_gate.is_active());
+        assert!(app.pending_load.is_none());
+    }
+
+    #[test]
+    fn successful_open_changes_root_only_when_the_replacement_is_ready() {
+        let accepted_fixture = ReloadFixture::new("open-old");
+        let replacement_fixture = ReloadFixture::new("open-new");
+        let accepted_root = accepted_fixture.root().to_path_buf();
+        let replacement_root = replacement_fixture.root().to_path_buf();
+        let accepted_project = accepted_fixture.project();
+        let replacement_project = replacement_fixture.project();
+        let mut app = LedgerApp::shell(accepted_root.clone());
+        app.project = Some(accepted_project.clone());
+        app.lens = Lens::World;
+        app.filter = "Start".to_owned();
+        app.selected_zone = Some("Start".to_owned());
+
+        assert!(app.load_gate.try_begin());
+        app.pending_load = Some(PendingLoad {
+            root: replacement_root.clone(),
+            purpose: LoadPurpose::Open,
+        });
+
+        assert_eq!(app.data_root, accepted_root);
+        assert_eq!(app.project.as_ref(), Some(&accepted_project));
+        assert_eq!(app.lens, Lens::World);
+        assert_eq!(app.filter, "Start");
+        assert_eq!(app.selected_zone.as_deref(), Some("Start"));
+
+        app.finish_ready(Box::new(replacement_project.clone()));
+
+        assert_eq!(app.data_root, replacement_root);
+        assert_eq!(app.project.as_ref(), Some(&replacement_project));
+        assert_eq!(app.lens, Lens::World);
+        assert_eq!(app.filter, "Start");
+        assert_eq!(app.selected_zone.as_deref(), Some("Start"));
+        assert!(!app.load_gate.is_active());
+        assert!(app.pending_load.is_none());
+    }
+
+    #[test]
+    fn reload_atomically_refreshes_diagnostics_and_reconciles_raw_focus() {
+        let fixture = ReloadFixture::new("refreshes-diagnostics");
+        let root = fixture.root().to_path_buf();
+        let before = fixture.project();
+        assert_eq!(before.actor_catalog().diagnostics.len(), 2);
+        let actor = before
+            .actor_catalog()
+            .actors
+            .iter()
+            .find(|actor| actor.actor_id == 4)
+            .expect("missing-physical actor");
+        assert_eq!(actor.media_status, FeedbackMediaStatus::MissingPhysical);
+        let mesh_id = actor.base_mesh.expect("actor base mesh");
+
+        let mut app = LedgerApp::shell(root.clone());
+        app.project = Some(before);
+        app.lens = Lens::Assets;
+        app.filter = mesh_id.to_string();
+        app.selected = Some("Data/Meshes/Hero.b3d".to_owned());
+        app.selected_actor = Some(4);
+        app.selected_mesh = Some(mesh_id);
+        app.selected_zone = Some("Start".to_owned());
+        app.selected_script = Some("Data/Server Data/Scripts/Quest.rsl".to_owned());
+
+        fixture.add_missing_mesh();
+        let refreshed = fixture.project();
+        assert_eq!(refreshed.actor_catalog().diagnostics.len(), 1);
+        assert_eq!(
+            refreshed
+                .actor_catalog()
+                .actors
+                .iter()
+                .find(|actor| actor.actor_id == 4)
+                .expect("refreshed actor")
+                .media_status,
+            FeedbackMediaStatus::Present
+        );
+
+        assert!(app.load_gate.try_begin());
+        app.pending_load = Some(PendingLoad {
+            root: root.clone(),
+            purpose: LoadPurpose::Reload,
+        });
+        app.finish_ready(Box::new(refreshed));
+
+        assert_eq!(app.data_root, root);
+        assert_eq!(
+            app.project
+                .as_ref()
+                .expect("accepted refreshed project")
+                .actor_catalog()
+                .diagnostics
+                .len(),
+            1
+        );
+        assert_eq!(app.lens, Lens::Assets);
+        assert_eq!(app.filter, mesh_id.to_string());
+        assert_eq!(app.selected.as_deref(), Some("Data/Meshes/Hero.b3d"));
+        assert_eq!(app.selected_actor, Some(4));
+        assert_eq!(app.selected_mesh, Some(mesh_id));
+        assert_eq!(app.selected_zone.as_deref(), Some("Start"));
+        assert_eq!(
+            app.selected_script.as_deref(),
+            Some("Data/Server Data/Scripts/Quest.rsl")
+        );
+        assert!(!app.load_gate.is_active());
+        assert!(app.pending_load.is_none());
+
+        app.selected = Some("Data/Meshes/Removed.b3d".to_owned());
+        app.selected_actor = Some(65_535);
+        app.selected_mesh = Some(65_535);
+        app.selected_zone = Some("Removed".to_owned());
+        app.selected_script = Some("Data/Server Data/Scripts/Removed.rsl".to_owned());
+        assert!(app.load_gate.try_begin());
+        app.pending_load = Some(PendingLoad {
+            root: root.clone(),
+            purpose: LoadPurpose::Reload,
+        });
+        let same_snapshot = fixture.project();
+        app.finish_ready(Box::new(same_snapshot));
+
+        assert_eq!(app.selected, None);
+        assert_eq!(app.selected_actor, None);
+        assert_eq!(app.selected_mesh, None);
+        assert_eq!(app.selected_zone, None);
+        assert_eq!(app.selected_script, None);
     }
 }

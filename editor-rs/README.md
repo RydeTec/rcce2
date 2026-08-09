@@ -45,6 +45,15 @@ parse source, assert that an adjunct was generated from the source, or expose
 script editing; the exhaustive Scripts file atlas remains available beside the
 catalog.
 
+`RELOAD SNAPSHOT` re-inventories the currently accepted project through the
+same confined read-only loader. The prior accepted project, root, lens, filter,
+and focus remain visible while the replacement loads. Success swaps the full
+projection atomically and retains raw file, actor, mesh, zone, and script focus
+only when the identity still resolves; failure or a disconnected loader keeps
+the prior accepted session visible and reports the failed refresh. Reload is
+explicit rather than automatic: this surface does not watch the filesystem,
+merge concurrent changes, repair data, or provide live synchronization.
+
 On Windows, launch the latest feedback build from the repository root:
 
 ```powershell
@@ -79,7 +88,7 @@ The observed toolchain was `rustc 1.85.0 (4d91de4e4 2025-02-17)` and
 
 | Crate | Reserved responsibility at later packets | Current behavior |
 |---|---|---|
-| `rcce-editor` | Desktop composition; the only production crate allowed to acquire a GUI framework | Replaceable feedback-MVP host with five read-only lenses, focused actor/base-mesh cross-navigation, and paired-zone and script-relationship surfaces |
+| `rcce-editor` | Desktop composition; the only production crate allowed to acquire a GUI framework | Replaceable feedback-MVP host with five read-only lenses, safe atomic snapshot reload, focused actor/base-mesh cross-navigation, and paired-zone and script-relationship surfaces |
 | `rcce-editor-core` | GUI-independent session, query, selection, and diagnostic orchestration | Real inventory, actor/media consensus and base-mesh backlinks, filename-derived zone pairs, and active-source script grouping with no write authority |
 | `rcce-project` | Root-confined project model, inventory, identity, and legacy document interpretation | Explicit read-only `ProjectRoot`, validated `ProjectRelativePath`, bounded read/walk, and truthful assurance reporting |
 | `rcce-validation` | Pure diagnostics over project evidence | Empty library boundary |

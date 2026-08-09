@@ -15,7 +15,7 @@ const EXPECTED_CRATES: [&str; 8] = [
     "rcce-validation",
 ];
 
-const EXPECTED_FILES: [&str; 59] = [
+const EXPECTED_FILES: [&str; 60] = [
     ".gitignore",
     "Cargo.lock",
     "Cargo.toml",
@@ -30,6 +30,7 @@ const EXPECTED_FILES: [&str; 59] = [
     "crates/rcce-editor/Cargo.toml",
     "crates/rcce-editor/src/main.rs",
     "crates/rcce-editor/tests/feedback_smoke.rs",
+    "crates/rcce-editor/tests/support/reload.rs",
     "crates/rcce-migrate/Cargo.toml",
     "crates/rcce-migrate/src/lib.rs",
     "crates/rcce-project-cli/Cargo.toml",
