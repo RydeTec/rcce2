@@ -3,7 +3,10 @@ use rcce_project::{
     ConsensusLevel, MetadataBudget, ProjectRoot, ProjectSnapshot, ReadAssurance, ScanControl,
     SnapshotProgress, StateClass,
 };
-use std::{collections::BTreeMap, path::PathBuf};
+use std::{
+    collections::{BTreeMap, VecDeque},
+    path::PathBuf,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Lens {
@@ -15,12 +18,82 @@ pub enum Lens {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum FeedbackFindTarget {
+pub enum FeedbackFocusTarget {
     File { lens: Lens, path: String },
     Actor { actor_id: u16 },
     Mesh { mesh_id: u16 },
     Zone { name: String },
     Script { source_path: String },
+}
+
+pub type FeedbackFindTarget = FeedbackFocusTarget;
+
+pub const FEEDBACK_RETURN_TRAIL_CAPACITY: usize = 32;
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct FeedbackReturnTrail {
+    entries: VecDeque<FeedbackFocusTarget>,
+}
+
+impl FeedbackReturnTrail {
+    pub fn push(&mut self, target: FeedbackFocusTarget) -> bool {
+        if self.entries.back() == Some(&target) {
+            return false;
+        }
+        if self.entries.len() == FEEDBACK_RETURN_TRAIL_CAPACITY {
+            let _ = self.entries.pop_front();
+        }
+        self.entries.push_back(target);
+        true
+    }
+
+    pub fn pop_resolved(
+        &mut self,
+        current: Option<&FeedbackFocusTarget>,
+        mut is_resolved: impl FnMut(&FeedbackFocusTarget) -> bool,
+    ) -> Option<FeedbackFocusTarget> {
+        while let Some(target) = self.entries.pop_back() {
+            if current == Some(&target) || !is_resolved(&target) {
+                continue;
+            }
+            return Some(target);
+        }
+        None
+    }
+
+    pub fn next_resolved(
+        &self,
+        current: Option<&FeedbackFocusTarget>,
+        mut is_resolved: impl FnMut(&FeedbackFocusTarget) -> bool,
+    ) -> Option<&FeedbackFocusTarget> {
+        self.entries
+            .iter()
+            .rev()
+            .find(|target| current != Some(*target) && is_resolved(target))
+    }
+
+    pub fn retain_resolved(
+        &mut self,
+        mut is_resolved: impl FnMut(&FeedbackFocusTarget) -> bool,
+    ) -> usize {
+        let prior_len = self.entries.len();
+        self.entries.retain(|target| is_resolved(target));
+        prior_len - self.entries.len()
+    }
+
+    pub fn clear(&mut self) {
+        self.entries.clear();
+    }
+
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -820,6 +893,11 @@ impl FeedbackProject {
 
     #[must_use]
     pub fn contains_find_target(&self, target: &FeedbackFindTarget) -> bool {
+        self.contains_focus_target(target)
+    }
+
+    #[must_use]
+    pub fn contains_focus_target(&self, target: &FeedbackFocusTarget) -> bool {
         self.find_candidates
             .iter()
             .any(|candidate| candidate.result.target == *target)
@@ -1218,8 +1296,75 @@ mod tests {
         find_target_identity, find_target_kind, normalize_find_fields, search_find_candidates,
         FeedbackActor, FeedbackActorCatalog, FeedbackActorCount, FeedbackAssetCatalog,
         FeedbackEvidence, FeedbackFindCandidate, FeedbackFindResult, FeedbackFindTarget,
-        FeedbackMediaStatus, Lens,
+        FeedbackFocusTarget, FeedbackMediaStatus, FeedbackReturnTrail, Lens,
+        FEEDBACK_RETURN_TRAIL_CAPACITY,
     };
+
+    #[test]
+    fn return_trail_is_bounded_lifo_and_evicts_the_oldest_focus() {
+        let mut trail = FeedbackReturnTrail::default();
+        for actor_id in 0..=FEEDBACK_RETURN_TRAIL_CAPACITY as u16 {
+            trail.push(FeedbackFocusTarget::Actor { actor_id });
+        }
+
+        assert_eq!(trail.len(), FEEDBACK_RETURN_TRAIL_CAPACITY);
+        assert_eq!(
+            trail.pop_resolved(None, |_| true),
+            Some(FeedbackFocusTarget::Actor {
+                actor_id: FEEDBACK_RETURN_TRAIL_CAPACITY as u16,
+            })
+        );
+        while trail.len() > 1 {
+            let _ = trail.pop_resolved(None, |_| true);
+        }
+        assert_eq!(
+            trail.pop_resolved(None, |_| true),
+            Some(FeedbackFocusTarget::Actor { actor_id: 1 })
+        );
+        assert!(trail.is_empty());
+    }
+
+    #[test]
+    fn return_trail_skips_stale_current_and_duplicate_origins() {
+        let actor = FeedbackFocusTarget::Actor { actor_id: 4 };
+        let mesh = FeedbackFocusTarget::Mesh { mesh_id: 83 };
+        let stale = FeedbackFocusTarget::Zone {
+            name: "Removed".to_owned(),
+        };
+        let mut trail = FeedbackReturnTrail::default();
+        trail.push(actor.clone());
+        trail.push(actor.clone());
+        trail.push(mesh.clone());
+        trail.push(stale.clone());
+
+        assert_eq!(trail.len(), 3);
+        assert_eq!(
+            trail.pop_resolved(Some(&mesh), |target| target != &stale),
+            Some(actor)
+        );
+        assert!(trail.is_empty());
+    }
+
+    #[test]
+    fn return_trail_reconciliation_preserves_surviving_order() {
+        let actor = FeedbackFocusTarget::Actor { actor_id: 4 };
+        let mesh = FeedbackFocusTarget::Mesh { mesh_id: 83 };
+        let zone = FeedbackFocusTarget::Zone {
+            name: "Start".to_owned(),
+        };
+        let mut trail = FeedbackReturnTrail::default();
+        trail.push(actor.clone());
+        trail.push(mesh);
+        trail.push(zone.clone());
+
+        assert_eq!(trail.retain_resolved(|target| target != &zone), 1);
+        assert_eq!(
+            trail.pop_resolved(None, |_| true),
+            Some(FeedbackFocusTarget::Mesh { mesh_id: 83 })
+        );
+        assert_eq!(trail.pop_resolved(None, |_| true), Some(actor));
+        assert!(trail.is_empty());
+    }
 
     #[test]
     fn asset_catalog_groups_shared_meshes_with_ordered_actor_backlinks() {

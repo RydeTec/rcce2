@@ -4,8 +4,9 @@ use eframe::egui::{
 };
 use rcce_editor_core::{
     load_feedback_project, FeedbackActor, FeedbackActorCount, FeedbackEntry, FeedbackEvidence,
-    FeedbackFindResult, FeedbackFindTarget, FeedbackLoadProgress, FeedbackMediaStatus,
-    FeedbackProject, FeedbackScript, FeedbackScriptFamily, FeedbackZone, FeedbackZoneStatus, Lens,
+    FeedbackFindResult, FeedbackFindTarget, FeedbackFocusTarget, FeedbackLoadProgress,
+    FeedbackMediaStatus, FeedbackProject, FeedbackReturnTrail, FeedbackScript,
+    FeedbackScriptFamily, FeedbackZone, FeedbackZoneStatus, Lens,
 };
 use std::{
     path::{Path, PathBuf},
@@ -263,6 +264,7 @@ fn transition_assets_view(
     target
 }
 
+#[cfg(test)]
 fn navigate_relationship(
     target: RelationshipTarget,
     lens: &mut Lens,
@@ -450,6 +452,7 @@ struct LedgerApp {
     palette_results: Vec<FeedbackFindResult>,
     palette_request_focus: bool,
     palette_scroll_to_highlight: bool,
+    return_trail: FeedbackReturnTrail,
     status: String,
     activity: Vec<String>,
     load_gate: LoadGate,
@@ -480,6 +483,7 @@ impl LedgerApp {
             palette_results: Vec::new(),
             palette_request_focus: false,
             palette_scroll_to_highlight: false,
+            return_trail: FeedbackReturnTrail::default(),
             status: "Preparing project inventory…".to_owned(),
             activity: vec!["Feedback MVP started in read-only mode".to_owned()],
             load_gate: LoadGate::default(),
@@ -618,6 +622,25 @@ impl LedgerApp {
             &mut self.selected_zone,
             &mut self.selected_script,
         );
+        match purpose {
+            LoadPurpose::Reload => {
+                let removed = self
+                    .return_trail
+                    .retain_resolved(|target| project.contains_focus_target(target));
+                if removed > 0 {
+                    self.activity.insert(
+                        0,
+                        format!(
+                            "Return trail removed {removed} unavailable raw focus {}",
+                            if removed == 1 { "entry" } else { "entries" }
+                        ),
+                    );
+                }
+            }
+            LoadPurpose::Initial => self.return_trail.clear(),
+            #[cfg(any(windows, test))]
+            LoadPurpose::Open => self.return_trail.clear(),
+        }
         self.project = Some(*project);
         self.palette_highlight = 0;
         self.refresh_find_results();
@@ -732,12 +755,157 @@ impl LedgerApp {
         &self.palette_results
     }
 
-    fn activate_find_target(&mut self, target: FeedbackFindTarget) -> bool {
+    fn current_focus_target(&self) -> Option<FeedbackFocusTarget> {
+        let target = match self.lens {
+            Lens::Records if self.records_view == RecordsView::Actors => self
+                .selected_actor
+                .map(|actor_id| FeedbackFocusTarget::Actor { actor_id }),
+            Lens::Records => self
+                .selected
+                .as_ref()
+                .map(|path| FeedbackFocusTarget::File {
+                    lens: Lens::Records,
+                    path: path.clone(),
+                }),
+            Lens::World if self.world_view == WorldView::Zones => self
+                .selected_zone
+                .as_ref()
+                .map(|name| FeedbackFocusTarget::Zone { name: name.clone() }),
+            Lens::World => self
+                .selected
+                .as_ref()
+                .map(|path| FeedbackFocusTarget::File {
+                    lens: Lens::World,
+                    path: path.clone(),
+                }),
+            Lens::Assets if self.assets_view == AssetsView::Relationships => self
+                .selected_mesh
+                .map(|mesh_id| FeedbackFocusTarget::Mesh { mesh_id }),
+            Lens::Assets => self
+                .selected
+                .as_ref()
+                .map(|path| FeedbackFocusTarget::File {
+                    lens: Lens::Assets,
+                    path: path.clone(),
+                }),
+            Lens::Scripts if self.scripts_view == ScriptsView::Catalog => self
+                .selected_script
+                .as_ref()
+                .map(|source_path| FeedbackFocusTarget::Script {
+                    source_path: source_path.clone(),
+                }),
+            Lens::Scripts => self
+                .selected
+                .as_ref()
+                .map(|path| FeedbackFocusTarget::File {
+                    lens: Lens::Scripts,
+                    path: path.clone(),
+                }),
+            Lens::Vault => self
+                .selected
+                .as_ref()
+                .map(|path| FeedbackFocusTarget::File {
+                    lens: Lens::Vault,
+                    path: path.clone(),
+                }),
+        }?;
+        self.project
+            .as_ref()
+            .is_some_and(|project| project.contains_focus_target(&target))
+            .then_some(target)
+    }
+
+    fn navigate_with_return(&mut self, target: FeedbackFocusTarget) -> bool {
         if !self
             .project
             .as_ref()
-            .is_some_and(|project| project.contains_find_target(&target))
+            .is_some_and(|project| project.contains_focus_target(&target))
         {
+            return false;
+        }
+        if let Some(origin) = self.current_focus_target() {
+            if origin != target {
+                self.return_trail.push(origin);
+            }
+        }
+        self.route_find_target(target);
+        true
+    }
+
+    fn follow_relationship(&mut self, target: RelationshipTarget) -> bool {
+        let focus_target = match target {
+            RelationshipTarget::Actor(actor_id) => FeedbackFocusTarget::Actor { actor_id },
+            RelationshipTarget::Mesh(mesh_id) => FeedbackFocusTarget::Mesh { mesh_id },
+        };
+        if !self.navigate_with_return(focus_target) {
+            self.activity.insert(
+                0,
+                "Observed relationship is no longer available in the accepted snapshot".to_owned(),
+            );
+            return false;
+        }
+        self.activity.insert(
+            0,
+            match target {
+                RelationshipTarget::Actor(actor_id) => {
+                    format!("Followed actor thread to Actor #{actor_id}")
+                }
+                RelationshipTarget::Mesh(mesh_id) => {
+                    format!("Followed base-mesh thread to Mesh #{mesh_id}")
+                }
+            },
+        );
+        true
+    }
+
+    fn can_return(&self) -> bool {
+        let current = self.current_focus_target();
+        self.project.as_ref().is_some_and(|project| {
+            self.return_trail
+                .next_resolved(current.as_ref(), |target| {
+                    project.contains_focus_target(target)
+                })
+                .is_some()
+        })
+    }
+
+    fn return_to_previous_focus(&mut self) -> bool {
+        let current = self.current_focus_target();
+        let target = {
+            let project = self.project.as_ref();
+            self.return_trail.pop_resolved(current.as_ref(), |target| {
+                project.is_some_and(|project| project.contains_focus_target(target))
+            })
+        };
+        let Some(target) = target else {
+            self.activity.insert(
+                0,
+                "Return trail has no available prior raw focus".to_owned(),
+            );
+            return false;
+        };
+        let activity = format!(
+            "Returned to prior raw focus {}",
+            find_target_identity_label(&target)
+        );
+        self.route_find_target(target);
+        self.activity.insert(0, activity);
+        true
+    }
+
+    fn return_shortcut(&mut self, context: &egui::Context) {
+        let palette_opening =
+            context.input(|input| input.modifiers.ctrl && input.key_pressed(Key::K));
+        if self.palette_open || palette_opening || !self.can_return() {
+            return;
+        }
+        if context.input_mut(|input| input.consume_key(Modifiers::ALT, Key::ArrowLeft)) {
+            self.return_to_previous_focus();
+        }
+    }
+
+    fn activate_find_target(&mut self, target: FeedbackFindTarget) -> bool {
+        if !self.navigate_with_return(target.clone()) {
             self.activity.insert(
                 0,
                 format!(
@@ -751,7 +919,6 @@ impl LedgerApp {
             "Find anywhere opened {}",
             find_target_identity_label(&target)
         );
-        self.route_find_target(target);
         self.activity.insert(0, activity);
         true
     }
@@ -881,6 +1048,20 @@ impl LedgerApp {
                         }
                         if ui
                             .add_enabled(
+                                !self.palette_open && self.can_return(),
+                                egui::Button::new(
+                                    RichText::new("RETURN  ALT+LEFT").color(BRASS),
+                                ),
+                            )
+                            .on_hover_text(
+                                "Return to the previous accepted raw focus in this session; not project history",
+                            )
+                            .clicked()
+                        {
+                            self.return_to_previous_focus();
+                        }
+                        if ui
+                            .add_enabled(
                                 !self.load_gate.is_active(),
                                 egui::Button::new(RichText::new("OPEN PROJECT").color(BRASS)),
                             )
@@ -960,7 +1141,7 @@ impl LedgerApp {
                 }
                 ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
                     ui.label(
-                        RichText::new("Feedback build 0.8\nNo save or mutation commands exist")
+                        RichText::new("Feedback build 0.9\nNo save or mutation commands exist")
                             .size(11.0)
                             .color(MUTED),
                     );
@@ -1366,27 +1547,7 @@ impl LedgerApp {
                     });
             });
         if let Some(target) = pending_relationship {
-            let activity = match target {
-                RelationshipTarget::Actor(actor_id) => {
-                    format!("Followed actor thread to Actor #{actor_id}")
-                }
-                RelationshipTarget::Mesh(mesh_id) => {
-                    format!("Followed base-mesh thread to Mesh #{mesh_id}")
-                }
-            };
-            navigate_relationship(
-                target,
-                &mut self.lens,
-                &mut self.records_view,
-                &mut self.assets_view,
-                &mut self.filter,
-                &mut self.selected,
-                &mut self.selected_actor,
-                &mut self.selected_mesh,
-                &mut self.selected_zone,
-                &mut self.selected_script,
-            );
-            self.activity.insert(0, activity);
+            self.follow_relationship(target);
         }
     }
 
@@ -2520,6 +2681,7 @@ impl LedgerApp {
 impl eframe::App for LedgerApp {
     fn update(&mut self, context: &egui::Context, _frame: &mut eframe::Frame) {
         self.poll_load();
+        self.return_shortcut(context);
         self.top_bar(context);
         self.ledger(context);
         self.lens_rail(context);
@@ -2756,7 +2918,9 @@ mod tests {
         PendingLoad, RecordsView, RelationshipTarget, ScriptsView, WorldView,
     };
     use eframe::egui::{CentralPanel, Context, Event, Key, Modifiers, Pos2, RawInput, Rect, Vec2};
-    use rcce_editor_core::{FeedbackFindResult, FeedbackFindTarget};
+    use rcce_editor_core::{
+        FeedbackFindResult, FeedbackFindTarget, FeedbackFocusTarget, FeedbackReturnTrail,
+    };
 
     #[test]
     fn only_one_project_load_can_be_active() {
@@ -3260,6 +3424,243 @@ mod tests {
             .activity
             .first()
             .is_some_and(|event| event.contains("no longer available")));
+    }
+
+    #[test]
+    fn active_focus_capture_uses_the_visible_lens_and_subview_only() {
+        let fixture = ReloadFixture::new("return-active-focus");
+        let project = fixture.project();
+        let actor_id = project.actor_catalog().actors[0].actor_id;
+        let mesh_id = project.asset_catalog().meshes[0].mesh_id;
+        let zone_name = project.zone_catalog().zones[0].name.clone();
+        let script_path = project.script_catalog().scripts[0].source_path.clone();
+        let mut app = LedgerApp::shell(fixture.root().to_path_buf());
+        app.project = Some(project.clone());
+        app.selected_actor = Some(actor_id);
+        app.selected_mesh = Some(mesh_id);
+        app.selected_zone = Some(zone_name.clone());
+        app.selected_script = Some(script_path.clone());
+
+        for lens in Lens::ALL {
+            let path = project.entries(lens)[0].path.clone();
+            app.lens = lens;
+            app.selected = Some(path.clone());
+            match lens {
+                Lens::Records => app.records_view = RecordsView::Files,
+                Lens::World => app.world_view = WorldView::Files,
+                Lens::Assets => app.assets_view = AssetsView::Files,
+                Lens::Scripts => app.scripts_view = ScriptsView::Files,
+                Lens::Vault => {}
+            }
+            assert_eq!(
+                app.current_focus_target(),
+                Some(FeedbackFocusTarget::File { lens, path })
+            );
+        }
+
+        app.lens = Lens::Records;
+        app.records_view = RecordsView::Actors;
+        assert_eq!(
+            app.current_focus_target(),
+            Some(FeedbackFocusTarget::Actor { actor_id })
+        );
+        app.lens = Lens::Assets;
+        app.assets_view = AssetsView::Relationships;
+        assert_eq!(
+            app.current_focus_target(),
+            Some(FeedbackFocusTarget::Mesh { mesh_id })
+        );
+        app.lens = Lens::World;
+        app.world_view = WorldView::Zones;
+        assert_eq!(
+            app.current_focus_target(),
+            Some(FeedbackFocusTarget::Zone { name: zone_name })
+        );
+        app.lens = Lens::Scripts;
+        app.scripts_view = ScriptsView::Catalog;
+        assert_eq!(
+            app.current_focus_target(),
+            Some(FeedbackFocusTarget::Script {
+                source_path: script_path,
+            })
+        );
+    }
+
+    #[test]
+    fn find_and_relationship_jumps_push_and_return_without_ping_pong() {
+        let fixture = ReloadFixture::new("return-jump-sources");
+        let project = fixture.project();
+        let actor = project
+            .actor_catalog()
+            .actors
+            .iter()
+            .find(|actor| actor.base_mesh.is_some())
+            .expect("actor with mesh");
+        let actor_id = actor.actor_id;
+        let mesh_id = actor.base_mesh.expect("mesh identity");
+        let mut app = LedgerApp::shell(fixture.root().to_path_buf());
+        app.project = Some(project);
+        app.lens = Lens::Records;
+        app.records_view = RecordsView::Actors;
+        app.selected_actor = Some(actor_id);
+
+        assert!(app.activate_find_target(FeedbackFocusTarget::Mesh { mesh_id }));
+        assert_eq!(app.return_trail.len(), 1);
+        assert!(app.return_to_previous_focus());
+        assert_eq!(app.selected_actor, Some(actor_id));
+        assert!(app.return_trail.is_empty());
+
+        assert!(app.follow_relationship(RelationshipTarget::Mesh(mesh_id)));
+        assert_eq!(app.return_trail.len(), 1);
+        assert!(app.follow_relationship(RelationshipTarget::Actor(actor_id)));
+        assert_eq!(app.return_trail.len(), 2);
+        assert!(app.return_to_previous_focus());
+        assert_eq!(app.selected_mesh, Some(mesh_id));
+        assert_eq!(app.return_trail.len(), 1);
+    }
+
+    #[test]
+    fn self_stale_and_unfocused_jumps_do_not_add_return_entries() {
+        let fixture = ReloadFixture::new("return-non-jumps");
+        let project = fixture.project();
+        let actor_id = project.actor_catalog().actors[0].actor_id;
+        let mut app = LedgerApp::shell(fixture.root().to_path_buf());
+        app.project = Some(project);
+        app.lens = Lens::Records;
+        app.records_view = RecordsView::Actors;
+        app.selected_actor = Some(actor_id);
+
+        assert!(app.activate_find_target(FeedbackFocusTarget::Actor { actor_id }));
+        assert!(app.return_trail.is_empty());
+        assert!(!app.activate_find_target(FeedbackFocusTarget::Actor { actor_id: u16::MAX }));
+        assert!(app.return_trail.is_empty());
+
+        app.selected_actor = None;
+        let mesh_id = app
+            .project
+            .as_ref()
+            .expect("project")
+            .asset_catalog()
+            .meshes[0]
+            .mesh_id;
+        assert!(app.activate_find_target(FeedbackFocusTarget::Mesh { mesh_id }));
+        assert!(app.return_trail.is_empty());
+    }
+
+    #[test]
+    fn replacement_failure_preserves_reload_prunes_and_open_clears_return_trail() {
+        let accepted = ReloadFixture::new("return-reload");
+        let replacement = ReloadFixture::new("return-open");
+        let accepted_root = accepted.root().to_path_buf();
+        let accepted_project = accepted.project();
+        let actor_id = accepted_project.actor_catalog().actors[0].actor_id;
+        let mut app = LedgerApp::shell(accepted_root.clone());
+        app.project = Some(accepted_project);
+        app.return_trail = FeedbackReturnTrail::default();
+        app.return_trail
+            .push(FeedbackFocusTarget::Actor { actor_id });
+        app.return_trail.push(FeedbackFocusTarget::Zone {
+            name: "Removed".to_owned(),
+        });
+        let prior_trail = app.return_trail.clone();
+
+        assert!(app.load_gate.try_begin());
+        app.pending_load = Some(PendingLoad {
+            root: accepted_root.clone(),
+            purpose: LoadPurpose::Reload,
+        });
+        app.finish_failed("rejected".to_owned());
+        assert_eq!(app.return_trail, prior_trail);
+
+        assert!(app.load_gate.try_begin());
+        app.pending_load = Some(PendingLoad {
+            root: accepted_root,
+            purpose: LoadPurpose::Reload,
+        });
+        app.finish_ready(Box::new(accepted.project()));
+        assert_eq!(app.return_trail.len(), 1);
+        app.lens = Lens::Assets;
+        app.assets_view = AssetsView::Relationships;
+        app.selected_mesh = Some(
+            app.project
+                .as_ref()
+                .expect("project")
+                .asset_catalog()
+                .meshes[0]
+                .mesh_id,
+        );
+        assert!(app.return_to_previous_focus());
+        assert_eq!(app.selected_actor, Some(actor_id));
+
+        app.return_trail
+            .push(FeedbackFocusTarget::Actor { actor_id });
+
+        assert!(app.load_gate.try_begin());
+        app.pending_load = Some(PendingLoad {
+            root: replacement.root().to_path_buf(),
+            purpose: LoadPurpose::Open,
+        });
+        app.finish_ready(Box::new(replacement.project()));
+        assert!(app.return_trail.is_empty());
+    }
+
+    #[test]
+    fn open_palette_owns_alt_left_without_consuming_the_return_trail() {
+        let fixture = ReloadFixture::new("return-palette-priority");
+        let project = fixture.project();
+        let actor_id = project.actor_catalog().actors[0].actor_id;
+        let mut app = LedgerApp::shell(fixture.root().to_path_buf());
+        app.project = Some(project);
+        app.return_trail
+            .push(FeedbackFocusTarget::Actor { actor_id });
+        app.palette_open = true;
+        let before = app.return_trail.clone();
+        let context = Context::default();
+        let input = RawInput {
+            events: vec![Event::Key {
+                key: Key::ArrowLeft,
+                physical_key: Some(Key::ArrowLeft),
+                pressed: true,
+                repeat: false,
+                modifiers: Modifiers::ALT,
+            }],
+            ..Default::default()
+        };
+
+        let _ = context.run(input, |context| app.return_shortcut(context));
+
+        assert_eq!(app.return_trail, before);
+    }
+
+    #[test]
+    fn alt_left_returns_when_the_palette_is_closed() {
+        let fixture = ReloadFixture::new("return-shortcut");
+        let project = fixture.project();
+        let actor_id = project.actor_catalog().actors[0].actor_id;
+        let mesh_id = project.asset_catalog().meshes[0].mesh_id;
+        let mut app = LedgerApp::shell(fixture.root().to_path_buf());
+        app.project = Some(project);
+        app.lens = Lens::Assets;
+        app.assets_view = AssetsView::Relationships;
+        app.selected_mesh = Some(mesh_id);
+        app.return_trail
+            .push(FeedbackFocusTarget::Actor { actor_id });
+        let context = Context::default();
+        let input = RawInput {
+            events: vec![Event::Key {
+                key: Key::ArrowLeft,
+                physical_key: Some(Key::ArrowLeft),
+                pressed: true,
+                repeat: false,
+                modifiers: Modifiers::ALT,
+            }],
+            ..Default::default()
+        };
+
+        let _ = context.run(input, |context| app.return_shortcut(context));
+
+        assert_eq!(app.selected_actor, Some(actor_id));
+        assert!(app.return_trail.is_empty());
     }
 
     #[test]

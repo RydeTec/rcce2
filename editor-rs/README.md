@@ -57,6 +57,18 @@ provenance, or command search. Activation re-resolves the target against the
 current accepted snapshot, so a stale result cannot redirect to a normalized
 or inferred replacement.
 
+`RETURN` (`Alt+Left`) unwinds a session-local trail of at most 32 prior raw
+focus identities. Only successful Find Anything activation and observed
+actorâ†”base-mesh thread traversal add an origin; ordinary lens, subview, card,
+diagnostic, and filter interaction neither adds nor clears entries. Return
+revalidates each entry against the accepted snapshot, skips stale or current
+focus, and routes through the same exact lens/subview clearing rules without
+adding the destination just left. Same-root Reload preserves only identities
+that still resolve, while opening another project clears the trail even when
+raw IDs happen to coincide. This in-memory convenience is not project or
+browser history, persisted recents, a timeline, undo/redo, or accessibility
+acceptance.
+
 `RELOAD SNAPSHOT` re-inventories the currently accepted project through the
 same confined read-only loader. The prior accepted project, root, lens, filter,
 and focus remain visible while the replacement loads. Success swaps the full
@@ -100,8 +112,8 @@ The observed toolchain was `rustc 1.85.0 (4d91de4e4 2025-02-17)` and
 
 | Crate | Reserved responsibility at later packets | Current behavior |
 |---|---|---|
-| `rcce-editor` | Desktop composition; the only production crate allowed to acquire a GUI framework | Replaceable feedback-MVP host with five read-only lenses, safe atomic snapshot reload, exact cross-lens routing, and a provisional find-anywhere palette |
-| `rcce-editor-core` | GUI-independent session, query, selection, and diagnostic orchestration | Real inventory and semantic projections plus an immutable, deterministic literal-search index over accepted raw identities, with no write authority |
+| `rcce-editor` | Desktop composition; the only production crate allowed to acquire a GUI framework | Replaceable feedback-MVP host with five read-only lenses, safe atomic snapshot reload, exact cross-lens routing, a provisional find-anywhere palette, and a bounded session-local return action |
+| `rcce-editor-core` | GUI-independent session, query, selection, and diagnostic orchestration | Real inventory and semantic projections plus an immutable deterministic literal-search index and bounded raw-focus return-trail state, with no write authority |
 | `rcce-project` | Root-confined project model, inventory, identity, and legacy document interpretation | Explicit read-only `ProjectRoot`, validated `ProjectRelativePath`, bounded read/walk, and truthful assurance reporting |
 | `rcce-validation` | Pure diagnostics over project evidence | Empty library boundary |
 | `rcce-storage` | Format-agnostic command storage after write-capable milestones authorize it | Empty library boundary; no persistence API |
