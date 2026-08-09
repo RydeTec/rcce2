@@ -116,13 +116,14 @@ the rejected/unselected UI candidate evidence.
 | Field | Current value |
 |---|---|
 | Canonical relationship | Feedback-only preview of M1 tasks 15 and 18 reload verification; earns no task 15, task 18, P06, P07, P08, M1, framework, authoring, migration, publication, or retirement credit |
-| Status | `Accepted in source commit b58d1147; program integration and exact-head CI pending` |
+| Status | `Accepted and integrated through 948f66adeefcf9fd8799864480ae6d9ee97f687f` |
 | Product boundary | The provisional Windows MVP exposes an explicit, focusable `RELOAD SNAPSHOT` action for the accepted project. An in-flight or failed reload retains the prior accepted project, root, lens, filter, and focus; a successful reload replaces the projection and root together, retains only raw file/actor/mesh/zone/script identities that still resolve exactly, and clears stale identities |
 | Evidence boundary | Reload re-runs the accepted read-only inventory and projections. A copied consensus fixture begins with two actor/media diagnostics; adding the previously missing external `Mage.b3d` makes the refreshed snapshot report one diagnostic and actor #4 `Present`, while valid focus identities survive and stale identities clear. This proves refresh behavior only, not file watching, live synchronization, merge, repair, provenance, compatibility, or parsed meaning |
 | Mutation boundary | Production remains read-only. The dedicated reload fixture support performs test-only writes outside production `src`; the MVP exposes no project write, repair, rename, conversion, command, storage, or external-operation API |
 | Current evidence | Accepted exact four-file pre-commit aggregate SHA-256 `152897d78e6b1221c3cabf454b31ed4cd215b6c569a691f2d5e529df9d6d2378` passed fresh specification review and a different fresh quality review. RED captured the absent load-purpose/pending-load state and reload shell; GREEN proves atomic successful Open/Reload replacement, prior-session retention on failed Open and disconnected Reload, exact focus reconciliation, and single-load gating. Exact Rust 1.85 full-workspace/all-target/all-feature tests pass, including GUI 14/0, projection 8/0, smoke 1/0, skeleton 3/0, library 32/0, consensus 10/0, identity 4/0, inventory 16/0, and root-confinement 15/0; strict Clippy, workspace build, targeted stable rustfmt, diff hygiene, and plan 95/11 pass. Native Windows smoke reports 1,201 files / 358,557,047 bytes / 0 unavailable / 6 provisional actors / 4 actor-referenced base meshes / 2 zone pairing observations / 55 active scripts / 13 adjuncts / 0 script inventory issues, with valid/missing-root exits 0/2. Visual execution observed `Reloading accepted snapshot...` without losing Mesh #83 focus, then `Snapshot reloaded` with the same accepted counts and focus |
+| Exact-head CI | Integrated head `948f66adeefcf9fd8799864480ae6d9ee97f687f` passed workflow run `31329213884`: `Build and test` 5m19s and `Rust server (Linux)` 3m32s |
 | Rejected shortcuts | No clear-before-load, no accepted-root switch before successful replacement, no test mutation embedded in production source, no topology bypass, no watcher/live-sync/conflict/repair/write claim, and no production UI-framework selection |
-| Remaining acceptance | Program integration, push, final exact-head CI, ledger-only closeout publication, and durable-state closeout; all formal milestone and framework/write/migration gates remain unchanged |
+| Remaining acceptance | Ledger-only closeout publication and durable-state closeout; all formal milestone and framework/write/migration gates remain unchanged |
 
 ## Active packets
 
@@ -253,7 +254,7 @@ Completed implementation lanes:
 
 ## Next actions
 
-1. Complete `SE-FB-MVP-07` program integration, exact-head CI, and durable-state closeout without expanding watcher, synchronization, repair, write, framework, or milestone authority.
+1. After `SE-FB-MVP-07` ledger and durable-state closeout, scope `SE-FB-MVP-08` as a read-only find-anywhere palette over accepted raw file, actor, mesh, zone, and script identities, with exact cross-lens routing and no inferred semantics or formal shell/framework credit.
 2. Keep the wgpu 26 migration isolated until an explicitly approved Stage 2 can prove the full client and native Windows/i686 path; do not treat renderer-only feasibility as framework selection.
 3. Resolve the blocked C01 reference fixture, complete machine, and memory-budget approval inputs before any framework selection.
 4. Keep real project migration/publication and M10 legacy removal behind their explicit approval gates.
