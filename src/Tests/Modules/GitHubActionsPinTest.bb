@@ -47,3 +47,8 @@ Test testCIActionReferencesUseReviewedImmutablePins()
 	Assert(FileContains%(".github\workflows\ci.yml", "uses: microsoft/setup-msbuild@v2") = False)
 	Assert(FileContains%(".github\workflows\ci.yml", "uses: dtolnay/rust-toolchain@1.85.0") = False)
 End Test
+
+Test testCIPinsBlitzForgeBuildsToVisualStudio2022()
+	Assert(FileOccurrenceCount%(".github\workflows\ci.yml", "runs-on: windows-2022") = 1)
+	Assert(FileOccurrenceCount%(".github\workflows\ci.yml", "vs-version: '[17.0,18.0)'") = 1)
+End Test
