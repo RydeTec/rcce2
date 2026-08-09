@@ -5,8 +5,9 @@ use eframe::egui::{
 use rcce_editor_core::{
     load_feedback_project, FeedbackActor, FeedbackActorCount, FeedbackEntry, FeedbackEvidence,
     FeedbackFindResult, FeedbackFindTarget, FeedbackFocusTarget, FeedbackLoadProgress,
-    FeedbackMediaStatus, FeedbackProject, FeedbackReturnTrail, FeedbackScript,
-    FeedbackScriptFamily, FeedbackZone, FeedbackZoneStatus, Lens,
+    FeedbackMediaStatus, FeedbackObservation, FeedbackObservationEvidence, FeedbackProject,
+    FeedbackReturnTrail, FeedbackScript, FeedbackScriptFamily, FeedbackZone, FeedbackZoneStatus,
+    Lens,
 };
 use std::{
     path::{Path, PathBuf},
@@ -31,6 +32,8 @@ const GREEN: Color32 = Color32::from_rgb(111, 184, 139);
 const ISSUE: Color32 = Color32::from_rgb(206, 125, 96);
 const PALETTE_ROW_HEIGHT: f32 = 52.0;
 const PALETTE_VIEW_HEIGHT: f32 = 420.0;
+const OBSERVATION_ROW_HEIGHT: f32 = 64.0;
+const OBSERVATION_VIEW_HEIGHT: f32 = 360.0;
 
 fn main() -> ExitCode {
     let data_root = parse_project_arg().unwrap_or_else(default_data_root);
@@ -39,7 +42,7 @@ fn main() -> ExitCode {
             Ok(project) => {
                 let actor_catalog = project.actor_catalog();
                 println!(
-                    "[super-editor-mvp] ready: {} files, {} bytes, {} unavailable; actors={} actor_evidence={} actor_reference_issues={} actor_base_meshes={} zones={} zone_pairing_issues={} scripts={} script_adjuncts={} script_inventory_issues={}",
+                    "[super-editor-mvp] ready: {} files, {} bytes, {} unavailable; actors={} actor_evidence={} actor_reference_issues={} actor_base_meshes={} zones={} zone_pairing_issues={} scripts={} script_adjuncts={} script_inventory_issues={} known_observations={} actor_diagnostics={}",
                     project.total_files(),
                     project.total_bytes(),
                     project.unavailable,
@@ -51,7 +54,9 @@ fn main() -> ExitCode {
                     project.zone_catalog().diagnostics.len(),
                     project.script_catalog().scripts.len(),
                     project.script_catalog().adjunct_files,
-                    project.script_catalog().diagnostics.len()
+                    project.script_catalog().diagnostics.len(),
+                    project.observation_index().observations.len(),
+                    actor_diagnostic_coverage_smoke(project.observation_index().actor_evidence)
                 );
                 ExitCode::SUCCESS
             }
@@ -452,6 +457,7 @@ struct LedgerApp {
     palette_results: Vec<FeedbackFindResult>,
     palette_request_focus: bool,
     palette_scroll_to_highlight: bool,
+    observations_open: bool,
     return_trail: FeedbackReturnTrail,
     status: String,
     activity: Vec<String>,
@@ -483,6 +489,7 @@ impl LedgerApp {
             palette_results: Vec::new(),
             palette_request_focus: false,
             palette_scroll_to_highlight: false,
+            observations_open: false,
             return_trail: FeedbackReturnTrail::default(),
             status: "Preparing project inventory…".to_owned(),
             activity: vec!["Feedback MVP started in read-only mode".to_owned()],
@@ -731,6 +738,17 @@ impl LedgerApp {
         self.palette_results.clear();
         self.palette_request_focus = true;
         self.palette_scroll_to_highlight = true;
+        self.observations_open = false;
+    }
+
+    fn open_observations(&mut self) {
+        if self.project.is_none() {
+            return;
+        }
+        self.observations_open = true;
+        self.palette_open = false;
+        self.palette_request_focus = false;
+        self.palette_scroll_to_highlight = false;
     }
 
     fn refresh_find_results(&mut self) {
@@ -896,7 +914,7 @@ impl LedgerApp {
     fn return_shortcut(&mut self, context: &egui::Context) {
         let palette_opening =
             context.input(|input| input.modifiers.ctrl && input.key_pressed(Key::K));
-        if self.palette_open || palette_opening || !self.can_return() {
+        if self.palette_open || self.observations_open || palette_opening || !self.can_return() {
             return;
         }
         if context.input_mut(|input| input.consume_key(Modifiers::ALT, Key::ArrowLeft)) {
@@ -920,6 +938,28 @@ impl LedgerApp {
             find_target_identity_label(&target)
         );
         self.activity.insert(0, activity);
+        true
+    }
+
+    fn activate_observation_target(&mut self, target: FeedbackFocusTarget) -> bool {
+        if !self.navigate_with_return(target.clone()) {
+            self.activity.insert(
+                0,
+                format!(
+                    "Observation target {} is no longer available in the accepted snapshot",
+                    find_target_identity_label(&target)
+                ),
+            );
+            return false;
+        }
+        self.activity.insert(
+            0,
+            format!(
+                "Known observation opened {}",
+                find_target_identity_label(&target)
+            ),
+        );
+        self.observations_open = false;
         true
     }
 
@@ -972,6 +1012,7 @@ impl LedgerApp {
         self.palette_results.clear();
         self.palette_request_focus = false;
         self.palette_scroll_to_highlight = false;
+        self.observations_open = false;
     }
 
     fn selected_entry(&self) -> Option<&FeedbackEntry> {
@@ -1139,9 +1180,33 @@ impl LedgerApp {
                         self.selected_script = None;
                     }
                 }
+                ui.add_space(10.0);
+                ui.separator();
+                let observation_count = self.project.as_ref().map_or(0, |project| {
+                    project.observation_index().observations.len()
+                });
+                if ui
+                    .add_enabled(
+                        self.project.is_some(),
+                        egui::Button::new(
+                            RichText::new(format!(
+                                "KNOWN OBSERVATIONS\n{observation_count} in current coverage"
+                            ))
+                            .size(12.0)
+                            .color(if observation_count == 0 { GREEN } else { ISSUE }),
+                        )
+                        .min_size(Vec2::new(177.0, 50.0)),
+                    )
+                    .on_hover_text(
+                        "Open evidence-labeled observations from the accepted snapshot; this is not a complete project health verdict",
+                    )
+                    .clicked()
+                {
+                    self.open_observations();
+                }
                 ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
                     ui.label(
-                        RichText::new("Feedback build 0.9\nNo save or mutation commands exist")
+                        RichText::new("Feedback build 0.10\nNo save or mutation commands exist")
                             .size(11.0)
                             .color(MUTED),
                     );
@@ -1733,6 +1798,135 @@ impl LedgerApp {
         }
         if let Some(target) = pending_activation {
             self.activate_find_target(target);
+        }
+    }
+
+    fn observations_panel(&mut self, context: &egui::Context) {
+        if !self.observations_open {
+            return;
+        }
+        if context.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Escape)) {
+            self.observations_open = false;
+            return;
+        }
+
+        let mut window_open = true;
+        let mut pending_activation = None;
+        egui::Window::new("Known observations")
+            .id(egui::Id::new("known_observations"))
+            .anchor(Align2::CENTER_TOP, [0.0, 112.0])
+            .fixed_size([840.0, 590.0])
+            .collapsible(false)
+            .resizable(false)
+            .title_bar(false)
+            .frame(
+                Frame::none()
+                    .fill(PANEL_RAISED)
+                    .stroke(Stroke::new(1.0, BRASS))
+                    .inner_margin(Margin::same(18.0)),
+            )
+            .open(&mut window_open)
+            .show(context, |ui| {
+                ui.horizontal(|ui| {
+                    ui.vertical(|ui| {
+                        ui.label(
+                            RichText::new("KNOWN OBSERVATIONS")
+                                .size(11.0)
+                                .color(BRASS)
+                                .strong()
+                                .extra_letter_spacing(1.5),
+                        );
+                        ui.label(
+                            RichText::new("Current accepted coverage")
+                                .size(22.0)
+                                .color(INK)
+                                .strong(),
+                        );
+                    });
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        ui.label(RichText::new("ESC TO CLOSE").size(10.0).color(MUTED));
+                    });
+                });
+                ui.label(
+                    RichText::new(
+                        "Evidence-labeled and exhaustive only within the slices named below; not a complete validator or project health verdict.",
+                    )
+                    .size(12.0)
+                    .color(MUTED),
+                );
+                ui.add_space(8.0);
+
+                let Some(project) = self.project.as_ref() else {
+                    ui.spinner();
+                    return;
+                };
+                let index = project.observation_index();
+                ui.horizontal(|ui| {
+                    observation_coverage_card(
+                        ui,
+                        "ACTOR REFERENCES",
+                        &actor_observation_coverage(index.actor_evidence, index.actor_issues),
+                        index.actor_evidence == FeedbackEvidence::Consensus
+                            && index.actor_issues == 0,
+                    );
+                    observation_coverage_card(
+                        ui,
+                        "ZONE PAIRS",
+                        &format!("{} filename observations", index.zone_observations),
+                        index.zone_observations == 0,
+                    );
+                    observation_coverage_card(
+                        ui,
+                        "SCRIPT INVENTORY",
+                        &format!("{} path observations", index.script_observations),
+                        index.script_observations == 0,
+                    );
+                });
+                ui.add_space(10.0);
+                ui.separator();
+
+                if index.observations.is_empty() {
+                    ui.add_space(28.0);
+                    ui.vertical_centered(|ui| {
+                        ui.label(
+                            RichText::new("No observations in current accepted coverage")
+                                .size(18.0)
+                                .color(GREEN),
+                        );
+                        ui.label(
+                            RichText::new(
+                                "Uncovered, provisional, or unavailable domains are not implied healthy.",
+                            )
+                            .color(MUTED),
+                        );
+                    });
+                } else {
+                    let observations = &index.observations;
+                    ScrollArea::vertical()
+                        .id_salt("known_observation_rows")
+                        .max_height(OBSERVATION_VIEW_HEIGHT)
+                        .auto_shrink([false, false])
+                        .show_rows(
+                            ui,
+                            OBSERVATION_ROW_HEIGHT,
+                            observations.len(),
+                            |ui, visible_rows| {
+                                for index in visible_rows {
+                                    let observation = &observations[index];
+                                    if observation_row(ui, observation).clicked() {
+                                        pending_activation = Some(observation.target.clone());
+                                    }
+                                }
+                            },
+                        );
+                }
+            });
+
+        if !window_open {
+            self.observations_open = false;
+        }
+        if let Some(target) = pending_activation {
+            self.activate_observation_target(target);
         }
     }
 
@@ -2491,8 +2685,11 @@ impl LedgerApp {
             .show(ui, |ui| {
                 for diagnostic in &catalog.diagnostics {
                     let searchable = format!(
-                        "{} {} {}",
-                        diagnostic.code, diagnostic.script_name, diagnostic.message
+                        "{} {} {} {}",
+                        diagnostic.code,
+                        diagnostic.script_name,
+                        diagnostic.path,
+                        diagnostic.message
                     )
                     .to_lowercase();
                     if !filter.is_empty() && !searchable.contains(&filter) {
@@ -2513,6 +2710,7 @@ impl LedgerApp {
                                 .color(ISSUE)
                                 .strong(),
                             );
+                            ui.label(RichText::new(&diagnostic.path).size(10.0).color(MUTED));
                             ui.label(RichText::new(&diagnostic.message).size(12.0).color(INK));
                         });
                     ui.add_space(5.0);
@@ -2687,6 +2885,7 @@ impl eframe::App for LedgerApp {
         self.lens_rail(context);
         self.inspector(context);
         self.atlas(context);
+        self.observations_panel(context);
         self.find_palette(context);
         if self.receiver.is_some() {
             context.request_repaint_after(Duration::from_millis(16));
@@ -2739,6 +2938,104 @@ fn palette_result_row(
     })
     .inner
     .on_hover_text(full_text)
+}
+
+fn observation_row(ui: &mut egui::Ui, observation: &FeedbackObservation) -> egui::Response {
+    let full_text = format!(
+        "{}  ·  {}  ·  {}  —  {}",
+        observation_evidence_label(observation.evidence),
+        observation.code,
+        observation.raw_identity,
+        observation.message
+    );
+    let row = Frame::none()
+        .fill(Color32::from_rgb(42, 29, 25))
+        .stroke(Stroke::new(1.0, Color32::from_rgb(104, 62, 48)))
+        .inner_margin(Margin::same(10.0))
+        .show(ui, |ui| {
+            ui.set_min_width(ui.available_width());
+            ui.set_min_height(OBSERVATION_ROW_HEIGHT - 20.0);
+            ui.style_mut().wrap_mode = Some(TextWrapMode::Truncate);
+            ui.label(
+                RichText::new(format!(
+                    "{}  ·  {}",
+                    observation_evidence_label(observation.evidence),
+                    observation.code
+                ))
+                .size(10.0)
+                .color(observation_evidence_color(observation.evidence))
+                .strong(),
+            );
+            ui.label(
+                RichText::new(format!(
+                    "{}  —  {}",
+                    observation.raw_identity, observation.message
+                ))
+                .size(12.0)
+                .color(INK),
+            );
+        });
+    let response = ui.interact(
+        row.response.rect,
+        ui.make_persistent_id((observation.code, &observation.raw_identity)),
+        Sense::click(),
+    );
+    if response.hovered() {
+        ui.painter()
+            .rect_stroke(response.rect, 0.0, Stroke::new(1.0, BRASS));
+    }
+    response.on_hover_text(full_text)
+}
+
+fn observation_coverage_card(ui: &mut egui::Ui, label: &str, value: &str, clear: bool) {
+    Frame::none()
+        .fill(Color32::from_rgb(20, 24, 24))
+        .stroke(Stroke::new(1.0, Color32::from_rgb(48, 53, 51)))
+        .inner_margin(Margin::same(10.0))
+        .show(ui, |ui| {
+            ui.set_min_width(235.0);
+            ui.label(RichText::new(label).size(10.0).color(MUTED).strong());
+            ui.label(
+                RichText::new(value)
+                    .size(12.0)
+                    .color(if clear { GREEN } else { BRASS }),
+            );
+        });
+}
+
+const fn observation_evidence_label(evidence: FeedbackObservationEvidence) -> &'static str {
+    match evidence {
+        FeedbackObservationEvidence::ConsensusDiagnostic => "CONSENSUS DIAGNOSTIC",
+        FeedbackObservationEvidence::FilenamePairing => "FILENAME-PAIRING OBSERVATION",
+        FeedbackObservationEvidence::ScriptInventory => "SCRIPT-INVENTORY OBSERVATION",
+    }
+}
+
+const fn observation_evidence_color(evidence: FeedbackObservationEvidence) -> Color32 {
+    match evidence {
+        FeedbackObservationEvidence::ConsensusDiagnostic => ISSUE,
+        FeedbackObservationEvidence::FilenamePairing
+        | FeedbackObservationEvidence::ScriptInventory => BRASS,
+    }
+}
+
+fn actor_observation_coverage(evidence: FeedbackEvidence, count: usize) -> String {
+    match evidence {
+        FeedbackEvidence::Consensus => format!(
+            "{count} consensus diagnostic{}",
+            if count == 1 { "" } else { "s" }
+        ),
+        FeedbackEvidence::Provisional => "diagnostics withheld — provisional".to_owned(),
+        FeedbackEvidence::Unavailable => "diagnostics unavailable".to_owned(),
+    }
+}
+
+const fn actor_diagnostic_coverage_smoke(evidence: FeedbackEvidence) -> &'static str {
+    match evidence {
+        FeedbackEvidence::Consensus => "consensus",
+        FeedbackEvidence::Provisional => "withheld",
+        FeedbackEvidence::Unavailable => "unavailable",
+    }
 }
 
 const fn palette_hover_highlight(
@@ -2919,7 +3216,8 @@ mod tests {
     };
     use eframe::egui::{CentralPanel, Context, Event, Key, Modifiers, Pos2, RawInput, Rect, Vec2};
     use rcce_editor_core::{
-        FeedbackFindResult, FeedbackFindTarget, FeedbackFocusTarget, FeedbackReturnTrail,
+        FeedbackFindResult, FeedbackFindTarget, FeedbackFocusTarget, FeedbackObservation,
+        FeedbackObservationEvidence, FeedbackReturnTrail,
     };
 
     #[test]
@@ -3084,6 +3382,22 @@ mod tests {
         assert_eq!(
             asset_evidence_copy(FeedbackEvidence::Unavailable),
             "Actor/base-mesh relationships are unavailable; use Files for exhaustive accepted asset inventory."
+        );
+    }
+
+    #[test]
+    fn actor_diagnostic_smoke_keeps_withheld_distinct_from_unavailable() {
+        assert_eq!(
+            super::actor_diagnostic_coverage_smoke(FeedbackEvidence::Consensus),
+            "consensus"
+        );
+        assert_eq!(
+            super::actor_diagnostic_coverage_smoke(FeedbackEvidence::Provisional),
+            "withheld"
+        );
+        assert_eq!(
+            super::actor_diagnostic_coverage_smoke(FeedbackEvidence::Unavailable),
+            "unavailable"
         );
     }
 
@@ -3520,6 +3834,160 @@ mod tests {
     }
 
     #[test]
+    fn observation_jump_preserves_overlay_focus_and_returns_without_ping_pong() {
+        let fixture = ReloadFixture::new("observation-return");
+        let project = fixture.project();
+        let actor_id = project.actor_catalog().actors[0].actor_id;
+        let zone_target = project
+            .observation_index()
+            .observations
+            .iter()
+            .find(|observation| matches!(observation.target, FeedbackFocusTarget::Zone { .. }))
+            .map(|observation| observation.target.clone())
+            .expect("fixture zone observation");
+        let mut app = LedgerApp::shell(fixture.root().to_path_buf());
+        app.project = Some(project);
+        app.lens = Lens::Records;
+        app.records_view = RecordsView::Actors;
+        app.selected_actor = Some(actor_id);
+
+        app.open_observations();
+        assert!(app.observations_open);
+        assert_eq!(
+            app.current_focus_target(),
+            Some(FeedbackFocusTarget::Actor { actor_id })
+        );
+        assert!(app.activate_observation_target(zone_target));
+        assert!(!app.observations_open);
+        assert_eq!(app.return_trail.len(), 1);
+        assert!(app.return_to_previous_focus());
+        assert_eq!(app.selected_actor, Some(actor_id));
+        assert!(app.return_trail.is_empty());
+    }
+
+    #[test]
+    fn stale_observation_target_is_rejected_without_closing_or_changing_focus() {
+        let fixture = ReloadFixture::new("observation-stale");
+        let project = fixture.project();
+        let actor_id = project.actor_catalog().actors[0].actor_id;
+        let mut app = LedgerApp::shell(fixture.root().to_path_buf());
+        app.project = Some(project);
+        app.lens = Lens::Records;
+        app.records_view = RecordsView::Actors;
+        app.selected_actor = Some(actor_id);
+        app.open_observations();
+
+        assert!(!app.activate_observation_target(FeedbackFocusTarget::Zone {
+            name: "removed-after-snapshot".to_owned(),
+        }));
+        assert!(app.observations_open);
+        assert_eq!(
+            app.current_focus_target(),
+            Some(FeedbackFocusTarget::Actor { actor_id })
+        );
+        assert!(app.return_trail.is_empty());
+    }
+
+    #[test]
+    fn find_palette_takes_priority_over_the_observations_overlay() {
+        let fixture = ReloadFixture::new("observation-palette-priority");
+        let mut app = LedgerApp::shell(fixture.root().to_path_buf());
+        app.project = Some(fixture.project());
+
+        app.open_observations();
+        assert!(app.observations_open);
+        app.open_find_palette();
+
+        assert!(app.palette_open);
+        assert!(!app.observations_open);
+    }
+
+    #[test]
+    fn observations_follow_only_the_atomically_accepted_snapshot() {
+        let fixture = ReloadFixture::new("observation-reload");
+        let root = fixture.root().to_path_buf();
+        let original = fixture.project();
+        let original_count = original.observation_index().observations.len();
+        assert_eq!(original.actor_catalog().diagnostics.len(), 2);
+        let mut app = LedgerApp::shell(root.clone());
+        app.project = Some(original);
+        app.open_observations();
+
+        assert!(app.load_gate.try_begin());
+        app.pending_load = Some(PendingLoad {
+            root: root.clone(),
+            purpose: LoadPurpose::Reload,
+        });
+        assert_eq!(
+            app.project
+                .as_ref()
+                .expect("accepted project")
+                .observation_index()
+                .observations
+                .len(),
+            original_count
+        );
+        app.finish_failed("replacement rejected".to_owned());
+        assert!(app.observations_open);
+        assert_eq!(
+            app.project
+                .as_ref()
+                .expect("preserved project")
+                .observation_index()
+                .observations
+                .len(),
+            original_count
+        );
+
+        fixture.add_missing_mesh();
+        assert!(app.load_gate.try_begin());
+        app.pending_load = Some(PendingLoad {
+            root,
+            purpose: LoadPurpose::Reload,
+        });
+        app.finish_ready(Box::new(fixture.project()));
+        assert!(app.observations_open);
+        assert_eq!(
+            app.project
+                .as_ref()
+                .expect("replacement project")
+                .observation_index()
+                .observations
+                .len(),
+            original_count - 1
+        );
+    }
+
+    #[test]
+    fn open_observations_owns_alt_left_without_consuming_the_return_trail() {
+        let fixture = ReloadFixture::new("observation-return-priority");
+        let project = fixture.project();
+        let actor_id = project.actor_catalog().actors[0].actor_id;
+        let mut app = LedgerApp::shell(fixture.root().to_path_buf());
+        app.project = Some(project);
+        app.return_trail
+            .push(FeedbackFocusTarget::Actor { actor_id });
+        app.open_observations();
+        let before = app.return_trail.clone();
+        let context = Context::default();
+        let input = RawInput {
+            events: vec![Event::Key {
+                key: Key::ArrowLeft,
+                physical_key: Some(Key::ArrowLeft),
+                pressed: true,
+                repeat: false,
+                modifiers: Modifiers::ALT,
+            }],
+            ..Default::default()
+        };
+
+        let _ = context.run(input, |context| app.return_shortcut(context));
+
+        assert_eq!(app.return_trail, before);
+        assert!(app.observations_open);
+    }
+
+    #[test]
     fn self_stale_and_unfocused_jumps_do_not_add_return_entries() {
         let fixture = ReloadFixture::new("return-non-jumps");
         let project = fixture.project();
@@ -3764,6 +4232,35 @@ mod tests {
         });
 
         assert_eq!(actual_height, super::PALETTE_ROW_HEIGHT);
+    }
+
+    #[test]
+    fn maximum_observation_copy_keeps_the_virtualized_row_at_its_exact_height() {
+        let path = format!("Data/Server Data/Scripts/{}.rcm", "x".repeat(4000));
+        let observation = FeedbackObservation {
+            evidence: FeedbackObservationEvidence::ScriptInventory,
+            code: "RCCE-SCRIPT-ADJUNCT-WITHOUT-SOURCE",
+            raw_identity: path.clone(),
+            message: format!("{path} has no observed active source"),
+            target: FeedbackFindTarget::File {
+                lens: Lens::Scripts,
+                path,
+            },
+        };
+        let context = Context::default();
+        let mut actual_height = 0.0;
+        let input = RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(900.0, 600.0))),
+            ..Default::default()
+        };
+
+        let _ = context.run(input, |context| {
+            CentralPanel::default().show(context, |ui| {
+                actual_height = super::observation_row(ui, &observation).rect.height();
+            });
+        });
+
+        assert_eq!(actual_height, super::OBSERVATION_ROW_HEIGHT);
     }
 
     #[test]

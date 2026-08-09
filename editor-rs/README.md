@@ -45,6 +45,21 @@ parse source, assert that an adjunct was generated from the source, or expose
 script editing; the exhaustive Scripts file atlas remains available beside the
 catalog.
 
+`KNOWN OBSERVATIONS` opens one project-wide navigator over the accepted
+diagnostic slices. Rows are ordered and exhaustive within three explicitly
+named evidence classes: consensus actor/media diagnostics, filename-pairing
+zone observations, and script-inventory observations. Coverage cards keep
+provisional actor diagnostics visibly withheld and unavailable actor evidence
+visibly unavailable; an empty list says only that the current accepted
+coverage has no observations, never that the project is healthy. Every row
+retains its exact code, message, and raw identity. Actor and zone rows route to
+their accepted semantic identity, while script-inventory rows route to the
+exact accepted physical path rather than inventing an active script identity.
+Activation is revalidated against the current snapshot and participates in the
+same bounded Return trail. The list is virtualized and uncapped. It is not a
+complete validator, health score, severity model, repair tool, or claim about
+unparsed zone or script meaning.
+
 `FIND ANYTHING` (`Ctrl+K`) opens a cross-lens palette over the currently
 accepted snapshot. It trims the query and applies Unicode lowercasing for
 literal matching over every exact inventory path plus the accepted raw actor
@@ -58,9 +73,10 @@ current accepted snapshot, so a stale result cannot redirect to a normalized
 or inferred replacement.
 
 `RETURN` (`Alt+Left`) unwinds a session-local trail of at most 32 prior raw
-focus identities. Only successful Find Anything activation and observed
-actorâ†”base-mesh thread traversal add an origin; ordinary lens, subview, card,
-diagnostic, and filter interaction neither adds nor clears entries. Return
+focus identities. Only successful Find Anything activation, Known Observations
+activation, and observed actorâ†”base-mesh thread traversal add an origin;
+ordinary lens, subview, card, diagnostic, and filter interaction neither adds
+nor clears entries. Return
 revalidates each entry against the accepted snapshot, skips stale or current
 focus, and routes through the same exact lens/subview clearing rules without
 adding the destination just left. Same-root Reload preserves only identities
@@ -112,8 +128,8 @@ The observed toolchain was `rustc 1.85.0 (4d91de4e4 2025-02-17)` and
 
 | Crate | Reserved responsibility at later packets | Current behavior |
 |---|---|---|
-| `rcce-editor` | Desktop composition; the only production crate allowed to acquire a GUI framework | Replaceable feedback-MVP host with five read-only lenses, safe atomic snapshot reload, exact cross-lens routing, a provisional find-anywhere palette, and a bounded session-local return action |
-| `rcce-editor-core` | GUI-independent session, query, selection, and diagnostic orchestration | Real inventory and semantic projections plus an immutable deterministic literal-search index and bounded raw-focus return-trail state, with no write authority |
+| `rcce-editor` | Desktop composition; the only production crate allowed to acquire a GUI framework | Replaceable feedback-MVP host with five read-only lenses, safe atomic snapshot reload, exact cross-lens routing, an evidence-labeled observations navigator, a provisional find-anywhere palette, and a bounded session-local return action |
+| `rcce-editor-core` | GUI-independent session, query, selection, and diagnostic orchestration | Real inventory and semantic projections plus immutable deterministic observation/search indexes and bounded raw-focus return-trail state, with no write authority |
 | `rcce-project` | Root-confined project model, inventory, identity, and legacy document interpretation | Explicit read-only `ProjectRoot`, validated `ProjectRelativePath`, bounded read/walk, and truthful assurance reporting |
 | `rcce-validation` | Pure diagnostics over project evidence | Empty library boundary |
 | `rcce-storage` | Format-agnostic command storage after write-capable milestones authorize it | Empty library boundary; no persistence API |

@@ -160,6 +160,31 @@ pub enum FeedbackEvidence {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FeedbackObservationEvidence {
+    ConsensusDiagnostic,
+    FilenamePairing,
+    ScriptInventory,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FeedbackObservation {
+    pub evidence: FeedbackObservationEvidence,
+    pub code: &'static str,
+    pub raw_identity: String,
+    pub message: String,
+    pub target: FeedbackFocusTarget,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FeedbackObservationIndex {
+    pub actor_evidence: FeedbackEvidence,
+    pub actor_issues: usize,
+    pub zone_observations: usize,
+    pub script_observations: usize,
+    pub observations: Vec<FeedbackObservation>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FeedbackActorCount {
     Agreed(usize),
     Disagreed { client: usize, server: usize },
@@ -302,6 +327,7 @@ pub struct FeedbackScript {
 pub struct FeedbackScriptDiagnostic {
     pub code: &'static str,
     pub script_name: String,
+    pub path: String,
     pub message: String,
 }
 
@@ -369,23 +395,27 @@ impl FeedbackScriptCatalog {
                 .expect("script bundles contain an observation");
 
             if bundle.sources.is_empty() {
-                diagnostics.push(FeedbackScriptDiagnostic {
-                    code: "RCCE-SCRIPT-ADJUNCT-WITHOUT-SOURCE",
-                    script_name: display_name.clone(),
-                    message: format!(
+                push_script_diagnostics(
+                    bundle.modules.iter().chain(&bundle.alternates),
+                    "RCCE-SCRIPT-ADJUNCT-WITHOUT-SOURCE",
+                    &display_name,
+                    format!(
                         "{display_name} has an observed .rcm or .rcscript artifact but no active .rsl source"
                     ),
-                });
+                    &mut diagnostics,
+                );
                 continue;
             }
             if bundle.sources.len() > 1 {
-                diagnostics.push(FeedbackScriptDiagnostic {
-                    code: "RCCE-SCRIPT-SOURCE-CASE-COLLISION",
-                    script_name: display_name.clone(),
-                    message: format!(
+                push_script_diagnostics(
+                    bundle.sources.iter(),
+                    "RCCE-SCRIPT-SOURCE-CASE-COLLISION",
+                    &display_name,
+                    format!(
                         "{display_name} has multiple .rsl source paths that differ only by case"
                     ),
-                });
+                    &mut diagnostics,
+                );
                 continue;
             }
             let source = bundle.sources.pop().expect("one source was observed");
@@ -412,12 +442,28 @@ impl FeedbackScriptCatalog {
                 .as_bytes()
                 .cmp(right.source_path.as_bytes())
         });
+        diagnostics.sort_by(|left, right| left.path.as_bytes().cmp(right.path.as_bytes()));
         Self {
             scripts,
             adjunct_files,
             diagnostics,
         }
     }
+}
+
+fn push_script_diagnostics<'a>(
+    observations: impl Iterator<Item = &'a ScriptFileObservation>,
+    code: &'static str,
+    script_name: &str,
+    message: String,
+    diagnostics: &mut Vec<FeedbackScriptDiagnostic>,
+) {
+    diagnostics.extend(observations.map(|observation| FeedbackScriptDiagnostic {
+        code,
+        script_name: script_name.to_owned(),
+        path: observation.path.clone(),
+        message: message.clone(),
+    }));
 }
 
 fn unique_adjunct<'a>(
@@ -427,13 +473,15 @@ fn unique_adjunct<'a>(
     diagnostics: &mut Vec<FeedbackScriptDiagnostic>,
 ) -> Option<&'a ScriptFileObservation> {
     if observations.len() > 1 {
-        diagnostics.push(FeedbackScriptDiagnostic {
-            code: "RCCE-SCRIPT-ADJUNCT-CASE-COLLISION",
-            script_name: script_name.to_owned(),
-            message: format!(
+        push_script_diagnostics(
+            observations.iter(),
+            "RCCE-SCRIPT-ADJUNCT-CASE-COLLISION",
+            script_name,
+            format!(
                 "{script_name} has multiple {extension} artifact paths that differ only by case"
             ),
-        });
+            diagnostics,
+        );
         None
     } else {
         observations.first()
@@ -598,6 +646,63 @@ impl FeedbackActorCatalog {
     }
 }
 
+impl FeedbackObservationIndex {
+    fn from_catalogs(
+        actor_catalog: &FeedbackActorCatalog,
+        zone_catalog: &FeedbackZoneCatalog,
+        script_catalog: &FeedbackScriptCatalog,
+    ) -> Self {
+        let actor_issues = actor_catalog.diagnostics.len();
+        let zone_observations = zone_catalog.diagnostics.len();
+        let script_observations = script_catalog.diagnostics.len();
+        let mut observations =
+            Vec::with_capacity(actor_issues + zone_observations + script_observations);
+
+        observations.extend(actor_catalog.diagnostics.iter().map(|diagnostic| {
+            FeedbackObservation {
+                evidence: FeedbackObservationEvidence::ConsensusDiagnostic,
+                code: diagnostic.code,
+                raw_identity: format!("Actor #{}", diagnostic.actor_id),
+                message: diagnostic.message.clone(),
+                target: FeedbackFocusTarget::Actor {
+                    actor_id: diagnostic.actor_id,
+                },
+            }
+        }));
+        observations.extend(zone_catalog.diagnostics.iter().map(|diagnostic| {
+            FeedbackObservation {
+                evidence: FeedbackObservationEvidence::FilenamePairing,
+                code: diagnostic.code,
+                raw_identity: format!("Zone {}", diagnostic.zone_name),
+                message: diagnostic.message.clone(),
+                target: FeedbackFocusTarget::Zone {
+                    name: diagnostic.zone_name.clone(),
+                },
+            }
+        }));
+        observations.extend(script_catalog.diagnostics.iter().map(|diagnostic| {
+            FeedbackObservation {
+                evidence: FeedbackObservationEvidence::ScriptInventory,
+                code: diagnostic.code,
+                raw_identity: diagnostic.path.clone(),
+                message: diagnostic.message.clone(),
+                target: FeedbackFocusTarget::File {
+                    lens: Lens::Scripts,
+                    path: diagnostic.path.clone(),
+                },
+            }
+        }));
+
+        Self {
+            actor_evidence: actor_catalog.evidence,
+            actor_issues,
+            zone_observations,
+            script_observations,
+            observations,
+        }
+    }
+}
+
 impl FeedbackAssetCatalog {
     fn from_actor_catalog(actor_catalog: &FeedbackActorCatalog) -> Self {
         let mut actors_by_mesh = BTreeMap::<u16, Vec<&FeedbackActor>>::new();
@@ -661,6 +766,7 @@ pub struct FeedbackProject {
     asset_catalog: FeedbackAssetCatalog,
     zone_catalog: FeedbackZoneCatalog,
     script_catalog: FeedbackScriptCatalog,
+    observation_index: FeedbackObservationIndex,
     find_candidates: Vec<FeedbackFindCandidate>,
     by_lens: [Vec<FeedbackEntry>; 5],
     unclassified_files: usize,
@@ -807,6 +913,8 @@ impl FeedbackProject {
         let script_catalog =
             FeedbackScriptCatalog::from_script_entries(&by_lens[Lens::Scripts.index()]);
         let asset_catalog = FeedbackAssetCatalog::from_actor_catalog(&actor_catalog);
+        let observation_index =
+            FeedbackObservationIndex::from_catalogs(&actor_catalog, &zone_catalog, &script_catalog);
         let find_candidates = build_find_candidates(
             &by_lens,
             &actor_catalog,
@@ -829,6 +937,7 @@ impl FeedbackProject {
             asset_catalog,
             zone_catalog,
             script_catalog,
+            observation_index,
             find_candidates,
             by_lens,
             unclassified_files,
@@ -870,6 +979,11 @@ impl FeedbackProject {
     #[must_use]
     pub const fn script_catalog(&self) -> &FeedbackScriptCatalog {
         &self.script_catalog
+    }
+
+    #[must_use]
+    pub const fn observation_index(&self) -> &FeedbackObservationIndex {
+        &self.observation_index
     }
 
     #[must_use]

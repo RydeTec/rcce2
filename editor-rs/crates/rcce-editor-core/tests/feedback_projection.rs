@@ -1,6 +1,7 @@
 use rcce_editor_core::{
     load_feedback_project, FeedbackActorCount, FeedbackEvidence, FeedbackFindTarget,
-    FeedbackMediaStatus, FeedbackProject, FeedbackScriptFamily, FeedbackZoneStatus, Lens,
+    FeedbackMediaStatus, FeedbackObservationEvidence, FeedbackProject, FeedbackScriptFamily,
+    FeedbackZoneStatus, Lens,
 };
 use std::{collections::HashSet, fs, path::PathBuf, time::SystemTime};
 
@@ -435,6 +436,173 @@ fn projects_active_script_sources_with_observed_same_stem_adjuncts() {
         "RCCE-SCRIPT-ADJUNCT-WITHOUT-SOURCE"
     );
     assert_eq!(catalog.diagnostics[0].script_name, "orphan");
+    assert_eq!(
+        catalog.diagnostics[0].path,
+        "Data/Server Data/Scripts/orphan.rcm"
+    );
+
+    let observations = project.observation_index();
+    assert_eq!(observations.actor_evidence, FeedbackEvidence::Unavailable);
+    assert_eq!(observations.actor_issues, 0);
+    assert_eq!(observations.zone_observations, 0);
+    assert_eq!(observations.script_observations, 1);
+    assert_eq!(observations.observations.len(), 1);
+    assert_eq!(
+        observations.observations[0].evidence,
+        FeedbackObservationEvidence::ScriptInventory
+    );
+    assert_eq!(
+        observations.observations[0].target,
+        FeedbackFindTarget::File {
+            lens: Lens::Scripts,
+            path: "Data/Server Data/Scripts/orphan.rcm".to_owned(),
+        }
+    );
+    assert!(project.contains_focus_target(&observations.observations[0].target));
+
+    fs::remove_dir_all(path).expect("fixture cleanup");
+}
+
+#[test]
+fn observations_preserve_evidence_boundaries_and_exact_domain_order() {
+    let data_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../test-data/consensus/happy/Data")
+        .canonicalize()
+        .expect("consensus fixture data root");
+    let actor_project =
+        load_feedback_project(data_root, |_| {}).expect("feedback consensus project");
+    let actor_observations = actor_project.observation_index();
+
+    assert_eq!(
+        actor_observations.actor_evidence,
+        FeedbackEvidence::Consensus
+    );
+    assert_eq!(actor_observations.actor_issues, 2);
+    assert_eq!(actor_observations.zone_observations, 0);
+    assert_eq!(actor_observations.script_observations, 0);
+    assert!(actor_observations.observations.iter().all(|observation| {
+        observation.evidence == FeedbackObservationEvidence::ConsensusDiagnostic
+            && actor_project.contains_focus_target(&observation.target)
+    }));
+    assert!(actor_observations
+        .observations
+        .windows(2)
+        .all(|pair| pair[0].raw_identity.as_bytes() < pair[1].raw_identity.as_bytes()));
+
+    let path = zone_fixture();
+    let zone_project = load_feedback_project(path.clone(), |_| {}).expect("zone feedback project");
+    let zone_observations = zone_project.observation_index();
+    assert_eq!(
+        zone_observations.actor_evidence,
+        FeedbackEvidence::Unavailable
+    );
+    assert_eq!(zone_observations.actor_issues, 0);
+    assert_eq!(zone_observations.zone_observations, 2);
+    assert_eq!(zone_observations.script_observations, 0);
+    assert_eq!(zone_observations.observations.len(), 2);
+    assert!(zone_observations.observations.iter().all(|observation| {
+        observation.evidence == FeedbackObservationEvidence::FilenamePairing
+            && zone_project.contains_focus_target(&observation.target)
+    }));
+    fs::remove_dir_all(path).expect("fixture cleanup");
+}
+
+#[test]
+fn provisional_actor_observations_withhold_diagnostics_without_calling_the_slice_clear() {
+    let data_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../test-data/consensus/provisional/Data")
+        .canonicalize()
+        .expect("provisional fixture data root");
+    let project = load_feedback_project(data_root, |_| {}).expect("provisional feedback project");
+    let observations = project.observation_index();
+
+    assert_eq!(observations.actor_evidence, FeedbackEvidence::Provisional);
+    assert_eq!(observations.actor_issues, 0);
+    assert!(observations.observations.iter().all(|observation| {
+        observation.evidence != FeedbackObservationEvidence::ConsensusDiagnostic
+    }));
+}
+
+#[test]
+fn script_collision_quarantine_never_invents_targets_for_unaccepted_paths() {
+    let path = script_fixture();
+    fs::write(
+        path.join("Server Data/Scripts/CLICK_MERCHANT.RSL"),
+        b"case collision",
+    )
+    .expect("source case collision");
+    fs::write(
+        path.join("Server Data/Scripts/Spell_Fire.RCM"),
+        b"module one",
+    )
+    .expect("first adjunct collision");
+    fs::write(
+        path.join("Server Data/Scripts/spell_fire.rcm"),
+        b"module two",
+    )
+    .expect("second adjunct collision");
+    let project = load_feedback_project(path.clone(), |_| {}).expect("script collision project");
+    let index = project.observation_index();
+
+    assert!(project.unavailable >= 4);
+    assert_eq!(index.script_observations, 3);
+    assert_eq!(index.observations.len(), 3);
+    assert!(index.observations.iter().all(|observation| {
+        observation.evidence == FeedbackObservationEvidence::ScriptInventory
+            && matches!(
+                observation.target,
+                FeedbackFindTarget::File {
+                    lens: Lens::Scripts,
+                    ..
+                }
+            )
+            && project.contains_focus_target(&observation.target)
+    }));
+    assert!(index
+        .observations
+        .windows(2)
+        .all(|pair| pair[0].raw_identity.as_bytes() < pair[1].raw_identity.as_bytes()));
+    assert!(index
+        .observations
+        .iter()
+        .all(|observation| { !matches!(observation.target, FeedbackFindTarget::Script { .. }) }));
+    assert!(index.observations.iter().all(|observation| {
+        observation.raw_identity != "Data/Server Data/Scripts/CLICK_MERCHANT.RSL"
+            && observation.raw_identity != "Data/Server Data/Scripts/Click_Merchant.rsl"
+            && observation.raw_identity != "Data/Server Data/Scripts/Spell_Fire.RCM"
+            && observation.raw_identity != "Data/Server Data/Scripts/spell_fire.rcm"
+    }));
+
+    fs::remove_dir_all(path).expect("fixture cleanup");
+}
+
+#[test]
+fn observation_index_is_uncapped_and_exhaustive_for_large_script_inventory() {
+    let nonce = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .expect("system clock")
+        .as_nanos();
+    let path = std::env::temp_dir().join(format!(
+        "rcce-feedback-observations-large-{}-{nonce}",
+        std::process::id()
+    ));
+    fs::create_dir_all(path.join("Server Data/Scripts")).expect("large script fixture");
+    for index in 0..257 {
+        fs::write(
+            path.join(format!("Server Data/Scripts/orphan_{index:03}.rcm")),
+            b"adjunct",
+        )
+        .expect("orphan adjunct");
+    }
+
+    let project = load_feedback_project(path.clone(), |_| {}).expect("large observation project");
+    let observations = project.observation_index();
+    assert_eq!(observations.script_observations, 257);
+    assert_eq!(observations.observations.len(), 257);
+    assert!(observations
+        .observations
+        .iter()
+        .all(|observation| project.contains_focus_target(&observation.target)));
 
     fs::remove_dir_all(path).expect("fixture cleanup");
 }
