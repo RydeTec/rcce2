@@ -44,6 +44,11 @@ impl ReloadFixture {
             root.join("Server Data/Scripts/Quest.rsl"),
         )
         .expect("script fixture copy");
+        fs::copy(
+            source.join("Meshes/Hero.b3d"),
+            root.join("Server Data/Privileged Scripts.dat"),
+        )
+        .expect("vault fixture copy");
         Self { root }
     }
 

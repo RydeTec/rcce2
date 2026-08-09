@@ -1,11 +1,11 @@
 use eframe::egui::{
-    self, Align, Color32, FontFamily, FontId, Frame, Layout, Margin, RichText, ScrollArea, Sense,
-    Stroke, TextEdit, Vec2,
+    self, Align, Align2, Color32, FontFamily, FontId, Frame, Key, Layout, Margin, Modifiers,
+    RichText, ScrollArea, Sense, Stroke, TextEdit, TextWrapMode, Vec2,
 };
 use rcce_editor_core::{
     load_feedback_project, FeedbackActor, FeedbackActorCount, FeedbackEntry, FeedbackEvidence,
-    FeedbackLoadProgress, FeedbackMediaStatus, FeedbackProject, FeedbackScript,
-    FeedbackScriptFamily, FeedbackZone, FeedbackZoneStatus, Lens,
+    FeedbackFindResult, FeedbackFindTarget, FeedbackLoadProgress, FeedbackMediaStatus,
+    FeedbackProject, FeedbackScript, FeedbackScriptFamily, FeedbackZone, FeedbackZoneStatus, Lens,
 };
 use std::{
     path::{Path, PathBuf},
@@ -28,6 +28,8 @@ const PANEL: Color32 = Color32::from_rgb(23, 27, 28);
 const PANEL_RAISED: Color32 = Color32::from_rgb(29, 34, 34);
 const GREEN: Color32 = Color32::from_rgb(111, 184, 139);
 const ISSUE: Color32 = Color32::from_rgb(206, 125, 96);
+const PALETTE_ROW_HEIGHT: f32 = 52.0;
+const PALETTE_VIEW_HEIGHT: f32 = 420.0;
 
 fn main() -> ExitCode {
     let data_root = parse_project_arg().unwrap_or_else(default_data_root);
@@ -442,6 +444,12 @@ struct LedgerApp {
     assets_view: AssetsView,
     scripts_view: ScriptsView,
     script_family: Option<FeedbackScriptFamily>,
+    palette_open: bool,
+    palette_query: String,
+    palette_highlight: usize,
+    palette_results: Vec<FeedbackFindResult>,
+    palette_request_focus: bool,
+    palette_scroll_to_highlight: bool,
     status: String,
     activity: Vec<String>,
     load_gate: LoadGate,
@@ -466,6 +474,12 @@ impl LedgerApp {
             assets_view: AssetsView::Relationships,
             scripts_view: ScriptsView::Catalog,
             script_family: None,
+            palette_open: false,
+            palette_query: String::new(),
+            palette_highlight: 0,
+            palette_results: Vec::new(),
+            palette_request_focus: false,
+            palette_scroll_to_highlight: false,
             status: "Preparing project inventory…".to_owned(),
             activity: vec!["Feedback MVP started in read-only mode".to_owned()],
             load_gate: LoadGate::default(),
@@ -605,6 +619,8 @@ impl LedgerApp {
             &mut self.selected_script,
         );
         self.project = Some(*project);
+        self.palette_highlight = 0;
+        self.refresh_find_results();
         self.receiver = None;
         self.load_gate.finish();
     }
@@ -682,6 +698,115 @@ impl LedgerApp {
         self.begin_load(self.data_root.clone(), LoadPurpose::Reload);
     }
 
+    fn open_find_palette(&mut self) {
+        if self.project.is_none() {
+            return;
+        }
+        self.palette_open = true;
+        self.palette_query.clear();
+        self.palette_highlight = 0;
+        self.palette_results.clear();
+        self.palette_request_focus = true;
+        self.palette_scroll_to_highlight = true;
+    }
+
+    fn refresh_find_results(&mut self) {
+        self.palette_results = self.project.as_ref().map_or_else(Vec::new, |project| {
+            project.find_anywhere(&self.palette_query)
+        });
+        self.palette_highlight = if self.palette_results.is_empty() {
+            0
+        } else {
+            self.palette_highlight.min(self.palette_results.len() - 1)
+        };
+        self.palette_scroll_to_highlight = true;
+    }
+
+    fn refresh_find_results_for_query(&mut self) {
+        self.palette_highlight = 0;
+        self.refresh_find_results();
+    }
+
+    #[cfg(test)]
+    fn find_results(&self) -> &[FeedbackFindResult] {
+        &self.palette_results
+    }
+
+    fn activate_find_target(&mut self, target: FeedbackFindTarget) -> bool {
+        if !self
+            .project
+            .as_ref()
+            .is_some_and(|project| project.contains_find_target(&target))
+        {
+            self.activity.insert(
+                0,
+                format!(
+                    "Find target {} is no longer available in the accepted snapshot",
+                    find_target_identity_label(&target)
+                ),
+            );
+            return false;
+        }
+        let activity = format!(
+            "Find anywhere opened {}",
+            find_target_identity_label(&target)
+        );
+        self.route_find_target(target);
+        self.activity.insert(0, activity);
+        true
+    }
+
+    fn route_find_target(&mut self, target: FeedbackFindTarget) {
+        self.filter.clear();
+        self.selected = None;
+        self.selected_actor = None;
+        self.selected_mesh = None;
+        self.selected_zone = None;
+        self.selected_script = None;
+        self.script_family = None;
+
+        match target {
+            FeedbackFindTarget::File { lens, path } => {
+                self.lens = lens;
+                match lens {
+                    Lens::Records => self.records_view = RecordsView::Files,
+                    Lens::World => self.world_view = WorldView::Files,
+                    Lens::Assets => self.assets_view = AssetsView::Files,
+                    Lens::Scripts => self.scripts_view = ScriptsView::Files,
+                    Lens::Vault => {}
+                }
+                self.selected = Some(path);
+            }
+            FeedbackFindTarget::Actor { actor_id } => {
+                self.lens = Lens::Records;
+                self.records_view = RecordsView::Actors;
+                self.selected_actor = Some(actor_id);
+            }
+            FeedbackFindTarget::Mesh { mesh_id } => {
+                self.lens = Lens::Assets;
+                self.assets_view = AssetsView::Relationships;
+                self.selected_mesh = Some(mesh_id);
+            }
+            FeedbackFindTarget::Zone { name } => {
+                self.lens = Lens::World;
+                self.world_view = WorldView::Zones;
+                self.selected_zone = Some(name);
+            }
+            FeedbackFindTarget::Script { source_path } => {
+                self.lens = Lens::Scripts;
+                self.scripts_view = ScriptsView::Catalog;
+                self.selected_script = Some(source_path);
+            }
+        }
+
+        self.palette_open = false;
+        self.palette_query.clear();
+        self.palette_highlight = 0;
+        self.palette_results.clear();
+        self.palette_request_focus = false;
+        self.palette_scroll_to_highlight = false;
+    }
+
     fn selected_entry(&self) -> Option<&FeedbackEntry> {
         let selected = self.selected.as_deref()?;
         self.project
@@ -742,6 +867,18 @@ impl LedgerApp {
                         ui.label(RichText::new("Super Editor").size(28.0).color(INK).strong());
                     });
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        if ui
+                            .add_enabled(
+                                self.project.is_some(),
+                                egui::Button::new(
+                                    RichText::new("FIND ANYTHING  CTRL+K").color(BRASS),
+                                ),
+                            )
+                            .on_hover_text("Search accepted raw identities in this snapshot")
+                            .clicked()
+                        {
+                            self.open_find_palette();
+                        }
                         if ui
                             .add_enabled(
                                 !self.load_gate.is_active(),
@@ -823,7 +960,7 @@ impl LedgerApp {
                 }
                 ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
                     ui.label(
-                        RichText::new("Feedback build 0.7\nNo save or mutation commands exist")
+                        RichText::new("Feedback build 0.8\nNo save or mutation commands exist")
                             .size(11.0)
                             .color(MUTED),
                     );
@@ -1250,6 +1387,191 @@ impl LedgerApp {
                 &mut self.selected_script,
             );
             self.activity.insert(0, activity);
+        }
+    }
+
+    fn find_palette(&mut self, context: &egui::Context) {
+        if context.input_mut(|input| input.consume_key(Modifiers::CTRL, Key::K)) {
+            self.open_find_palette();
+        }
+        if !self.palette_open {
+            return;
+        }
+        if context.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Escape)) {
+            self.palette_open = false;
+            self.palette_request_focus = false;
+            self.palette_scroll_to_highlight = false;
+            return;
+        }
+
+        let (move_down, move_up, activate) = context.input_mut(|input| {
+            (
+                input.consume_key(Modifiers::NONE, Key::ArrowDown),
+                input.consume_key(Modifiers::NONE, Key::ArrowUp),
+                input.consume_key(Modifiers::NONE, Key::Enter),
+            )
+        });
+        let keyboard_moved = move_down || move_up;
+        let mut pending_activation = None;
+
+        let mut window_open = true;
+        egui::Window::new("Find anything")
+            .id(egui::Id::new("find_anything_palette"))
+            .anchor(Align2::CENTER_TOP, [0.0, 112.0])
+            .fixed_size([760.0, 590.0])
+            .collapsible(false)
+            .resizable(false)
+            .title_bar(false)
+            .frame(
+                Frame::none()
+                    .fill(PANEL_RAISED)
+                    .stroke(Stroke::new(1.0, BRASS))
+                    .inner_margin(Margin::same(18.0)),
+            )
+            .open(&mut window_open)
+            .show(context, |ui| {
+                ui.horizontal(|ui| {
+                    ui.vertical(|ui| {
+                        ui.label(
+                            RichText::new("FIND ANYTHING")
+                                .size(11.0)
+                                .color(BRASS)
+                                .strong()
+                                .extra_letter_spacing(1.5),
+                        );
+                        ui.label(
+                            RichText::new("Accepted raw identities")
+                                .size(22.0)
+                                .color(INK)
+                                .strong(),
+                        );
+                    });
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        ui.label(RichText::new("ESC TO CLOSE").size(10.0).color(MUTED));
+                    });
+                });
+                ui.label(
+                    RichText::new(
+                        "Literal search only · no content parsing, inferred provenance, or write path",
+                    )
+                    .size(12.0)
+                    .color(MUTED),
+                );
+                ui.add_space(8.0);
+                let query = ui.add_sized(
+                    [ui.available_width(), 38.0],
+                    TextEdit::singleline(&mut self.palette_query)
+                        .hint_text("Actor #2, Mesh #83, zone, script, or exact Data/ path…"),
+                );
+                if self.palette_request_focus {
+                    query.request_focus();
+                    self.palette_request_focus = false;
+                }
+                if query.changed() {
+                    self.refresh_find_results_for_query();
+                }
+
+                if move_down && !self.palette_results.is_empty() {
+                    self.palette_highlight =
+                        (self.palette_highlight + 1).min(self.palette_results.len() - 1);
+                }
+                if move_up && !self.palette_results.is_empty() {
+                    self.palette_highlight = self.palette_highlight.saturating_sub(1);
+                }
+                if keyboard_moved {
+                    self.palette_scroll_to_highlight = true;
+                }
+                if activate {
+                    pending_activation = self
+                        .palette_results
+                        .get(self.palette_highlight)
+                        .map(|result| result.target.clone());
+                }
+                let results = &self.palette_results;
+                ui.add_space(7.0);
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new(if self.palette_query.trim().is_empty() {
+                            "TYPE TO SEARCH"
+                        } else if results.is_empty() {
+                            "NO ACCEPTED IDENTITIES MATCH"
+                        } else {
+                            "MATCHES"
+                        })
+                        .size(10.0)
+                        .color(BRASS)
+                        .strong(),
+                    );
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        let indexed = self
+                            .project
+                            .as_ref()
+                            .map_or(0, FeedbackProject::find_candidate_count);
+                        ui.label(
+                            RichText::new(format!(
+                                "{} shown · {indexed} accepted targets",
+                                results.len()
+                            ))
+                            .size(10.0)
+                            .color(MUTED),
+                        );
+                    });
+                });
+                ui.separator();
+
+                if self.palette_query.trim().is_empty() {
+                    ui.add_space(24.0);
+                    ui.label(
+                        RichText::new(
+                            "Search every accepted file plus observed actor, base-mesh, zone, and active script identities.",
+                        )
+                        .color(MUTED),
+                    );
+                } else {
+                    let mut scroll = ScrollArea::vertical()
+                        .id_salt("find_anything_results")
+                        .max_height(PALETTE_VIEW_HEIGHT)
+                        .auto_shrink([false, false]);
+                    if self.palette_scroll_to_highlight {
+                        scroll = scroll.vertical_scroll_offset(palette_scroll_offset(
+                            self.palette_highlight,
+                            ui.spacing().item_spacing.y,
+                        ));
+                    }
+                    scroll.show_rows(ui, PALETTE_ROW_HEIGHT, results.len(), |ui, visible_rows| {
+                            for index in visible_rows {
+                                let result = &results[index];
+                                let selected = index == self.palette_highlight;
+                                let response = palette_result_row(ui, result, selected);
+                                if response.hovered() {
+                                    self.palette_highlight = palette_hover_highlight(
+                                        self.palette_highlight,
+                                        Some(index),
+                                        keyboard_moved,
+                                    );
+                                }
+                                if response.clicked() {
+                                    pending_activation = Some(result.target.clone());
+                                }
+                            }
+                        });
+                    self.palette_scroll_to_highlight = false;
+                }
+                ui.add_space(6.0);
+                ui.label(
+                    RichText::new("↑/↓ MOVE · ENTER OPEN · CLICK OPEN")
+                        .size(10.0)
+                        .color(MUTED),
+                );
+            });
+
+        if !window_open {
+            self.palette_open = false;
+            self.palette_request_focus = false;
+            self.palette_scroll_to_highlight = false;
+        }
+        if let Some(target) = pending_activation {
+            self.activate_find_target(target);
         }
     }
 
@@ -2203,9 +2525,71 @@ impl eframe::App for LedgerApp {
         self.lens_rail(context);
         self.inspector(context);
         self.atlas(context);
+        self.find_palette(context);
         if self.receiver.is_some() {
             context.request_repaint_after(Duration::from_millis(16));
         }
+    }
+}
+
+const fn find_target_kind_label(target: &FeedbackFindTarget) -> &'static str {
+    match target {
+        FeedbackFindTarget::File { .. } => "FILE",
+        FeedbackFindTarget::Actor { .. } => "ACTOR",
+        FeedbackFindTarget::Mesh { .. } => "MESH",
+        FeedbackFindTarget::Zone { .. } => "ZONE",
+        FeedbackFindTarget::Script { .. } => "SCRIPT",
+    }
+}
+
+fn find_target_identity_label(target: &FeedbackFindTarget) -> String {
+    match target {
+        FeedbackFindTarget::File { path, .. } => path.clone(),
+        FeedbackFindTarget::Actor { actor_id } => format!("Actor #{actor_id}"),
+        FeedbackFindTarget::Mesh { mesh_id } => format!("Mesh #{mesh_id}"),
+        FeedbackFindTarget::Zone { name } => format!("zone {name}"),
+        FeedbackFindTarget::Script { source_path } => source_path.clone(),
+    }
+}
+
+fn palette_scroll_offset(highlight: usize, item_spacing_y: f32) -> f32 {
+    let centered_row = highlight.saturating_sub(4);
+    centered_row as f32 * (PALETTE_ROW_HEIGHT + item_spacing_y)
+}
+
+fn palette_result_row(
+    ui: &mut egui::Ui,
+    result: &FeedbackFindResult,
+    selected: bool,
+) -> egui::Response {
+    let full_text = format!(
+        "{}  {}  —  {}",
+        find_target_kind_label(&result.target),
+        result.label,
+        result.detail
+    );
+    ui.scope(|ui| {
+        ui.style_mut().wrap_mode = Some(TextWrapMode::Truncate);
+        ui.add_sized(
+            [ui.available_width(), PALETTE_ROW_HEIGHT],
+            egui::SelectableLabel::new(selected, RichText::new(full_text.clone()).size(12.0)),
+        )
+    })
+    .inner
+    .on_hover_text(full_text)
+}
+
+const fn palette_hover_highlight(
+    current: usize,
+    hovered: Option<usize>,
+    keyboard_moved: bool,
+) -> usize {
+    if keyboard_moved {
+        current
+    } else if let Some(hovered) = hovered {
+        hovered
+    } else {
+        current
     }
 }
 
@@ -2371,6 +2755,8 @@ mod tests {
         FeedbackMediaStatus, FeedbackScriptFamily, LedgerApp, Lens, LoadGate, LoadPurpose,
         PendingLoad, RecordsView, RelationshipTarget, ScriptsView, WorldView,
     };
+    use eframe::egui::{CentralPanel, Context, Event, Key, Modifiers, Pos2, RawInput, Rect, Vec2};
+    use rcce_editor_core::{FeedbackFindResult, FeedbackFindTarget};
 
     #[test]
     fn only_one_project_load_can_be_active() {
@@ -2742,5 +3128,279 @@ mod tests {
         assert_eq!(app.selected_mesh, None);
         assert_eq!(app.selected_zone, None);
         assert_eq!(app.selected_script, None);
+    }
+
+    fn dirty_palette_app(fixture: &ReloadFixture) -> LedgerApp {
+        let mut app = LedgerApp::shell(fixture.root().to_path_buf());
+        app.project = Some(fixture.project());
+        app.lens = Lens::Vault;
+        app.filter = "hidden atlas filter".to_owned();
+        app.selected = Some("Data/Server Data/Privileged Scripts.dat".to_owned());
+        app.selected_actor = Some(4);
+        app.selected_mesh = Some(83);
+        app.selected_zone = Some("Start".to_owned());
+        app.selected_script = Some("Data/Server Data/Scripts/Quest.rsl".to_owned());
+        app.script_family = Some(FeedbackScriptFamily::Click);
+        app.palette_open = true;
+        app.palette_query = "old query".to_owned();
+        app.palette_highlight = 9;
+        app
+    }
+
+    #[test]
+    fn find_anywhere_file_routes_open_every_exact_lens_fallback() {
+        let fixture = ReloadFixture::new("palette-file-routes");
+        let project = fixture.project();
+        for lens in Lens::ALL {
+            let path = project
+                .entries(lens)
+                .first()
+                .unwrap_or_else(|| panic!("fixture must expose a {} file", lens.label()))
+                .path
+                .clone();
+            let mut app = dirty_palette_app(&fixture);
+
+            app.route_find_target(FeedbackFindTarget::File {
+                lens,
+                path: path.clone(),
+            });
+
+            assert_eq!(app.lens, lens);
+            assert_eq!(app.selected.as_deref(), Some(path.as_str()));
+            assert_eq!(app.selected_actor, None);
+            assert_eq!(app.selected_mesh, None);
+            assert_eq!(app.selected_zone, None);
+            assert_eq!(app.selected_script, None);
+            assert!(app.filter.is_empty());
+            assert_eq!(app.script_family, None);
+            assert!(!app.palette_open);
+            assert!(app.palette_query.is_empty());
+            assert_eq!(app.palette_highlight, 0);
+            match lens {
+                Lens::Records => assert_eq!(app.records_view, RecordsView::Files),
+                Lens::World => assert_eq!(app.world_view, WorldView::Files),
+                Lens::Assets => assert_eq!(app.assets_view, AssetsView::Files),
+                Lens::Scripts => assert_eq!(app.scripts_view, ScriptsView::Files),
+                Lens::Vault => {}
+            }
+        }
+    }
+
+    #[test]
+    fn find_anywhere_semantic_routes_open_exact_views_and_clear_hidden_context() {
+        let fixture = ReloadFixture::new("palette-semantic-routes");
+        let project = fixture.project();
+        let actor_id = project.actor_catalog().actors[1].actor_id;
+        let mesh_id = project.asset_catalog().meshes[0].mesh_id;
+        let zone_name = project.zone_catalog().zones[0].name.clone();
+        let source_path = project.script_catalog().scripts[0].source_path.clone();
+
+        let cases = [
+            FeedbackFindTarget::Actor { actor_id },
+            FeedbackFindTarget::Mesh { mesh_id },
+            FeedbackFindTarget::Zone {
+                name: zone_name.clone(),
+            },
+            FeedbackFindTarget::Script {
+                source_path: source_path.clone(),
+            },
+        ];
+        for target in cases {
+            let mut app = dirty_palette_app(&fixture);
+            assert!(app.activate_find_target(target.clone()));
+            assert_eq!(app.selected, None);
+            assert!(app.filter.is_empty());
+            assert_eq!(app.script_family, None);
+            assert!(!app.palette_open);
+            match target {
+                FeedbackFindTarget::Actor { actor_id } => {
+                    assert_eq!(app.lens, Lens::Records);
+                    assert_eq!(app.records_view, RecordsView::Actors);
+                    assert_eq!(app.selected_actor, Some(actor_id));
+                }
+                FeedbackFindTarget::Mesh { mesh_id } => {
+                    assert_eq!(app.lens, Lens::Assets);
+                    assert_eq!(app.assets_view, AssetsView::Relationships);
+                    assert_eq!(app.selected_mesh, Some(mesh_id));
+                }
+                FeedbackFindTarget::Zone { name } => {
+                    assert_eq!(app.lens, Lens::World);
+                    assert_eq!(app.world_view, WorldView::Zones);
+                    assert_eq!(app.selected_zone.as_deref(), Some(name.as_str()));
+                }
+                FeedbackFindTarget::Script { source_path } => {
+                    assert_eq!(app.lens, Lens::Scripts);
+                    assert_eq!(app.scripts_view, ScriptsView::Catalog);
+                    assert_eq!(app.selected_script.as_deref(), Some(source_path.as_str()));
+                }
+                FeedbackFindTarget::File { .. } => unreachable!("semantic cases only"),
+            }
+        }
+    }
+
+    #[test]
+    fn stale_find_target_is_rejected_without_changing_focus() {
+        let fixture = ReloadFixture::new("palette-stale-target");
+        let mut app = dirty_palette_app(&fixture);
+        let prior_lens = app.lens;
+        let prior_filter = app.filter.clone();
+        let prior_file = app.selected.clone();
+        let prior_actor = app.selected_actor;
+        let prior_query = app.palette_query.clone();
+
+        assert!(!app.activate_find_target(FeedbackFindTarget::Actor { actor_id: u16::MAX }));
+
+        assert_eq!(app.lens, prior_lens);
+        assert_eq!(app.filter, prior_filter);
+        assert_eq!(app.selected, prior_file);
+        assert_eq!(app.selected_actor, prior_actor);
+        assert!(app.palette_open);
+        assert_eq!(app.palette_query, prior_query);
+        assert!(app
+            .activity
+            .first()
+            .is_some_and(|event| event.contains("no longer available")));
+    }
+
+    #[test]
+    fn find_results_follow_only_the_atomically_accepted_snapshot() {
+        let fixture = ReloadFixture::new("palette-reload");
+        let root = fixture.root().to_path_buf();
+        let mut app = dirty_palette_app(&fixture);
+        app.palette_query = "Data/Meshes/Mage.b3d".to_owned();
+        app.refresh_find_results();
+        assert!(app.palette_scroll_to_highlight);
+        let missing_file = FeedbackFindTarget::File {
+            lens: Lens::Assets,
+            path: "Data/Meshes/Mage.b3d".to_owned(),
+        };
+        assert!(app
+            .find_results()
+            .iter()
+            .all(|result| result.target != missing_file));
+
+        assert!(app.load_gate.try_begin());
+        app.pending_load = Some(PendingLoad {
+            root: root.clone(),
+            purpose: LoadPurpose::Reload,
+        });
+        app.finish_failed("replacement rejected".to_owned());
+        assert!(app.palette_open);
+        assert_eq!(app.palette_query, "Data/Meshes/Mage.b3d");
+        assert_eq!(app.palette_highlight, 0);
+        assert!(app.palette_scroll_to_highlight);
+        assert!(app
+            .find_results()
+            .iter()
+            .all(|result| result.target != missing_file));
+
+        fixture.add_missing_mesh();
+        assert!(app.load_gate.try_begin());
+        app.pending_load = Some(PendingLoad {
+            root,
+            purpose: LoadPurpose::Reload,
+        });
+        app.finish_ready(Box::new(fixture.project()));
+
+        assert!(app.palette_open);
+        assert_eq!(app.palette_query, "Data/Meshes/Mage.b3d");
+        assert_eq!(app.palette_highlight, 0);
+        assert!(app.palette_scroll_to_highlight);
+        assert!(app
+            .find_results()
+            .iter()
+            .any(|result| result.target == missing_file));
+    }
+
+    #[test]
+    fn query_refresh_requests_row_zero_after_a_deep_highlight() {
+        let fixture = ReloadFixture::new("palette-query-scroll-reset");
+        let mut app = dirty_palette_app(&fixture);
+        app.palette_highlight = 100;
+        app.palette_scroll_to_highlight = false;
+        app.palette_query = "Data/".to_owned();
+
+        app.refresh_find_results_for_query();
+
+        assert_eq!(app.palette_highlight, 0);
+        assert!(app.palette_scroll_to_highlight);
+    }
+
+    #[test]
+    fn palette_scroll_offset_keeps_a_highlight_inside_the_virtual_view() {
+        let item_spacing_y = 9.0;
+        let highlight = 100;
+        let offset = super::palette_scroll_offset(highlight, item_spacing_y);
+        let row_start = highlight as f32 * (super::PALETTE_ROW_HEIGHT + item_spacing_y);
+
+        assert!(row_start >= offset);
+        assert!(row_start + super::PALETTE_ROW_HEIGHT <= offset + super::PALETTE_VIEW_HEIGHT);
+        assert_eq!(super::palette_scroll_offset(0, item_spacing_y), 0.0);
+    }
+
+    #[test]
+    fn maximum_accepted_path_keeps_the_palette_row_at_its_virtual_height() {
+        let path = format!("Data/{}", "x".repeat(4091));
+        let result = FeedbackFindResult {
+            target: FeedbackFindTarget::File {
+                lens: Lens::Records,
+                path: path.clone(),
+            },
+            label: path,
+            detail: "accepted inventory file · Records lens".to_owned(),
+        };
+        let context = Context::default();
+        let mut actual_height = 0.0;
+        let input = RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(800.0, 600.0))),
+            ..Default::default()
+        };
+
+        let _ = context.run(input, |context| {
+            CentralPanel::default().show(context, |ui| {
+                actual_height = super::palette_result_row(ui, &result, false).rect.height();
+            });
+        });
+
+        assert_eq!(actual_height, super::PALETTE_ROW_HEIGHT);
+    }
+
+    #[test]
+    fn keyboard_movement_wins_over_a_stationary_hover_for_that_frame() {
+        assert_eq!(super::palette_hover_highlight(7, Some(2), true), 7);
+        assert_eq!(super::palette_hover_highlight(7, Some(2), false), 2);
+        assert_eq!(super::palette_hover_highlight(7, None, false), 7);
+    }
+
+    #[test]
+    fn same_frame_text_and_enter_activate_the_post_edit_query() {
+        let fixture = ReloadFixture::new("palette-same-frame-enter");
+        let project = fixture.project();
+        let actor_id = project.actor_catalog().actors[1].actor_id;
+        let mut app = LedgerApp::shell(fixture.root().to_path_buf());
+        app.project = Some(project);
+        app.open_find_palette();
+        let context = Context::default();
+        let _ = context.run(RawInput::default(), |context| app.find_palette(context));
+
+        let input = RawInput {
+            events: vec![
+                Event::Text(format!("Actor #{actor_id}")),
+                Event::Key {
+                    key: Key::Enter,
+                    physical_key: Some(Key::Enter),
+                    pressed: true,
+                    repeat: false,
+                    modifiers: Modifiers::NONE,
+                },
+            ],
+            ..Default::default()
+        };
+        let _ = context.run(input, |context| app.find_palette(context));
+
+        assert!(!app.palette_open);
+        assert_eq!(app.lens, Lens::Records);
+        assert_eq!(app.records_view, RecordsView::Actors);
+        assert_eq!(app.selected_actor, Some(actor_id));
     }
 }

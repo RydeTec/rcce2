@@ -1,8 +1,8 @@
 use rcce_editor_core::{
-    load_feedback_project, FeedbackActorCount, FeedbackEvidence, FeedbackMediaStatus,
-    FeedbackProject, FeedbackScriptFamily, FeedbackZoneStatus, Lens,
+    load_feedback_project, FeedbackActorCount, FeedbackEvidence, FeedbackFindTarget,
+    FeedbackMediaStatus, FeedbackProject, FeedbackScriptFamily, FeedbackZoneStatus, Lens,
 };
-use std::{fs, path::PathBuf, time::SystemTime};
+use std::{collections::HashSet, fs, path::PathBuf, time::SystemTime};
 
 fn fixture() -> PathBuf {
     let nonce = SystemTime::now()
@@ -436,5 +436,149 @@ fn projects_active_script_sources_with_observed_same_stem_adjuncts() {
     );
     assert_eq!(catalog.diagnostics[0].script_name, "orphan");
 
+    fs::remove_dir_all(path).expect("fixture cleanup");
+}
+
+#[test]
+fn find_anywhere_indexes_every_accepted_identity_kind_without_collapsing_routes() {
+    let data_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../test-data/consensus/happy/Data")
+        .canonicalize()
+        .expect("consensus fixture data root");
+    let project = load_feedback_project(data_root, |_| {}).expect("feedback consensus project");
+    let expected_candidates = project.total_files()
+        + project.actor_catalog().actors.len()
+        + project.asset_catalog().meshes.len()
+        + project.zone_catalog().zones.len()
+        + project.script_catalog().scripts.len();
+    assert_eq!(project.find_candidate_count(), expected_candidates);
+    assert!(project.find_anywhere("").is_empty());
+    assert!(project.find_anywhere("   ").is_empty());
+
+    let actor = &project.actor_catalog().actors[1];
+    let actor_results = project.find_anywhere(&format!(" Actor #{} ", actor.actor_id));
+    assert_eq!(
+        actor_results.first().map(|result| &result.target),
+        Some(&FeedbackFindTarget::Actor {
+            actor_id: actor.actor_id,
+        })
+    );
+
+    let mesh_id = project.asset_catalog().meshes[0].mesh_id;
+    let mesh_results = project.find_anywhere(&format!("mesh #{mesh_id}"));
+    assert_eq!(
+        mesh_results.first().map(|result| &result.target),
+        Some(&FeedbackFindTarget::Mesh { mesh_id })
+    );
+
+    let file_path = "Data/Meshes/Hero.b3d";
+    let file_results = project.find_anywhere(file_path);
+    assert_eq!(
+        file_results.first().map(|result| &result.target),
+        Some(&FeedbackFindTarget::File {
+            lens: Lens::Assets,
+            path: file_path.to_owned(),
+        })
+    );
+
+    let repeated = project.find_anywhere(&actor.race.to_lowercase());
+    assert_eq!(repeated, project.find_anywhere(&actor.race.to_uppercase()));
+    assert!(matches!(
+        repeated.first().map(|result| &result.target),
+        Some(FeedbackFindTarget::Actor { .. })
+    ));
+    let unique_targets = repeated
+        .iter()
+        .map(|result| result.target.clone())
+        .collect::<HashSet<_>>();
+    assert_eq!(unique_targets.len(), repeated.len());
+}
+
+#[test]
+fn find_anywhere_preserves_unicode_zone_identity_and_distinct_script_file_routes() {
+    let zone_path = zone_fixture();
+    let zone_project =
+        load_feedback_project(zone_path.clone(), |_| {}).expect("zone feedback project");
+    let zone_results = zone_project.find_anywhere(" éTOILE.DAT ");
+    assert_eq!(
+        zone_results.first().map(|result| &result.target),
+        Some(&FeedbackFindTarget::Zone {
+            name: "Étoile".to_owned(),
+        })
+    );
+    fs::remove_dir_all(zone_path).expect("zone fixture cleanup");
+
+    let script_path = script_fixture();
+    let script_project =
+        load_feedback_project(script_path.clone(), |_| {}).expect("script feedback project");
+    let source_path = "Data/Server Data/Scripts/Click_Merchant.rsl";
+    let source_results = script_project.find_anywhere(source_path);
+    assert_eq!(
+        source_results
+            .iter()
+            .take(2)
+            .map(|result| result.target.clone())
+            .collect::<Vec<_>>(),
+        vec![
+            FeedbackFindTarget::Script {
+                source_path: source_path.to_owned(),
+            },
+            FeedbackFindTarget::File {
+                lens: Lens::Scripts,
+                path: source_path.to_owned(),
+            },
+        ]
+    );
+    let adjunct_results = script_project.find_anywhere("click_merchant.RCM");
+    assert!(adjunct_results.iter().any(|result| {
+        result.target
+            == FeedbackFindTarget::File {
+                lens: Lens::Scripts,
+                path: "Data/Server Data/Scripts/click_merchant.RCM".to_owned(),
+            }
+    }));
+    assert!(adjunct_results
+        .iter()
+        .all(|result| !matches!(result.target, FeedbackFindTarget::Script { .. })));
+    assert_eq!(
+        script_project.find_anywhere("Data/").len(),
+        script_project.total_files() + script_project.script_catalog().scripts.len()
+    );
+    fs::remove_dir_all(script_path).expect("script fixture cleanup");
+}
+
+#[test]
+fn find_anywhere_keeps_provisional_raw_routes_and_excludes_unavailable_semantic_routes() {
+    let provisional_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../test-data/consensus/provisional/Data")
+        .canonicalize()
+        .expect("provisional fixture data root");
+    let provisional =
+        load_feedback_project(provisional_root, |_| {}).expect("provisional feedback project");
+    assert!(provisional.find_anywhere("actor").iter().any(|result| {
+        matches!(result.target, FeedbackFindTarget::Actor { .. })
+            && result.detail.to_ascii_lowercase().contains("provisional")
+    }));
+    assert!(provisional.find_anywhere("mesh").iter().any(|result| {
+        matches!(result.target, FeedbackFindTarget::Mesh { .. })
+            && result.detail.to_ascii_lowercase().contains("provisional")
+    }));
+
+    let path = fixture();
+    fs::remove_file(path.join("Server Data/Actors.dat")).expect("remove actor source");
+    let unavailable =
+        load_feedback_project(path.clone(), |_| {}).expect("actor-unavailable feedback project");
+    assert_eq!(
+        unavailable.actor_catalog().evidence,
+        FeedbackEvidence::Unavailable
+    );
+    assert!(unavailable
+        .find_anywhere("actor")
+        .iter()
+        .all(|result| !matches!(result.target, FeedbackFindTarget::Actor { .. })));
+    assert!(unavailable
+        .find_anywhere("mesh")
+        .iter()
+        .all(|result| !matches!(result.target, FeedbackFindTarget::Mesh { .. })));
     fs::remove_dir_all(path).expect("fixture cleanup");
 }

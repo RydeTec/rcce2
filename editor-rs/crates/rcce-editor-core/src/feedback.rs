@@ -5,13 +5,37 @@ use rcce_project::{
 };
 use std::{collections::BTreeMap, path::PathBuf};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Lens {
     Records,
     World,
     Assets,
     Scripts,
     Vault,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum FeedbackFindTarget {
+    File { lens: Lens, path: String },
+    Actor { actor_id: u16 },
+    Mesh { mesh_id: u16 },
+    Zone { name: String },
+    Script { source_path: String },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FeedbackFindResult {
+    pub target: FeedbackFindTarget,
+    pub label: String,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct FeedbackFindCandidate {
+    result: FeedbackFindResult,
+    fields: Vec<String>,
+    target_kind: u8,
+    target_identity: Vec<u8>,
 }
 
 impl Lens {
@@ -564,6 +588,7 @@ pub struct FeedbackProject {
     asset_catalog: FeedbackAssetCatalog,
     zone_catalog: FeedbackZoneCatalog,
     script_catalog: FeedbackScriptCatalog,
+    find_candidates: Vec<FeedbackFindCandidate>,
     by_lens: [Vec<FeedbackEntry>; 5],
     unclassified_files: usize,
     total_files: usize,
@@ -709,6 +734,13 @@ impl FeedbackProject {
         let script_catalog =
             FeedbackScriptCatalog::from_script_entries(&by_lens[Lens::Scripts.index()]);
         let asset_catalog = FeedbackAssetCatalog::from_actor_catalog(&actor_catalog);
+        let find_candidates = build_find_candidates(
+            &by_lens,
+            &actor_catalog,
+            &asset_catalog,
+            &zone_catalog,
+            &script_catalog,
+        );
         Self {
             data_root,
             shape: if inventory.files.is_empty() {
@@ -724,6 +756,7 @@ impl FeedbackProject {
             asset_catalog,
             zone_catalog,
             script_catalog,
+            find_candidates,
             by_lens,
             unclassified_files,
             total_files: inventory.files.len(),
@@ -773,6 +806,231 @@ impl FeedbackProject {
 
     pub fn all_entries(&self) -> impl Iterator<Item = &FeedbackEntry> {
         self.by_lens.iter().flat_map(|entries| entries.iter())
+    }
+
+    #[must_use]
+    pub fn find_candidate_count(&self) -> usize {
+        self.find_candidates.len()
+    }
+
+    #[must_use]
+    pub fn find_anywhere(&self, query: &str) -> Vec<FeedbackFindResult> {
+        search_find_candidates(&self.find_candidates, query)
+    }
+
+    #[must_use]
+    pub fn contains_find_target(&self, target: &FeedbackFindTarget) -> bool {
+        self.find_candidates
+            .iter()
+            .any(|candidate| candidate.result.target == *target)
+    }
+}
+
+fn search_find_candidates(
+    candidates: &[FeedbackFindCandidate],
+    query: &str,
+) -> Vec<FeedbackFindResult> {
+    let query = normalize_find_match(query.trim());
+    if query.is_empty() {
+        return Vec::new();
+    }
+
+    let mut matches = candidates
+        .iter()
+        .filter_map(|candidate| find_rank(candidate, &query).map(|rank| (rank, &candidate.result)))
+        .collect::<Vec<_>>();
+    matches.sort_by(|left, right| left.0.cmp(&right.0));
+    matches
+        .into_iter()
+        .map(|(_, result)| result.clone())
+        .collect()
+}
+
+fn build_find_candidates(
+    by_lens: &[Vec<FeedbackEntry>; 5],
+    actor_catalog: &FeedbackActorCatalog,
+    asset_catalog: &FeedbackAssetCatalog,
+    zone_catalog: &FeedbackZoneCatalog,
+    script_catalog: &FeedbackScriptCatalog,
+) -> Vec<FeedbackFindCandidate> {
+    let evidence = evidence_word(actor_catalog.evidence);
+    let mut candidates = Vec::new();
+
+    for actor in &actor_catalog.actors {
+        let raw = format!("Actor #{}", actor.actor_id);
+        let display_note = if actor.race_is_lossy {
+            "lossy legacy display"
+        } else {
+            "legacy display"
+        };
+        let target = FeedbackFindTarget::Actor {
+            actor_id: actor.actor_id,
+        };
+        candidates.push(FeedbackFindCandidate {
+            result: FeedbackFindResult {
+                target: target.clone(),
+                label: format!("{raw} · {}", actor.race),
+                detail: format!("{evidence} raw actor identity · {display_note}"),
+            },
+            fields: normalize_find_fields([actor.actor_id.to_string(), raw, actor.race.clone()]),
+            target_kind: find_target_kind(&target),
+            target_identity: find_target_identity(&target),
+        });
+    }
+
+    for mesh in &asset_catalog.meshes {
+        let raw = format!("Mesh #{}", mesh.mesh_id);
+        let target = FeedbackFindTarget::Mesh {
+            mesh_id: mesh.mesh_id,
+        };
+        candidates.push(FeedbackFindCandidate {
+            result: FeedbackFindResult {
+                target: target.clone(),
+                label: raw.clone(),
+                detail: format!(
+                    "{} actor-referenced raw base-mesh identity · {} observed backlink{}",
+                    evidence_word(asset_catalog.evidence),
+                    mesh.actors.len(),
+                    if mesh.actors.len() == 1 { "" } else { "s" }
+                ),
+            },
+            fields: normalize_find_fields([mesh.mesh_id.to_string(), raw]),
+            target_kind: find_target_kind(&target),
+            target_identity: find_target_identity(&target),
+        });
+    }
+
+    for zone in &zone_catalog.zones {
+        let target = FeedbackFindTarget::Zone {
+            name: zone.name.clone(),
+        };
+        candidates.push(FeedbackFindCandidate {
+            result: FeedbackFindResult {
+                target: target.clone(),
+                label: zone.name.clone(),
+                detail: "filename-derived zone identity · inventory observation".to_owned(),
+            },
+            fields: normalize_find_fields([zone.name.clone(), format!("{}.dat", zone.name)]),
+            target_kind: find_target_kind(&target),
+            target_identity: find_target_identity(&target),
+        });
+    }
+
+    for script in &script_catalog.scripts {
+        let target = FeedbackFindTarget::Script {
+            source_path: script.source_path.clone(),
+        };
+        candidates.push(FeedbackFindCandidate {
+            result: FeedbackFindResult {
+                target: target.clone(),
+                label: script.name.clone(),
+                detail: format!("active .rsl identity · {}", script.source_path),
+            },
+            fields: normalize_find_fields([
+                script.source_path.clone(),
+                script.name.clone(),
+                format!("{}.rsl", script.name),
+            ]),
+            target_kind: find_target_kind(&target),
+            target_identity: find_target_identity(&target),
+        });
+    }
+
+    for lens in Lens::ALL {
+        for entry in &by_lens[lens.index()] {
+            let target = FeedbackFindTarget::File {
+                lens,
+                path: entry.path.clone(),
+            };
+            candidates.push(FeedbackFindCandidate {
+                result: FeedbackFindResult {
+                    target: target.clone(),
+                    label: entry.path.clone(),
+                    detail: format!("accepted inventory file · {} lens", lens.label()),
+                },
+                fields: normalize_find_fields([entry.path.clone()]),
+                target_kind: find_target_kind(&target),
+                target_identity: find_target_identity(&target),
+            });
+        }
+    }
+
+    candidates
+}
+
+fn normalize_find_fields<const N: usize>(fields: [String; N]) -> Vec<String> {
+    fields
+        .into_iter()
+        .map(|field| normalize_find_match(&field))
+        .collect()
+}
+
+fn normalize_find_match(value: &str) -> String {
+    value.to_lowercase()
+}
+
+const fn evidence_word(evidence: FeedbackEvidence) -> &'static str {
+    match evidence {
+        FeedbackEvidence::Consensus => "consensus",
+        FeedbackEvidence::Provisional => "provisional",
+        FeedbackEvidence::Unavailable => "unavailable",
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct FeedbackFindRank<'a> {
+    match_kind: u8,
+    match_metric: usize,
+    field_index: usize,
+    target_kind: u8,
+    target_identity: &'a [u8],
+}
+
+fn find_rank<'a>(
+    candidate: &'a FeedbackFindCandidate,
+    query: &str,
+) -> Option<FeedbackFindRank<'a>> {
+    candidate
+        .fields
+        .iter()
+        .enumerate()
+        .filter_map(|(field_index, field)| {
+            let (match_kind, match_metric) = if field == query {
+                (0, 0)
+            } else if field.starts_with(query) {
+                (1, field.chars().count())
+            } else {
+                let position = field.find(query)?;
+                (2, field[..position].chars().count())
+            };
+            Some(FeedbackFindRank {
+                match_kind,
+                match_metric,
+                field_index,
+                target_kind: candidate.target_kind,
+                target_identity: &candidate.target_identity,
+            })
+        })
+        .min()
+}
+
+const fn find_target_kind(target: &FeedbackFindTarget) -> u8 {
+    match target {
+        FeedbackFindTarget::Actor { .. } => 0,
+        FeedbackFindTarget::Mesh { .. } => 1,
+        FeedbackFindTarget::Zone { .. } => 2,
+        FeedbackFindTarget::Script { .. } => 3,
+        FeedbackFindTarget::File { .. } => 4,
+    }
+}
+
+fn find_target_identity(target: &FeedbackFindTarget) -> Vec<u8> {
+    match target {
+        FeedbackFindTarget::Actor { actor_id } => actor_id.to_be_bytes().to_vec(),
+        FeedbackFindTarget::Mesh { mesh_id } => mesh_id.to_be_bytes().to_vec(),
+        FeedbackFindTarget::Zone { name } => name.as_bytes().to_vec(),
+        FeedbackFindTarget::Script { source_path } => source_path.as_bytes().to_vec(),
+        FeedbackFindTarget::File { path, .. } => path.as_bytes().to_vec(),
     }
 }
 
@@ -957,8 +1215,10 @@ fn hex(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
+        find_target_identity, find_target_kind, normalize_find_fields, search_find_candidates,
         FeedbackActor, FeedbackActorCatalog, FeedbackActorCount, FeedbackAssetCatalog,
-        FeedbackEvidence, FeedbackMediaStatus,
+        FeedbackEvidence, FeedbackFindCandidate, FeedbackFindResult, FeedbackFindTarget,
+        FeedbackMediaStatus, Lens,
     };
 
     #[test]
@@ -1015,6 +1275,47 @@ mod tests {
         assert_eq!(
             assets.unavailable_reason.as_deref(),
             Some("Actor catalog unavailable for this snapshot")
+        );
+    }
+
+    #[test]
+    fn broad_find_query_returns_every_candidate_in_stable_raw_identity_order() {
+        let candidates = (0..12_000)
+            .map(|index| {
+                let path = format!("Data/Broad/File{index:05}.dat");
+                let target = FeedbackFindTarget::File {
+                    lens: Lens::Records,
+                    path: path.clone(),
+                };
+                FeedbackFindCandidate {
+                    result: FeedbackFindResult {
+                        target: target.clone(),
+                        label: path.clone(),
+                        detail: "accepted inventory file · Records lens".to_owned(),
+                    },
+                    fields: normalize_find_fields([path]),
+                    target_kind: find_target_kind(&target),
+                    target_identity: find_target_identity(&target),
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let results = search_find_candidates(&candidates, " DATA/BROAD/ ");
+
+        assert_eq!(results.len(), 12_000);
+        assert_eq!(
+            results.first().map(|result| &result.target),
+            Some(&FeedbackFindTarget::File {
+                lens: Lens::Records,
+                path: "Data/Broad/File00000.dat".to_owned(),
+            })
+        );
+        assert_eq!(
+            results.last().map(|result| &result.target),
+            Some(&FeedbackFindTarget::File {
+                lens: Lens::Records,
+                path: "Data/Broad/File11999.dat".to_owned(),
+            })
         );
     }
 }
