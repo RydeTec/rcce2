@@ -4,13 +4,13 @@ use eframe::egui::{
 };
 use rcce_editor_core::{
     load_feedback_project, FeedbackAcceptedFileDelta, FeedbackAcceptedFileDeltaKind,
-    FeedbackAcceptedSnapshotDelta, FeedbackActor, FeedbackActorCount, FeedbackAssetCatalog,
-    FeedbackAssetPathCatalog, FeedbackAssetPathFacet, FeedbackEntry, FeedbackEntryLocator,
-    FeedbackEvidence, FeedbackFindResult, FeedbackFindTarget, FeedbackFingerprintPeerTarget,
-    FeedbackFocusTarget, FeedbackLoadProgress, FeedbackMediaStatus, FeedbackObservation,
-    FeedbackObservationEvidence, FeedbackProject, FeedbackReturnTrail, FeedbackScript,
-    FeedbackScriptFamily, FeedbackVaultEntry, FeedbackVaultFacet, FeedbackZone, FeedbackZoneStatus,
-    Lens,
+    FeedbackAcceptedSnapshotDelta, FeedbackActor, FeedbackActorBaseMeshSlotZeroEvidence,
+    FeedbackActorCount, FeedbackAssetCatalog, FeedbackAssetPathCatalog, FeedbackAssetPathFacet,
+    FeedbackEntry, FeedbackEntryLocator, FeedbackEvidence, FeedbackFindResult, FeedbackFindTarget,
+    FeedbackFingerprintPeerTarget, FeedbackFocusTarget, FeedbackLoadProgress, FeedbackMediaStatus,
+    FeedbackObservation, FeedbackObservationEvidence, FeedbackProject, FeedbackReturnTrail,
+    FeedbackScript, FeedbackScriptFamily, FeedbackVaultEntry, FeedbackVaultFacet, FeedbackZone,
+    FeedbackZoneStatus, Lens,
 };
 use std::{
     path::{Path, PathBuf},
@@ -53,12 +53,13 @@ fn main() -> ExitCode {
                 let asset_paths = project.asset_path_catalog();
                 let vault_catalog = project.vault_catalog();
                 println!(
-                    "[super-editor-mvp] ready: {} files, {} bytes, {} unavailable; actors={} actor_evidence={} actor_reference_issues={} actor_base_meshes={} actor_resolved_base_meshes={} asset_files={} asset_file_bytes={} asset_meshes={} asset_mesh_bytes={} asset_textures={} asset_texture_bytes={} asset_sounds={} asset_sound_bytes={} asset_music={} asset_music_bytes={} asset_emitter_configs={} asset_emitter_config_bytes={} asset_ui={} asset_ui_bytes={} asset_other={} asset_other_bytes={} zones={} zone_pairing_issues={} scripts={} script_adjuncts={} script_inventory_issues={} known_observations={} actor_diagnostics={} vault_files={} vault_secret_labeled={} vault_dynamic_private_labeled={} vault_server_config_labeled={} vault_other={} fingerprint_peer_groups={} fingerprint_peer_paths={}",
+                    "[super-editor-mvp] ready: {} files, {} bytes, {} unavailable; actors={} actor_evidence={} actor_mesh_slot0={} actor_reference_issues={} actor_base_meshes={} actor_resolved_base_meshes={} asset_files={} asset_file_bytes={} asset_meshes={} asset_mesh_bytes={} asset_textures={} asset_texture_bytes={} asset_sounds={} asset_sound_bytes={} asset_music={} asset_music_bytes={} asset_emitter_configs={} asset_emitter_config_bytes={} asset_ui={} asset_ui_bytes={} asset_other={} asset_other_bytes={} zones={} zone_pairing_issues={} scripts={} script_adjuncts={} script_inventory_issues={} known_observations={} actor_diagnostics={} vault_files={} vault_secret_labeled={} vault_dynamic_private_labeled={} vault_server_config_labeled={} vault_other={} fingerprint_peer_groups={} fingerprint_peer_paths={}",
                     project.total_files(),
                     project.total_bytes(),
                     project.unavailable,
                     actor_count_smoke(actor_catalog.count),
                     evidence_label(actor_catalog.evidence).to_ascii_lowercase(),
+                    actor_base_mesh_slot_zero_smoke(actor_catalog.base_mesh_slot_zero),
                     actor_catalog.diagnostics.len(),
                     project.asset_catalog().meshes.len(),
                     resolved_actor_base_mesh_count(project.asset_catalog()),
@@ -2598,7 +2599,15 @@ impl LedgerApp {
             format!("{} atlas", self.lens.label())
         };
         let atlas_subtitle = if actor_view {
-            actor_atlas_subtitle()
+            let actor_catalog = self.project.as_ref().map(|project| project.actor_catalog());
+            actor_atlas_subtitle(
+                actor_catalog
+                    .map(|catalog| catalog.evidence)
+                    .unwrap_or(FeedbackEvidence::Unavailable),
+                actor_catalog
+                    .map(|catalog| catalog.base_mesh_slot_zero)
+                    .unwrap_or(FeedbackActorBaseMeshSlotZeroEvidence::Unavailable),
+            )
         } else if zone_view {
             "Filename identities · visual/gameplay pairing · directly observed gaps"
         } else if asset_view {
@@ -4250,7 +4259,7 @@ const fn actor_slice_evidence_label(evidence: FeedbackEvidence) -> &'static str 
 const fn actor_slice_evidence_copy(evidence: FeedbackEvidence) -> &'static str {
     match evidence {
         FeedbackEvidence::Consensus => {
-            "Client/server actor identity and completion evidence agrees; base-mesh paths come from the client catalog plus accepted inventory."
+            "Client/server actor identity, completion, and raw base-mesh slot-0 values agree; paths come from the client catalog plus accepted inventory."
         }
         FeedbackEvidence::Provisional => {
             "The consensus layer marked this slice provisional; missing-media diagnostics are withheld."
@@ -4261,8 +4270,34 @@ const fn actor_slice_evidence_copy(evidence: FeedbackEvidence) -> &'static str {
     }
 }
 
-const fn actor_atlas_subtitle() -> &'static str {
-    "Actor identity agreement · client base-mesh/catalog evidence · accepted slice only"
+const fn actor_atlas_subtitle(
+    evidence: FeedbackEvidence,
+    slot_zero: FeedbackActorBaseMeshSlotZeroEvidence,
+) -> &'static str {
+    match (evidence, slot_zero) {
+        (_, FeedbackActorBaseMeshSlotZeroEvidence::Unavailable)
+        | (FeedbackEvidence::Unavailable, _) => {
+            "Actor/base-mesh evidence unavailable · exhaustive Records files remain available"
+        }
+        (_, FeedbackActorBaseMeshSlotZeroEvidence::Disagreed) => {
+            "Raw slot-0 values disagree · actor/base-mesh conclusions withheld"
+        }
+        (_, FeedbackActorBaseMeshSlotZeroEvidence::NotComparable) => {
+            "Raw slot-0 comparison not accepted · actor/base-mesh conclusions withheld"
+        }
+        (
+            FeedbackEvidence::Consensus,
+            FeedbackActorBaseMeshSlotZeroEvidence::Agreed,
+        ) => {
+            "Actor identity, completion, and raw slot-0 agreement · client catalog evidence · accepted slice only"
+        }
+        (
+            FeedbackEvidence::Provisional,
+            FeedbackActorBaseMeshSlotZeroEvidence::Agreed,
+        ) => {
+            "Raw slot-0 values agree · other slice evidence is provisional · conclusions withheld"
+        }
+    }
 }
 
 fn resolved_actor_base_mesh_count(catalog: &FeedbackAssetCatalog) -> usize {
@@ -4313,6 +4348,17 @@ fn actor_count_smoke(count: FeedbackActorCount) -> String {
         FeedbackActorCount::Agreed(count) => count.to_string(),
         FeedbackActorCount::Disagreed { client, server } => format!("{client}/{server}"),
         FeedbackActorCount::Unavailable => "unavailable".to_owned(),
+    }
+}
+
+const fn actor_base_mesh_slot_zero_smoke(
+    evidence: FeedbackActorBaseMeshSlotZeroEvidence,
+) -> &'static str {
+    match evidence {
+        FeedbackActorBaseMeshSlotZeroEvidence::Agreed => "agreed",
+        FeedbackActorBaseMeshSlotZeroEvidence::Disagreed => "disagreed",
+        FeedbackActorBaseMeshSlotZeroEvidence::NotComparable => "not-comparable",
+        FeedbackActorBaseMeshSlotZeroEvidence::Unavailable => "unavailable",
     }
 }
 
@@ -4732,6 +4778,30 @@ mod tests {
             super::actor_diagnostic_coverage_smoke(FeedbackEvidence::Unavailable),
             "unavailable"
         );
+        assert_eq!(
+            super::actor_base_mesh_slot_zero_smoke(
+                super::FeedbackActorBaseMeshSlotZeroEvidence::Agreed
+            ),
+            "agreed"
+        );
+        assert_eq!(
+            super::actor_base_mesh_slot_zero_smoke(
+                super::FeedbackActorBaseMeshSlotZeroEvidence::Disagreed
+            ),
+            "disagreed"
+        );
+        assert_eq!(
+            super::actor_base_mesh_slot_zero_smoke(
+                super::FeedbackActorBaseMeshSlotZeroEvidence::NotComparable
+            ),
+            "not-comparable"
+        );
+        assert_eq!(
+            super::actor_base_mesh_slot_zero_smoke(
+                super::FeedbackActorBaseMeshSlotZeroEvidence::Unavailable
+            ),
+            "unavailable"
+        );
     }
 
     #[test]
@@ -4745,12 +4815,43 @@ mod tests {
             "0 observed reference issues in this accepted slice"
         );
         assert_eq!(
-            super::actor_atlas_subtitle(),
-            "Actor identity agreement · client base-mesh/catalog evidence · accepted slice only"
+            super::actor_atlas_subtitle(
+                FeedbackEvidence::Consensus,
+                super::FeedbackActorBaseMeshSlotZeroEvidence::Agreed,
+            ),
+            "Actor identity, completion, and raw slot-0 agreement · client catalog evidence · accepted slice only"
+        );
+        assert_eq!(
+            super::actor_atlas_subtitle(
+                FeedbackEvidence::Provisional,
+                super::FeedbackActorBaseMeshSlotZeroEvidence::Agreed,
+            ),
+            "Raw slot-0 values agree · other slice evidence is provisional · conclusions withheld"
+        );
+        assert_eq!(
+            super::actor_atlas_subtitle(
+                FeedbackEvidence::Provisional,
+                super::FeedbackActorBaseMeshSlotZeroEvidence::Disagreed,
+            ),
+            "Raw slot-0 values disagree · actor/base-mesh conclusions withheld"
+        );
+        assert_eq!(
+            super::actor_atlas_subtitle(
+                FeedbackEvidence::Provisional,
+                super::FeedbackActorBaseMeshSlotZeroEvidence::NotComparable,
+            ),
+            "Raw slot-0 comparison not accepted · actor/base-mesh conclusions withheld"
+        );
+        assert_eq!(
+            super::actor_atlas_subtitle(
+                FeedbackEvidence::Unavailable,
+                super::FeedbackActorBaseMeshSlotZeroEvidence::Unavailable,
+            ),
+            "Actor/base-mesh evidence unavailable · exhaustive Records files remain available"
         );
         assert_eq!(
             super::actor_slice_evidence_copy(FeedbackEvidence::Consensus),
-            "Client/server actor identity and completion evidence agrees; base-mesh paths come from the client catalog plus accepted inventory."
+            "Client/server actor identity, completion, and raw base-mesh slot-0 values agree; paths come from the client catalog plus accepted inventory."
         );
     }
 

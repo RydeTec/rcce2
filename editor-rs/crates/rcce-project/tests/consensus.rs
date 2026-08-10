@@ -1,6 +1,6 @@
 use rcce_project::{
-    ActorCountEvidence, ActorMediaAvailability, ConsensusLevel, MetadataBudget, ProjectRoot,
-    ProjectSnapshot, ReadAssurance, ScanControl,
+    ActorBaseMeshSlotZeroEvidence, ActorCountEvidence, ActorMediaAvailability, ConsensusLevel,
+    MetadataBudget, ProjectRoot, ProjectSnapshot, ReadAssurance, ScanControl,
 };
 use std::{
     fs,
@@ -140,6 +140,10 @@ fn consensus_rejects_a_root_with_both_project_and_data_layouts() {
 fn happy_consensus_is_exactly_four_and_resolves_none_present_and_physical() {
     let result = load("happy");
     assert_eq!(result.level(), ConsensusLevel::Consensus);
+    assert_eq!(
+        result.base_mesh_slot_zero_evidence(),
+        &ActorBaseMeshSlotZeroEvidence::Agreed
+    );
     assert!(result.catalog_topology().has_gaps);
     assert_eq!(result.actor_count(), ActorCountEvidence::Agreed(4));
     assert_eq!(result.actors().len(), 4);

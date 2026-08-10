@@ -52,6 +52,7 @@ fn smoke_contract_distinguishes_openable_and_missing_roots() {
     let valid_stdout = String::from_utf8_lossy(&valid.stdout);
     assert!(valid_stdout.contains("actors="));
     assert!(valid_stdout.contains("actor_evidence="));
+    assert!(valid_stdout.contains("actor_mesh_slot0="));
     assert!(valid_stdout.contains("actor_reference_issues="));
     assert!(valid_stdout.contains("actor_base_meshes="));
     assert!(valid_stdout.contains("actor_resolved_base_meshes=0"));

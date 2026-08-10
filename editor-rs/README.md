@@ -25,6 +25,15 @@ accepted inventory identities. This scoped consensus does not establish global
 media-catalog completeness, validity, provenance, orphan status, repair safety,
 or writer authority.
 
+The consensus gate also compares the exact raw 16-bit base-mesh slot-0 value
+reported for each exact actor ID by the client and server actor parsers. Server
+signed values are compared by their unchanged bit pattern, so `-1` and client
+`65535` are the same observed `0xFFFF` identity. A missing counterpart,
+duplicate ID, incomplete parse, ID-set difference, or slot-0 mismatch keeps the
+whole slice provisional and withholds physical paths and reference diagnostics.
+This comparison says nothing about slots 1–7, full parser equality, an
+independent server media catalog, runtime appearance, compatibility, or health.
+
 The Assets lens derives a relationship view from that same accepted
 actor/media slice. It groups only actor-referenced base-mesh IDs, preserves the
 raw numeric mesh identities, and exposes actor backlinks plus evidence-qualified
