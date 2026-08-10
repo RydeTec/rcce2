@@ -153,6 +153,42 @@ pub struct FeedbackEntry {
     state_classes: Vec<StateClass>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct FeedbackEntryLocator {
+    pub lens: Lens,
+    pub entry_index: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FeedbackFingerprintGroup {
+    pub source_sha256: String,
+    members: Vec<FeedbackEntryLocator>,
+}
+
+impl FeedbackFingerprintGroup {
+    #[must_use]
+    pub fn members(&self) -> &[FeedbackEntryLocator] {
+        &self.members
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FeedbackFingerprintPeerTarget {
+    pub source_sha256: String,
+    pub lens: Lens,
+    pub path: String,
+}
+
+impl FeedbackFingerprintPeerTarget {
+    #[must_use]
+    pub fn focus_target(&self) -> FeedbackFocusTarget {
+        FeedbackFocusTarget::File {
+            lens: self.lens,
+            path: self.path.clone(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FeedbackAcceptedFileDeltaKind {
     NewlyAccepted,
@@ -1003,6 +1039,8 @@ pub struct FeedbackProject {
     vault_catalog: FeedbackVaultCatalog,
     observation_index: FeedbackObservationIndex,
     find_candidates: Vec<FeedbackFindCandidate>,
+    fingerprint_groups: Vec<FeedbackFingerprintGroup>,
+    fingerprint_peer_paths: usize,
     by_lens: [Vec<FeedbackEntry>; 5],
     unclassified_files: usize,
     total_files: usize,
@@ -1159,6 +1197,11 @@ impl FeedbackProject {
             &zone_catalog,
             &script_catalog,
         );
+        let fingerprint_groups = build_fingerprint_groups(&by_lens);
+        let fingerprint_peer_paths = fingerprint_groups
+            .iter()
+            .map(|group| group.members.len())
+            .sum();
         Self {
             data_root,
             shape: if inventory.files.is_empty() {
@@ -1177,6 +1220,8 @@ impl FeedbackProject {
             vault_catalog,
             observation_index,
             find_candidates,
+            fingerprint_groups,
+            fingerprint_peer_paths,
             by_lens,
             unclassified_files,
             total_files: inventory.files.len(),
@@ -1239,6 +1284,64 @@ impl FeedbackProject {
     }
 
     #[must_use]
+    pub fn entry(&self, locator: FeedbackEntryLocator) -> Option<&FeedbackEntry> {
+        self.by_lens
+            .get(locator.lens.index())?
+            .get(locator.entry_index)
+    }
+
+    #[must_use]
+    pub fn fingerprint_peer_group_count(&self) -> usize {
+        self.fingerprint_groups.len()
+    }
+
+    #[must_use]
+    pub const fn fingerprint_peer_path_count(&self) -> usize {
+        self.fingerprint_peer_paths
+    }
+
+    #[must_use]
+    pub fn fingerprint_group_for_path(&self, path: &str) -> Option<&FeedbackFingerprintGroup> {
+        let entry = self.all_entries().find(|entry| entry.path == path)?;
+        self.fingerprint_group_for_entry(entry)
+    }
+
+    #[must_use]
+    pub fn fingerprint_group_for_entry(
+        &self,
+        entry: &FeedbackEntry,
+    ) -> Option<&FeedbackFingerprintGroup> {
+        self.fingerprint_groups
+            .binary_search_by(|group| {
+                group
+                    .source_sha256
+                    .as_str()
+                    .cmp(entry.source_sha256.as_str())
+            })
+            .ok()
+            .map(|index| &self.fingerprint_groups[index])
+    }
+
+    #[must_use]
+    pub fn contains_fingerprint_peer_target(&self, target: &FeedbackFingerprintPeerTarget) -> bool {
+        let Ok(group_index) = self
+            .fingerprint_groups
+            .binary_search_by(|group| group.source_sha256.as_str().cmp(&target.source_sha256))
+        else {
+            return false;
+        };
+        self.fingerprint_groups[group_index]
+            .members
+            .iter()
+            .any(|locator| {
+                locator.lens == target.lens
+                    && self
+                        .entry(*locator)
+                        .is_some_and(|entry| entry.path == target.path)
+            })
+    }
+
+    #[must_use]
     pub fn find_candidate_count(&self) -> usize {
         self.find_candidates.len()
     }
@@ -1259,6 +1362,41 @@ impl FeedbackProject {
             .iter()
             .any(|candidate| candidate.result.target == *target)
     }
+}
+
+fn build_fingerprint_groups(by_lens: &[Vec<FeedbackEntry>; 5]) -> Vec<FeedbackFingerprintGroup> {
+    let mut members_by_fingerprint: BTreeMap<&str, Vec<FeedbackEntryLocator>> = BTreeMap::new();
+    for lens in Lens::ALL {
+        for (entry_index, entry) in by_lens[lens.index()].iter().enumerate() {
+            members_by_fingerprint
+                .entry(entry.source_sha256.as_str())
+                .or_default()
+                .push(FeedbackEntryLocator { lens, entry_index });
+        }
+    }
+
+    members_by_fingerprint
+        .into_iter()
+        .filter_map(|(source_sha256, mut members)| {
+            if members.len() < 2 {
+                return None;
+            }
+            members.sort_by(|left, right| {
+                by_lens[left.lens.index()][left.entry_index]
+                    .path
+                    .as_bytes()
+                    .cmp(
+                        by_lens[right.lens.index()][right.entry_index]
+                            .path
+                            .as_bytes(),
+                    )
+            });
+            Some(FeedbackFingerprintGroup {
+                source_sha256: source_sha256.to_owned(),
+                members,
+            })
+        })
+        .collect()
 }
 
 fn accepted_entries_by_path(project: &FeedbackProject) -> BTreeMap<&str, (Lens, &FeedbackEntry)> {

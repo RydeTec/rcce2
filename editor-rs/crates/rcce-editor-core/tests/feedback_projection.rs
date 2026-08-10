@@ -1,8 +1,8 @@
 use rcce_editor_core::{
     load_feedback_project, FeedbackAcceptedFileDeltaKind, FeedbackAcceptedSnapshotDelta,
-    FeedbackActorCount, FeedbackEvidence, FeedbackFindTarget, FeedbackMediaStatus,
-    FeedbackObservationEvidence, FeedbackProject, FeedbackScriptFamily, FeedbackVaultFacet,
-    FeedbackZoneStatus, Lens,
+    FeedbackActorCount, FeedbackEvidence, FeedbackFindTarget, FeedbackFingerprintPeerTarget,
+    FeedbackMediaStatus, FeedbackObservationEvidence, FeedbackProject, FeedbackScriptFamily,
+    FeedbackVaultFacet, FeedbackZoneStatus, Lens,
 };
 use std::{collections::HashSet, fs, path::PathBuf, time::SystemTime};
 
@@ -30,6 +30,38 @@ fn project() -> (PathBuf, FeedbackProject) {
     let path = fixture();
     let project = load_feedback_project(path.clone(), |_| {}).expect("fixture snapshot");
     (path, project)
+}
+
+fn fingerprint_peer_fixture() -> PathBuf {
+    let nonce = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .expect("system clock")
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!(
+        "rcce-feedback-fingerprint-peers-{}-{nonce}",
+        std::process::id()
+    ));
+    for directory in [
+        "Areas",
+        "Meshes/Actors",
+        "Server Data/Scripts",
+        "Server Data",
+    ] {
+        fs::create_dir_all(root.join(directory)).expect("fingerprint peer fixture directory");
+    }
+    for path in [
+        "Areas/Shared.dat",
+        "Meshes/Actors/Hero.b3d",
+        "Server Data/Actors.dat",
+        "Server Data/Scripts/Quest.rsl",
+    ] {
+        fs::write(root.join(path), b"shared accepted bytes").expect("shared peer fixture");
+    }
+    for path in ["Areas/Empty.dat", "Server Data/Scripts/Empty.rsl"] {
+        fs::write(root.join(path), b"").expect("zero-byte peer fixture");
+    }
+    fs::write(root.join("Server Data/Singleton.dat"), b"singleton").expect("singleton fixture");
+    root
 }
 
 fn delta_fixture(label: &str) -> PathBuf {
@@ -213,6 +245,106 @@ fn projects_real_inventory_into_five_lenses() {
         .any(|entry| entry.path == "Data/mystery.bin"));
 
     fs::remove_dir_all(path).expect("fixture cleanup");
+}
+
+#[test]
+fn indexes_exact_accepted_source_fingerprint_peers_without_inference() {
+    let path = fingerprint_peer_fixture();
+    let project = load_feedback_project(path.clone(), |_| {}).expect("fingerprint peer project");
+
+    assert_eq!(project.fingerprint_peer_group_count(), 2);
+    assert_eq!(project.fingerprint_peer_path_count(), 6);
+
+    let group = project
+        .fingerprint_group_for_path("Data/Meshes/Actors/Hero.b3d")
+        .expect("shared fingerprint group");
+    assert_eq!(group.source_sha256.len(), 64);
+    let members = group
+        .members()
+        .iter()
+        .map(|locator| {
+            let entry = project
+                .entry(*locator)
+                .expect("compact locator resolves in the accepted snapshot");
+            (locator.lens, entry.path.as_str(), entry.size)
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        members,
+        vec![
+            (Lens::World, "Data/Areas/Shared.dat", 21),
+            (Lens::Assets, "Data/Meshes/Actors/Hero.b3d", 21),
+            (Lens::Records, "Data/Server Data/Actors.dat", 21),
+            (Lens::Scripts, "Data/Server Data/Scripts/Quest.rsl", 21,),
+        ]
+    );
+
+    let zero_group = project
+        .fingerprint_group_for_path("Data/Areas/Empty.dat")
+        .expect("zero-byte accepted paths remain evidence");
+    assert_eq!(zero_group.members().len(), 2);
+    assert!(zero_group
+        .members()
+        .iter()
+        .all(|locator| project.entry(*locator).is_some_and(|entry| entry.size == 0)));
+    assert!(project
+        .fingerprint_group_for_path("Data/Server Data/Singleton.dat")
+        .is_none());
+
+    let target = FeedbackFingerprintPeerTarget {
+        source_sha256: group.source_sha256.clone(),
+        lens: Lens::World,
+        path: "Data/Areas/Shared.dat".to_owned(),
+    };
+    assert!(project.contains_fingerprint_peer_target(&target));
+    assert!(
+        !project.contains_fingerprint_peer_target(&FeedbackFingerprintPeerTarget {
+            source_sha256: "0".repeat(64),
+            ..target.clone()
+        })
+    );
+    assert!(
+        !project.contains_fingerprint_peer_target(&FeedbackFingerprintPeerTarget {
+            lens: Lens::Records,
+            ..target
+        })
+    );
+
+    fs::remove_dir_all(path).expect("fingerprint fixture cleanup");
+}
+
+#[test]
+fn fingerprint_peer_groups_are_exhaustive_beyond_one_viewport() {
+    let nonce = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .expect("system clock")
+        .as_nanos();
+    let path = std::env::temp_dir().join(format!(
+        "rcce-feedback-fingerprint-many-{}-{nonce}",
+        std::process::id()
+    ));
+    fs::create_dir_all(path.join("Meshes/Peers")).expect("large peer fixture directory");
+    for index in 0..300 {
+        fs::write(
+            path.join(format!("Meshes/Peers/peer-{index:03}.bin")),
+            b"same accepted fingerprint",
+        )
+        .expect("large peer fixture file");
+    }
+
+    let project = load_feedback_project(path.clone(), |_| {}).expect("large peer project");
+    let group = project
+        .fingerprint_group_for_path("Data/Meshes/Peers/peer-000.bin")
+        .expect("large peer group");
+    assert_eq!(project.fingerprint_peer_group_count(), 1);
+    assert_eq!(project.fingerprint_peer_path_count(), 300);
+    assert_eq!(group.members().len(), 300);
+    assert_eq!(
+        project.entry(group.members()[299]).expect("last peer").path,
+        "Data/Meshes/Peers/peer-299.bin"
+    );
+
+    fs::remove_dir_all(path).expect("large peer fixture cleanup");
 }
 
 #[test]

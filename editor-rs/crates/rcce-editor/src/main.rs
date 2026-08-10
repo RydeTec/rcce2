@@ -5,10 +5,11 @@ use eframe::egui::{
 use rcce_editor_core::{
     load_feedback_project, FeedbackAcceptedFileDelta, FeedbackAcceptedFileDeltaKind,
     FeedbackAcceptedSnapshotDelta, FeedbackActor, FeedbackActorCount, FeedbackEntry,
-    FeedbackEvidence, FeedbackFindResult, FeedbackFindTarget, FeedbackFocusTarget,
-    FeedbackLoadProgress, FeedbackMediaStatus, FeedbackObservation, FeedbackObservationEvidence,
-    FeedbackProject, FeedbackReturnTrail, FeedbackScript, FeedbackScriptFamily, FeedbackVaultEntry,
-    FeedbackVaultFacet, FeedbackZone, FeedbackZoneStatus, Lens,
+    FeedbackEvidence, FeedbackFindResult, FeedbackFindTarget, FeedbackFingerprintPeerTarget,
+    FeedbackFocusTarget, FeedbackLoadProgress, FeedbackMediaStatus, FeedbackObservation,
+    FeedbackObservationEvidence, FeedbackProject, FeedbackReturnTrail, FeedbackScript,
+    FeedbackScriptFamily, FeedbackVaultEntry, FeedbackVaultFacet, FeedbackZone, FeedbackZoneStatus,
+    Lens,
 };
 use std::{
     path::{Path, PathBuf},
@@ -37,6 +38,8 @@ const OBSERVATION_ROW_HEIGHT: f32 = 64.0;
 const OBSERVATION_VIEW_HEIGHT: f32 = 360.0;
 const VAULT_ROW_HEIGHT: f32 = 58.0;
 const RELOAD_DELTA_ROW_HEIGHT: f32 = 64.0;
+const FINGERPRINT_PEER_ROW_HEIGHT: f32 = 48.0;
+const FINGERPRINT_PEER_VIEW_HEIGHT: f32 = 216.0;
 const RAIL_LENS_ITEM_SPACING_Y: f32 = 4.0;
 
 fn main() -> ExitCode {
@@ -47,7 +50,7 @@ fn main() -> ExitCode {
                 let actor_catalog = project.actor_catalog();
                 let vault_catalog = project.vault_catalog();
                 println!(
-                    "[super-editor-mvp] ready: {} files, {} bytes, {} unavailable; actors={} actor_evidence={} actor_reference_issues={} actor_base_meshes={} zones={} zone_pairing_issues={} scripts={} script_adjuncts={} script_inventory_issues={} known_observations={} actor_diagnostics={} vault_files={} vault_secret_labeled={} vault_dynamic_private_labeled={} vault_server_config_labeled={} vault_other={}",
+                    "[super-editor-mvp] ready: {} files, {} bytes, {} unavailable; actors={} actor_evidence={} actor_reference_issues={} actor_base_meshes={} zones={} zone_pairing_issues={} scripts={} script_adjuncts={} script_inventory_issues={} known_observations={} actor_diagnostics={} vault_files={} vault_secret_labeled={} vault_dynamic_private_labeled={} vault_server_config_labeled={} vault_other={} fingerprint_peer_groups={} fingerprint_peer_paths={}",
                     project.total_files(),
                     project.total_bytes(),
                     project.unavailable,
@@ -66,7 +69,9 @@ fn main() -> ExitCode {
                     vault_catalog.count(FeedbackVaultFacet::Secret),
                     vault_catalog.count(FeedbackVaultFacet::DynamicPrivate),
                     vault_catalog.count(FeedbackVaultFacet::ServerConfig),
-                    vault_catalog.count(FeedbackVaultFacet::Other)
+                    vault_catalog.count(FeedbackVaultFacet::Other),
+                    project.fingerprint_peer_group_count(),
+                    project.fingerprint_peer_path_count()
                 );
                 ExitCode::SUCCESS
             }
@@ -1138,6 +1143,32 @@ impl LedgerApp {
         true
     }
 
+    fn activate_fingerprint_peer_target(&mut self, target: FeedbackFingerprintPeerTarget) -> bool {
+        if !self
+            .project
+            .as_ref()
+            .is_some_and(|project| project.contains_fingerprint_peer_target(&target))
+        {
+            self.activity.insert(
+                0,
+                format!(
+                    "Source-fingerprint peer {} is no longer available in the accepted snapshot",
+                    target.path
+                ),
+            );
+            return false;
+        }
+        let focus_target = target.focus_target();
+        if !self.navigate_with_return(focus_target) {
+            return false;
+        }
+        self.activity.insert(
+            0,
+            format!("Opened accepted source-fingerprint peer {}", target.path),
+        );
+        true
+    }
+
     fn route_find_target(&mut self, target: FeedbackFindTarget) {
         self.filter.clear();
         self.selected = None;
@@ -1392,7 +1423,7 @@ impl LedgerApp {
                 }
                 ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
                     ui.label(
-                        RichText::new("Feedback build 0.12\nNo save or mutation commands exist")
+                        RichText::new("Feedback build 0.13\nNo save or mutation commands exist")
                             .size(11.0)
                             .color(MUTED),
                     );
@@ -1402,6 +1433,7 @@ impl LedgerApp {
 
     fn inspector(&mut self, context: &egui::Context) {
         let mut pending_relationship = None;
+        let mut pending_fingerprint_peer = None;
         egui::SidePanel::right("inspector")
             .exact_width(325.0)
             .frame(
@@ -1768,6 +1800,11 @@ impl LedgerApp {
                             .monospace(),
                     );
                     ui.add_space(16.0);
+                    if let Some(project) = self.project.as_ref() {
+                        pending_fingerprint_peer =
+                            fingerprint_peer_section(ui, project, entry);
+                    }
+                    ui.add_space(16.0);
                     Frame::none()
                         .fill(Color32::from_rgb(19, 31, 27))
                         .stroke(Stroke::new(1.0, Color32::from_rgb(54, 91, 71)))
@@ -1811,6 +1848,9 @@ impl LedgerApp {
             });
         if let Some(target) = pending_relationship {
             self.follow_relationship(target);
+        }
+        if let Some(target) = pending_fingerprint_peer {
+            self.activate_fingerprint_peer_target(target);
         }
     }
 
@@ -3469,6 +3509,156 @@ fn palette_result_row(
     .on_hover_text(full_text)
 }
 
+fn fingerprint_peer_section(
+    ui: &mut egui::Ui,
+    project: &FeedbackProject,
+    current: &FeedbackEntry,
+) -> Option<FeedbackFingerprintPeerTarget> {
+    ui.label(
+        RichText::new("ACCEPTED SOURCE-FINGERPRINT PEERS")
+            .size(10.0)
+            .color(MUTED)
+            .strong(),
+    );
+    let mut pending = None;
+    if let Some(group) = project.fingerprint_group_for_entry(current) {
+        let current_index = group
+            .members()
+            .binary_search_by(|locator| {
+                project
+                    .entry(*locator)
+                    .expect("fingerprint group locators resolve in their accepted project")
+                    .path
+                    .as_bytes()
+                    .cmp(current.path.as_bytes())
+            })
+            .ok();
+        let peer_count = group.members().len().saturating_sub(1);
+        ui.label(
+            RichText::new(format!(
+                "{peer_count} other accepted {} share this source fingerprint",
+                if peer_count == 1 { "path" } else { "paths" }
+            ))
+            .size(12.0)
+            .color(INK),
+        );
+        if let Some(current_index) = current_index {
+            ScrollArea::vertical()
+                .id_salt(("fingerprint-peers", &current.path))
+                .auto_shrink([false, false])
+                .max_height(FINGERPRINT_PEER_VIEW_HEIGHT)
+                .show_rows(
+                    ui,
+                    FINGERPRINT_PEER_ROW_HEIGHT,
+                    peer_count,
+                    |ui, visible_rows| {
+                        for member_index in
+                            fingerprint_peer_member_indices(visible_rows, current_index)
+                        {
+                            let Some(locator) = group.members().get(member_index) else {
+                                continue;
+                            };
+                            let Some(entry) = project.entry(*locator) else {
+                                continue;
+                            };
+                            if fingerprint_peer_row(
+                                ui,
+                                &group.source_sha256,
+                                locator.lens,
+                                &entry.path,
+                                entry.size,
+                            )
+                            .clicked()
+                            {
+                                pending = Some(FeedbackFingerprintPeerTarget {
+                                    source_sha256: group.source_sha256.clone(),
+                                    lens: locator.lens,
+                                    path: entry.path.clone(),
+                                });
+                            }
+                        }
+                    },
+                );
+        }
+    } else {
+        ui.label(
+            RichText::new("No other accepted path shares this source fingerprint in this snapshot")
+                .size(12.0)
+                .color(INK),
+        );
+    }
+    ui.add_space(8.0);
+    Frame::none()
+        .fill(Color32::from_rgb(37, 31, 20))
+        .stroke(Stroke::new(1.0, BRASS_SOFT))
+        .inner_margin(Margin::same(10.0))
+        .show(ui, |ui| {
+            ui.label(
+                RichText::new("ACCEPTED SNAPSHOT EVIDENCE ONLY")
+                    .color(BRASS)
+                    .strong(),
+            );
+            ui.label(
+                RichText::new(
+                    "A shared accepted source SHA-256 does not establish provenance, semantic equivalence, redundancy, replaceability, or deletion advice.",
+                )
+                .size(12.0)
+                .color(MUTED),
+            );
+        });
+    pending
+}
+
+fn fingerprint_peer_member_indices(
+    visible_peer_rows: std::ops::Range<usize>,
+    current_member_index: usize,
+) -> impl Iterator<Item = usize> {
+    visible_peer_rows.map(move |peer_index| {
+        if peer_index >= current_member_index {
+            peer_index + 1
+        } else {
+            peer_index
+        }
+    })
+}
+
+fn fingerprint_peer_row(
+    ui: &mut egui::Ui,
+    source_sha256: &str,
+    lens: Lens,
+    path: &str,
+    size: u64,
+) -> egui::Response {
+    let full_text = format!(
+        "{} lens · {} · {}\naccepted source SHA-256 {}",
+        lens.label(),
+        path,
+        format_bytes(size),
+        source_sha256
+    );
+    let row = Frame::none()
+        .fill(Color32::from_rgb(29, 34, 34))
+        .stroke(Stroke::new(1.0, Color32::from_rgb(52, 59, 57)))
+        .inner_margin(Margin::symmetric(10.0, 6.0))
+        .show(ui, |ui| {
+            ui.set_min_width(ui.available_width());
+            ui.set_min_height(FINGERPRINT_PEER_ROW_HEIGHT - 12.0);
+            ui.style_mut().wrap_mode = Some(TextWrapMode::Truncate);
+            ui.label(
+                RichText::new(format!("{}  ·  {}", lens.label(), path))
+                    .size(12.0)
+                    .color(BRASS),
+            );
+            ui.label(RichText::new(format_bytes(size)).size(10.0).color(MUTED));
+        });
+    ui.interact(
+        row.response.rect,
+        ui.make_persistent_id(("fingerprint-peer", source_sha256, lens, path)),
+        Sense::click(),
+    )
+    .on_hover_text(full_text)
+}
+
 fn vault_boundary_row(
     ui: &mut egui::Ui,
     entry: &FeedbackVaultEntry,
@@ -3859,8 +4049,9 @@ mod tests {
     };
     use rcce_editor_core::{
         FeedbackAcceptedFileDelta, FeedbackAcceptedFileDeltaKind, FeedbackAcceptedSnapshotDelta,
-        FeedbackFindResult, FeedbackFindTarget, FeedbackFocusTarget, FeedbackObservation,
-        FeedbackObservationEvidence, FeedbackReturnTrail, FeedbackVaultEntry, FeedbackVaultFacet,
+        FeedbackFindResult, FeedbackFindTarget, FeedbackFingerprintPeerTarget, FeedbackFocusTarget,
+        FeedbackObservation, FeedbackObservationEvidence, FeedbackReturnTrail, FeedbackVaultEntry,
+        FeedbackVaultFacet,
     };
 
     #[test]
@@ -4284,6 +4475,118 @@ mod tests {
         assert_eq!(app.selected_mesh, None);
         assert_eq!(app.selected_zone, None);
         assert_eq!(app.selected_script, None);
+    }
+
+    #[test]
+    fn fingerprint_peer_activation_routes_exactly_and_participates_in_return() {
+        let fixture = ReloadFixture::new("fingerprint-peer-route");
+        let project = fixture.project();
+        let source_path = "Data/Meshes/Hero.b3d";
+        let destination_path = "Data/Areas/Start.dat";
+        let source_sha256 = project
+            .fingerprint_group_for_path(source_path)
+            .expect("fixture shared fingerprint")
+            .source_sha256
+            .clone();
+        let mut app = LedgerApp::shell(fixture.root().to_path_buf());
+        app.project = Some(project);
+        app.lens = Lens::Assets;
+        app.assets_view = AssetsView::Files;
+        app.selected = Some(source_path.to_owned());
+
+        assert!(
+            app.activate_fingerprint_peer_target(FeedbackFingerprintPeerTarget {
+                source_sha256,
+                lens: Lens::World,
+                path: destination_path.to_owned(),
+            })
+        );
+        assert_eq!(app.lens, Lens::World);
+        assert_eq!(app.world_view, WorldView::Files);
+        assert_eq!(app.selected.as_deref(), Some(destination_path));
+        assert_eq!(app.return_trail.len(), 1);
+
+        assert!(app.return_to_previous_focus());
+        assert_eq!(app.lens, Lens::Assets);
+        assert_eq!(app.assets_view, AssetsView::Files);
+        assert_eq!(app.selected.as_deref(), Some(source_path));
+        assert!(app.return_trail.is_empty());
+    }
+
+    #[test]
+    fn fingerprint_peer_activation_revalidates_full_snapshot_identity() {
+        let fixture = ReloadFixture::new("fingerprint-peer-stale");
+        let project = fixture.project();
+        let mut app = LedgerApp::shell(fixture.root().to_path_buf());
+        app.project = Some(project);
+        app.lens = Lens::Assets;
+        app.assets_view = AssetsView::Files;
+        app.selected = Some("Data/Meshes/Hero.b3d".to_owned());
+        let before_focus = app.current_focus_target();
+        let before_trail = app.return_trail.clone();
+
+        assert!(
+            !app.activate_fingerprint_peer_target(FeedbackFingerprintPeerTarget {
+                source_sha256: "0".repeat(64),
+                lens: Lens::World,
+                path: "Data/Areas/Start.dat".to_owned(),
+            })
+        );
+        assert_eq!(app.current_focus_target(), before_focus);
+        assert_eq!(app.return_trail, before_trail);
+    }
+
+    #[test]
+    fn accepted_reload_atomically_replaces_fingerprint_peer_membership() {
+        let fixture = ReloadFixture::new("fingerprint-peer-reload");
+        let root = fixture.root().to_path_buf();
+        let mut app = LedgerApp::shell(root.clone());
+        app.project = Some(fixture.project());
+        assert_eq!(
+            app.project
+                .as_ref()
+                .and_then(|project| project.fingerprint_group_for_path("Data/Meshes/Hero.b3d"))
+                .expect("initial peer group")
+                .members()
+                .len(),
+            4
+        );
+
+        fixture.write_external_file("Areas/Start.dat", b"changed outside the editor");
+        assert!(app.load_gate.try_begin());
+        app.pending_load = Some(PendingLoad {
+            root: root.clone(),
+            purpose: LoadPurpose::Reload,
+        });
+        app.finish_ready(Box::new(fixture.project()));
+        assert_eq!(
+            app.project
+                .as_ref()
+                .and_then(|project| project.fingerprint_group_for_path("Data/Meshes/Hero.b3d"))
+                .expect("refreshed peer group")
+                .members()
+                .len(),
+            3
+        );
+
+        let accepted = app.project.clone();
+        fixture.write_external_file("Server Data/Scripts/Quest.rsl", b"unaccepted pending bytes");
+        assert!(app.load_gate.try_begin());
+        app.pending_load = Some(PendingLoad {
+            root,
+            purpose: LoadPurpose::Reload,
+        });
+        app.finish_failed("replacement rejected".to_owned());
+        assert_eq!(app.project, accepted);
+        assert_eq!(
+            app.project
+                .as_ref()
+                .and_then(|project| project.fingerprint_group_for_path("Data/Meshes/Hero.b3d"))
+                .expect("failed reload preserves prior group")
+                .members()
+                .len(),
+            3
+        );
     }
 
     fn dirty_palette_app(fixture: &ReloadFixture) -> LedgerApp {
@@ -4939,6 +5242,99 @@ mod tests {
         });
 
         assert_eq!(actual_height, super::OBSERVATION_ROW_HEIGHT);
+    }
+
+    #[test]
+    fn maximum_fingerprint_peer_copy_keeps_the_virtualized_row_at_its_exact_height() {
+        let target = FeedbackFingerprintPeerTarget {
+            source_sha256: "f".repeat(64),
+            lens: Lens::Assets,
+            path: format!("Data/{}", "x".repeat(4091)),
+        };
+        let context = Context::default();
+        let mut actual_height = 0.0;
+        let input = RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(325.0, 485.0))),
+            ..Default::default()
+        };
+
+        let _ = context.run(input, |context| {
+            CentralPanel::default().show(context, |ui| {
+                actual_height = super::fingerprint_peer_row(
+                    ui,
+                    &target.source_sha256,
+                    target.lens,
+                    &target.path,
+                    4_096,
+                )
+                .rect
+                .height();
+            });
+        });
+
+        assert_eq!(actual_height, super::FINGERPRINT_PEER_ROW_HEIGHT);
+    }
+
+    #[test]
+    fn large_fingerprint_peer_visible_ranges_map_first_and_last_members_exactly() {
+        assert_eq!(
+            super::fingerprint_peer_member_indices(0..4, 0).collect::<Vec<_>>(),
+            vec![1, 2, 3, 4]
+        );
+        assert_eq!(
+            super::fingerprint_peer_member_indices(9_995..9_999, 5_000).collect::<Vec<_>>(),
+            vec![9_996, 9_997, 9_998, 9_999]
+        );
+    }
+
+    #[test]
+    fn production_width_inspector_keeps_a_large_nested_peer_section_reachable() {
+        let fixture = ReloadFixture::new("fingerprint-peer-inspector-geometry");
+        for index in 0..300 {
+            fixture.write_external_file(
+                &format!("Meshes/Peers/peer-{index:03}.bin"),
+                b"large nested peer group",
+            );
+        }
+        let project = fixture.project();
+        let current = project
+            .entries(Lens::Assets)
+            .iter()
+            .find(|entry| entry.path == "Data/Meshes/Peers/peer-000.bin")
+            .expect("large peer fixture entry");
+        let context = Context::default();
+        super::configure_style(&context);
+        let mut heading_rect = Rect::NOTHING;
+        let mut section_rect = Rect::NOTHING;
+        let input = RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(325.0, 485.0))),
+            ..Default::default()
+        };
+
+        let _ = context.run(input, |context| {
+            CentralPanel::default()
+                .frame(Frame::none().inner_margin(Margin::same(18.0)))
+                .show(context, |ui| {
+                    heading_rect = ui.label("INSPECTOR").rect;
+                    ui.add_space(8.0);
+                    eframe::egui::ScrollArea::vertical()
+                        .id_salt("fingerprint-peer-geometry-inspector")
+                        .auto_shrink([false, false])
+                        .show(ui, |ui| {
+                            section_rect = ui
+                                .scope(|ui| {
+                                    let _ = super::fingerprint_peer_section(ui, &project, current);
+                                })
+                                .response
+                                .rect;
+                        });
+                });
+        });
+
+        assert!(heading_rect.bottom() <= section_rect.top());
+        assert!(section_rect.left() >= 18.0);
+        assert!(section_rect.right() <= 307.0);
+        assert!(section_rect.height() <= 425.0);
     }
 
     #[test]

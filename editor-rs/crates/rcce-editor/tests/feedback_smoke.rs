@@ -8,7 +8,9 @@ fn fixture() -> PathBuf {
     let root =
         std::env::temp_dir().join(format!("rcce-editor-smoke-{}-{nonce}", std::process::id()));
     fs::create_dir_all(root.join("Server Data")).expect("fixture directory");
+    fs::create_dir_all(root.join("Areas")).expect("peer fixture directory");
     fs::write(root.join("Server Data/Actors.dat"), b"actors").expect("fixture actor file");
+    fs::write(root.join("Areas/Shared.dat"), b"actors").expect("fixture peer file");
     root
 }
 
@@ -24,7 +26,7 @@ fn smoke_contract_distinguishes_openable_and_missing_roots() {
         .output()
         .expect("valid smoke command");
     assert!(valid.status.success());
-    assert!(String::from_utf8_lossy(&valid.stdout).contains("[super-editor-mvp] ready: 1 files"));
+    assert!(String::from_utf8_lossy(&valid.stdout).contains("[super-editor-mvp] ready: 2 files"));
     let valid_stdout = String::from_utf8_lossy(&valid.stdout);
     assert!(valid_stdout.contains("actors="));
     assert!(valid_stdout.contains("actor_evidence="));
@@ -42,6 +44,8 @@ fn smoke_contract_distinguishes_openable_and_missing_roots() {
     assert!(valid_stdout.contains("vault_dynamic_private_labeled="));
     assert!(valid_stdout.contains("vault_server_config_labeled="));
     assert!(valid_stdout.contains("vault_other="));
+    assert!(valid_stdout.contains("fingerprint_peer_groups=1"));
+    assert!(valid_stdout.contains("fingerprint_peer_paths=2"));
 
     let missing = root.join("missing");
     let invalid = Command::new(env!("CARGO_BIN_EXE_rcce-editor"))
