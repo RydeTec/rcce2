@@ -62,6 +62,20 @@ pub enum ActorCountEvidence {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ActorBaseMeshSlotZeroMismatch {
+    pub actor_id: u16,
+    pub client_raw: u16,
+    pub server_raw: u16,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ActorBaseMeshSlotZeroEvidence {
+    Agreed,
+    Disagreed(Vec<ActorBaseMeshSlotZeroMismatch>),
+    NotComparable,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ActorMediaAvailability {
     NoBaseMesh,
     Present,
@@ -91,6 +105,7 @@ pub struct ActorMediaOutcome {
 pub struct ActorMediaConsensus {
     level: ConsensusLevel,
     actor_count: ActorCountEvidence,
+    base_mesh_slot_zero: ActorBaseMeshSlotZeroEvidence,
     actors: Vec<ActorMediaOutcome>,
     topology: CatalogTopologyEvidence,
     _actors_document: LegacyDocument<ClientActors>,
@@ -106,6 +121,11 @@ impl ActorMediaConsensus {
     #[must_use]
     pub const fn actor_count(&self) -> ActorCountEvidence {
         self.actor_count
+    }
+
+    #[must_use]
+    pub const fn base_mesh_slot_zero_evidence(&self) -> &ActorBaseMeshSlotZeroEvidence {
+        &self.base_mesh_slot_zero
     }
 
     #[must_use]
@@ -293,6 +313,7 @@ impl ProjectSnapshot {
             .collect::<BTreeSet<_>>();
         let duplicate_actor_ids =
             client_ids.len() != client_count || server_ids.len() != server_count;
+        let base_mesh_slot_zero = compare_actor_base_mesh_slot_zero(client, &server);
         let raw_actor_strings_are_utf8 = client.records.iter().all(|record| {
             std::str::from_utf8(
                 &actor_document.original_bytes()[record.race_span.start..record.race_span.end],
@@ -383,17 +404,8 @@ impl ProjectSnapshot {
             );
         }
         let mut actors = actors.into_values().collect::<Vec<_>>();
-        if provisional
-            || actors
-                .iter()
-                .any(|actor| actor.availability == ActorMediaAvailability::Provisional)
-        {
-            provisional = true;
-            for actor in &mut actors {
-                actor.availability = ActorMediaAvailability::Provisional;
-                actor.physical_inventory_path = None;
-            }
-        }
+        provisional =
+            finalize_actor_media_outcomes(provisional, &base_mesh_slot_zero, actors.as_mut_slice());
         Ok(ActorMediaConsensus {
             level: if provisional {
                 ConsensusLevel::Provisional
@@ -401,11 +413,85 @@ impl ProjectSnapshot {
                 ConsensusLevel::Consensus
             },
             actor_count,
+            base_mesh_slot_zero,
             actors,
             topology,
             _actors_document: actor_document,
             _meshes_document: meshes_document,
         })
+    }
+}
+
+fn finalize_actor_media_outcomes(
+    prior_provisional: bool,
+    base_mesh_slot_zero: &ActorBaseMeshSlotZeroEvidence,
+    actors: &mut [ActorMediaOutcome],
+) -> bool {
+    let provisional = prior_provisional
+        || !matches!(base_mesh_slot_zero, ActorBaseMeshSlotZeroEvidence::Agreed)
+        || actors
+            .iter()
+            .any(|actor| actor.availability == ActorMediaAvailability::Provisional);
+    if provisional {
+        for actor in actors {
+            actor.availability = ActorMediaAvailability::Provisional;
+            actor.physical_inventory_path = None;
+        }
+    }
+    provisional
+}
+
+fn compare_actor_base_mesh_slot_zero(
+    client: &ClientActors,
+    server: &ServerActors,
+) -> ActorBaseMeshSlotZeroEvidence {
+    if client.completion != ClientCompletion::Complete
+        || server.completion != ServerCompletion::Complete
+        || client.records.len() != server.records.len()
+    {
+        return ActorBaseMeshSlotZeroEvidence::NotComparable;
+    }
+
+    let client_ids = client
+        .records
+        .iter()
+        .map(|record| record.id)
+        .collect::<BTreeSet<_>>();
+    let server_ids = server
+        .records
+        .iter()
+        .map(|record| record.id)
+        .collect::<BTreeSet<_>>();
+    if client_ids.len() != client.records.len()
+        || server_ids.len() != server.records.len()
+        || client_ids != server_ids
+    {
+        return ActorBaseMeshSlotZeroEvidence::NotComparable;
+    }
+
+    let mut mismatches = Vec::new();
+    for actor_id in client_ids {
+        let Some(client_template) = client.value.templates.get(&actor_id) else {
+            return ActorBaseMeshSlotZeroEvidence::NotComparable;
+        };
+        let Some(server_template) = server.value.templates.get(&actor_id) else {
+            return ActorBaseMeshSlotZeroEvidence::NotComparable;
+        };
+        let client_raw = client_template.mesh_ids[0];
+        let server_raw = server_template.mesh_ids[0] as u16;
+        if client_raw != server_raw {
+            mismatches.push(ActorBaseMeshSlotZeroMismatch {
+                actor_id,
+                client_raw,
+                server_raw,
+            });
+        }
+    }
+
+    if mismatches.is_empty() {
+        ActorBaseMeshSlotZeroEvidence::Agreed
+    } else {
+        ActorBaseMeshSlotZeroEvidence::Disagreed(mismatches)
     }
 }
 
@@ -478,4 +564,101 @@ fn portable_path_key(path: &str) -> String {
         .map(|component| component.nfc().collect::<String>().to_lowercase())
         .collect::<Vec<_>>()
         .join("/")
+}
+
+#[cfg(test)]
+mod actor_base_mesh_slot_zero_tests {
+    use super::{
+        compare_actor_base_mesh_slot_zero, finalize_actor_media_outcomes,
+        ActorBaseMeshSlotZeroEvidence, ActorBaseMeshSlotZeroMismatch, ActorMediaAvailability,
+        ActorMediaOutcome,
+    };
+
+    fn parsed_happy() -> (
+        rcce_data::actors::ActorParseEvidence,
+        rcce_server_core::actor_catalog::ActorParseEvidence,
+    ) {
+        let bytes = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../test-data/consensus/happy/Data/Server Data/Actors.dat"
+        ));
+        (
+            rcce_data::ActorCatalog::parse_with_evidence(bytes),
+            rcce_server_core::ActorCatalog::parse_with_evidence(bytes),
+        )
+    }
+
+    #[test]
+    fn raw_slot_zero_comparison_is_actor_id_based_and_bit_preserving() {
+        let (mut client, mut server) = parsed_happy();
+        server.records.reverse();
+        assert_eq!(
+            compare_actor_base_mesh_slot_zero(&client, &server),
+            ActorBaseMeshSlotZeroEvidence::Agreed
+        );
+
+        client.value.templates.get_mut(&2).unwrap().mesh_ids[0] = 0x8001;
+        server.value.templates.get_mut(&2).unwrap().mesh_ids[0] = 0x8001_u16 as i16;
+        assert_eq!(
+            compare_actor_base_mesh_slot_zero(&client, &server),
+            ActorBaseMeshSlotZeroEvidence::Agreed
+        );
+
+        assert_eq!(client.value.templates[&1].mesh_ids[0], u16::MAX);
+        assert_eq!(server.value.templates[&1].mesh_ids[0], -1);
+    }
+
+    #[test]
+    fn one_slot_zero_mismatch_is_reported_without_promoting_other_mesh_slots() {
+        let (mut client, mut server) = parsed_happy();
+        client.value.templates.get_mut(&2).unwrap().mesh_ids[1] = 123;
+        server.value.templates.get_mut(&2).unwrap().mesh_ids[1] = 456;
+        assert_eq!(
+            compare_actor_base_mesh_slot_zero(&client, &server),
+            ActorBaseMeshSlotZeroEvidence::Agreed
+        );
+
+        server.value.templates.get_mut(&2).unwrap().mesh_ids[0] += 1;
+        assert!(matches!(
+            compare_actor_base_mesh_slot_zero(&client, &server),
+            ActorBaseMeshSlotZeroEvidence::Disagreed(ref mismatches)
+                if mismatches.len() == 1
+                    && mismatches[0].actor_id == 2
+                    && mismatches[0].client_raw == client.value.templates[&2].mesh_ids[0]
+                    && mismatches[0].server_raw
+                        == server.value.templates[&2].mesh_ids[0] as u16
+        ));
+    }
+
+    #[test]
+    fn slot_zero_mismatch_forces_the_whole_slice_to_withhold_physical_conclusions() {
+        let evidence =
+            ActorBaseMeshSlotZeroEvidence::Disagreed(vec![ActorBaseMeshSlotZeroMismatch {
+                actor_id: 2,
+                client_raw: 7,
+                server_raw: 8,
+            }]);
+        let mut actors = vec![
+            ActorMediaOutcome {
+                actor_id: 1,
+                base_mesh: Some(7),
+                availability: ActorMediaAvailability::Present,
+                physical_inventory_path: Some("Data/Meshes/One.b3d".to_owned()),
+                race: None,
+            },
+            ActorMediaOutcome {
+                actor_id: 2,
+                base_mesh: Some(8),
+                availability: ActorMediaAvailability::MissingPhysical,
+                physical_inventory_path: None,
+                race: None,
+            },
+        ];
+
+        assert!(finalize_actor_media_outcomes(false, &evidence, &mut actors));
+        assert!(actors.iter().all(|actor| {
+            actor.availability == ActorMediaAvailability::Provisional
+                && actor.physical_inventory_path.is_none()
+        }));
+    }
 }

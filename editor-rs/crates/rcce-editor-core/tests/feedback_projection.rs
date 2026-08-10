@@ -1,8 +1,9 @@
 use rcce_editor_core::{
     load_feedback_project, FeedbackAcceptedFileDeltaKind, FeedbackAcceptedSnapshotDelta,
-    FeedbackActorCount, FeedbackAssetPathFacet, FeedbackEvidence, FeedbackFindTarget,
-    FeedbackFingerprintPeerTarget, FeedbackMediaStatus, FeedbackObservationEvidence,
-    FeedbackProject, FeedbackScriptFamily, FeedbackVaultFacet, FeedbackZoneStatus, Lens,
+    FeedbackActorBaseMeshSlotZeroEvidence, FeedbackActorCount, FeedbackAssetPathFacet,
+    FeedbackEvidence, FeedbackFindTarget, FeedbackFingerprintPeerTarget, FeedbackMediaStatus,
+    FeedbackObservationEvidence, FeedbackProject, FeedbackScriptFamily, FeedbackVaultFacet,
+    FeedbackZoneStatus, Lens,
 };
 use std::{collections::HashSet, fs, path::PathBuf, time::SystemTime};
 
@@ -665,6 +666,10 @@ fn projects_consensus_actor_base_mesh_relationships_without_inventing_assets() {
         .expect("consensus fixture data root");
     let project = load_feedback_project(data_root, |_| {}).expect("feedback consensus project");
     assert_actor_mesh_threads_resolve(&project);
+    assert_eq!(
+        project.actor_catalog().base_mesh_slot_zero,
+        FeedbackActorBaseMeshSlotZeroEvidence::Agreed
+    );
     let catalog = project.asset_catalog();
 
     assert_eq!(catalog.evidence, FeedbackEvidence::Consensus);
@@ -710,6 +715,10 @@ fn provisional_actor_base_mesh_relationships_withhold_media_conclusions() {
         .expect("provisional fixture data root");
     let project = load_feedback_project(data_root, |_| {}).expect("provisional feedback project");
     assert_actor_mesh_threads_resolve(&project);
+    assert_eq!(
+        project.actor_catalog().base_mesh_slot_zero,
+        FeedbackActorBaseMeshSlotZeroEvidence::NotComparable
+    );
     let catalog = project.asset_catalog();
 
     assert_eq!(catalog.evidence, FeedbackEvidence::Provisional);

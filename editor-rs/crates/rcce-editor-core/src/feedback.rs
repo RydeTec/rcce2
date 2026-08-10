@@ -1,7 +1,7 @@
 use rcce_project::{
-    classify, ActorCountEvidence, ActorMediaAvailability, ActorMediaConsensus, CompatibilityLevel,
-    ConsensusLevel, MetadataBudget, ProjectRoot, ProjectSnapshot, ReadAssurance, ScanControl,
-    SnapshotProgress, StateClass,
+    classify, ActorBaseMeshSlotZeroEvidence, ActorCountEvidence, ActorMediaAvailability,
+    ActorMediaConsensus, CompatibilityLevel, ConsensusLevel, MetadataBudget, ProjectRoot,
+    ProjectSnapshot, ReadAssurance, ScanControl, SnapshotProgress, StateClass,
 };
 use std::{
     collections::{BTreeMap, VecDeque},
@@ -588,6 +588,14 @@ pub enum FeedbackActorCount {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FeedbackActorBaseMeshSlotZeroEvidence {
+    Agreed,
+    Disagreed,
+    NotComparable,
+    Unavailable,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FeedbackMediaStatus {
     NoBaseMesh,
     Present,
@@ -617,6 +625,7 @@ pub struct FeedbackDiagnostic {
 pub struct FeedbackActorCatalog {
     pub evidence: FeedbackEvidence,
     pub count: FeedbackActorCount,
+    pub base_mesh_slot_zero: FeedbackActorBaseMeshSlotZeroEvidence,
     pub actors: Vec<FeedbackActor>,
     pub diagnostics: Vec<FeedbackDiagnostic>,
     pub unavailable_reason: Option<String>,
@@ -974,6 +983,8 @@ impl FeedbackActorCatalog {
                 FeedbackActorCount::Disagreed { client, server }
             }
         };
+        let base_mesh_slot_zero =
+            feedback_base_mesh_slot_zero(consensus.base_mesh_slot_zero_evidence());
         let actors = consensus
             .actors()
             .iter()
@@ -1025,6 +1036,7 @@ impl FeedbackActorCatalog {
         Self {
             evidence,
             count,
+            base_mesh_slot_zero,
             actors,
             diagnostics,
             unavailable_reason: None,
@@ -1035,9 +1047,24 @@ impl FeedbackActorCatalog {
         Self {
             evidence: FeedbackEvidence::Unavailable,
             count: FeedbackActorCount::Unavailable,
+            base_mesh_slot_zero: FeedbackActorBaseMeshSlotZeroEvidence::Unavailable,
             actors: Vec::new(),
             diagnostics: Vec::new(),
             unavailable_reason: Some(reason),
+        }
+    }
+}
+
+const fn feedback_base_mesh_slot_zero(
+    evidence: &ActorBaseMeshSlotZeroEvidence,
+) -> FeedbackActorBaseMeshSlotZeroEvidence {
+    match evidence {
+        ActorBaseMeshSlotZeroEvidence::Agreed => FeedbackActorBaseMeshSlotZeroEvidence::Agreed,
+        ActorBaseMeshSlotZeroEvidence::Disagreed(_) => {
+            FeedbackActorBaseMeshSlotZeroEvidence::Disagreed
+        }
+        ActorBaseMeshSlotZeroEvidence::NotComparable => {
+            FeedbackActorBaseMeshSlotZeroEvidence::NotComparable
         }
     }
 }
@@ -1933,12 +1960,29 @@ fn hex(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        find_target_identity, find_target_kind, normalize_find_fields, search_find_candidates,
-        FeedbackActor, FeedbackActorCatalog, FeedbackActorCount, FeedbackAssetCatalog,
-        FeedbackEvidence, FeedbackFindCandidate, FeedbackFindResult, FeedbackFindTarget,
-        FeedbackFocusTarget, FeedbackMediaStatus, FeedbackReturnTrail, Lens,
+        feedback_base_mesh_slot_zero, find_target_identity, find_target_kind,
+        normalize_find_fields, search_find_candidates, FeedbackActor,
+        FeedbackActorBaseMeshSlotZeroEvidence, FeedbackActorCatalog, FeedbackActorCount,
+        FeedbackAssetCatalog, FeedbackEvidence, FeedbackFindCandidate, FeedbackFindResult,
+        FeedbackFindTarget, FeedbackFocusTarget, FeedbackMediaStatus, FeedbackReturnTrail, Lens,
         FEEDBACK_RETURN_TRAIL_CAPACITY,
     };
+    use rcce_project::{ActorBaseMeshSlotZeroEvidence, ActorBaseMeshSlotZeroMismatch};
+
+    #[test]
+    fn disagreed_slot_zero_evidence_survives_the_feedback_projection_boundary() {
+        let evidence =
+            ActorBaseMeshSlotZeroEvidence::Disagreed(vec![ActorBaseMeshSlotZeroMismatch {
+                actor_id: 9,
+                client_raw: 7,
+                server_raw: 8,
+            }]);
+
+        assert_eq!(
+            feedback_base_mesh_slot_zero(&evidence),
+            FeedbackActorBaseMeshSlotZeroEvidence::Disagreed
+        );
+    }
 
     #[test]
     fn return_trail_is_bounded_lifo_and_evicts_the_oldest_focus() {
@@ -2011,6 +2055,7 @@ mod tests {
         let actor_catalog = FeedbackActorCatalog {
             evidence: FeedbackEvidence::Consensus,
             count: FeedbackActorCount::Agreed(2),
+            base_mesh_slot_zero: FeedbackActorBaseMeshSlotZeroEvidence::Agreed,
             actors: vec![
                 FeedbackActor {
                     actor_id: 9,

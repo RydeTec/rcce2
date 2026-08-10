@@ -42,6 +42,16 @@ lookup projection before component validation. Non-UTF8 bytes, invalid
 components, traversal forms, case/NFC collisions, or unavailable inventory
 objects yield `Provisional`, not `MissingPhysical`.
 
+Before this slice can be `Consensus`, the client and server actor parsers must
+also report the same raw 16-bit slot-0 base-mesh value for every exact actor ID.
+Comparison is by actor ID rather than parser iteration order and preserves the
+server value's bit pattern (`i16 as u16`), so server `-1` and client `65535`
+agree as raw `0xFFFF`. Incomplete parses, missing or duplicate counterparts,
+different actor-ID sets, and any slot-0 mismatch are not accepted consensus.
+Mismatch evidence retains the exact actor ID and both raw values in ascending
+actor-ID order. Slots 1–7 are deliberately not compared by this packet, and
+slot-0 agreement is not full parser, catalog, rendering, or semantic agreement.
+
 ## Binding and support boundary
 
 The editor exposes only a domain-specific loader on `ProjectSnapshot`. It

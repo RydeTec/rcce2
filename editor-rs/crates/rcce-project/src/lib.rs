@@ -14,8 +14,9 @@ pub use classification::{
     MatrixApplicability, StateClass, MATRIX_FAMILY_IDS, PROJECT_FORMAT_RULES_VERSION,
 };
 pub use consensus::{
-    ActorCountEvidence, ActorMediaAvailability, ActorMediaConsensus, ActorMediaOutcome,
-    CatalogTopologyEvidence, ConsensusLevel, ConsensusLoadError,
+    ActorBaseMeshSlotZeroEvidence, ActorBaseMeshSlotZeroMismatch, ActorCountEvidence,
+    ActorMediaAvailability, ActorMediaConsensus, ActorMediaOutcome, CatalogTopologyEvidence,
+    ConsensusLevel, ConsensusLoadError,
 };
 pub use fingerprint::{SourceFingerprint, TreeFingerprint};
 pub use identity::{
