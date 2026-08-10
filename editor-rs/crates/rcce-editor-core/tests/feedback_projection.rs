@@ -1,8 +1,8 @@
 use rcce_editor_core::{
     load_feedback_project, FeedbackAcceptedFileDeltaKind, FeedbackAcceptedSnapshotDelta,
-    FeedbackActorCount, FeedbackEvidence, FeedbackFindTarget, FeedbackFingerprintPeerTarget,
-    FeedbackMediaStatus, FeedbackObservationEvidence, FeedbackProject, FeedbackScriptFamily,
-    FeedbackVaultFacet, FeedbackZoneStatus, Lens,
+    FeedbackActorCount, FeedbackAssetPathFacet, FeedbackEvidence, FeedbackFindTarget,
+    FeedbackFingerprintPeerTarget, FeedbackMediaStatus, FeedbackObservationEvidence,
+    FeedbackProject, FeedbackScriptFamily, FeedbackVaultFacet, FeedbackZoneStatus, Lens,
 };
 use std::{collections::HashSet, fs, path::PathBuf, time::SystemTime};
 
@@ -61,6 +61,47 @@ fn fingerprint_peer_fixture() -> PathBuf {
         fs::write(root.join(path), b"").expect("zero-byte peer fixture");
     }
     fs::write(root.join("Server Data/Singleton.dat"), b"singleton").expect("singleton fixture");
+    root
+}
+
+fn asset_path_root_fixture() -> PathBuf {
+    let nonce = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .expect("system clock")
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!(
+        "rcce-feedback-asset-path-roots-{}-{nonce}",
+        std::process::id()
+    ));
+    for directory in [
+        "mEsHeS/Nested",
+        "Textures",
+        "Sounds",
+        "Music",
+        "Emitter Configs",
+        "UI",
+        "Imports/Meshes",
+        "Meshes2/Textures",
+    ] {
+        fs::create_dir_all(root.join(directory)).expect("asset path-root fixture directory");
+    }
+    for (path, bytes) in [
+        ("mEsHeS/Nested/Z-last.jpg", b"mesh-z".as_slice()),
+        ("mEsHeS/Nested/a-first.b3d", b"mesh-a".as_slice()),
+        ("mEsHeS/Nested/é-middle.txt", b"mesh-unicode".as_slice()),
+        ("Textures/model.b3d", b"texture-root".as_slice()),
+        ("Sounds/zero.ogg", b"".as_slice()),
+        ("Music/song.ogg", b"music".as_slice()),
+        ("Emitter Configs/fire.rpc", b"emitter".as_slice()),
+        ("UI/Button.bmp", b"ui".as_slice()),
+        ("Imports/Meshes/embedded.b3d", b"embedded-root".as_slice()),
+        (
+            "Meshes2/Textures/near-prefix.png",
+            b"near-prefix".as_slice(),
+        ),
+    ] {
+        fs::write(root.join(path), bytes).expect("asset path-root fixture file");
+    }
     root
 }
 
@@ -245,6 +286,82 @@ fn projects_real_inventory_into_five_lenses() {
         .any(|entry| entry.path == "Data/mystery.bin"));
 
     fs::remove_dir_all(path).expect("fixture cleanup");
+}
+
+#[test]
+fn partitions_accepted_asset_paths_by_exact_immediate_root_without_inference() {
+    let path = asset_path_root_fixture();
+    let project = load_feedback_project(path.clone(), |_| {}).expect("asset path-root project");
+    let catalog = project.asset_path_catalog();
+
+    assert_eq!(FeedbackAssetPathFacet::ALL.len(), 8);
+    assert_eq!(catalog.count(FeedbackAssetPathFacet::All), 10);
+    assert_eq!(catalog.count(FeedbackAssetPathFacet::Meshes), 3);
+    assert_eq!(catalog.count(FeedbackAssetPathFacet::Textures), 1);
+    assert_eq!(catalog.count(FeedbackAssetPathFacet::Sounds), 1);
+    assert_eq!(catalog.count(FeedbackAssetPathFacet::Music), 1);
+    assert_eq!(catalog.count(FeedbackAssetPathFacet::EmitterConfigs), 1);
+    assert_eq!(catalog.count(FeedbackAssetPathFacet::Ui), 1);
+    assert_eq!(catalog.count(FeedbackAssetPathFacet::Other), 2);
+    assert_eq!(
+        FeedbackAssetPathFacet::ROOTS
+            .iter()
+            .map(|facet| catalog.count(*facet))
+            .sum::<usize>(),
+        catalog.count(FeedbackAssetPathFacet::All)
+    );
+    assert_eq!(
+        FeedbackAssetPathFacet::ROOTS
+            .iter()
+            .map(|facet| catalog.source_bytes(*facet))
+            .sum::<u64>(),
+        catalog.source_bytes(FeedbackAssetPathFacet::All)
+    );
+    assert_eq!(catalog.source_bytes(FeedbackAssetPathFacet::Sounds), 0);
+
+    let mesh_paths = catalog
+        .locators(FeedbackAssetPathFacet::Meshes)
+        .iter()
+        .map(|locator| {
+            project
+                .entry(*locator)
+                .expect("accepted asset locator")
+                .path
+                .as_str()
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        mesh_paths,
+        vec![
+            "Data/mEsHeS/Nested/Z-last.jpg",
+            "Data/mEsHeS/Nested/a-first.b3d",
+            "Data/mEsHeS/Nested/é-middle.txt",
+        ]
+    );
+    assert!(mesh_paths
+        .windows(2)
+        .all(|pair| pair[0].as_bytes() < pair[1].as_bytes()));
+
+    let other_paths = catalog
+        .locators(FeedbackAssetPathFacet::Other)
+        .iter()
+        .map(|locator| {
+            project
+                .entry(*locator)
+                .expect("accepted other locator")
+                .path
+                .as_str()
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        other_paths,
+        vec![
+            "Data/Imports/Meshes/embedded.b3d",
+            "Data/Meshes2/Textures/near-prefix.png",
+        ]
+    );
+
+    fs::remove_dir_all(path).expect("asset path-root fixture cleanup");
 }
 
 #[test]

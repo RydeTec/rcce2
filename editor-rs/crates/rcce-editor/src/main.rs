@@ -4,12 +4,12 @@ use eframe::egui::{
 };
 use rcce_editor_core::{
     load_feedback_project, FeedbackAcceptedFileDelta, FeedbackAcceptedFileDeltaKind,
-    FeedbackAcceptedSnapshotDelta, FeedbackActor, FeedbackActorCount, FeedbackEntry,
-    FeedbackEvidence, FeedbackFindResult, FeedbackFindTarget, FeedbackFingerprintPeerTarget,
-    FeedbackFocusTarget, FeedbackLoadProgress, FeedbackMediaStatus, FeedbackObservation,
-    FeedbackObservationEvidence, FeedbackProject, FeedbackReturnTrail, FeedbackScript,
-    FeedbackScriptFamily, FeedbackVaultEntry, FeedbackVaultFacet, FeedbackZone, FeedbackZoneStatus,
-    Lens,
+    FeedbackAcceptedSnapshotDelta, FeedbackActor, FeedbackActorCount, FeedbackAssetPathCatalog,
+    FeedbackAssetPathFacet, FeedbackEntry, FeedbackEntryLocator, FeedbackEvidence,
+    FeedbackFindResult, FeedbackFindTarget, FeedbackFingerprintPeerTarget, FeedbackFocusTarget,
+    FeedbackLoadProgress, FeedbackMediaStatus, FeedbackObservation, FeedbackObservationEvidence,
+    FeedbackProject, FeedbackReturnTrail, FeedbackScript, FeedbackScriptFamily, FeedbackVaultEntry,
+    FeedbackVaultFacet, FeedbackZone, FeedbackZoneStatus, Lens,
 };
 use std::{
     path::{Path, PathBuf},
@@ -40,6 +40,7 @@ const VAULT_ROW_HEIGHT: f32 = 58.0;
 const RELOAD_DELTA_ROW_HEIGHT: f32 = 64.0;
 const FINGERPRINT_PEER_ROW_HEIGHT: f32 = 48.0;
 const FINGERPRINT_PEER_VIEW_HEIGHT: f32 = 216.0;
+const ASSET_FILE_ROW_HEIGHT: f32 = 58.0;
 const RAIL_LENS_ITEM_SPACING_Y: f32 = 4.0;
 
 fn main() -> ExitCode {
@@ -48,9 +49,10 @@ fn main() -> ExitCode {
         return match load_feedback_project(data_root, |_| {}) {
             Ok(project) => {
                 let actor_catalog = project.actor_catalog();
+                let asset_paths = project.asset_path_catalog();
                 let vault_catalog = project.vault_catalog();
                 println!(
-                    "[super-editor-mvp] ready: {} files, {} bytes, {} unavailable; actors={} actor_evidence={} actor_reference_issues={} actor_base_meshes={} zones={} zone_pairing_issues={} scripts={} script_adjuncts={} script_inventory_issues={} known_observations={} actor_diagnostics={} vault_files={} vault_secret_labeled={} vault_dynamic_private_labeled={} vault_server_config_labeled={} vault_other={} fingerprint_peer_groups={} fingerprint_peer_paths={}",
+                    "[super-editor-mvp] ready: {} files, {} bytes, {} unavailable; actors={} actor_evidence={} actor_reference_issues={} actor_base_meshes={} asset_files={} asset_file_bytes={} asset_meshes={} asset_mesh_bytes={} asset_textures={} asset_texture_bytes={} asset_sounds={} asset_sound_bytes={} asset_music={} asset_music_bytes={} asset_emitter_configs={} asset_emitter_config_bytes={} asset_ui={} asset_ui_bytes={} asset_other={} asset_other_bytes={} zones={} zone_pairing_issues={} scripts={} script_adjuncts={} script_inventory_issues={} known_observations={} actor_diagnostics={} vault_files={} vault_secret_labeled={} vault_dynamic_private_labeled={} vault_server_config_labeled={} vault_other={} fingerprint_peer_groups={} fingerprint_peer_paths={}",
                     project.total_files(),
                     project.total_bytes(),
                     project.unavailable,
@@ -58,6 +60,22 @@ fn main() -> ExitCode {
                     evidence_label(actor_catalog.evidence).to_ascii_lowercase(),
                     actor_catalog.diagnostics.len(),
                     project.asset_catalog().meshes.len(),
+                    asset_paths.count(FeedbackAssetPathFacet::All),
+                    asset_paths.source_bytes(FeedbackAssetPathFacet::All),
+                    asset_paths.count(FeedbackAssetPathFacet::Meshes),
+                    asset_paths.source_bytes(FeedbackAssetPathFacet::Meshes),
+                    asset_paths.count(FeedbackAssetPathFacet::Textures),
+                    asset_paths.source_bytes(FeedbackAssetPathFacet::Textures),
+                    asset_paths.count(FeedbackAssetPathFacet::Sounds),
+                    asset_paths.source_bytes(FeedbackAssetPathFacet::Sounds),
+                    asset_paths.count(FeedbackAssetPathFacet::Music),
+                    asset_paths.source_bytes(FeedbackAssetPathFacet::Music),
+                    asset_paths.count(FeedbackAssetPathFacet::EmitterConfigs),
+                    asset_paths.source_bytes(FeedbackAssetPathFacet::EmitterConfigs),
+                    asset_paths.count(FeedbackAssetPathFacet::Ui),
+                    asset_paths.source_bytes(FeedbackAssetPathFacet::Ui),
+                    asset_paths.count(FeedbackAssetPathFacet::Other),
+                    asset_paths.source_bytes(FeedbackAssetPathFacet::Other),
                     project.zone_catalog().zones.len(),
                     project.zone_catalog().diagnostics.len(),
                     project.script_catalog().scripts.len(),
@@ -364,10 +382,161 @@ fn retain_vault_facet_selection(
     }
 }
 
+fn retain_asset_path_facet_selection(
+    project: &FeedbackProject,
+    facet: FeedbackAssetPathFacet,
+    selected_file: &mut Option<String>,
+) {
+    if selected_file.as_ref().is_some_and(|selected| {
+        !project
+            .asset_path_catalog()
+            .locators(facet)
+            .iter()
+            .any(|locator| {
+                project
+                    .entry(*locator)
+                    .is_some_and(|entry| entry.path == *selected)
+            })
+    }) {
+        *selected_file = None;
+    }
+}
+
+fn asset_file_visible_locators(
+    matches: &[FeedbackEntryLocator],
+    visible_rows: std::ops::Range<usize>,
+) -> &[FeedbackEntryLocator] {
+    let start = visible_rows.start.min(matches.len());
+    let end = visible_rows.end.min(matches.len()).max(start);
+    &matches[start..end]
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AssetFileSurfaceState {
+    Loading,
+    Unavailable,
+    EmptyFacet,
+    EmptyFilter,
+    Rows,
+}
+
+const fn asset_file_surface_state(
+    project_present: bool,
+    load_active: bool,
+    match_count: usize,
+    filter_empty: bool,
+) -> AssetFileSurfaceState {
+    if !project_present {
+        return if load_active {
+            AssetFileSurfaceState::Loading
+        } else {
+            AssetFileSurfaceState::Unavailable
+        };
+    }
+    if match_count > 0 {
+        AssetFileSurfaceState::Rows
+    } else if filter_empty {
+        AssetFileSurfaceState::EmptyFacet
+    } else {
+        AssetFileSurfaceState::EmptyFilter
+    }
+}
+
+fn asset_path_facet_controls(
+    ui: &mut egui::Ui,
+    catalog: &FeedbackAssetPathCatalog,
+    selected: FeedbackAssetPathFacet,
+) -> (egui::Rect, Option<FeedbackAssetPathFacet>) {
+    let mut requested = None;
+    let response = ui
+        .vertical(|ui| {
+            ui.label(
+                RichText::new(
+                    "PATH-ROOT EVIDENCE FROM ACCEPTED ASSET INVENTORY · OTHER MEANS OUTSIDE THESE EXACT ROOTS",
+                )
+                .size(10.0)
+                .color(BRASS)
+                .strong(),
+            );
+            ui.horizontal_wrapped(|ui| {
+                for facet in FeedbackAssetPathFacet::ALL {
+                    let label = format!("{}  {}", facet.label(), catalog.count(facet));
+                    if ui.selectable_label(selected == facet, label).clicked() {
+                        requested = Some(facet);
+                    }
+                }
+            });
+            ui.label(
+                RichText::new(format!(
+                    "{} accepted files · {} accepted source-file bytes · counts are not filter-relative",
+                    catalog.count(selected),
+                    format_bytes(catalog.source_bytes(selected))
+                ))
+                .size(11.0)
+                .color(MUTED),
+            );
+        })
+        .response;
+    (response.rect, requested)
+}
+
+fn asset_file_row(
+    ui: &mut egui::Ui,
+    path: &str,
+    size: u64,
+    family: Option<&str>,
+    compatibility: &str,
+    selected: bool,
+) -> egui::Response {
+    let detail = format!(
+        "{} · {} · {}",
+        format_bytes(size),
+        family.unwrap_or("unclassified"),
+        compatibility
+    );
+    let row = Frame::none()
+        .fill(if selected {
+            Color32::from_rgb(59, 49, 31)
+        } else {
+            Color32::TRANSPARENT
+        })
+        .inner_margin(Margin::symmetric(13.0, 7.0))
+        .show(ui, |ui| {
+            ui.set_min_width(ui.available_width());
+            ui.set_min_height(ASSET_FILE_ROW_HEIGHT - 14.0);
+            ui.style_mut().wrap_mode = Some(TextWrapMode::Truncate);
+            ui.label(RichText::new(path).size(13.0).color(INK));
+            ui.label(RichText::new(&detail).size(11.0).color(MUTED));
+        });
+    let response = ui
+        .interact(
+            row.response.rect,
+            ui.make_persistent_id(("accepted-asset-file", path)),
+            Sense::click(),
+        )
+        .on_hover_text(format!("{path}\n{detail}"));
+    if response.hovered() {
+        ui.painter()
+            .rect_stroke(response.rect, 0.0, Stroke::new(1.0, BRASS_SOFT));
+    }
+    response
+}
+
 fn atlas_header_rows(ui: &mut egui::Ui, title: impl FnOnce(&mut egui::Ui)) -> egui::Rect {
     let title_rect = ui.vertical(title).response.rect;
     ui.add_space(6.0);
     title_rect
+}
+
+fn atlas_controls_row<R>(
+    ui: &mut egui::Ui,
+    controls: impl FnOnce(&mut egui::Ui) -> R,
+) -> egui::InnerResponse<R> {
+    ui.allocate_ui_with_layout(
+        Vec2::new(ui.available_width(), 34.0),
+        Layout::right_to_left(Align::Center),
+        controls,
+    )
 }
 
 fn reload_delta_action(
@@ -531,6 +700,9 @@ struct LedgerApp {
     records_view: RecordsView,
     world_view: WorldView,
     assets_view: AssetsView,
+    asset_path_facet: FeedbackAssetPathFacet,
+    asset_file_matches: Vec<FeedbackEntryLocator>,
+    asset_file_cache_filter: String,
     scripts_view: ScriptsView,
     script_family: Option<FeedbackScriptFamily>,
     vault_view: VaultView,
@@ -568,6 +740,9 @@ impl LedgerApp {
             records_view: RecordsView::Actors,
             world_view: WorldView::Zones,
             assets_view: AssetsView::Relationships,
+            asset_path_facet: FeedbackAssetPathFacet::All,
+            asset_file_matches: Vec::new(),
+            asset_file_cache_filter: String::new(),
             scripts_view: ScriptsView::Catalog,
             script_family: None,
             vault_view: VaultView::Boundaries,
@@ -593,6 +768,42 @@ impl LedgerApp {
         let mut app = Self::shell(data_root.clone());
         app.begin_load(data_root, LoadPurpose::Initial);
         app
+    }
+
+    fn refresh_asset_file_matches(&mut self) {
+        self.asset_file_cache_filter.clone_from(&self.filter);
+        self.asset_file_matches.clear();
+        let Some(project) = self.project.as_ref() else {
+            return;
+        };
+        let filter = self.filter.to_ascii_lowercase();
+        self.asset_file_matches.extend(
+            project
+                .asset_path_catalog()
+                .locators(self.asset_path_facet)
+                .iter()
+                .copied()
+                .filter(|locator| {
+                    project.entry(*locator).is_some_and(|entry| {
+                        filter.is_empty()
+                            || entry.path.to_ascii_lowercase().contains(filter.as_str())
+                    })
+                }),
+        );
+    }
+
+    fn ensure_asset_file_matches(&mut self) {
+        if self.asset_file_cache_filter != self.filter {
+            self.refresh_asset_file_matches();
+        }
+    }
+
+    fn select_asset_path_facet(&mut self, facet: FeedbackAssetPathFacet) {
+        self.asset_path_facet = facet;
+        if let Some(project) = self.project.as_ref() {
+            retain_asset_path_facet_selection(project, facet, &mut self.selected);
+        }
+        self.refresh_asset_file_matches();
     }
 
     fn begin_load(&mut self, path: PathBuf, purpose: LoadPurpose) {
@@ -726,6 +937,12 @@ impl LedgerApp {
                 project.script_catalog().diagnostics.len()
             ),
         );
+        match purpose {
+            LoadPurpose::Reload => {}
+            LoadPurpose::Initial => self.asset_path_facet = FeedbackAssetPathFacet::All,
+            #[cfg(any(windows, test))]
+            LoadPurpose::Open => self.asset_path_facet = FeedbackAssetPathFacet::All,
+        }
         retain_resolved_focus(
             &project,
             &mut self.selected,
@@ -736,6 +953,9 @@ impl LedgerApp {
         );
         if self.lens == Lens::Vault && self.vault_view == VaultView::Boundaries {
             retain_vault_facet_selection(&project, self.vault_facet, &mut self.selected);
+        }
+        if self.lens == Lens::Assets && self.assets_view == AssetsView::Files {
+            retain_asset_path_facet_selection(&project, self.asset_path_facet, &mut self.selected);
         }
         match purpose {
             LoadPurpose::Reload => {
@@ -789,6 +1009,7 @@ impl LedgerApp {
             );
         }
         self.project = Some(*project);
+        self.refresh_asset_file_matches();
         self.palette_highlight = 0;
         self.refresh_find_results();
         self.receiver = None;
@@ -1184,7 +1405,10 @@ impl LedgerApp {
                 match lens {
                     Lens::Records => self.records_view = RecordsView::Files,
                     Lens::World => self.world_view = WorldView::Files,
-                    Lens::Assets => self.assets_view = AssetsView::Files,
+                    Lens::Assets => {
+                        self.assets_view = AssetsView::Files;
+                        self.asset_path_facet = FeedbackAssetPathFacet::All;
+                    }
                     Lens::Scripts => self.scripts_view = ScriptsView::Files,
                     Lens::Vault => self.vault_view = VaultView::Files,
                 }
@@ -1220,6 +1444,9 @@ impl LedgerApp {
         self.palette_scroll_to_highlight = false;
         self.observations_open = false;
         self.reload_delta_open = false;
+        if self.lens == Lens::Assets && self.assets_view == AssetsView::Files {
+            self.refresh_asset_file_matches();
+        }
     }
 
     fn selected_entry(&self) -> Option<&FeedbackEntry> {
@@ -1423,7 +1650,7 @@ impl LedgerApp {
                 }
                 ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
                     ui.label(
-                        RichText::new("Feedback build 0.13\nNo save or mutation commands exist")
+                        RichText::new("Feedback build 0.14\nNo save or mutation commands exist")
                             .size(11.0)
                             .color(MUTED),
                     );
@@ -2357,6 +2584,7 @@ impl LedgerApp {
         let actor_view = self.lens == Lens::Records && self.records_view == RecordsView::Actors;
         let zone_view = self.lens == Lens::World && self.world_view == WorldView::Zones;
         let asset_view = self.lens == Lens::Assets && self.assets_view == AssetsView::Relationships;
+        let asset_files_view = self.lens == Lens::Assets && self.assets_view == AssetsView::Files;
         let script_view = self.lens == Lens::Scripts && self.scripts_view == ScriptsView::Catalog;
         let vault_view = self.lens == Lens::Vault && self.vault_view == VaultView::Boundaries;
         let atlas_title = if actor_view {
@@ -2365,6 +2593,8 @@ impl LedgerApp {
             "Paired zone atlas".to_owned()
         } else if asset_view {
             "Actor base-mesh relationships".to_owned()
+        } else if asset_files_view {
+            "Accepted asset path roots".to_owned()
         } else if script_view {
             "Script constellation".to_owned()
         } else if vault_view {
@@ -2378,6 +2608,8 @@ impl LedgerApp {
             "Filename identities · visual/gameplay pairing · directly observed gaps"
         } else if asset_view {
             "Raw mesh IDs · actor backlinks · evidence-qualified media observations"
+        } else if asset_files_view {
+            "Path-root evidence from accepted Asset inventory · raw paths stay authoritative"
         } else if script_view {
             "Active .rsl anchors · literal-prefix families · observed same-stem adjuncts"
         } else if vault_view {
@@ -2399,7 +2631,7 @@ impl LedgerApp {
                         );
                         ui.label(RichText::new(atlas_subtitle).color(MUTED));
                     });
-                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    atlas_controls_row(ui, |ui| {
                         ui.add_sized(
                             [260.0, 34.0],
                             TextEdit::singleline(&mut self.filter)
@@ -2409,6 +2641,8 @@ impl LedgerApp {
                                     "Filter zones or pairing states…"
                                 } else if asset_view {
                                     "Filter mesh IDs, actors, or states…"
+                                } else if asset_files_view {
+                                    "Filter accepted Asset paths…"
                                 } else if script_view {
                                     "Filter scripts, families, or paths…"
                                 } else if vault_view {
@@ -2548,6 +2782,20 @@ impl LedgerApp {
                             }
                         }
                     });
+                if self.lens == Lens::Assets && self.assets_view == AssetsView::Files {
+                    self.ensure_asset_file_matches();
+                    let requested = self.project.as_ref().and_then(|project| {
+                        asset_path_facet_controls(
+                            ui,
+                            project.asset_path_catalog(),
+                            self.asset_path_facet,
+                        )
+                        .1
+                    });
+                    if let Some(facet) = requested {
+                        self.select_asset_path_facet(facet);
+                    }
+                }
                 ui.add_space(14.0);
                 if actor_view {
                     self.actor_catalog(ui);
@@ -3373,7 +3621,106 @@ impl LedgerApp {
         }
     }
 
+    fn asset_file_atlas(&mut self, ui: &mut egui::Ui) {
+        let selected = self.selected.as_deref();
+        let surface_state = asset_file_surface_state(
+            self.project.is_some(),
+            self.receiver.is_some(),
+            self.asset_file_matches.len(),
+            self.filter.is_empty(),
+        );
+        let mut clicked_path = None;
+        Frame::none()
+            .fill(PANEL_RAISED)
+            .stroke(Stroke::new(1.0, Color32::from_rgb(48, 53, 51)))
+            .inner_margin(Margin::same(1.0))
+            .show(ui, |ui| {
+                if matches!(
+                    surface_state,
+                    AssetFileSurfaceState::Loading | AssetFileSurfaceState::Unavailable
+                ) {
+                    ui.add_space(30.0);
+                    ui.vertical_centered(|ui| {
+                        if surface_state == AssetFileSurfaceState::Loading {
+                            ui.spinner();
+                        }
+                        ui.label(RichText::new(&self.status).color(MUTED));
+                    });
+                    return;
+                }
+                if matches!(
+                    surface_state,
+                    AssetFileSurfaceState::EmptyFacet | AssetFileSurfaceState::EmptyFilter
+                ) {
+                    ui.add_space(28.0);
+                    ui.vertical_centered(|ui| {
+                        ui.label(
+                            RichText::new(if surface_state == AssetFileSurfaceState::EmptyFacet {
+                                "No accepted Asset paths in this exact path-root facet"
+                            } else {
+                                "No accepted Asset paths match this filter and path-root facet"
+                            })
+                            .size(17.0)
+                            .color(INK),
+                        );
+                        ui.label(
+                            RichText::new(
+                                "This is accepted path-root inventory evidence only; it is not a completeness, validity, or project-health result.",
+                            )
+                            .color(MUTED),
+                        );
+                    });
+                    return;
+                }
+                let Some(project) = self.project.as_ref() else {
+                    return;
+                };
+                ScrollArea::vertical()
+                    .id_salt(("accepted_asset_file_rows", self.asset_path_facet))
+                    .max_height(ui.available_height())
+                    .auto_shrink([false, false])
+                    .show_rows(
+                        ui,
+                        ASSET_FILE_ROW_HEIGHT,
+                        self.asset_file_matches.len(),
+                        |ui, visible_rows| {
+                            for locator in asset_file_visible_locators(
+                                &self.asset_file_matches,
+                                visible_rows,
+                            ) {
+                                let Some(entry) = project.entry(*locator) else {
+                                    continue;
+                                };
+                                if asset_file_row(
+                                    ui,
+                                    &entry.path,
+                                    entry.size,
+                                    entry.family,
+                                    entry.compatibility,
+                                    selected == Some(entry.path.as_str()),
+                                )
+                                .clicked()
+                                {
+                                    clicked_path = Some(entry.path.clone());
+                                }
+                            }
+                        },
+                    );
+            });
+        if let Some(path) = clicked_path {
+            self.selected = Some(path);
+            self.selected_actor = None;
+            self.selected_mesh = None;
+            self.selected_zone = None;
+            self.selected_script = None;
+        }
+    }
+
     fn file_atlas(&mut self, ui: &mut egui::Ui) {
+        if self.lens == Lens::Assets && self.assets_view == AssetsView::Files {
+            self.asset_file_atlas(ui);
+            return;
+        }
         Frame::none()
             .fill(PANEL_RAISED)
             .stroke(Stroke::new(1.0, Color32::from_rgb(48, 53, 51)))
@@ -4035,13 +4382,15 @@ fn format_bytes(bytes: u64) -> String {
 mod tests {
     use super::reload_test_support::ReloadFixture;
     use super::{
-        actor_mesh_target, actor_thread_targets, asset_evidence_copy, atlas_header_rows,
-        navigate_relationship, reload_delta_action, retain_vault_facet_selection,
-        script_family_observation, transition_assets_view, transition_records_view,
-        transition_scripts_view, transition_vault_view, transition_world_view, AssetsView,
-        FeedbackEvidence, FeedbackMediaStatus, FeedbackScriptFamily, LedgerApp, Lens, LoadGate,
-        LoadPurpose, PendingLoad, RecordsView, RelationshipTarget, ScriptsView, VaultView,
-        WorldView, INK, MUTED,
+        actor_mesh_target, actor_thread_targets, asset_evidence_copy, asset_file_row,
+        asset_file_surface_state, asset_file_visible_locators, asset_path_facet_controls,
+        atlas_controls_row, atlas_header_rows, navigate_relationship, reload_delta_action,
+        retain_vault_facet_selection, script_family_observation, transition_assets_view,
+        transition_records_view, transition_scripts_view, transition_vault_view,
+        transition_world_view, AssetFileSurfaceState, AssetsView, FeedbackEvidence,
+        FeedbackMediaStatus, FeedbackScriptFamily, LedgerApp, Lens, LoadGate, LoadPurpose,
+        PendingLoad, RecordsView, RelationshipTarget, ScriptsView, VaultView, WorldView,
+        ASSET_FILE_ROW_HEIGHT, INK, MUTED,
     };
     use eframe::egui::{
         Align, Button, CentralPanel, Context, Event, Frame, Key, Layout, Margin, Modifiers, Pos2,
@@ -4049,9 +4398,9 @@ mod tests {
     };
     use rcce_editor_core::{
         FeedbackAcceptedFileDelta, FeedbackAcceptedFileDeltaKind, FeedbackAcceptedSnapshotDelta,
-        FeedbackFindResult, FeedbackFindTarget, FeedbackFingerprintPeerTarget, FeedbackFocusTarget,
-        FeedbackObservation, FeedbackObservationEvidence, FeedbackReturnTrail, FeedbackVaultEntry,
-        FeedbackVaultFacet,
+        FeedbackAssetPathFacet, FeedbackEntryLocator, FeedbackFindResult, FeedbackFindTarget,
+        FeedbackFingerprintPeerTarget, FeedbackFocusTarget, FeedbackObservation,
+        FeedbackObservationEvidence, FeedbackReturnTrail, FeedbackVaultEntry, FeedbackVaultFacet,
     };
 
     #[test]
@@ -4112,6 +4461,124 @@ mod tests {
         assert_eq!(view, AssetsView::Files);
         assert_eq!(selected_file, None);
         assert_eq!(selected_mesh, None);
+    }
+
+    #[test]
+    fn asset_path_facet_and_filter_cache_exact_locators_and_clear_hidden_selection() {
+        let fixture = ReloadFixture::new("asset-path-facet-cache");
+        fixture.write_external_file("Textures/Icon.png", b"texture");
+        fixture.write_external_file("Imports/Meshes/Observed.bin", b"other");
+        let mut app = LedgerApp::shell(fixture.root().to_path_buf());
+        app.project = Some(fixture.project());
+        app.assets_view = AssetsView::Files;
+        app.refresh_asset_file_matches();
+
+        assert_eq!(app.asset_file_matches.len(), 3);
+        app.selected = Some("Data/Meshes/Hero.b3d".to_owned());
+        app.select_asset_path_facet(FeedbackAssetPathFacet::Meshes);
+        assert_eq!(app.selected.as_deref(), Some("Data/Meshes/Hero.b3d"));
+        assert_eq!(app.asset_file_matches.len(), 1);
+
+        app.select_asset_path_facet(FeedbackAssetPathFacet::Textures);
+        assert_eq!(app.selected, None);
+        assert_eq!(app.asset_file_matches.len(), 1);
+        app.filter = "icon".to_owned();
+        app.refresh_asset_file_matches();
+        let matched = app
+            .asset_file_matches
+            .iter()
+            .map(|locator| {
+                app.project
+                    .as_ref()
+                    .expect("accepted project")
+                    .entry(*locator)
+                    .expect("cached locator")
+                    .path
+                    .as_str()
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(matched, vec!["Data/Textures/Icon.png"]);
+
+        app.filter = "missing".to_owned();
+        app.refresh_asset_file_matches();
+        assert!(app.asset_file_matches.is_empty());
+    }
+
+    #[test]
+    fn asset_path_facet_lifecycle_preserves_failure_reconciles_reload_and_resets_open() {
+        let accepted = ReloadFixture::new("asset-path-facet-lifecycle");
+        accepted.write_external_file("Textures/Icon.png", b"texture");
+        let replacement = ReloadFixture::new("asset-path-facet-open");
+        replacement.write_external_file("Sounds/New.wav", b"sound");
+        let accepted_root = accepted.root().to_path_buf();
+        let mut app = LedgerApp::shell(accepted_root.clone());
+        app.project = Some(accepted.project());
+        app.assets_view = AssetsView::Files;
+        app.select_asset_path_facet(FeedbackAssetPathFacet::Textures);
+        app.selected = Some("Data/Textures/Icon.png".to_owned());
+        let preserved_matches = app.asset_file_matches.clone();
+
+        assert!(app.load_gate.try_begin());
+        app.pending_load = Some(PendingLoad {
+            root: accepted_root.clone(),
+            purpose: LoadPurpose::Reload,
+        });
+        assert_eq!(app.asset_path_facet, FeedbackAssetPathFacet::Textures);
+        assert_eq!(app.asset_file_matches, preserved_matches);
+        app.finish_failed("replacement rejected".to_owned());
+        assert_eq!(app.asset_path_facet, FeedbackAssetPathFacet::Textures);
+        assert_eq!(app.asset_file_matches, preserved_matches);
+        assert_eq!(app.selected.as_deref(), Some("Data/Textures/Icon.png"));
+
+        accepted.remove_external_file("Textures/Icon.png");
+        assert!(app.load_gate.try_begin());
+        app.pending_load = Some(PendingLoad {
+            root: accepted_root,
+            purpose: LoadPurpose::Reload,
+        });
+        app.finish_ready(Box::new(accepted.project()));
+        assert_eq!(app.asset_path_facet, FeedbackAssetPathFacet::Textures);
+        assert!(app.asset_file_matches.is_empty());
+        assert_eq!(app.selected, None);
+
+        assert!(app.load_gate.try_begin());
+        app.pending_load = Some(PendingLoad {
+            root: replacement.root().to_path_buf(),
+            purpose: LoadPurpose::Open,
+        });
+        app.finish_ready(Box::new(replacement.project()));
+        assert_eq!(app.asset_path_facet, FeedbackAssetPathFacet::All);
+        assert!(app.asset_file_matches.iter().any(|locator| {
+            app.project
+                .as_ref()
+                .expect("replacement project")
+                .entry(*locator)
+                .is_some_and(|entry| entry.path == "Data/Sounds/New.wav")
+        }));
+    }
+
+    #[test]
+    fn initial_in_flight_asset_files_never_claim_an_accepted_empty_snapshot() {
+        assert_eq!(
+            asset_file_surface_state(false, true, 0, true),
+            AssetFileSurfaceState::Loading
+        );
+        assert_eq!(
+            asset_file_surface_state(false, false, 0, true),
+            AssetFileSurfaceState::Unavailable
+        );
+        assert_eq!(
+            asset_file_surface_state(true, false, 0, true),
+            AssetFileSurfaceState::EmptyFacet
+        );
+        assert_eq!(
+            asset_file_surface_state(true, false, 0, false),
+            AssetFileSurfaceState::EmptyFilter
+        );
+        assert_eq!(
+            asset_file_surface_state(true, false, 1, true),
+            AssetFileSurfaceState::Rows
+        );
     }
 
     #[test]
@@ -4638,7 +5105,17 @@ mod tests {
             match lens {
                 Lens::Records => assert_eq!(app.records_view, RecordsView::Files),
                 Lens::World => assert_eq!(app.world_view, WorldView::Files),
-                Lens::Assets => assert_eq!(app.assets_view, AssetsView::Files),
+                Lens::Assets => {
+                    assert_eq!(app.assets_view, AssetsView::Files);
+                    assert_eq!(app.asset_path_facet, FeedbackAssetPathFacet::All);
+                    assert!(app.asset_file_matches.iter().any(|locator| {
+                        app.project
+                            .as_ref()
+                            .expect("accepted project")
+                            .entry(*locator)
+                            .is_some_and(|entry| entry.path == path)
+                    }));
+                }
                 Lens::Scripts => assert_eq!(app.scripts_view, ScriptsView::Files),
                 Lens::Vault => assert_eq!(app.vault_view, VaultView::Files),
             }
@@ -5276,6 +5753,46 @@ mod tests {
     }
 
     #[test]
+    fn maximum_asset_path_keeps_the_virtualized_file_row_at_its_exact_height() {
+        let path = format!("Data/{}", "x".repeat(4091));
+        let context = Context::default();
+        let mut actual_height = 0.0;
+        let input = RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(494.0, 485.0))),
+            ..Default::default()
+        };
+
+        let _ = context.run(input, |context| {
+            CentralPanel::default().show(context, |ui| {
+                actual_height = asset_file_row(ui, &path, 4_096, Some("asset"), "portable", false)
+                    .rect
+                    .height();
+            });
+        });
+
+        assert_eq!(actual_height, ASSET_FILE_ROW_HEIGHT);
+    }
+
+    #[test]
+    fn ten_thousand_asset_file_visible_ranges_map_first_and_last_locators() {
+        let locators = (0..10_000)
+            .map(|entry_index| FeedbackEntryLocator {
+                lens: Lens::Assets,
+                entry_index,
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            asset_file_visible_locators(&locators, 0..3),
+            &locators[0..3]
+        );
+        assert_eq!(
+            asset_file_visible_locators(&locators, 9_997..10_000),
+            &locators[9_997..10_000]
+        );
+    }
+
+    #[test]
     fn large_fingerprint_peer_visible_ranges_map_first_and_last_members_exactly() {
         assert_eq!(
             super::fingerprint_peer_member_indices(0..4, 0).collect::<Vec<_>>(),
@@ -5717,8 +6234,7 @@ mod tests {
                                 .color(MUTED),
                         );
                     });
-                    controls_rect = ui
-                        .with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    controls_rect = atlas_controls_row(ui, |ui| {
                             let mut filter = String::new();
                             ui.add_sized([260.0, 34.0], TextEdit::singleline(&mut filter));
                             let _ = ui.selectable_label(false, "FILES");
@@ -5731,6 +6247,82 @@ mod tests {
 
         assert!(title_rect.bottom() <= controls_rect.top());
         assert!(controls_rect.right() <= 474.0);
+    }
+
+    #[test]
+    fn minimum_width_asset_files_header_keeps_facets_and_first_row_reachable() {
+        let fixture = ReloadFixture::new("asset-path-facet-geometry");
+        fixture.write_external_file("Textures/Icon.png", b"texture");
+        fixture.write_external_file("Sounds/Tone.wav", b"sound");
+        fixture.write_external_file("Music/Theme.ogg", b"music");
+        fixture.write_external_file("Emitter Configs/Glow.rpc", b"emitter");
+        fixture.write_external_file("UI/Panel.png", b"ui");
+        fixture.write_external_file("Imports/Other.bin", b"other");
+        let project = fixture.project();
+        let context = Context::default();
+        super::configure_style(&context);
+        let mut title_rect = Rect::NOTHING;
+        let mut controls_rect = Rect::NOTHING;
+        let mut facets_rect = Rect::NOTHING;
+        let mut first_row_rect = Rect::NOTHING;
+        let input = RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(494.0, 485.0))),
+            ..Default::default()
+        };
+
+        let _ = context.run(input, |context| {
+            CentralPanel::default()
+                .frame(Frame::none().inner_margin(Margin::same(20.0)))
+                .show(context, |ui| {
+                    title_rect = atlas_header_rows(ui, |ui| {
+                        ui.label(
+                            RichText::new("Accepted asset path roots")
+                                .size(25.0)
+                                .color(INK)
+                                .strong(),
+                        );
+                        ui.label(
+                            RichText::new(
+                                "Path-root evidence from accepted Asset inventory · raw paths stay authoritative",
+                            )
+                            .color(MUTED),
+                        );
+                    });
+                    controls_rect = atlas_controls_row(ui, |ui| {
+                            let mut filter = String::new();
+                            ui.add_sized([260.0, 34.0], TextEdit::singleline(&mut filter));
+                            let _ = ui.selectable_label(true, "FILES");
+                            let _ = ui.selectable_label(false, "RELATIONSHIPS");
+                        })
+                        .response
+                        .rect;
+                    facets_rect = asset_path_facet_controls(
+                        ui,
+                        project.asset_path_catalog(),
+                        FeedbackAssetPathFacet::All,
+                    )
+                    .0;
+                    let first = project.entries(Lens::Assets).first().expect("asset row");
+                    first_row_rect = asset_file_row(
+                        ui,
+                        &first.path,
+                        first.size,
+                        first.family,
+                        first.compatibility,
+                        false,
+                    )
+                    .rect;
+                });
+        });
+
+        assert!(title_rect.bottom() <= controls_rect.top());
+        assert!(controls_rect.bottom() <= facets_rect.top());
+        assert!(facets_rect.bottom() <= first_row_rect.top());
+        assert!(
+            first_row_rect.bottom() <= 465.0,
+            "title={title_rect:?} controls={controls_rect:?} facets={facets_rect:?} first={first_row_rect:?}"
+        );
+        assert!(facets_rect.left() >= 20.0 && facets_rect.right() <= 474.0);
     }
 
     #[test]

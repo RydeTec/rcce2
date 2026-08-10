@@ -159,6 +159,132 @@ pub struct FeedbackEntryLocator {
     pub entry_index: usize,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum FeedbackAssetPathFacet {
+    All,
+    Meshes,
+    Textures,
+    Sounds,
+    Music,
+    EmitterConfigs,
+    Ui,
+    Other,
+}
+
+impl FeedbackAssetPathFacet {
+    pub const ALL: [Self; 8] = [
+        Self::All,
+        Self::Meshes,
+        Self::Textures,
+        Self::Sounds,
+        Self::Music,
+        Self::EmitterConfigs,
+        Self::Ui,
+        Self::Other,
+    ];
+    pub const ROOTS: [Self; 7] = [
+        Self::Meshes,
+        Self::Textures,
+        Self::Sounds,
+        Self::Music,
+        Self::EmitterConfigs,
+        Self::Ui,
+        Self::Other,
+    ];
+
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::All => "ALL",
+            Self::Meshes => "MESHES",
+            Self::Textures => "TEXTURES",
+            Self::Sounds => "SOUNDS",
+            Self::Music => "MUSIC",
+            Self::EmitterConfigs => "EMITTER CONFIGS",
+            Self::Ui => "UI",
+            Self::Other => "OTHER",
+        }
+    }
+
+    const fn index(self) -> usize {
+        match self {
+            Self::All => 0,
+            Self::Meshes => 1,
+            Self::Textures => 2,
+            Self::Sounds => 3,
+            Self::Music => 4,
+            Self::EmitterConfigs => 5,
+            Self::Ui => 6,
+            Self::Other => 7,
+        }
+    }
+
+    fn for_path(path: &str) -> Self {
+        const ROOTS: [(FeedbackAssetPathFacet, &str); 6] = [
+            (FeedbackAssetPathFacet::Meshes, "Data/Meshes/"),
+            (FeedbackAssetPathFacet::Textures, "Data/Textures/"),
+            (FeedbackAssetPathFacet::Sounds, "Data/Sounds/"),
+            (FeedbackAssetPathFacet::Music, "Data/Music/"),
+            (
+                FeedbackAssetPathFacet::EmitterConfigs,
+                "Data/Emitter Configs/",
+            ),
+            (FeedbackAssetPathFacet::Ui, "Data/UI/"),
+        ];
+        ROOTS
+            .iter()
+            .find_map(|(facet, prefix)| {
+                path.get(..prefix.len())
+                    .is_some_and(|candidate| candidate.eq_ignore_ascii_case(prefix))
+                    .then_some(*facet)
+            })
+            .unwrap_or(Self::Other)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FeedbackAssetPathCatalog {
+    by_facet: [Vec<FeedbackEntryLocator>; 8],
+    source_bytes: [u64; 8],
+}
+
+impl FeedbackAssetPathCatalog {
+    fn from_entries(entries: &[FeedbackEntry]) -> Self {
+        let mut by_facet: [Vec<FeedbackEntryLocator>; 8] = std::array::from_fn(|_| Vec::new());
+        let mut source_bytes = [0_u64; 8];
+        for (entry_index, entry) in entries.iter().enumerate() {
+            let locator = FeedbackEntryLocator {
+                lens: Lens::Assets,
+                entry_index,
+            };
+            let root = FeedbackAssetPathFacet::for_path(&entry.path);
+            by_facet[FeedbackAssetPathFacet::All.index()].push(locator);
+            source_bytes[FeedbackAssetPathFacet::All.index()] += entry.size;
+            by_facet[root.index()].push(locator);
+            source_bytes[root.index()] += entry.size;
+        }
+        Self {
+            by_facet,
+            source_bytes,
+        }
+    }
+
+    #[must_use]
+    pub fn locators(&self, facet: FeedbackAssetPathFacet) -> &[FeedbackEntryLocator] {
+        &self.by_facet[facet.index()]
+    }
+
+    #[must_use]
+    pub fn count(&self, facet: FeedbackAssetPathFacet) -> usize {
+        self.locators(facet).len()
+    }
+
+    #[must_use]
+    pub const fn source_bytes(&self, facet: FeedbackAssetPathFacet) -> u64 {
+        self.source_bytes[facet.index()]
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FeedbackFingerprintGroup {
     pub source_sha256: String,
@@ -1034,6 +1160,7 @@ pub struct FeedbackProject {
     pub unavailable: usize,
     actor_catalog: FeedbackActorCatalog,
     asset_catalog: FeedbackAssetCatalog,
+    asset_path_catalog: FeedbackAssetPathCatalog,
     zone_catalog: FeedbackZoneCatalog,
     script_catalog: FeedbackScriptCatalog,
     vault_catalog: FeedbackVaultCatalog,
@@ -1188,6 +1315,8 @@ impl FeedbackProject {
             FeedbackScriptCatalog::from_script_entries(&by_lens[Lens::Scripts.index()]);
         let vault_catalog = FeedbackVaultCatalog::from_entries(&by_lens[Lens::Vault.index()]);
         let asset_catalog = FeedbackAssetCatalog::from_actor_catalog(&actor_catalog);
+        let asset_path_catalog =
+            FeedbackAssetPathCatalog::from_entries(&by_lens[Lens::Assets.index()]);
         let observation_index =
             FeedbackObservationIndex::from_catalogs(&actor_catalog, &zone_catalog, &script_catalog);
         let find_candidates = build_find_candidates(
@@ -1215,6 +1344,7 @@ impl FeedbackProject {
             unavailable: inventory.unavailable.len(),
             actor_catalog,
             asset_catalog,
+            asset_path_catalog,
             zone_catalog,
             script_catalog,
             vault_catalog,
@@ -1252,6 +1382,11 @@ impl FeedbackProject {
     #[must_use]
     pub const fn asset_catalog(&self) -> &FeedbackAssetCatalog {
         &self.asset_catalog
+    }
+
+    #[must_use]
+    pub const fn asset_path_catalog(&self) -> &FeedbackAssetPathCatalog {
+        &self.asset_path_catalog
     }
 
     #[must_use]

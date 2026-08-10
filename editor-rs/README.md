@@ -28,6 +28,24 @@ exact actor in Records. These focusable routes clear stale filters and
 incompatible selections; they do not add parsed meaning, integrity enforcement,
 history, repair, or broader relationship-graph evidence.
 
+The Assets `FILES` fallback partitions that accepted inventory by exact observed
+path root: All, Meshes, Textures, Sounds, Music, Emitter Configs, UI, and an
+exclusive Other complement. Matching is ASCII-insensitive only for the exact
+immediate `Data/<Root>/` prefix; embedded names, lookalike roots, and bare root
+paths are not promoted into a named facet. Each facet reports its whole accepted
+file count and accepted source-file byte total independently of the path filter,
+while the filtered row list retains exact raw paths and is fixed-height and
+virtualized without an additional cap. External exact Asset file routes clear
+the filter and open All before selecting the path. Failed or in-flight project
+replacement preserves the prior facet and rows, same-root Reload reconciles the
+selected facet atomically, and successful Open resets to All. These labels are
+path-root inventory evidence only: they do not establish file type, registry or
+numeric media membership, reference/use/orphan status, completeness, validity,
+compatibility, previewability, source lineage, provenance, cleanup advice, disk
+allocation, runtime or memory cost, or a performance hotspot. Other means only
+outside the listed exact roots and does not mean unknown, unsupported, unhealthy,
+or disposable.
+
 The World lens projects the two legacy area directories into a paired-zone
 atlas. Zone identity remains the observed `.dat` filename stem; each card shows
 the visual and gameplay files, their exact observed sizes, and whether one half

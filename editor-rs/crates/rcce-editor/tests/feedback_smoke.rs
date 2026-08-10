@@ -9,8 +9,30 @@ fn fixture() -> PathBuf {
         std::env::temp_dir().join(format!("rcce-editor-smoke-{}-{nonce}", std::process::id()));
     fs::create_dir_all(root.join("Server Data")).expect("fixture directory");
     fs::create_dir_all(root.join("Areas")).expect("peer fixture directory");
+    for directory in [
+        "Meshes",
+        "Textures",
+        "Sounds",
+        "Music",
+        "Emitter Configs",
+        "UI",
+        "Imports/Meshes",
+    ] {
+        fs::create_dir_all(root.join(directory)).expect("asset root fixture directory");
+    }
     fs::write(root.join("Server Data/Actors.dat"), b"actors").expect("fixture actor file");
     fs::write(root.join("Areas/Shared.dat"), b"actors").expect("fixture peer file");
+    for (path, bytes) in [
+        ("Meshes/Hero.b3d", b"mesh".as_slice()),
+        ("Textures/Icon.png", b"texture".as_slice()),
+        ("Sounds/Tone.wav", b"sound".as_slice()),
+        ("Music/Theme.ogg", b"music".as_slice()),
+        ("Emitter Configs/Glow.rpc", b"emitter".as_slice()),
+        ("UI/Panel.png", b"ui".as_slice()),
+        ("Imports/Meshes/Observed.bin", b"other".as_slice()),
+    ] {
+        fs::write(root.join(path), bytes).expect("asset fixture file");
+    }
     root
 }
 
@@ -26,12 +48,28 @@ fn smoke_contract_distinguishes_openable_and_missing_roots() {
         .output()
         .expect("valid smoke command");
     assert!(valid.status.success());
-    assert!(String::from_utf8_lossy(&valid.stdout).contains("[super-editor-mvp] ready: 2 files"));
+    assert!(String::from_utf8_lossy(&valid.stdout).contains("[super-editor-mvp] ready: 9 files"));
     let valid_stdout = String::from_utf8_lossy(&valid.stdout);
     assert!(valid_stdout.contains("actors="));
     assert!(valid_stdout.contains("actor_evidence="));
     assert!(valid_stdout.contains("actor_reference_issues="));
     assert!(valid_stdout.contains("actor_base_meshes="));
+    assert!(valid_stdout.contains("asset_files=7"));
+    assert!(valid_stdout.contains("asset_file_bytes=35"));
+    assert!(valid_stdout.contains("asset_meshes=1"));
+    assert!(valid_stdout.contains("asset_mesh_bytes=4"));
+    assert!(valid_stdout.contains("asset_textures=1"));
+    assert!(valid_stdout.contains("asset_texture_bytes=7"));
+    assert!(valid_stdout.contains("asset_sounds=1"));
+    assert!(valid_stdout.contains("asset_sound_bytes=5"));
+    assert!(valid_stdout.contains("asset_music=1"));
+    assert!(valid_stdout.contains("asset_music_bytes=5"));
+    assert!(valid_stdout.contains("asset_emitter_configs=1"));
+    assert!(valid_stdout.contains("asset_emitter_config_bytes=7"));
+    assert!(valid_stdout.contains("asset_ui=1"));
+    assert!(valid_stdout.contains("asset_ui_bytes=2"));
+    assert!(valid_stdout.contains("asset_other=1"));
+    assert!(valid_stdout.contains("asset_other_bytes=5"));
     assert!(valid_stdout.contains("zones="));
     assert!(valid_stdout.contains("zone_pairing_issues="));
     assert!(valid_stdout.contains("scripts="));
