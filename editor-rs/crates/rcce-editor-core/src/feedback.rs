@@ -286,6 +286,36 @@ impl FeedbackAssetPathCatalog {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FeedbackAcceptedParentGroup {
+    pub parent: String,
+    members: Vec<FeedbackEntryLocator>,
+}
+
+impl FeedbackAcceptedParentGroup {
+    #[must_use]
+    pub fn members(&self) -> &[FeedbackEntryLocator] {
+        &self.members
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FeedbackAcceptedParentPeerTarget {
+    pub parent: String,
+    pub lens: Lens,
+    pub path: String,
+}
+
+impl FeedbackAcceptedParentPeerTarget {
+    #[must_use]
+    pub fn focus_target(&self) -> FeedbackFocusTarget {
+        FeedbackFocusTarget::File {
+            lens: self.lens,
+            path: self.path.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FeedbackFingerprintGroup {
     pub source_sha256: String,
     members: Vec<FeedbackEntryLocator>,
@@ -1193,6 +1223,8 @@ pub struct FeedbackProject {
     vault_catalog: FeedbackVaultCatalog,
     observation_index: FeedbackObservationIndex,
     find_candidates: Vec<FeedbackFindCandidate>,
+    accepted_parent_groups: Vec<FeedbackAcceptedParentGroup>,
+    accepted_parent_peer_members: usize,
     fingerprint_groups: Vec<FeedbackFingerprintGroup>,
     fingerprint_peer_paths: usize,
     by_lens: [Vec<FeedbackEntry>; 5],
@@ -1353,6 +1385,11 @@ impl FeedbackProject {
             &zone_catalog,
             &script_catalog,
         );
+        let accepted_parent_groups = build_accepted_parent_groups(&by_lens);
+        let accepted_parent_peer_members = accepted_parent_groups
+            .iter()
+            .map(|group| group.members.len())
+            .sum();
         let fingerprint_groups = build_fingerprint_groups(&by_lens);
         let fingerprint_peer_paths = fingerprint_groups
             .iter()
@@ -1377,6 +1414,8 @@ impl FeedbackProject {
             vault_catalog,
             observation_index,
             find_candidates,
+            accepted_parent_groups,
+            accepted_parent_peer_members,
             fingerprint_groups,
             fingerprint_peer_paths,
             by_lens,
@@ -1453,6 +1492,77 @@ impl FeedbackProject {
     }
 
     #[must_use]
+    pub fn accepted_parent_peer_group_count(&self) -> usize {
+        self.accepted_parent_groups.len()
+    }
+
+    #[must_use]
+    pub const fn accepted_parent_peer_member_count(&self) -> usize {
+        self.accepted_parent_peer_members
+    }
+
+    #[must_use]
+    pub fn accepted_parent_group_for_path(
+        &self,
+        path: &str,
+    ) -> Option<&FeedbackAcceptedParentGroup> {
+        let parent = accepted_parent(path);
+        let group = self.accepted_parent_group(parent)?;
+        group
+            .members
+            .binary_search_by(|locator| {
+                self.entry(*locator)
+                    .expect("accepted parent locators resolve in their project")
+                    .path
+                    .as_bytes()
+                    .cmp(path.as_bytes())
+            })
+            .ok()
+            .map(|_| group)
+    }
+
+    #[must_use]
+    pub fn accepted_parent_group_for_entry(
+        &self,
+        entry: &FeedbackEntry,
+    ) -> Option<&FeedbackAcceptedParentGroup> {
+        self.accepted_parent_group_for_path(&entry.path)
+    }
+
+    #[must_use]
+    pub fn contains_accepted_parent_peer_target(
+        &self,
+        target: &FeedbackAcceptedParentPeerTarget,
+    ) -> bool {
+        if accepted_parent(&target.path) != target.parent {
+            return false;
+        }
+        let Some(group) = self.accepted_parent_group(&target.parent) else {
+            return false;
+        };
+        group
+            .members
+            .binary_search_by(|locator| {
+                let entry = self
+                    .entry(*locator)
+                    .expect("accepted parent locators resolve in their project");
+                entry
+                    .path
+                    .as_bytes()
+                    .cmp(target.path.as_bytes())
+                    .then_with(|| locator.lens.index().cmp(&target.lens.index()))
+            })
+            .is_ok()
+    }
+
+    fn accepted_parent_group(&self, parent: &str) -> Option<&FeedbackAcceptedParentGroup> {
+        self.accepted_parent_groups
+            .binary_search_by(|group| group.parent.as_bytes().cmp(parent.as_bytes()))
+            .ok()
+            .map(|index| &self.accepted_parent_groups[index])
+    }
+
+    #[must_use]
     pub fn fingerprint_peer_group_count(&self) -> usize {
         self.fingerprint_groups.len()
     }
@@ -1524,6 +1634,46 @@ impl FeedbackProject {
             .iter()
             .any(|candidate| candidate.result.target == *target)
     }
+}
+
+fn accepted_parent(path: &str) -> &str {
+    path.rsplit_once('/').map_or("", |(parent, _)| parent)
+}
+
+fn build_accepted_parent_groups(
+    by_lens: &[Vec<FeedbackEntry>; 5],
+) -> Vec<FeedbackAcceptedParentGroup> {
+    let mut members_by_parent: BTreeMap<&str, Vec<FeedbackEntryLocator>> = BTreeMap::new();
+    for lens in Lens::ALL {
+        for (entry_index, entry) in by_lens[lens.index()].iter().enumerate() {
+            members_by_parent
+                .entry(accepted_parent(&entry.path))
+                .or_default()
+                .push(FeedbackEntryLocator { lens, entry_index });
+        }
+    }
+
+    members_by_parent
+        .into_iter()
+        .filter_map(|(parent, mut members)| {
+            if members.len() < 2 {
+                return None;
+            }
+            members.sort_by(|left, right| {
+                let left_path = &by_lens[left.lens.index()][left.entry_index].path;
+                let right_path = &by_lens[right.lens.index()][right.entry_index].path;
+                left_path
+                    .as_bytes()
+                    .cmp(right_path.as_bytes())
+                    .then_with(|| left.lens.index().cmp(&right.lens.index()))
+                    .then_with(|| left.entry_index.cmp(&right.entry_index))
+            });
+            Some(FeedbackAcceptedParentGroup {
+                parent: parent.to_owned(),
+                members,
+            })
+        })
+        .collect()
 }
 
 fn build_fingerprint_groups(by_lens: &[Vec<FeedbackEntry>; 5]) -> Vec<FeedbackFingerprintGroup> {
@@ -1960,14 +2110,47 @@ fn hex(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        feedback_base_mesh_slot_zero, find_target_identity, find_target_kind,
-        normalize_find_fields, search_find_candidates, FeedbackActor,
-        FeedbackActorBaseMeshSlotZeroEvidence, FeedbackActorCatalog, FeedbackActorCount,
-        FeedbackAssetCatalog, FeedbackEvidence, FeedbackFindCandidate, FeedbackFindResult,
-        FeedbackFindTarget, FeedbackFocusTarget, FeedbackMediaStatus, FeedbackReturnTrail, Lens,
-        FEEDBACK_RETURN_TRAIL_CAPACITY,
+        accepted_parent, build_accepted_parent_groups, feedback_base_mesh_slot_zero,
+        find_target_identity, find_target_kind, normalize_find_fields, search_find_candidates,
+        FeedbackActor, FeedbackActorBaseMeshSlotZeroEvidence, FeedbackActorCatalog,
+        FeedbackActorCount, FeedbackAssetCatalog, FeedbackEntry, FeedbackEvidence,
+        FeedbackFindCandidate, FeedbackFindResult, FeedbackFindTarget, FeedbackFocusTarget,
+        FeedbackMediaStatus, FeedbackReturnTrail, Lens, FEEDBACK_RETURN_TRAIL_CAPACITY,
     };
     use rcce_project::{ActorBaseMeshSlotZeroEvidence, ActorBaseMeshSlotZeroMismatch};
+
+    #[test]
+    fn accepted_parent_uses_only_the_final_exact_forward_slash() {
+        assert_eq!(accepted_parent("Data/foo"), "Data");
+        assert_eq!(accepted_parent("Data/Folder/"), "Data/Folder");
+        assert_eq!(accepted_parent("Data"), "");
+        assert_eq!(accepted_parent(r"Data\Folder\foo"), "");
+        assert_eq!(accepted_parent("Data/É/é.txt"), "Data/É");
+        assert_eq!(accepted_parent("data/é/É.txt"), "data/é");
+    }
+
+    #[test]
+    fn accepted_parent_groups_remain_uncapped_at_the_snapshot_file_ceiling() {
+        let mut by_lens: [Vec<FeedbackEntry>; 5] = std::array::from_fn(|_| Vec::new());
+        for index in 0..10_000 {
+            by_lens[Lens::Assets.index()].push(FeedbackEntry {
+                path: format!("Data/Peers/peer-{index:05}.bin"),
+                size: index as u64,
+                family: None,
+                compatibility: "unknown",
+                classes: Vec::new(),
+                source_sha256: String::new(),
+                state_classes: Vec::new(),
+            });
+        }
+
+        let groups = build_accepted_parent_groups(&by_lens);
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].parent, "Data/Peers");
+        assert_eq!(groups[0].members.len(), 10_000);
+        assert_eq!(groups[0].members.first().expect("first").entry_index, 0);
+        assert_eq!(groups[0].members.last().expect("last").entry_index, 9_999);
+    }
 
     #[test]
     fn disagreed_slot_zero_evidence_survives_the_feedback_projection_boundary() {

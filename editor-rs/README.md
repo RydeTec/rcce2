@@ -110,6 +110,19 @@ same bounded Return trail. The list is virtualized and uncapped. It is not a
 complete validator, health score, severity model, repair tool, or claim about
 unparsed zone or script meaning.
 
+Every accepted file inspector exposes other accepted paths with the same exact
+parent bytes before the final `/`. Parent groups and members use raw UTF-8 byte
+order; `/` is the only separator, and case, Unicode normalization, and
+backslashes are not rewritten or merged. The current file is excluded from its
+virtualized peer rows. Activation revalidates the exact parent, lens, and path
+against the current accepted snapshot before opening the owning Files view
+through the bounded Return trail. Successful project replacement swaps this
+compact locator index atomically, while failed or in-flight replacement keeps
+the prior accepted index. Same-parent evidence is accepted string-path context
+only: it does not establish filesystem-directory completeness or existence,
+semantic relationship, provenance, generation, duplication, compatibility,
+health, use/orphan status, replaceability, cleanup advice, or write authority.
+
 Every accepted file inspector also reports accepted source-fingerprint peers
 from the current snapshot. Exact full SHA-256 equality is the only grouping
 signal; singleton files say that no other accepted path shares the fingerprint,

@@ -21,6 +21,8 @@ fn fixture() -> PathBuf {
         fs::create_dir_all(root.join(directory)).expect("asset root fixture directory");
     }
     fs::write(root.join("Server Data/Actors.dat"), b"actors").expect("fixture actor file");
+    fs::write(root.join("Server Data/Accounts.dat"), b"accounts")
+        .expect("fixture same-parent Vault file");
     fs::write(root.join("Areas/Shared.dat"), b"actors").expect("fixture peer file");
     for (path, bytes) in [
         ("Meshes/Hero.b3d", b"mesh".as_slice()),
@@ -48,7 +50,7 @@ fn smoke_contract_distinguishes_openable_and_missing_roots() {
         .output()
         .expect("valid smoke command");
     assert!(valid.status.success());
-    assert!(String::from_utf8_lossy(&valid.stdout).contains("[super-editor-mvp] ready: 9 files"));
+    assert!(String::from_utf8_lossy(&valid.stdout).contains("[super-editor-mvp] ready: 10 files"));
     let valid_stdout = String::from_utf8_lossy(&valid.stdout);
     assert!(valid_stdout.contains("actors="));
     assert!(valid_stdout.contains("actor_evidence="));
@@ -86,6 +88,8 @@ fn smoke_contract_distinguishes_openable_and_missing_roots() {
     assert!(valid_stdout.contains("vault_other="));
     assert!(valid_stdout.contains("fingerprint_peer_groups=1"));
     assert!(valid_stdout.contains("fingerprint_peer_paths=2"));
+    assert!(valid_stdout.contains("accepted_parent_peer_groups=1"));
+    assert!(valid_stdout.contains("accepted_parent_peer_members=2"));
 
     let missing = root.join("missing");
     let invalid = Command::new(env!("CARGO_BIN_EXE_rcce-editor"))

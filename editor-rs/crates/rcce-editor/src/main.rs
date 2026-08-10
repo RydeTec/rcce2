@@ -4,13 +4,14 @@ use eframe::egui::{
 };
 use rcce_editor_core::{
     load_feedback_project, FeedbackAcceptedFileDelta, FeedbackAcceptedFileDeltaKind,
-    FeedbackAcceptedSnapshotDelta, FeedbackActor, FeedbackActorBaseMeshSlotZeroEvidence,
-    FeedbackActorCount, FeedbackAssetCatalog, FeedbackAssetPathCatalog, FeedbackAssetPathFacet,
-    FeedbackEntry, FeedbackEntryLocator, FeedbackEvidence, FeedbackFindResult, FeedbackFindTarget,
-    FeedbackFingerprintPeerTarget, FeedbackFocusTarget, FeedbackLoadProgress, FeedbackMediaStatus,
-    FeedbackObservation, FeedbackObservationEvidence, FeedbackProject, FeedbackReturnTrail,
-    FeedbackScript, FeedbackScriptFamily, FeedbackVaultEntry, FeedbackVaultFacet, FeedbackZone,
-    FeedbackZoneStatus, Lens,
+    FeedbackAcceptedParentPeerTarget, FeedbackAcceptedSnapshotDelta, FeedbackActor,
+    FeedbackActorBaseMeshSlotZeroEvidence, FeedbackActorCount, FeedbackAssetCatalog,
+    FeedbackAssetPathCatalog, FeedbackAssetPathFacet, FeedbackEntry, FeedbackEntryLocator,
+    FeedbackEvidence, FeedbackFindResult, FeedbackFindTarget, FeedbackFingerprintPeerTarget,
+    FeedbackFocusTarget, FeedbackLoadProgress, FeedbackMediaStatus, FeedbackObservation,
+    FeedbackObservationEvidence, FeedbackProject, FeedbackReturnTrail, FeedbackScript,
+    FeedbackScriptFamily, FeedbackVaultEntry, FeedbackVaultFacet, FeedbackZone, FeedbackZoneStatus,
+    Lens,
 };
 use std::{
     path::{Path, PathBuf},
@@ -39,6 +40,8 @@ const OBSERVATION_ROW_HEIGHT: f32 = 64.0;
 const OBSERVATION_VIEW_HEIGHT: f32 = 360.0;
 const VAULT_ROW_HEIGHT: f32 = 58.0;
 const RELOAD_DELTA_ROW_HEIGHT: f32 = 64.0;
+const ACCEPTED_PARENT_PEER_ROW_HEIGHT: f32 = 48.0;
+const ACCEPTED_PARENT_PEER_VIEW_HEIGHT: f32 = 216.0;
 const FINGERPRINT_PEER_ROW_HEIGHT: f32 = 48.0;
 const FINGERPRINT_PEER_VIEW_HEIGHT: f32 = 216.0;
 const ASSET_FILE_ROW_HEIGHT: f32 = 58.0;
@@ -53,7 +56,7 @@ fn main() -> ExitCode {
                 let asset_paths = project.asset_path_catalog();
                 let vault_catalog = project.vault_catalog();
                 println!(
-                    "[super-editor-mvp] ready: {} files, {} bytes, {} unavailable; actors={} actor_evidence={} actor_mesh_slot0={} actor_reference_issues={} actor_base_meshes={} actor_resolved_base_meshes={} asset_files={} asset_file_bytes={} asset_meshes={} asset_mesh_bytes={} asset_textures={} asset_texture_bytes={} asset_sounds={} asset_sound_bytes={} asset_music={} asset_music_bytes={} asset_emitter_configs={} asset_emitter_config_bytes={} asset_ui={} asset_ui_bytes={} asset_other={} asset_other_bytes={} zones={} zone_pairing_issues={} scripts={} script_adjuncts={} script_inventory_issues={} known_observations={} actor_diagnostics={} vault_files={} vault_secret_labeled={} vault_dynamic_private_labeled={} vault_server_config_labeled={} vault_other={} fingerprint_peer_groups={} fingerprint_peer_paths={}",
+                    "[super-editor-mvp] ready: {} files, {} bytes, {} unavailable; actors={} actor_evidence={} actor_mesh_slot0={} actor_reference_issues={} actor_base_meshes={} actor_resolved_base_meshes={} asset_files={} asset_file_bytes={} asset_meshes={} asset_mesh_bytes={} asset_textures={} asset_texture_bytes={} asset_sounds={} asset_sound_bytes={} asset_music={} asset_music_bytes={} asset_emitter_configs={} asset_emitter_config_bytes={} asset_ui={} asset_ui_bytes={} asset_other={} asset_other_bytes={} zones={} zone_pairing_issues={} scripts={} script_adjuncts={} script_inventory_issues={} known_observations={} actor_diagnostics={} vault_files={} vault_secret_labeled={} vault_dynamic_private_labeled={} vault_server_config_labeled={} vault_other={} accepted_parent_peer_groups={} accepted_parent_peer_members={} fingerprint_peer_groups={} fingerprint_peer_paths={}",
                     project.total_files(),
                     project.total_bytes(),
                     project.unavailable,
@@ -91,6 +94,8 @@ fn main() -> ExitCode {
                     vault_catalog.count(FeedbackVaultFacet::DynamicPrivate),
                     vault_catalog.count(FeedbackVaultFacet::ServerConfig),
                     vault_catalog.count(FeedbackVaultFacet::Other),
+                    project.accepted_parent_peer_group_count(),
+                    project.accepted_parent_peer_member_count(),
                     project.fingerprint_peer_group_count(),
                     project.fingerprint_peer_path_count()
                 );
@@ -1367,6 +1372,38 @@ impl LedgerApp {
         true
     }
 
+    fn activate_accepted_parent_peer_target(
+        &mut self,
+        target: FeedbackAcceptedParentPeerTarget,
+    ) -> bool {
+        if !self
+            .project
+            .as_ref()
+            .is_some_and(|project| project.contains_accepted_parent_peer_target(&target))
+        {
+            self.activity.insert(
+                0,
+                format!(
+                    "Same-parent path {} is no longer available in the accepted snapshot",
+                    target.path
+                ),
+            );
+            return false;
+        }
+        let focus_target = target.focus_target();
+        if self.current_focus_target().as_ref() == Some(&focus_target) {
+            return false;
+        }
+        if !self.navigate_with_return(focus_target) {
+            return false;
+        }
+        self.activity.insert(
+            0,
+            format!("Opened accepted same-parent path {}", target.path),
+        );
+        true
+    }
+
     fn activate_fingerprint_peer_target(&mut self, target: FeedbackFingerprintPeerTarget) -> bool {
         if !self
             .project
@@ -1663,6 +1700,7 @@ impl LedgerApp {
 
     fn inspector(&mut self, context: &egui::Context) {
         let mut pending_relationship = None;
+        let mut pending_accepted_parent_peer = None;
         let mut pending_fingerprint_peer = None;
         egui::SidePanel::right("inspector")
             .exact_width(325.0)
@@ -2015,6 +2053,11 @@ impl LedgerApp {
                         .as_str(),
                     );
                     ui.add_space(12.0);
+                    if let Some(project) = self.project.as_ref() {
+                        pending_accepted_parent_peer =
+                            accepted_parent_peer_section(ui, project, entry);
+                    }
+                    ui.add_space(16.0);
                     ui.label(RichText::new("SOURCE FINGERPRINT").size(10.0).color(MUTED));
                     ui.label(
                         RichText::new(&entry.source_sha256)
@@ -2072,7 +2115,9 @@ impl LedgerApp {
         if let Some(target) = pending_relationship {
             self.follow_relationship(target);
         }
-        if let Some(target) = pending_fingerprint_peer {
+        if let Some(target) = pending_accepted_parent_peer {
+            self.activate_accepted_parent_peer_target(target);
+        } else if let Some(target) = pending_fingerprint_peer {
             self.activate_fingerprint_peer_target(target);
         }
     }
@@ -3860,6 +3905,176 @@ fn palette_result_row(
     .on_hover_text(full_text)
 }
 
+fn accepted_parent_peer_section(
+    ui: &mut egui::Ui,
+    project: &FeedbackProject,
+    current: &FeedbackEntry,
+) -> Option<FeedbackAcceptedParentPeerTarget> {
+    ui.label(
+        RichText::new("ACCEPTED SAME-PARENT PATHS · PATH CONTEXT ONLY")
+            .size(10.0)
+            .color(MUTED)
+            .strong(),
+    );
+    let parent = current
+        .path
+        .rsplit_once('/')
+        .map_or("", |(parent, _)| parent);
+    ui.label(
+        RichText::new(if parent.is_empty() {
+            "Exact parent: <project root>".to_owned()
+        } else {
+            format!("Exact parent: {parent}")
+        })
+        .size(12.0)
+        .color(INK),
+    );
+    let mut pending = None;
+    if let Some(group) = project.accepted_parent_group_for_entry(current) {
+        let current_index = group
+            .members()
+            .binary_search_by(|locator| {
+                project
+                    .entry(*locator)
+                    .expect("accepted parent locators resolve in their project")
+                    .path
+                    .as_bytes()
+                    .cmp(current.path.as_bytes())
+            })
+            .ok();
+        let peer_count = group.members().len().saturating_sub(1);
+        ui.label(
+            RichText::new(format!(
+                "{peer_count} other accepted {} share this exact parent",
+                if peer_count == 1 { "path" } else { "paths" }
+            ))
+            .size(12.0)
+            .color(INK),
+        );
+        if let Some(current_index) = current_index {
+            ScrollArea::vertical()
+                .id_salt(("accepted-parent-peers", &current.path))
+                .auto_shrink([false, false])
+                .max_height(ACCEPTED_PARENT_PEER_VIEW_HEIGHT)
+                .show_rows(
+                    ui,
+                    ACCEPTED_PARENT_PEER_ROW_HEIGHT,
+                    peer_count,
+                    |ui, visible_rows| {
+                        for member_index in
+                            accepted_parent_peer_member_indices(visible_rows, current_index)
+                        {
+                            let Some(locator) = group.members().get(member_index) else {
+                                continue;
+                            };
+                            let Some(entry) = project.entry(*locator) else {
+                                continue;
+                            };
+                            if accepted_parent_peer_row(
+                                ui,
+                                &group.parent,
+                                locator.lens,
+                                &entry.path,
+                                entry.size,
+                            )
+                            .clicked()
+                            {
+                                pending = Some(FeedbackAcceptedParentPeerTarget {
+                                    parent: group.parent.clone(),
+                                    lens: locator.lens,
+                                    path: entry.path.clone(),
+                                });
+                            }
+                        }
+                    },
+                );
+        }
+    } else {
+        ui.label(
+            RichText::new(
+                "No other accepted path shares this exact parent in this accepted snapshot",
+            )
+            .size(12.0)
+            .color(INK),
+        );
+    }
+    ui.add_space(8.0);
+    Frame::none()
+        .fill(Color32::from_rgb(37, 31, 20))
+        .stroke(Stroke::new(1.0, BRASS_SOFT))
+        .inner_margin(Margin::same(10.0))
+        .show(ui, |ui| {
+            ui.label(
+                RichText::new("ACCEPTED PATH CONTEXT ONLY")
+                    .color(BRASS)
+                    .strong(),
+            );
+            ui.label(
+                RichText::new(
+                    "Path proximity does not establish a semantic relationship, filesystem-directory completeness, provenance, duplication, or cleanup advice.",
+                )
+                .size(12.0)
+                .color(MUTED),
+            );
+        });
+    pending
+}
+
+fn accepted_parent_peer_member_indices(
+    visible_peer_rows: std::ops::Range<usize>,
+    current_member_index: usize,
+) -> impl Iterator<Item = usize> {
+    visible_peer_rows.map(move |peer_index| {
+        if peer_index >= current_member_index {
+            peer_index + 1
+        } else {
+            peer_index
+        }
+    })
+}
+
+fn accepted_parent_peer_row(
+    ui: &mut egui::Ui,
+    parent: &str,
+    lens: Lens,
+    path: &str,
+    size: u64,
+) -> egui::Response {
+    let parent_label = if parent.is_empty() {
+        "<project root>"
+    } else {
+        parent
+    };
+    let full_text = format!(
+        "{} lens · {} · {}\nexact accepted parent {}",
+        lens.label(),
+        path,
+        format_bytes(size),
+        parent_label
+    );
+    let row = Frame::none()
+        .fill(Color32::from_rgb(29, 34, 34))
+        .stroke(Stroke::new(1.0, Color32::from_rgb(52, 59, 57)))
+        .inner_margin(Margin::symmetric(10.0, 6.0))
+        .show(ui, |ui| {
+            ui.set_min_width(ui.available_width());
+            ui.set_min_height(ACCEPTED_PARENT_PEER_ROW_HEIGHT - 12.0);
+            ui.style_mut().wrap_mode = Some(TextWrapMode::Truncate);
+            ui.label(
+                RichText::new(format!("{}  ·  {}", lens.label(), path))
+                    .size(12.0)
+                    .color(BRASS),
+            );
+            ui.label(RichText::new(format_bytes(size)).size(10.0).color(MUTED));
+        });
+    ui.interact(
+        row.response.rect,
+        ui.make_persistent_id(("accepted-parent-peer", parent, lens, path)),
+        Sense::click(),
+    )
+    .on_hover_text(full_text)
+}
+
 fn fingerprint_peer_section(
     ui: &mut egui::Ui,
     project: &FeedbackProject,
@@ -4475,10 +4690,11 @@ mod tests {
         RawInput, Rect, RichText, SelectableLabel, TextEdit, Vec2,
     };
     use rcce_editor_core::{
-        FeedbackAcceptedFileDelta, FeedbackAcceptedFileDeltaKind, FeedbackAcceptedSnapshotDelta,
-        FeedbackAssetPathFacet, FeedbackEntryLocator, FeedbackFindResult, FeedbackFindTarget,
-        FeedbackFingerprintPeerTarget, FeedbackFocusTarget, FeedbackObservation,
-        FeedbackObservationEvidence, FeedbackReturnTrail, FeedbackVaultEntry, FeedbackVaultFacet,
+        FeedbackAcceptedFileDelta, FeedbackAcceptedFileDeltaKind, FeedbackAcceptedParentPeerTarget,
+        FeedbackAcceptedSnapshotDelta, FeedbackAssetPathFacet, FeedbackEntryLocator,
+        FeedbackFindResult, FeedbackFindTarget, FeedbackFingerprintPeerTarget, FeedbackFocusTarget,
+        FeedbackObservation, FeedbackObservationEvidence, FeedbackReturnTrail, FeedbackVaultEntry,
+        FeedbackVaultFacet,
     };
 
     #[test]
@@ -5217,6 +5433,138 @@ mod tests {
         assert_eq!(app.assets_view, AssetsView::Files);
         assert_eq!(app.selected.as_deref(), Some(source_path));
         assert!(app.return_trail.is_empty());
+    }
+
+    #[test]
+    fn accepted_parent_peer_activation_routes_cross_lens_and_participates_in_return() {
+        let fixture = ReloadFixture::new("accepted-parent-peer-route");
+        fixture.write_external_file("Server Data/Accounts.dat", b"accounts");
+        let project = fixture.project();
+        let source_path = "Data/Server Data/Actors.dat";
+        let destination_path = "Data/Server Data/Accounts.dat";
+        let mut app = LedgerApp::shell(fixture.root().to_path_buf());
+        app.project = Some(project);
+        app.lens = Lens::Records;
+        app.records_view = RecordsView::Files;
+        app.selected = Some(source_path.to_owned());
+
+        assert!(
+            app.activate_accepted_parent_peer_target(FeedbackAcceptedParentPeerTarget {
+                parent: "Data/Server Data".to_owned(),
+                lens: Lens::Vault,
+                path: destination_path.to_owned(),
+            })
+        );
+        assert_eq!(app.lens, Lens::Vault);
+        assert_eq!(app.vault_view, VaultView::Files);
+        assert_eq!(app.selected.as_deref(), Some(destination_path));
+        assert_eq!(app.return_trail.len(), 1);
+
+        assert!(app.return_to_previous_focus());
+        assert_eq!(app.lens, Lens::Records);
+        assert_eq!(app.records_view, RecordsView::Files);
+        assert_eq!(app.selected.as_deref(), Some(source_path));
+        assert!(app.return_trail.is_empty());
+    }
+
+    #[test]
+    fn accepted_parent_peer_rejects_stale_and_self_targets_without_state_mutation() {
+        let fixture = ReloadFixture::new("accepted-parent-peer-stale");
+        fixture.write_external_file("Server Data/Accounts.dat", b"accounts");
+        let mut app = LedgerApp::shell(fixture.root().to_path_buf());
+        app.project = Some(fixture.project());
+        app.lens = Lens::Records;
+        app.records_view = RecordsView::Files;
+        app.selected = Some("Data/Server Data/Actors.dat".to_owned());
+        let before_focus = app.current_focus_target();
+        let before_trail = app.return_trail.clone();
+
+        assert!(
+            !app.activate_accepted_parent_peer_target(FeedbackAcceptedParentPeerTarget {
+                parent: "Data/server data".to_owned(),
+                lens: Lens::Vault,
+                path: "Data/Server Data/Accounts.dat".to_owned(),
+            })
+        );
+        assert_eq!(app.current_focus_target(), before_focus);
+        assert_eq!(app.return_trail, before_trail);
+
+        assert!(
+            !app.activate_accepted_parent_peer_target(FeedbackAcceptedParentPeerTarget {
+                parent: "Data/Server Data".to_owned(),
+                lens: Lens::Records,
+                path: "Data/Server Data/Actors.dat".to_owned(),
+            })
+        );
+        assert_eq!(app.current_focus_target(), before_focus);
+        assert_eq!(app.return_trail, before_trail);
+    }
+
+    #[test]
+    fn accepted_parent_asset_peer_routes_through_files_all_and_clears_filter() {
+        let fixture = ReloadFixture::new("accepted-parent-peer-assets");
+        fixture.write_external_file("Meshes/Peers/a.bin", b"a");
+        fixture.write_external_file("Meshes/Peers/b.bin", b"b");
+        let mut app = LedgerApp::shell(fixture.root().to_path_buf());
+        app.project = Some(fixture.project());
+        app.lens = Lens::Assets;
+        app.assets_view = AssetsView::Files;
+        app.asset_path_facet = FeedbackAssetPathFacet::Textures;
+        app.filter = "hidden".to_owned();
+        app.selected = Some("Data/Meshes/Peers/a.bin".to_owned());
+
+        assert!(
+            app.activate_accepted_parent_peer_target(FeedbackAcceptedParentPeerTarget {
+                parent: "Data/Meshes/Peers".to_owned(),
+                lens: Lens::Assets,
+                path: "Data/Meshes/Peers/b.bin".to_owned(),
+            })
+        );
+        assert_eq!(app.lens, Lens::Assets);
+        assert_eq!(app.assets_view, AssetsView::Files);
+        assert_eq!(app.asset_path_facet, FeedbackAssetPathFacet::All);
+        assert!(app.filter.is_empty());
+        assert_eq!(app.selected.as_deref(), Some("Data/Meshes/Peers/b.bin"));
+        assert_eq!(app.return_trail.len(), 1);
+    }
+
+    #[test]
+    fn accepted_parent_membership_swaps_only_with_an_accepted_replacement() {
+        let fixture = ReloadFixture::new("accepted-parent-peer-reload");
+        fixture.write_external_file("Areas/Sibling.dat", b"sibling");
+        let root = fixture.root().to_path_buf();
+        let mut app = LedgerApp::shell(root.clone());
+        app.project = Some(fixture.project());
+        assert!(app
+            .project
+            .as_ref()
+            .and_then(|project| project.accepted_parent_group_for_path("Data/Areas/Start.dat"))
+            .is_some());
+
+        fixture.remove_external_file("Areas/Sibling.dat");
+        assert!(app.load_gate.try_begin());
+        app.pending_load = Some(PendingLoad {
+            root: root.clone(),
+            purpose: LoadPurpose::Reload,
+        });
+        app.finish_failed("replacement rejected".to_owned());
+        assert!(app
+            .project
+            .as_ref()
+            .and_then(|project| project.accepted_parent_group_for_path("Data/Areas/Start.dat"))
+            .is_some());
+
+        assert!(app.load_gate.try_begin());
+        app.pending_load = Some(PendingLoad {
+            root,
+            purpose: LoadPurpose::Reload,
+        });
+        app.finish_ready(Box::new(fixture.project()));
+        assert!(app
+            .project
+            .as_ref()
+            .and_then(|project| project.accepted_parent_group_for_path("Data/Areas/Start.dat"))
+            .is_none());
     }
 
     #[test]
@@ -5992,6 +6340,28 @@ mod tests {
     }
 
     #[test]
+    fn maximum_accepted_parent_peer_copy_keeps_the_virtualized_row_at_its_exact_height() {
+        let path = format!("Data/{}", "x".repeat(4091));
+        let context = Context::default();
+        let mut actual_height = 0.0;
+        let input = RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(325.0, 485.0))),
+            ..Default::default()
+        };
+
+        let _ = context.run(input, |context| {
+            CentralPanel::default().show(context, |ui| {
+                actual_height =
+                    super::accepted_parent_peer_row(ui, "Data", Lens::Assets, &path, 4_096)
+                        .rect
+                        .height();
+            });
+        });
+
+        assert_eq!(actual_height, super::ACCEPTED_PARENT_PEER_ROW_HEIGHT);
+    }
+
+    #[test]
     fn maximum_asset_path_keeps_the_virtualized_file_row_at_its_exact_height() {
         let path = format!("Data/{}", "x".repeat(4091));
         let context = Context::default();
@@ -6041,6 +6411,87 @@ mod tests {
             super::fingerprint_peer_member_indices(9_995..9_999, 5_000).collect::<Vec<_>>(),
             vec![9_996, 9_997, 9_998, 9_999]
         );
+    }
+
+    #[test]
+    fn large_accepted_parent_peer_ranges_map_first_middle_and_last_members_exactly() {
+        assert_eq!(
+            super::accepted_parent_peer_member_indices(0..4, 0).collect::<Vec<_>>(),
+            vec![1, 2, 3, 4]
+        );
+        assert_eq!(
+            super::accepted_parent_peer_member_indices(4_998..5_002, 5_000).collect::<Vec<_>>(),
+            vec![4_998, 4_999, 5_001, 5_002]
+        );
+        assert_eq!(
+            super::accepted_parent_peer_member_indices(9_995..9_999, 5_000).collect::<Vec<_>>(),
+            vec![9_996, 9_997, 9_998, 9_999]
+        );
+    }
+
+    #[test]
+    fn production_width_inspector_keeps_parent_and_fingerprint_sections_reachable() {
+        let fixture = ReloadFixture::new("accepted-parent-peer-inspector-geometry");
+        for index in 0..300 {
+            fixture.write_external_file(
+                &format!("Meshes/Peers/peer-{index:03}.bin"),
+                b"large nested peer group",
+            );
+        }
+        let project = fixture.project();
+        let current = project
+            .entries(Lens::Assets)
+            .iter()
+            .find(|entry| entry.path == "Data/Meshes/Peers/peer-000.bin")
+            .expect("large parent and fingerprint peer fixture entry");
+        let context = Context::default();
+        super::configure_style(&context);
+        let mut heading_rect = Rect::NOTHING;
+        let mut parent_rect = Rect::NOTHING;
+        let mut fingerprint_rect = Rect::NOTHING;
+        let mut final_rect = Rect::NOTHING;
+        let input = RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(325.0, 485.0))),
+            ..Default::default()
+        };
+
+        let _ = context.run(input, |context| {
+            CentralPanel::default()
+                .frame(Frame::none().inner_margin(Margin::same(18.0)))
+                .show(context, |ui| {
+                    heading_rect = ui.label("INSPECTOR").rect;
+                    ui.add_space(8.0);
+                    eframe::egui::ScrollArea::vertical()
+                        .id_salt("accepted-parent-peer-geometry-inspector")
+                        .auto_shrink([false, false])
+                        .show(ui, |ui| {
+                            parent_rect = ui
+                                .scope(|ui| {
+                                    let _ =
+                                        super::accepted_parent_peer_section(ui, &project, current);
+                                })
+                                .response
+                                .rect;
+                            ui.add_space(16.0);
+                            fingerprint_rect = ui
+                                .scope(|ui| {
+                                    let _ = super::fingerprint_peer_section(ui, &project, current);
+                                })
+                                .response
+                                .rect;
+                            final_rect = ui.label("FINAL TRUTH BOUNDARY").rect;
+                        });
+                });
+        });
+
+        assert!(heading_rect.bottom() <= parent_rect.top());
+        assert!(parent_rect.bottom() < fingerprint_rect.top());
+        assert!(fingerprint_rect.bottom() <= final_rect.top());
+        for rect in [parent_rect, fingerprint_rect, final_rect] {
+            assert!(rect.left() >= 18.0);
+            assert!(rect.right() <= 307.0);
+        }
+        assert!(final_rect.bottom() > 485.0);
     }
 
     #[test]

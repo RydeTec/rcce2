@@ -1,9 +1,9 @@
 use rcce_editor_core::{
-    load_feedback_project, FeedbackAcceptedFileDeltaKind, FeedbackAcceptedSnapshotDelta,
-    FeedbackActorBaseMeshSlotZeroEvidence, FeedbackActorCount, FeedbackAssetPathFacet,
-    FeedbackEvidence, FeedbackFindTarget, FeedbackFingerprintPeerTarget, FeedbackMediaStatus,
-    FeedbackObservationEvidence, FeedbackProject, FeedbackScriptFamily, FeedbackVaultFacet,
-    FeedbackZoneStatus, Lens,
+    load_feedback_project, FeedbackAcceptedFileDeltaKind, FeedbackAcceptedParentPeerTarget,
+    FeedbackAcceptedSnapshotDelta, FeedbackActorBaseMeshSlotZeroEvidence, FeedbackActorCount,
+    FeedbackAssetPathFacet, FeedbackEvidence, FeedbackFindTarget, FeedbackFingerprintPeerTarget,
+    FeedbackMediaStatus, FeedbackObservationEvidence, FeedbackProject, FeedbackScriptFamily,
+    FeedbackVaultFacet, FeedbackZoneStatus, Lens,
 };
 use std::{collections::HashSet, fs, path::PathBuf, time::SystemTime};
 
@@ -62,6 +62,39 @@ fn fingerprint_peer_fixture() -> PathBuf {
         fs::write(root.join(path), b"").expect("zero-byte peer fixture");
     }
     fs::write(root.join("Server Data/Singleton.dat"), b"singleton").expect("singleton fixture");
+    root
+}
+
+fn accepted_parent_peer_fixture() -> PathBuf {
+    let nonce = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .expect("system clock")
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!(
+        "rcce-feedback-parent-peers-{}-{nonce}",
+        std::process::id()
+    ));
+    for directory in [
+        "Areas",
+        "Meshes/Peers",
+        "Server Data",
+        "Server Data/Scripts",
+    ] {
+        fs::create_dir_all(root.join(directory)).expect("parent peer fixture directory");
+    }
+    for (path, bytes) in [
+        ("Areas/alpha.dat", b"area-a".as_slice()),
+        ("Areas/Zulu.dat", b"area-z".as_slice()),
+        ("Meshes/Peers/empty.bin", b"".as_slice()),
+        ("Meshes/Peers/mesh.bin", b"mesh".as_slice()),
+        ("Server Data/Accounts.dat", b"accounts".as_slice()),
+        ("Server Data/Actors.dat", b"actors".as_slice()),
+        ("Server Data/Scripts/a.rsl", b"script-a".as_slice()),
+        ("Server Data/Scripts/B.rsl", b"script-b".as_slice()),
+        ("singleton.bin", b"single".as_slice()),
+    ] {
+        fs::write(root.join(path), bytes).expect("parent peer fixture file");
+    }
     root
 }
 
@@ -429,6 +462,64 @@ fn indexes_exact_accepted_source_fingerprint_peers_without_inference() {
     );
 
     fs::remove_dir_all(path).expect("fingerprint fixture cleanup");
+}
+
+#[test]
+fn indexes_exact_accepted_parent_peers_without_semantic_inference() {
+    let root = accepted_parent_peer_fixture();
+    let project = load_feedback_project(root.clone(), |_| {}).expect("parent peer project");
+
+    assert_eq!(project.accepted_parent_peer_group_count(), 4);
+    assert_eq!(project.accepted_parent_peer_member_count(), 8);
+
+    let server_group = project
+        .accepted_parent_group_for_path("Data/Server Data/Actors.dat")
+        .expect("cross-lens exact parent group");
+    assert_eq!(server_group.parent, "Data/Server Data");
+    let server_paths = server_group
+        .members()
+        .iter()
+        .map(|locator| {
+            let entry = project.entry(*locator).expect("parent locator resolves");
+            (locator.lens, entry.path.as_str())
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        server_paths,
+        vec![
+            (Lens::Vault, "Data/Server Data/Accounts.dat"),
+            (Lens::Records, "Data/Server Data/Actors.dat"),
+        ]
+    );
+
+    let mesh_group = project
+        .accepted_parent_group_for_path("Data/Meshes/Peers/empty.bin")
+        .expect("zero-byte accepted member participates");
+    assert_eq!(mesh_group.members().len(), 2);
+    assert!(project
+        .accepted_parent_group_for_path("Data/singleton.bin")
+        .is_none());
+
+    let target = FeedbackAcceptedParentPeerTarget {
+        parent: "Data/Server Data".to_owned(),
+        lens: Lens::Vault,
+        path: "Data/Server Data/Accounts.dat".to_owned(),
+    };
+    assert!(project.contains_accepted_parent_peer_target(&target));
+    assert!(
+        !project.contains_accepted_parent_peer_target(&FeedbackAcceptedParentPeerTarget {
+            parent: "Data/server data".to_owned(),
+            ..target.clone()
+        })
+    );
+    assert!(
+        !project.contains_accepted_parent_peer_target(&FeedbackAcceptedParentPeerTarget {
+            lens: Lens::Records,
+            ..target
+        })
+    );
+
+    fs::remove_dir_all(root).expect("parent peer fixture cleanup");
 }
 
 #[test]
