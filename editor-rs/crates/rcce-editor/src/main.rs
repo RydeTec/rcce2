@@ -6,8 +6,8 @@ use rcce_editor_core::{
     load_feedback_project, FeedbackActor, FeedbackActorCount, FeedbackEntry, FeedbackEvidence,
     FeedbackFindResult, FeedbackFindTarget, FeedbackFocusTarget, FeedbackLoadProgress,
     FeedbackMediaStatus, FeedbackObservation, FeedbackObservationEvidence, FeedbackProject,
-    FeedbackReturnTrail, FeedbackScript, FeedbackScriptFamily, FeedbackZone, FeedbackZoneStatus,
-    Lens,
+    FeedbackReturnTrail, FeedbackScript, FeedbackScriptFamily, FeedbackVaultEntry,
+    FeedbackVaultFacet, FeedbackZone, FeedbackZoneStatus, Lens,
 };
 use std::{
     path::{Path, PathBuf},
@@ -34,6 +34,7 @@ const PALETTE_ROW_HEIGHT: f32 = 52.0;
 const PALETTE_VIEW_HEIGHT: f32 = 420.0;
 const OBSERVATION_ROW_HEIGHT: f32 = 64.0;
 const OBSERVATION_VIEW_HEIGHT: f32 = 360.0;
+const VAULT_ROW_HEIGHT: f32 = 58.0;
 
 fn main() -> ExitCode {
     let data_root = parse_project_arg().unwrap_or_else(default_data_root);
@@ -41,8 +42,9 @@ fn main() -> ExitCode {
         return match load_feedback_project(data_root, |_| {}) {
             Ok(project) => {
                 let actor_catalog = project.actor_catalog();
+                let vault_catalog = project.vault_catalog();
                 println!(
-                    "[super-editor-mvp] ready: {} files, {} bytes, {} unavailable; actors={} actor_evidence={} actor_reference_issues={} actor_base_meshes={} zones={} zone_pairing_issues={} scripts={} script_adjuncts={} script_inventory_issues={} known_observations={} actor_diagnostics={}",
+                    "[super-editor-mvp] ready: {} files, {} bytes, {} unavailable; actors={} actor_evidence={} actor_reference_issues={} actor_base_meshes={} zones={} zone_pairing_issues={} scripts={} script_adjuncts={} script_inventory_issues={} known_observations={} actor_diagnostics={} vault_files={} vault_secret_labeled={} vault_dynamic_private_labeled={} vault_server_config_labeled={} vault_other={}",
                     project.total_files(),
                     project.total_bytes(),
                     project.unavailable,
@@ -56,7 +58,12 @@ fn main() -> ExitCode {
                     project.script_catalog().adjunct_files,
                     project.script_catalog().diagnostics.len(),
                     project.observation_index().observations.len(),
-                    actor_diagnostic_coverage_smoke(project.observation_index().actor_evidence)
+                    actor_diagnostic_coverage_smoke(project.observation_index().actor_evidence),
+                    vault_catalog.count(FeedbackVaultFacet::All),
+                    vault_catalog.count(FeedbackVaultFacet::Secret),
+                    vault_catalog.count(FeedbackVaultFacet::DynamicPrivate),
+                    vault_catalog.count(FeedbackVaultFacet::ServerConfig),
+                    vault_catalog.count(FeedbackVaultFacet::Other)
                 );
                 ExitCode::SUCCESS
             }
@@ -230,6 +237,12 @@ enum ScriptsView {
     Files,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum VaultView {
+    Boundaries,
+    Files,
+}
+
 fn transition_records_view(
     current: RecordsView,
     target: RecordsView,
@@ -314,6 +327,39 @@ fn transition_scripts_view(
         *selected_script = None;
     }
     target
+}
+
+fn transition_vault_view(
+    current: VaultView,
+    target: VaultView,
+    selected_file: &mut Option<String>,
+) -> VaultView {
+    if current != target {
+        *selected_file = None;
+    }
+    target
+}
+
+fn retain_vault_facet_selection(
+    project: &FeedbackProject,
+    facet: FeedbackVaultFacet,
+    selected_file: &mut Option<String>,
+) {
+    if selected_file.as_ref().is_some_and(|selected| {
+        !project
+            .vault_catalog()
+            .entries
+            .iter()
+            .any(|entry| entry.path == *selected && entry.has_facet(facet))
+    }) {
+        *selected_file = None;
+    }
+}
+
+fn atlas_header_rows(ui: &mut egui::Ui, title: impl FnOnce(&mut egui::Ui)) -> egui::Rect {
+    let title_rect = ui.vertical(title).response.rect;
+    ui.add_space(6.0);
+    title_rect
 }
 
 #[derive(Default)]
@@ -451,6 +497,8 @@ struct LedgerApp {
     assets_view: AssetsView,
     scripts_view: ScriptsView,
     script_family: Option<FeedbackScriptFamily>,
+    vault_view: VaultView,
+    vault_facet: FeedbackVaultFacet,
     palette_open: bool,
     palette_query: String,
     palette_highlight: usize,
@@ -483,6 +531,8 @@ impl LedgerApp {
             assets_view: AssetsView::Relationships,
             scripts_view: ScriptsView::Catalog,
             script_family: None,
+            vault_view: VaultView::Boundaries,
+            vault_facet: FeedbackVaultFacet::All,
             palette_open: false,
             palette_query: String::new(),
             palette_highlight: 0,
@@ -629,6 +679,9 @@ impl LedgerApp {
             &mut self.selected_zone,
             &mut self.selected_script,
         );
+        if self.lens == Lens::Vault && self.vault_view == VaultView::Boundaries {
+            retain_vault_facet_selection(&project, self.vault_facet, &mut self.selected);
+        }
         match purpose {
             LoadPurpose::Reload => {
                 let removed = self
@@ -980,7 +1033,7 @@ impl LedgerApp {
                     Lens::World => self.world_view = WorldView::Files,
                     Lens::Assets => self.assets_view = AssetsView::Files,
                     Lens::Scripts => self.scripts_view = ScriptsView::Files,
-                    Lens::Vault => {}
+                    Lens::Vault => self.vault_view = VaultView::Files,
                 }
                 self.selected = Some(path);
             }
@@ -1587,11 +1640,23 @@ impl LedgerApp {
                         .stroke(Stroke::new(1.0, Color32::from_rgb(54, 91, 71)))
                         .inner_margin(Margin::same(12.0))
                         .show(ui, |ui| {
-                            ui.label(RichText::new("OBSERVATION ONLY").color(GREEN).strong());
+                            let vault_boundary = self.lens == Lens::Vault
+                                && self.vault_view == VaultView::Boundaries;
                             ui.label(
-                                RichText::new(
-                                    "This surface has no write, repair, rename, or conversion path.",
-                                )
+                                RichText::new(if vault_boundary {
+                                    "PATH CLASSIFICATION EVIDENCE ONLY"
+                                } else {
+                                    "OBSERVATION ONLY"
+                                })
+                                .color(GREEN)
+                                .strong(),
+                            );
+                            ui.label(
+                                RichText::new(if vault_boundary {
+                                    "No content was inspected to prove credentials, safety, validity, recoverability, or publication policy. This surface has no write path."
+                                } else {
+                                    "This surface has no write, repair, rename, or conversion path."
+                                })
                                 .size(12.0)
                                 .color(MUTED),
                             );
@@ -1960,42 +2025,46 @@ impl LedgerApp {
         let zone_view = self.lens == Lens::World && self.world_view == WorldView::Zones;
         let asset_view = self.lens == Lens::Assets && self.assets_view == AssetsView::Relationships;
         let script_view = self.lens == Lens::Scripts && self.scripts_view == ScriptsView::Catalog;
+        let vault_view = self.lens == Lens::Vault && self.vault_view == VaultView::Boundaries;
+        let atlas_title = if actor_view {
+            "Actor catalog".to_owned()
+        } else if zone_view {
+            "Paired zone atlas".to_owned()
+        } else if asset_view {
+            "Actor base-mesh relationships".to_owned()
+        } else if script_view {
+            "Script constellation".to_owned()
+        } else if vault_view {
+            "Vault state boundaries".to_owned()
+        } else {
+            format!("{} atlas", self.lens.label())
+        };
+        let atlas_subtitle = if actor_view {
+            "Client/server consensus · stable actor identities · live media health"
+        } else if zone_view {
+            "Filename identities · visual/gameplay pairing · directly observed gaps"
+        } else if asset_view {
+            "Raw mesh IDs · actor backlinks · evidence-qualified media observations"
+        } else if script_view {
+            "Active .rsl anchors · literal-prefix families · observed same-stem adjuncts"
+        } else if vault_view {
+            "Accepted path-classification evidence · overlapping handling boundaries · no content inspection"
+        } else {
+            "One project snapshot · stable observed identities"
+        };
         egui::CentralPanel::default()
             .frame(Frame::none().fill(CANVAS).inner_margin(Margin::same(20.0)))
             .show(context, |ui| {
-                ui.horizontal(|ui| {
-                    ui.vertical(|ui| {
-                        let title = if actor_view {
-                            "Actor catalog".to_owned()
-                        } else if zone_view {
-                            "Paired zone atlas".to_owned()
-                        } else if asset_view {
-                            "Actor base-mesh relationships".to_owned()
-                        } else if script_view {
-                            "Script constellation".to_owned()
-                        } else {
-                            format!("{} atlas", self.lens.label())
-                        };
+                let _ = atlas_header_rows(
+                    ui,
+                    |ui| {
                         ui.label(
-                            RichText::new(title)
+                            RichText::new(&atlas_title)
                                 .size(25.0)
                                 .color(INK)
                                 .strong(),
                         );
-                        ui.label(
-                            RichText::new(if actor_view {
-                                "Client/server consensus · stable actor identities · live media health"
-                            } else if zone_view {
-                                "Filename identities · visual/gameplay pairing · directly observed gaps"
-                            } else if asset_view {
-                                "Raw mesh IDs · actor backlinks · evidence-qualified media observations"
-                            } else if script_view {
-                                "Active .rsl anchors · literal-prefix families · observed same-stem adjuncts"
-                            } else {
-                                "One project snapshot · stable observed identities"
-                            })
-                                .color(MUTED),
-                        );
+                        ui.label(RichText::new(atlas_subtitle).color(MUTED));
                     });
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         ui.add_sized(
@@ -2009,6 +2078,8 @@ impl LedgerApp {
                                     "Filter mesh IDs, actors, or states…"
                                 } else if script_view {
                                     "Filter scripts, families, or paths…"
+                                } else if vault_view {
+                                    "Filter Vault paths or boundary labels…"
                                 } else {
                                     "Filter observed paths…"
                                 }),
@@ -2118,8 +2189,32 @@ impl LedgerApp {
                                 );
                             }
                         }
+                        if self.lens == Lens::Vault {
+                            if ui
+                                .selectable_label(self.vault_view == VaultView::Files, "FILES")
+                                .clicked()
+                            {
+                                self.vault_view = transition_vault_view(
+                                    self.vault_view,
+                                    VaultView::Files,
+                                    &mut self.selected,
+                                );
+                            }
+                            if ui
+                                .selectable_label(
+                                    self.vault_view == VaultView::Boundaries,
+                                    "STATE BOUNDARIES",
+                                )
+                                .clicked()
+                            {
+                                self.vault_view = transition_vault_view(
+                                    self.vault_view,
+                                    VaultView::Boundaries,
+                                    &mut self.selected,
+                                );
+                            }
+                        }
                     });
-                });
                 ui.add_space(14.0);
                 if actor_view {
                     self.actor_catalog(ui);
@@ -2129,6 +2224,8 @@ impl LedgerApp {
                     self.asset_relationships(ui);
                 } else if script_view {
                     self.script_catalog(ui);
+                } else if vault_view {
+                    self.vault_boundaries(ui);
                 } else {
                     self.file_atlas(ui);
                 }
@@ -2805,6 +2902,144 @@ impl LedgerApp {
         }
     }
 
+    fn vault_boundaries(&mut self, ui: &mut egui::Ui) {
+        let Some(project) = self.project.as_ref() else {
+            ui.vertical_centered(|ui| {
+                ui.spinner();
+                ui.label(RichText::new(&self.status).color(MUTED));
+            });
+            return;
+        };
+        let catalog = project.vault_catalog();
+        let counts = FeedbackVaultFacet::FILTERS.map(|facet| catalog.count(facet));
+        let total = catalog.count(FeedbackVaultFacet::All);
+
+        let mut requested_facet = None;
+        Frame::none()
+            .fill(PANEL_RAISED)
+            .stroke(Stroke::new(1.0, Color32::from_rgb(48, 53, 51)))
+            .inner_margin(Margin::symmetric(14.0, 11.0))
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new("ACCEPTED PATH EVIDENCE").color(GREEN).strong());
+                    ui.separator();
+                    ui.label(RichText::new(format!("{total} unique Vault paths")).color(INK));
+                    ui.separator();
+                    ui.label(RichText::new("facet counts overlap").color(BRASS));
+                });
+                ui.label(
+                    RichText::new(
+                        "Labels come from path-classification rules only. Secret does not prove credentials; unknown does not mean safe or disposable.",
+                    )
+                    .size(12.0)
+                    .color(MUTED),
+                );
+                ui.add_space(5.0);
+                ui.horizontal_wrapped(|ui| {
+                    if ui
+                        .selectable_label(
+                            self.vault_facet == FeedbackVaultFacet::All,
+                            format!("ALL  {total}"),
+                        )
+                        .clicked()
+                    {
+                        requested_facet = Some(FeedbackVaultFacet::All);
+                    }
+                    for (facet, count) in FeedbackVaultFacet::FILTERS.into_iter().zip(counts) {
+                        if ui
+                            .selectable_label(
+                                self.vault_facet == facet,
+                                format!("{}  {count}", facet.label()),
+                            )
+                            .clicked()
+                        {
+                            requested_facet = Some(facet);
+                        }
+                    }
+                });
+            });
+
+        if let Some(facet) = requested_facet {
+            self.vault_facet = facet;
+            let keep_selection = self.selected.as_ref().is_none_or(|selected| {
+                catalog
+                    .entries
+                    .iter()
+                    .any(|entry| entry.path == *selected && entry.has_facet(facet))
+            });
+            if !keep_selection {
+                self.selected = None;
+            }
+        }
+        ui.add_space(8.0);
+
+        let filter = self.filter.to_ascii_lowercase();
+        let visible = catalog
+            .entries
+            .iter()
+            .filter(|entry| entry.has_facet(self.vault_facet))
+            .filter(|entry| {
+                filter.is_empty()
+                    || entry.path.to_ascii_lowercase().contains(&filter)
+                    || entry
+                        .facets
+                        .iter()
+                        .any(|facet| facet.label().to_ascii_lowercase().contains(&filter))
+            })
+            .collect::<Vec<_>>();
+        let selected = self.selected.as_deref();
+        let mut clicked_path = None;
+
+        Frame::none()
+            .fill(PANEL_RAISED)
+            .stroke(Stroke::new(1.0, Color32::from_rgb(48, 53, 51)))
+            .inner_margin(Margin::same(1.0))
+            .show(ui, |ui| {
+                if visible.is_empty() {
+                    ui.add_space(28.0);
+                    ui.vertical_centered(|ui| {
+                        ui.label(
+                            RichText::new("No accepted Vault paths in this boundary facet")
+                                .size(17.0)
+                                .color(INK),
+                        );
+                        ui.label(
+                            RichText::new(
+                                "This is accepted path-classification coverage only; it is not a safety or project-health result.",
+                            )
+                            .color(MUTED),
+                        );
+                    });
+                    return;
+                }
+                ScrollArea::vertical()
+                    .id_salt("vault_boundary_rows")
+                    .max_height(ui.available_height())
+                    .auto_shrink([false, false])
+                    .show_rows(ui, VAULT_ROW_HEIGHT, visible.len(), |ui, visible_rows| {
+                        for index in visible_rows {
+                            let entry = visible[index];
+                            if vault_boundary_row(
+                                ui,
+                                entry,
+                                selected == Some(entry.path.as_str()),
+                            )
+                            .clicked()
+                            {
+                                clicked_path = Some(entry.path.clone());
+                            }
+                        }
+                    });
+            });
+        if let Some(path) = clicked_path {
+            self.selected = Some(path);
+            self.selected_actor = None;
+            self.selected_mesh = None;
+            self.selected_zone = None;
+            self.selected_script = None;
+        }
+    }
+
     fn file_atlas(&mut self, ui: &mut egui::Ui) {
         Frame::none()
             .fill(PANEL_RAISED)
@@ -2938,6 +3173,39 @@ fn palette_result_row(
     })
     .inner
     .on_hover_text(full_text)
+}
+
+fn vault_boundary_row(
+    ui: &mut egui::Ui,
+    entry: &FeedbackVaultEntry,
+    selected: bool,
+) -> egui::Response {
+    let facets = entry
+        .facets
+        .iter()
+        .map(|facet| facet.label())
+        .collect::<Vec<_>>()
+        .join(" · ");
+    let row = Frame::none()
+        .fill(if selected {
+            Color32::from_rgb(59, 49, 31)
+        } else {
+            Color32::TRANSPARENT
+        })
+        .inner_margin(Margin::symmetric(13.0, 7.0))
+        .show(ui, |ui| {
+            ui.set_min_width(ui.available_width());
+            ui.set_min_height(VAULT_ROW_HEIGHT - 14.0);
+            ui.style_mut().wrap_mode = Some(TextWrapMode::Truncate);
+            ui.label(RichText::new(&entry.path).size(13.0).color(INK));
+            ui.label(RichText::new(&facets).size(10.0).color(BRASS));
+        });
+    ui.interact(
+        row.response.rect,
+        ui.make_persistent_id(("vault-boundary", &entry.path)),
+        Sense::click(),
+    )
+    .on_hover_text(format!("{}\n{facets}", entry.path))
 }
 
 fn observation_row(ui: &mut egui::Ui, observation: &FeedbackObservation) -> egui::Response {
@@ -3208,16 +3476,21 @@ fn format_bytes(bytes: u64) -> String {
 mod tests {
     use super::reload_test_support::ReloadFixture;
     use super::{
-        actor_mesh_target, actor_thread_targets, asset_evidence_copy, navigate_relationship,
-        script_family_observation, transition_assets_view, transition_records_view,
-        transition_scripts_view, transition_world_view, AssetsView, FeedbackEvidence,
+        actor_mesh_target, actor_thread_targets, asset_evidence_copy, atlas_header_rows,
+        navigate_relationship, retain_vault_facet_selection, script_family_observation,
+        transition_assets_view, transition_records_view, transition_scripts_view,
+        transition_vault_view, transition_world_view, AssetsView, FeedbackEvidence,
         FeedbackMediaStatus, FeedbackScriptFamily, LedgerApp, Lens, LoadGate, LoadPurpose,
-        PendingLoad, RecordsView, RelationshipTarget, ScriptsView, WorldView,
+        PendingLoad, RecordsView, RelationshipTarget, ScriptsView, VaultView, WorldView, INK,
+        MUTED,
     };
-    use eframe::egui::{CentralPanel, Context, Event, Key, Modifiers, Pos2, RawInput, Rect, Vec2};
+    use eframe::egui::{
+        Align, CentralPanel, Context, Event, Frame, Key, Layout, Margin, Modifiers, Pos2, RawInput,
+        Rect, RichText, TextEdit, Vec2,
+    };
     use rcce_editor_core::{
         FeedbackFindResult, FeedbackFindTarget, FeedbackFocusTarget, FeedbackObservation,
-        FeedbackObservationEvidence, FeedbackReturnTrail,
+        FeedbackObservationEvidence, FeedbackReturnTrail, FeedbackVaultEntry, FeedbackVaultFacet,
     };
 
     #[test]
@@ -3416,6 +3689,41 @@ mod tests {
         assert_eq!(view, ScriptsView::Files);
         assert_eq!(selected_file, None);
         assert_eq!(selected_script, None);
+    }
+
+    #[test]
+    fn vault_view_transition_clears_file_selection_only_when_the_view_changes() {
+        let mut selected_file = Some("Data/Server Data/Accounts.dat".to_owned());
+        let view =
+            transition_vault_view(VaultView::Boundaries, VaultView::Files, &mut selected_file);
+        assert_eq!(view, VaultView::Files);
+        assert_eq!(selected_file, None);
+
+        selected_file = Some("Data/Server Data/Accounts.dat".to_owned());
+        let view = transition_vault_view(view, VaultView::Files, &mut selected_file);
+        assert_eq!(view, VaultView::Files);
+        assert_eq!(
+            selected_file.as_deref(),
+            Some("Data/Server Data/Accounts.dat")
+        );
+    }
+
+    #[test]
+    fn vault_facet_reconciliation_clears_only_an_incompatible_exact_path() {
+        let fixture = ReloadFixture::new("vault-facet-reconcile");
+        let project = fixture.project();
+        let path = "Data/Server Data/Privileged Scripts.dat";
+        let mut selected_file = Some(path.to_owned());
+
+        retain_vault_facet_selection(
+            &project,
+            FeedbackVaultFacet::ServerConfig,
+            &mut selected_file,
+        );
+        assert_eq!(selected_file.as_deref(), Some(path));
+
+        retain_vault_facet_selection(&project, FeedbackVaultFacet::Secret, &mut selected_file);
+        assert_eq!(selected_file, None);
     }
 
     #[test]
@@ -3659,7 +3967,7 @@ mod tests {
                 Lens::World => assert_eq!(app.world_view, WorldView::Files),
                 Lens::Assets => assert_eq!(app.assets_view, AssetsView::Files),
                 Lens::Scripts => assert_eq!(app.scripts_view, ScriptsView::Files),
-                Lens::Vault => {}
+                Lens::Vault => assert_eq!(app.vault_view, VaultView::Files),
             }
         }
     }
@@ -4261,6 +4569,70 @@ mod tests {
         });
 
         assert_eq!(actual_height, super::OBSERVATION_ROW_HEIGHT);
+    }
+
+    #[test]
+    fn maximum_vault_path_keeps_the_virtualized_row_at_its_exact_height() {
+        let entry = FeedbackVaultEntry {
+            path: format!("Data/{}", "x".repeat(4091)),
+            facets: vec![FeedbackVaultFacet::Other],
+        };
+        let context = Context::default();
+        let mut actual_height = 0.0;
+        let input = RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(900.0, 600.0))),
+            ..Default::default()
+        };
+
+        let _ = context.run(input, |context| {
+            CentralPanel::default().show(context, |ui| {
+                actual_height = super::vault_boundary_row(ui, &entry, false).rect.height();
+            });
+        });
+
+        assert_eq!(actual_height, super::VAULT_ROW_HEIGHT);
+    }
+
+    #[test]
+    fn minimum_width_atlas_header_keeps_controls_below_truth_copy() {
+        let context = Context::default();
+        let mut title_rect = Rect::NOTHING;
+        let mut controls_rect = Rect::NOTHING;
+        let input = RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(494.0, 200.0))),
+            ..Default::default()
+        };
+
+        let _ = context.run(input, |context| {
+            CentralPanel::default()
+                .frame(Frame::none().inner_margin(Margin::same(20.0)))
+                .show(context, |ui| {
+                    title_rect = atlas_header_rows(ui, |ui| {
+                        ui.label(
+                            RichText::new("Vault state boundaries")
+                                .size(25.0)
+                                .color(INK)
+                                .strong(),
+                        );
+                        ui.label(
+                            RichText::new("Accepted path-classification evidence · overlapping handling boundaries · no content inspection")
+                                .color(MUTED),
+                        );
+                    });
+                    controls_rect = ui
+                        .with_layout(Layout::right_to_left(Align::Center), |ui| {
+                            let mut filter = String::new();
+                            ui.add_sized([260.0, 34.0], TextEdit::singleline(&mut filter));
+                            let _ = ui.selectable_label(false, "FILES");
+                            let _ = ui.selectable_label(true, "STATE BOUNDARIES");
+                        })
+                        .response
+                        .rect;
+                });
+        });
+
+        assert!(title_rect.bottom() <= controls_rect.top());
+        assert!(controls_rect.right() <= 474.0);
     }
 
     #[test]

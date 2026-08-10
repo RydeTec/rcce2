@@ -37,6 +37,11 @@ fn smoke_contract_distinguishes_openable_and_missing_roots() {
     assert!(valid_stdout.contains("script_inventory_issues="));
     assert!(valid_stdout.contains("known_observations="));
     assert!(valid_stdout.contains("actor_diagnostics="));
+    assert!(valid_stdout.contains("vault_files="));
+    assert!(valid_stdout.contains("vault_secret_labeled="));
+    assert!(valid_stdout.contains("vault_dynamic_private_labeled="));
+    assert!(valid_stdout.contains("vault_server_config_labeled="));
+    assert!(valid_stdout.contains("vault_other="));
 
     let missing = root.join("missing");
     let invalid = Command::new(env!("CARGO_BIN_EXE_rcce-editor"))

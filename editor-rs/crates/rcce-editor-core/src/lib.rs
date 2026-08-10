@@ -8,7 +8,7 @@ pub use feedback::{
     FeedbackEntry, FeedbackEvidence, FeedbackFindResult, FeedbackFindTarget, FeedbackFocusTarget,
     FeedbackLoadProgress, FeedbackMediaStatus, FeedbackObservation, FeedbackObservationEvidence,
     FeedbackObservationIndex, FeedbackProject, FeedbackReturnTrail, FeedbackScript,
-    FeedbackScriptCatalog, FeedbackScriptDiagnostic, FeedbackScriptFamily, FeedbackZone,
-    FeedbackZoneCatalog, FeedbackZoneDiagnostic, FeedbackZoneStatus, Lens,
-    FEEDBACK_RETURN_TRAIL_CAPACITY,
+    FeedbackScriptCatalog, FeedbackScriptDiagnostic, FeedbackScriptFamily, FeedbackVaultCatalog,
+    FeedbackVaultEntry, FeedbackVaultFacet, FeedbackZone, FeedbackZoneCatalog,
+    FeedbackZoneDiagnostic, FeedbackZoneStatus, Lens, FEEDBACK_RETURN_TRAIL_CAPACITY,
 };

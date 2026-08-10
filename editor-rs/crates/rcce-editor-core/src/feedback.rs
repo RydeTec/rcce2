@@ -150,6 +150,90 @@ pub struct FeedbackEntry {
     pub compatibility: &'static str,
     pub classes: Vec<&'static str>,
     pub source_sha256: String,
+    state_classes: Vec<StateClass>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FeedbackVaultFacet {
+    All,
+    Secret,
+    DynamicPrivate,
+    ServerConfig,
+    Other,
+}
+
+impl FeedbackVaultFacet {
+    pub const FILTERS: [Self; 4] = [
+        Self::Secret,
+        Self::DynamicPrivate,
+        Self::ServerConfig,
+        Self::Other,
+    ];
+
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::All => "ALL",
+            Self::Secret => "SECRET",
+            Self::DynamicPrivate => "DYNAMIC PRIVATE",
+            Self::ServerConfig => "SERVER CONFIG",
+            Self::Other => "UNKNOWN / OTHER",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FeedbackVaultEntry {
+    pub path: String,
+    pub facets: Vec<FeedbackVaultFacet>,
+}
+
+impl FeedbackVaultEntry {
+    #[must_use]
+    pub fn has_facet(&self, facet: FeedbackVaultFacet) -> bool {
+        facet == FeedbackVaultFacet::All || self.facets.contains(&facet)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FeedbackVaultCatalog {
+    pub entries: Vec<FeedbackVaultEntry>,
+}
+
+impl FeedbackVaultCatalog {
+    fn from_entries(entries: &[FeedbackEntry]) -> Self {
+        let entries = entries
+            .iter()
+            .map(|entry| {
+                let mut facets = Vec::new();
+                if entry.state_classes.contains(&StateClass::Secret) {
+                    facets.push(FeedbackVaultFacet::Secret);
+                }
+                if entry.state_classes.contains(&StateClass::DynamicPrivate) {
+                    facets.push(FeedbackVaultFacet::DynamicPrivate);
+                }
+                if entry.state_classes.contains(&StateClass::ServerConfig) {
+                    facets.push(FeedbackVaultFacet::ServerConfig);
+                }
+                if facets.is_empty() {
+                    facets.push(FeedbackVaultFacet::Other);
+                }
+                FeedbackVaultEntry {
+                    path: entry.path.clone(),
+                    facets,
+                }
+            })
+            .collect();
+        Self { entries }
+    }
+
+    #[must_use]
+    pub fn count(&self, facet: FeedbackVaultFacet) -> usize {
+        self.entries
+            .iter()
+            .filter(|entry| entry.has_facet(facet))
+            .count()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -766,6 +850,7 @@ pub struct FeedbackProject {
     asset_catalog: FeedbackAssetCatalog,
     zone_catalog: FeedbackZoneCatalog,
     script_catalog: FeedbackScriptCatalog,
+    vault_catalog: FeedbackVaultCatalog,
     observation_index: FeedbackObservationIndex,
     find_candidates: Vec<FeedbackFindCandidate>,
     by_lens: [Vec<FeedbackEntry>; 5],
@@ -898,6 +983,7 @@ impl FeedbackProject {
                     .map(class_label)
                     .collect(),
                 source_sha256: hex(&file.fingerprint.0),
+                state_classes: classification.classes.clone(),
             };
             let lens = lens_for(&path).unwrap_or_else(|| {
                 unclassified_files += 1;
@@ -912,6 +998,7 @@ impl FeedbackProject {
         let zone_catalog = FeedbackZoneCatalog::from_world_entries(&by_lens[Lens::World.index()]);
         let script_catalog =
             FeedbackScriptCatalog::from_script_entries(&by_lens[Lens::Scripts.index()]);
+        let vault_catalog = FeedbackVaultCatalog::from_entries(&by_lens[Lens::Vault.index()]);
         let asset_catalog = FeedbackAssetCatalog::from_actor_catalog(&actor_catalog);
         let observation_index =
             FeedbackObservationIndex::from_catalogs(&actor_catalog, &zone_catalog, &script_catalog);
@@ -937,6 +1024,7 @@ impl FeedbackProject {
             asset_catalog,
             zone_catalog,
             script_catalog,
+            vault_catalog,
             observation_index,
             find_candidates,
             by_lens,
@@ -979,6 +1067,11 @@ impl FeedbackProject {
     #[must_use]
     pub const fn script_catalog(&self) -> &FeedbackScriptCatalog {
         &self.script_catalog
+    }
+
+    #[must_use]
+    pub const fn vault_catalog(&self) -> &FeedbackVaultCatalog {
+        &self.vault_catalog
     }
 
     #[must_use]

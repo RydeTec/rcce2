@@ -45,6 +45,19 @@ parse source, assert that an adjunct was generated from the source, or expose
 script editing; the exhaustive Scripts file atlas remains available beside the
 catalog.
 
+The Vault lens defaults to a State Boundaries map over the accepted path
+classification evidence. Every accepted Vault path appears exactly once in
+raw-path order, while overlapping Secret, Dynamic Private, and Server Config
+facets preserve every applicable label; paths outside those focused labels
+remain reachable through Unknown / Other and the exhaustive Files view. The
+existing inspector shows exact path, size, format family, compatibility,
+state-class labels, and source fingerprint without displaying file contents.
+`Secret` means classified for secret-handling policy, not proven credentials;
+Unknown / Other never means safe or disposable, and backup-looking paths are
+not promoted to authoritative or recoverable. This is not credential
+detection, validation, project health, administration, cleanup, repair,
+redaction proof, or a backup/publish allowlist.
+
 `KNOWN OBSERVATIONS` opens one project-wide navigator over the accepted
 diagnostic slices. Rows are ordered and exhaustive within three explicitly
 named evidence classes: consensus actor/media diagnostics, filename-pairing

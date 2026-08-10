@@ -1,7 +1,7 @@
 use rcce_editor_core::{
     load_feedback_project, FeedbackActorCount, FeedbackEvidence, FeedbackFindTarget,
     FeedbackMediaStatus, FeedbackObservationEvidence, FeedbackProject, FeedbackScriptFamily,
-    FeedbackZoneStatus, Lens,
+    FeedbackVaultFacet, FeedbackZoneStatus, Lens,
 };
 use std::{collections::HashSet, fs, path::PathBuf, time::SystemTime};
 
@@ -141,6 +141,33 @@ fn script_fixture() -> PathBuf {
     root
 }
 
+fn vault_fixture() -> PathBuf {
+    let nonce = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .expect("system clock")
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!(
+        "rcce-feedback-vault-{}-{nonce}",
+        std::process::id()
+    ));
+    fs::create_dir_all(root.join("Server Data")).expect("vault fixture directory");
+    for path in [
+        "Accounts.dat",
+        "Accounts.dat.bak",
+        "Dropped Items.dat",
+        "MySQL.dat",
+        "MySQL.dat.example",
+        "Names Filter.txt",
+        "Privileged Scripts.dat",
+        "Superglobals.dat",
+        "Superglobals.dat.bak",
+    ] {
+        fs::write(root.join("Server Data").join(path), path.as_bytes())
+            .expect("vault fixture file");
+    }
+    root
+}
+
 #[test]
 fn projects_real_inventory_into_five_lenses() {
     let (path, project) = project();
@@ -170,6 +197,111 @@ fn projects_real_inventory_into_five_lenses() {
         .entries(Lens::Records)
         .iter()
         .any(|entry| entry.path == "Data/mystery.bin"));
+
+    fs::remove_dir_all(path).expect("fixture cleanup");
+}
+
+#[test]
+fn projects_vault_state_boundaries_without_collapsing_overlapping_labels() {
+    let path = vault_fixture();
+    let project = load_feedback_project(path.clone(), |_| {}).expect("vault feedback project");
+    let catalog = project.vault_catalog();
+
+    assert_eq!(
+        catalog
+            .entries
+            .iter()
+            .map(|entry| entry.path.as_str())
+            .collect::<Vec<_>>(),
+        vec![
+            "Data/Server Data/Accounts.dat",
+            "Data/Server Data/Accounts.dat.bak",
+            "Data/Server Data/Dropped Items.dat",
+            "Data/Server Data/MySQL.dat",
+            "Data/Server Data/MySQL.dat.example",
+            "Data/Server Data/Names Filter.txt",
+            "Data/Server Data/Privileged Scripts.dat",
+            "Data/Server Data/Superglobals.dat",
+            "Data/Server Data/Superglobals.dat.bak",
+        ]
+    );
+    assert_eq!(catalog.entries.len(), 9);
+    assert_eq!(catalog.count(FeedbackVaultFacet::Secret), 3);
+    assert_eq!(catalog.count(FeedbackVaultFacet::DynamicPrivate), 5);
+    assert_eq!(catalog.count(FeedbackVaultFacet::ServerConfig), 3);
+    assert_eq!(catalog.count(FeedbackVaultFacet::Other), 1);
+
+    let accounts = catalog
+        .entries
+        .iter()
+        .find(|entry| entry.path.ends_with("Accounts.dat"))
+        .expect("accounts row");
+    assert_eq!(
+        accounts.facets,
+        vec![
+            FeedbackVaultFacet::Secret,
+            FeedbackVaultFacet::DynamicPrivate,
+        ]
+    );
+    let mysql = catalog
+        .entries
+        .iter()
+        .find(|entry| entry.path.ends_with("MySQL.dat"))
+        .expect("mysql configuration row");
+    assert_eq!(
+        mysql.facets,
+        vec![FeedbackVaultFacet::Secret, FeedbackVaultFacet::ServerConfig,]
+    );
+    let example = catalog
+        .entries
+        .iter()
+        .find(|entry| entry.path.ends_with("MySQL.dat.example"))
+        .expect("mysql example row");
+    assert_eq!(example.facets, vec![FeedbackVaultFacet::Other]);
+    assert_eq!(
+        project
+            .entries(Lens::Vault)
+            .iter()
+            .find(|entry| entry.path == example.path)
+            .expect("exact accepted entry")
+            .classes,
+        vec!["unknown"]
+    );
+
+    fs::remove_dir_all(path).expect("fixture cleanup");
+}
+
+#[test]
+fn vault_state_boundary_projection_is_exhaustive_beyond_one_viewport() {
+    let nonce = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .expect("system clock")
+        .as_nanos();
+    let path = std::env::temp_dir().join(format!(
+        "rcce-feedback-vault-many-{}-{nonce}",
+        std::process::id()
+    ));
+    fs::create_dir_all(path.join("Server Data")).expect("large vault fixture directory");
+    for index in 0..300 {
+        fs::write(
+            path.join(format!("Server Data/Accounts shard {index:03}.dat")),
+            index.to_string(),
+        )
+        .expect("large vault fixture file");
+    }
+
+    let project = load_feedback_project(path.clone(), |_| {}).expect("large vault project");
+    let catalog = project.vault_catalog();
+    assert_eq!(catalog.entries.len(), 300);
+    assert_eq!(catalog.count(FeedbackVaultFacet::Other), 300);
+    assert_eq!(
+        catalog.entries.first().expect("first row").path,
+        "Data/Server Data/Accounts shard 000.dat"
+    );
+    assert_eq!(
+        catalog.entries.last().expect("last row").path,
+        "Data/Server Data/Accounts shard 299.dat"
+    );
 
     fs::remove_dir_all(path).expect("fixture cleanup");
 }
