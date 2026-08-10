@@ -15,6 +15,16 @@ catalog/file diagnostics appear only when the consensus layer marks the slice
 authoritative; provisional projects remain browsable without presenting those
 diagnostics as proven facts.
 
+Sparse zero-offset media slots remain visible legacy topology and do not alone
+downgrade that accepted actor/base-mesh slice. Consensus still fails closed for
+aliases, invalid or decode-failed offsets, skipped records, parser disagreement
+or incompleteness, duplicate actor IDs, unsafe raw identities, and ambiguous
+physical resolution. An actor that references an unused slot is reported as
+`MissingCatalog`; exact physical paths appear only for uniquely resolved
+accepted inventory identities. This scoped consensus does not establish global
+media-catalog completeness, validity, provenance, orphan status, repair safety,
+or writer authority.
+
 The Assets lens derives a relationship view from that same accepted
 actor/media slice. It groups only actor-referenced base-mesh IDs, preserves the
 raw numeric mesh identities, and exposes actor backlinks plus evidence-qualified

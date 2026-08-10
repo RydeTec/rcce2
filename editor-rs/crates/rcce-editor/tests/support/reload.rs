@@ -68,6 +68,14 @@ impl ReloadFixture {
         .expect("external fixture repair");
     }
 
+    pub(crate) fn alias_unused_mesh_slot(&self) {
+        let path = self.root.join("Game Data/Meshes.dat");
+        let mut catalog = fs::read(&path).expect("mesh catalog read");
+        let occupied_offset = catalog[7 * 4..8 * 4].to_vec();
+        catalog[8 * 4..9 * 4].copy_from_slice(&occupied_offset);
+        fs::write(path, catalog).expect("mesh alias mutation");
+    }
+
     pub(crate) fn write_external_file(&self, relative: &str, bytes: &[u8]) {
         let path = self.root.join(relative);
         if let Some(parent) = path.parent() {

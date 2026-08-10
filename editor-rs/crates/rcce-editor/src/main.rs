@@ -4,12 +4,13 @@ use eframe::egui::{
 };
 use rcce_editor_core::{
     load_feedback_project, FeedbackAcceptedFileDelta, FeedbackAcceptedFileDeltaKind,
-    FeedbackAcceptedSnapshotDelta, FeedbackActor, FeedbackActorCount, FeedbackAssetPathCatalog,
-    FeedbackAssetPathFacet, FeedbackEntry, FeedbackEntryLocator, FeedbackEvidence,
-    FeedbackFindResult, FeedbackFindTarget, FeedbackFingerprintPeerTarget, FeedbackFocusTarget,
-    FeedbackLoadProgress, FeedbackMediaStatus, FeedbackObservation, FeedbackObservationEvidence,
-    FeedbackProject, FeedbackReturnTrail, FeedbackScript, FeedbackScriptFamily, FeedbackVaultEntry,
-    FeedbackVaultFacet, FeedbackZone, FeedbackZoneStatus, Lens,
+    FeedbackAcceptedSnapshotDelta, FeedbackActor, FeedbackActorCount, FeedbackAssetCatalog,
+    FeedbackAssetPathCatalog, FeedbackAssetPathFacet, FeedbackEntry, FeedbackEntryLocator,
+    FeedbackEvidence, FeedbackFindResult, FeedbackFindTarget, FeedbackFingerprintPeerTarget,
+    FeedbackFocusTarget, FeedbackLoadProgress, FeedbackMediaStatus, FeedbackObservation,
+    FeedbackObservationEvidence, FeedbackProject, FeedbackReturnTrail, FeedbackScript,
+    FeedbackScriptFamily, FeedbackVaultEntry, FeedbackVaultFacet, FeedbackZone, FeedbackZoneStatus,
+    Lens,
 };
 use std::{
     path::{Path, PathBuf},
@@ -52,7 +53,7 @@ fn main() -> ExitCode {
                 let asset_paths = project.asset_path_catalog();
                 let vault_catalog = project.vault_catalog();
                 println!(
-                    "[super-editor-mvp] ready: {} files, {} bytes, {} unavailable; actors={} actor_evidence={} actor_reference_issues={} actor_base_meshes={} asset_files={} asset_file_bytes={} asset_meshes={} asset_mesh_bytes={} asset_textures={} asset_texture_bytes={} asset_sounds={} asset_sound_bytes={} asset_music={} asset_music_bytes={} asset_emitter_configs={} asset_emitter_config_bytes={} asset_ui={} asset_ui_bytes={} asset_other={} asset_other_bytes={} zones={} zone_pairing_issues={} scripts={} script_adjuncts={} script_inventory_issues={} known_observations={} actor_diagnostics={} vault_files={} vault_secret_labeled={} vault_dynamic_private_labeled={} vault_server_config_labeled={} vault_other={} fingerprint_peer_groups={} fingerprint_peer_paths={}",
+                    "[super-editor-mvp] ready: {} files, {} bytes, {} unavailable; actors={} actor_evidence={} actor_reference_issues={} actor_base_meshes={} actor_resolved_base_meshes={} asset_files={} asset_file_bytes={} asset_meshes={} asset_mesh_bytes={} asset_textures={} asset_texture_bytes={} asset_sounds={} asset_sound_bytes={} asset_music={} asset_music_bytes={} asset_emitter_configs={} asset_emitter_config_bytes={} asset_ui={} asset_ui_bytes={} asset_other={} asset_other_bytes={} zones={} zone_pairing_issues={} scripts={} script_adjuncts={} script_inventory_issues={} known_observations={} actor_diagnostics={} vault_files={} vault_secret_labeled={} vault_dynamic_private_labeled={} vault_server_config_labeled={} vault_other={} fingerprint_peer_groups={} fingerprint_peer_paths={}",
                     project.total_files(),
                     project.total_bytes(),
                     project.unavailable,
@@ -60,6 +61,7 @@ fn main() -> ExitCode {
                     evidence_label(actor_catalog.evidence).to_ascii_lowercase(),
                     actor_catalog.diagnostics.len(),
                     project.asset_catalog().meshes.len(),
+                    resolved_actor_base_mesh_count(project.asset_catalog()),
                     asset_paths.count(FeedbackAssetPathFacet::All),
                     asset_paths.source_bytes(FeedbackAssetPathFacet::All),
                     asset_paths.count(FeedbackAssetPathFacet::Meshes),
@@ -1739,19 +1741,12 @@ impl LedgerApp {
                         .inner_margin(Margin::same(12.0))
                         .show(ui, |ui| {
                             ui.label(
-                                RichText::new(format!(
-                                    "{} · OBSERVATION ONLY",
-                                    evidence_label(evidence)
-                                ))
+                                RichText::new(actor_slice_evidence_label(evidence))
                                 .color(evidence_color)
                                 .strong(),
                             );
                             ui.label(
-                                RichText::new(if evidence == FeedbackEvidence::Consensus {
-                                    "Client and server parser evidence agrees; no edit path exists."
-                                } else {
-                                    "The consensus layer marked this slice provisional; missing-media diagnostics are withheld."
-                                })
+                                RichText::new(actor_slice_evidence_copy(evidence))
                                 .size(12.0)
                                 .color(MUTED),
                             );
@@ -2603,7 +2598,7 @@ impl LedgerApp {
             format!("{} atlas", self.lens.label())
         };
         let atlas_subtitle = if actor_view {
-            "Client/server consensus · stable actor identities · live media health"
+            actor_atlas_subtitle()
         } else if zone_view {
             "Filename identities · visual/gameplay pairing · directly observed gaps"
         } else if asset_view {
@@ -4244,6 +4239,40 @@ const fn evidence_label(evidence: FeedbackEvidence) -> &'static str {
     }
 }
 
+const fn actor_slice_evidence_label(evidence: FeedbackEvidence) -> &'static str {
+    match evidence {
+        FeedbackEvidence::Consensus => "ACTOR/BASE-MESH SLICE CONSENSUS · OBSERVATION ONLY",
+        FeedbackEvidence::Provisional => "ACTOR/BASE-MESH SLICE PROVISIONAL · OBSERVATION ONLY",
+        FeedbackEvidence::Unavailable => "ACTOR/BASE-MESH SLICE UNAVAILABLE · OBSERVATION ONLY",
+    }
+}
+
+const fn actor_slice_evidence_copy(evidence: FeedbackEvidence) -> &'static str {
+    match evidence {
+        FeedbackEvidence::Consensus => {
+            "Client/server actor identity and completion evidence agrees; base-mesh paths come from the client catalog plus accepted inventory."
+        }
+        FeedbackEvidence::Provisional => {
+            "The consensus layer marked this slice provisional; missing-media diagnostics are withheld."
+        }
+        FeedbackEvidence::Unavailable => {
+            "Actor/base-mesh consensus evidence is unavailable; media diagnostics are unavailable."
+        }
+    }
+}
+
+const fn actor_atlas_subtitle() -> &'static str {
+    "Actor identity agreement · client base-mesh/catalog evidence · accepted slice only"
+}
+
+fn resolved_actor_base_mesh_count(catalog: &FeedbackAssetCatalog) -> usize {
+    catalog
+        .meshes
+        .iter()
+        .filter(|mesh| mesh.physical_path.is_some())
+        .count()
+}
+
 const fn asset_evidence_copy(evidence: FeedbackEvidence) -> &'static str {
     match evidence {
         FeedbackEvidence::Consensus => {
@@ -4270,7 +4299,10 @@ fn actor_count_label(count: FeedbackActorCount) -> String {
 
 fn diagnostic_count_label(evidence: FeedbackEvidence, count: usize) -> String {
     match evidence {
-        FeedbackEvidence::Consensus => format!("{count} actionable reference issues"),
+        FeedbackEvidence::Consensus => format!(
+            "{count} observed reference issue{} in this accepted slice",
+            if count == 1 { "" } else { "s" }
+        ),
         FeedbackEvidence::Provisional => "reference diagnostics withheld".to_owned(),
         FeedbackEvidence::Unavailable => "reference diagnostics unavailable".to_owned(),
     }
@@ -4703,6 +4735,51 @@ mod tests {
     }
 
     #[test]
+    fn actor_slice_copy_scopes_consensus_and_zero_issue_evidence() {
+        assert_eq!(
+            super::actor_slice_evidence_label(FeedbackEvidence::Consensus),
+            "ACTOR/BASE-MESH SLICE CONSENSUS · OBSERVATION ONLY"
+        );
+        assert_eq!(
+            super::diagnostic_count_label(FeedbackEvidence::Consensus, 0),
+            "0 observed reference issues in this accepted slice"
+        );
+        assert_eq!(
+            super::actor_atlas_subtitle(),
+            "Actor identity agreement · client base-mesh/catalog evidence · accepted slice only"
+        );
+        assert_eq!(
+            super::actor_slice_evidence_copy(FeedbackEvidence::Consensus),
+            "Client/server actor identity and completion evidence agrees; base-mesh paths come from the client catalog plus accepted inventory."
+        );
+    }
+
+    #[test]
+    fn resolved_actor_base_mesh_count_preserves_distinct_raw_ids_sharing_one_path() {
+        let shared_path = Some("Data/Meshes/Shared.b3d".to_owned());
+        let catalog = rcce_editor_core::FeedbackAssetCatalog {
+            evidence: FeedbackEvidence::Consensus,
+            meshes: vec![
+                rcce_editor_core::FeedbackActorMesh {
+                    mesh_id: 7,
+                    media_status: FeedbackMediaStatus::Present,
+                    physical_path: shared_path.clone(),
+                    actors: Vec::new(),
+                },
+                rcce_editor_core::FeedbackActorMesh {
+                    mesh_id: 8,
+                    media_status: FeedbackMediaStatus::Present,
+                    physical_path: shared_path,
+                    actors: Vec::new(),
+                },
+            ],
+            unavailable_reason: None,
+        };
+
+        assert_eq!(super::resolved_actor_base_mesh_count(&catalog), 2);
+    }
+
+    #[test]
     fn scripts_view_transition_clears_incompatible_selection() {
         let mut selected_file = Some("Data/Server Data/Scripts/Default.rsl".to_owned());
         let mut selected_script = Some("Data/Server Data/Scripts/Default.rsl".to_owned());
@@ -4942,6 +5019,67 @@ mod tests {
         assert_eq!(app.selected_mesh, None);
         assert_eq!(app.selected_zone, None);
         assert_eq!(app.selected_script, None);
+    }
+
+    #[test]
+    fn reload_atomically_replaces_sparse_consensus_but_failure_preserves_it() {
+        let fixture = ReloadFixture::new("sparse-consensus-replacement");
+        let root = fixture.root().to_path_buf();
+        let accepted = fixture.project();
+        assert_eq!(
+            accepted.actor_catalog().evidence,
+            FeedbackEvidence::Consensus
+        );
+        assert_eq!(
+            accepted
+                .actor_catalog()
+                .actors
+                .iter()
+                .filter(|actor| actor.physical_path.is_some())
+                .count(),
+            1
+        );
+        let mut app = LedgerApp::shell(root.clone());
+        app.project = Some(accepted);
+
+        assert!(app.load_gate.try_begin());
+        app.pending_load = Some(PendingLoad {
+            root: root.clone(),
+            purpose: LoadPurpose::Reload,
+        });
+        app.finish_failed("replacement rejected".to_owned());
+        assert_eq!(
+            app.project
+                .as_ref()
+                .expect("preserved project")
+                .actor_catalog()
+                .evidence,
+            FeedbackEvidence::Consensus
+        );
+
+        fixture.alias_unused_mesh_slot();
+        let hostile = fixture.project();
+        assert_eq!(
+            hostile.actor_catalog().evidence,
+            FeedbackEvidence::Provisional
+        );
+        assert!(app.load_gate.try_begin());
+        app.pending_load = Some(PendingLoad {
+            root,
+            purpose: LoadPurpose::Reload,
+        });
+        app.finish_ready(Box::new(hostile));
+
+        let replacement = app.project.as_ref().expect("accepted replacement");
+        assert_eq!(
+            replacement.actor_catalog().evidence,
+            FeedbackEvidence::Provisional
+        );
+        assert!(replacement
+            .actor_catalog()
+            .actors
+            .iter()
+            .all(|actor| actor.physical_path.is_none()));
     }
 
     #[test]

@@ -54,6 +54,7 @@ fn smoke_contract_distinguishes_openable_and_missing_roots() {
     assert!(valid_stdout.contains("actor_evidence="));
     assert!(valid_stdout.contains("actor_reference_issues="));
     assert!(valid_stdout.contains("actor_base_meshes="));
+    assert!(valid_stdout.contains("actor_resolved_base_meshes=0"));
     assert!(valid_stdout.contains("asset_files=7"));
     assert!(valid_stdout.contains("asset_file_bytes=35"));
     assert!(valid_stdout.contains("asset_meshes=1"));

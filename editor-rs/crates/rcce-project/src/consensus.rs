@@ -338,10 +338,11 @@ impl ProjectSnapshot {
                 .entries
                 .iter()
                 .any(|entry| !referenced.contains(&entry.id));
-            provisional |= topology.has_aliases
-                || topology.has_gaps
-                || topology.has_invalid_offsets
-                || !mesh.skipped.is_empty();
+            // Zero-offset slots are unused numeric identities in the legacy
+            // catalog. Retain their sparse topology as evidence without
+            // treating ordinary sparsity alone as ambiguity or corruption.
+            provisional |=
+                topology.has_aliases || topology.has_invalid_offsets || !mesh.skipped.is_empty();
         }
 
         let mut actors = BTreeMap::new();

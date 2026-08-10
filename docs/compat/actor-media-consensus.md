@@ -15,8 +15,10 @@ other corpus file. The generator enforces at most 32 files, 300,000 bytes per fi
 ## Accepted candidate meanings
 
 - `happy`: the client, server, and editor observe exactly four actor records;
-  one base mesh `65535` is `None`, one is present, one names an empty catalog
-  slot, and one has a catalog record whose physical file is absent.
+  one base mesh `65535` is `None`, one is present, one references unused sparse
+  slot `8`, and one has a catalog record whose physical file is absent. The
+  unused slot remains observed topology but does not by itself downgrade this
+  accepted actor/base-mesh slice.
 - `missing-catalog`: actor bytes remain readable and non-sentinel base meshes
   report `MissingCatalog`.
 - `missing-physical`: catalog records remain readable and report
@@ -30,8 +32,9 @@ other corpus file. The generator enforces at most 32 files, 300,000 bytes per fi
 - `nested-paths` also includes extra media reported only as unreferenced by
   this selected actor-base slice. P05 does not infer that it is globally orphaned.
 - `provisional`: client/server high actor-ID disagreement, raw non-UTF8 actor
-  and mesh strings, a truncated actor tail, and alias/gap/invalid mesh topology
-  remain visible and force `Provisional`.
+  and mesh strings, a truncated actor tail, and alias/invalid mesh topology
+  remain visible and force `Provisional`. Sparse zero-offset unused slots remain
+  visible through `has_gaps` but are not alone provisional evidence.
 
 Physical lookup begins with the exact raw filename span in Meshes.dat. It never
 uses lossy display text. Legacy backslashes are normalized only in a separate
@@ -52,5 +55,7 @@ P04 `LegacyDocument` constructor.
 Callers cannot provide bytes, paths, inventory records, parser identities, or
 a generic document type.
 
-This packet remains I1 and read-only. It adds no authoritative diagnostic,
-repair, normalization, writer, I2 promotion, or general media-topology model.
+This packet remains I1 and read-only. Consensus is scoped to the accepted
+actor/base-mesh slice; it does not establish complete catalog validity, orphan
+status, provenance, parser completeness, repair safety, or writer authority.
+It adds no normalization, I2 promotion, or general media-topology model.

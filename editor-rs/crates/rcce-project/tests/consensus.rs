@@ -82,6 +82,24 @@ fn copy_happy_actor_slice(destination: &Path) {
     .expect("physical mesh copy");
 }
 
+fn load_modified_happy(
+    label: &str,
+    mutate: impl FnOnce(&mut Vec<u8>),
+) -> rcce_project::ActorMediaConsensus {
+    let path = temporary_root(label);
+    copy_happy_actor_slice(&path);
+    let catalog_path = path.join("Game Data/Meshes.dat");
+    let mut catalog = fs::read(&catalog_path).expect("mesh catalog read");
+    mutate(&mut catalog);
+    fs::write(&catalog_path, catalog).expect("mesh catalog mutation");
+    let root = ProjectRoot::open_explicit(&path).expect("modified fixture root");
+    let result = snapshot(&root)
+        .load_actor_media_consensus(&root, || ScanControl::Continue)
+        .expect("modified fixture consensus");
+    fs::remove_dir_all(path).expect("modified fixture cleanup");
+    result
+}
+
 #[test]
 fn consensus_accepts_an_explicit_data_root_without_changing_canonical_paths() {
     let result = load_from_data_root("happy");
@@ -122,6 +140,7 @@ fn consensus_rejects_a_root_with_both_project_and_data_layouts() {
 fn happy_consensus_is_exactly_four_and_resolves_none_present_and_physical() {
     let result = load("happy");
     assert_eq!(result.level(), ConsensusLevel::Consensus);
+    assert!(result.catalog_topology().has_gaps);
     assert_eq!(result.actor_count(), ActorCountEvidence::Agreed(4));
     assert_eq!(result.actors().len(), 4);
     assert_eq!(
@@ -225,6 +244,38 @@ fn disagreement_non_utf8_truncation_and_catalog_topology_remain_provisional() {
             .catalog_topology()
             .has_catalog_entries_unreferenced_by_actor_base_slice
     );
+}
+
+#[test]
+fn alias_invalid_offset_and_decode_failure_each_remain_provisional() {
+    let alias = load_modified_happy("alias-only", |catalog| {
+        let source = catalog[7 * 4..8 * 4].to_vec();
+        catalog[8 * 4..9 * 4].copy_from_slice(&source);
+    });
+    assert_eq!(alias.level(), ConsensusLevel::Provisional);
+    assert!(alias.catalog_topology().has_aliases);
+    assert!(!alias.catalog_topology().has_invalid_offsets);
+
+    let invalid = load_modified_happy("invalid-offset-only", |catalog| {
+        catalog[8 * 4..9 * 4].copy_from_slice(&(-1_i32).to_le_bytes());
+    });
+    let decode_failed = load_modified_happy("decode-failed-only", |catalog| {
+        let offset = i32::from_le_bytes(catalog[7 * 4..8 * 4].try_into().unwrap()) as usize;
+        let filename_length = offset + 19;
+        catalog[filename_length..filename_length + 4].copy_from_slice(&1_000_000_u32.to_le_bytes());
+    });
+    for (name, result) in [
+        ("invalid-offset-only", invalid),
+        ("decode-failed-only", decode_failed),
+    ] {
+        assert_eq!(result.level(), ConsensusLevel::Provisional, "{name}");
+        assert!(!result.catalog_topology().has_aliases, "{name}");
+        assert!(result.catalog_topology().has_invalid_offsets, "{name}");
+        assert!(result.actors().iter().all(|actor| {
+            actor.availability == ActorMediaAvailability::Provisional
+                && actor.physical_inventory_path.is_none()
+        }));
+    }
 }
 
 #[test]

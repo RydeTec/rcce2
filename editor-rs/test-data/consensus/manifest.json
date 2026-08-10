@@ -75,7 +75,7 @@
           ]
         }
       ],
-      "expected": "four actors; actor 1 base mesh None; actor 2 present; actor 3 missing catalog slot; actor 4 missing physical",
+      "expected": "four actors over a sparse catalog; actor 1 base mesh None; actor 2 present; actor 3 references unused slot 8; actor 4 missing physical",
       "mesh_records": [
         {
           "filename": [
@@ -93,7 +93,7 @@
             262194,
             262202
           ],
-          "id": 8,
+          "id": 9,
           "record": [
             262171,
             262202
@@ -216,7 +216,7 @@
             262194,
             262202
           ],
-          "id": 8,
+          "id": 9,
           "record": [
             262171,
             262202
@@ -453,7 +453,7 @@
             262194,
             262202
           ],
-          "id": 8,
+          "id": 9,
           "record": [
             262171,
             262202

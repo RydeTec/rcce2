@@ -103,9 +103,9 @@ def build() -> dict[str, bytes]:
         "limits": {"max_files": MAX_FILES, "max_file_bytes": MAX_FILE_BYTES, "max_total_bytes": MAX_TOTAL_BYTES},
         "fixtures": {},
     }
-    happy_records = [(1, b"NoMesh", 65535), (2, b"Alpha", 7), (3, b"MissingSlot", 9), (4, b"Beta", 8)]
+    happy_records = [(1, b"NoMesh", 65535), (2, b"Alpha", 7), (3, b"MissingSlot", 8), (4, b"Beta", 9)]
     actor_bytes, actor_ranges = actors(happy_records)
-    mesh_bytes, mesh_ranges = meshes([(7, b"Hero.b3d"), (8, b"Mage.b3d")])
+    mesh_bytes, mesh_ranges = meshes([(7, b"Hero.b3d"), (9, b"Mage.b3d")])
 
     def add_project(name: str, *, include_catalog: bool, physical: dict[str, bytes], catalog: bytes = mesh_bytes, records=actor_ranges, actors_image=actor_bytes, outcome: str) -> None:
         prefix = f"{name}/"
@@ -120,7 +120,7 @@ def build() -> dict[str, bytes]:
             "mesh_records": mesh_ranges if include_catalog else [],
         }
 
-    add_project("happy", include_catalog=True, physical={"Data/Meshes/Hero.b3d": b"MIT-SYNTHETIC-HERO\n"}, outcome="four actors; actor 1 base mesh None; actor 2 present; actor 3 missing catalog slot; actor 4 missing physical")
+    add_project("happy", include_catalog=True, physical={"Data/Meshes/Hero.b3d": b"MIT-SYNTHETIC-HERO\n"}, outcome="four actors over a sparse catalog; actor 1 base mesh None; actor 2 present; actor 3 references unused slot 8; actor 4 missing physical")
     add_project("missing-catalog", include_catalog=False, physical={}, outcome="catalog absent")
     add_project("missing-physical", include_catalog=True, physical={}, outcome="catalog present; physical files absent")
     add_project("unique-case", include_catalog=True, physical={"Data/Meshes/hErO.B3D": b"MIT-SYNTHETIC-HERO\n", "Data/Meshes/MAGE.B3D": b"MIT-SYNTHETIC-MAGE\n"}, outcome="unique portable case resolution")

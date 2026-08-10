@@ -597,6 +597,14 @@ fn projects_consensus_proven_actor_catalog_and_live_media_diagnostics() {
     assert_eq!(catalog.evidence, FeedbackEvidence::Consensus);
     assert_eq!(catalog.count, FeedbackActorCount::Agreed(4));
     assert_eq!(catalog.actors.len(), 4);
+    assert_eq!(
+        catalog
+            .actors
+            .iter()
+            .filter(|actor| actor.physical_path.is_some())
+            .count(),
+        1
+    );
     assert_eq!(catalog.actors[0].race, "NoMesh");
     assert_eq!(
         catalog.actors[0].media_status,
