@@ -1,7 +1,8 @@
 use rcce_editor_core::{
-    load_feedback_project, FeedbackActorCount, FeedbackEvidence, FeedbackFindTarget,
-    FeedbackMediaStatus, FeedbackObservationEvidence, FeedbackProject, FeedbackScriptFamily,
-    FeedbackVaultFacet, FeedbackZoneStatus, Lens,
+    load_feedback_project, FeedbackAcceptedFileDeltaKind, FeedbackAcceptedSnapshotDelta,
+    FeedbackActorCount, FeedbackEvidence, FeedbackFindTarget, FeedbackMediaStatus,
+    FeedbackObservationEvidence, FeedbackProject, FeedbackScriptFamily, FeedbackVaultFacet,
+    FeedbackZoneStatus, Lens,
 };
 use std::{collections::HashSet, fs, path::PathBuf, time::SystemTime};
 
@@ -29,6 +30,19 @@ fn project() -> (PathBuf, FeedbackProject) {
     let path = fixture();
     let project = load_feedback_project(path.clone(), |_| {}).expect("fixture snapshot");
     (path, project)
+}
+
+fn delta_fixture(label: &str) -> PathBuf {
+    let nonce = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .expect("system clock")
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!(
+        "rcce-feedback-delta-{label}-{}-{nonce}",
+        std::process::id()
+    ));
+    fs::create_dir_all(&root).expect("delta fixture directory");
+    root
 }
 
 fn assert_actor_mesh_threads_resolve(project: &FeedbackProject) {
@@ -881,4 +895,195 @@ fn find_anywhere_keeps_provisional_raw_routes_and_excludes_unavailable_semantic_
         .iter()
         .all(|result| !matches!(result.target, FeedbackFindTarget::Mesh { .. })));
     fs::remove_dir_all(path).expect("fixture cleanup");
+}
+
+#[test]
+fn accepted_snapshot_delta_is_grouped_exact_and_never_infers_a_rename() {
+    let root = delta_fixture("grouped");
+    fs::write(root.join("A-prior-only.dat"), b"prior").expect("prior-only file");
+    fs::write(root.join("B-changed.dat"), b"before").expect("changed file before");
+    fs::write(root.join("C-Rename.dat"), b"rename-shaped").expect("rename-shaped prior file");
+    fs::write(root.join("same.dat"), b"same").expect("unchanged file");
+    let prior = load_feedback_project(root.clone(), |_| {}).expect("prior accepted snapshot");
+
+    fs::remove_file(root.join("A-prior-only.dat")).expect("remove prior-only fixture file");
+    fs::write(root.join("B-changed.dat"), b"after").expect("changed file after");
+    fs::rename(root.join("C-Rename.dat"), root.join("c-rename.dat"))
+        .expect("rename-shaped fixture mutation");
+    fs::write(root.join("a-new.dat"), b"new").expect("new fixture file");
+    let current = load_feedback_project(root.clone(), |_| {}).expect("current accepted snapshot");
+
+    let delta = FeedbackAcceptedSnapshotDelta::between_same_root(&prior, &current)
+        .expect("same-root comparison");
+    assert_eq!(delta.prior_files, 4);
+    assert_eq!(delta.current_files, 4);
+    assert_eq!(
+        delta
+            .entries
+            .iter()
+            .map(|entry| (entry.kind, entry.path.as_str()))
+            .collect::<Vec<_>>(),
+        vec![
+            (
+                FeedbackAcceptedFileDeltaKind::NewlyAccepted,
+                "Data/a-new.dat"
+            ),
+            (
+                FeedbackAcceptedFileDeltaKind::NewlyAccepted,
+                "Data/c-rename.dat"
+            ),
+            (
+                FeedbackAcceptedFileDeltaKind::NoLongerAccepted,
+                "Data/A-prior-only.dat",
+            ),
+            (
+                FeedbackAcceptedFileDeltaKind::NoLongerAccepted,
+                "Data/C-Rename.dat",
+            ),
+            (
+                FeedbackAcceptedFileDeltaKind::ContentFingerprintChanged,
+                "Data/B-changed.dat",
+            ),
+        ]
+    );
+    assert_eq!(delta.count(FeedbackAcceptedFileDeltaKind::NewlyAccepted), 2);
+    assert_eq!(
+        delta.count(FeedbackAcceptedFileDeltaKind::NoLongerAccepted),
+        2
+    );
+    assert_eq!(
+        delta.count(FeedbackAcceptedFileDeltaKind::ContentFingerprintChanged),
+        1
+    );
+    assert_eq!(
+        FeedbackAcceptedFileDeltaKind::ALL.map(FeedbackAcceptedFileDeltaKind::label),
+        [
+            "NEWLY ACCEPTED",
+            "NO LONGER ACCEPTED",
+            "CONTENT FINGERPRINT CHANGED",
+        ]
+    );
+    assert_eq!(delta.range(None), 0..5);
+    assert_eq!(
+        delta.range(Some(FeedbackAcceptedFileDeltaKind::NewlyAccepted)),
+        0..2
+    );
+    assert_eq!(
+        delta.range(Some(FeedbackAcceptedFileDeltaKind::NoLongerAccepted)),
+        2..4
+    );
+    assert_eq!(
+        delta.range(Some(
+            FeedbackAcceptedFileDeltaKind::ContentFingerprintChanged
+        )),
+        4..5
+    );
+    assert!(delta
+        .entries
+        .iter()
+        .all(|entry| entry.path != "Data/same.dat"));
+
+    let changed = delta
+        .entries
+        .iter()
+        .find(|entry| entry.path == "Data/B-changed.dat")
+        .expect("changed row");
+    assert_ne!(changed.prior_source_sha256, changed.current_source_sha256);
+    assert_eq!(
+        changed.current_target(),
+        Some(FeedbackFindTarget::File {
+            lens: Lens::Records,
+            path: "Data/B-changed.dat".to_owned(),
+        })
+    );
+    assert!(delta
+        .entries
+        .iter()
+        .filter(|entry| entry.kind == FeedbackAcceptedFileDeltaKind::NoLongerAccepted)
+        .all(|entry| entry.current_target().is_none() && entry.current_source_sha256.is_none()));
+    assert!(delta
+        .entries
+        .iter()
+        .filter(|entry| entry.kind == FeedbackAcceptedFileDeltaKind::NewlyAccepted)
+        .all(|entry| entry.current_target().is_some() && entry.prior_source_sha256.is_none()));
+
+    fs::remove_dir_all(root).expect("delta fixture cleanup");
+}
+
+#[test]
+fn accepted_snapshot_delta_distinguishes_empty_from_unavailable_and_refuses_cross_root() {
+    let root = delta_fixture("empty");
+    fs::write(root.join("same.dat"), b"same").expect("same fixture file");
+    let prior = load_feedback_project(root.clone(), |_| {}).expect("prior accepted snapshot");
+    let current = load_feedback_project(root.clone(), |_| {}).expect("current accepted snapshot");
+    let delta = FeedbackAcceptedSnapshotDelta::between_same_root(&prior, &current)
+        .expect("available empty same-root comparison");
+    assert!(delta.entries.is_empty());
+
+    let other_root = delta_fixture("cross-root");
+    fs::write(other_root.join("same.dat"), b"same").expect("cross-root fixture file");
+    let other = load_feedback_project(other_root.clone(), |_| {}).expect("other accepted snapshot");
+    assert!(FeedbackAcceptedSnapshotDelta::between_same_root(&prior, &other).is_none());
+
+    fs::remove_dir_all(root).expect("delta fixture cleanup");
+    fs::remove_dir_all(other_root).expect("cross-root fixture cleanup");
+}
+
+#[test]
+fn accepted_snapshot_delta_is_uncapped_for_large_accepted_pairs() {
+    let root = delta_fixture("large");
+    let prior = load_feedback_project(root.clone(), |_| {}).expect("empty prior snapshot");
+    for index in (0..301).rev() {
+        fs::write(root.join(format!("new-{index:03}.dat")), index.to_string())
+            .expect("large delta fixture file");
+    }
+    let current = load_feedback_project(root.clone(), |_| {}).expect("large current snapshot");
+    let delta = FeedbackAcceptedSnapshotDelta::between_same_root(&prior, &current)
+        .expect("large same-root comparison");
+
+    assert_eq!(delta.entries.len(), 301);
+    assert!(delta
+        .entries
+        .iter()
+        .all(|entry| entry.kind == FeedbackAcceptedFileDeltaKind::NewlyAccepted));
+    assert!(delta
+        .entries
+        .windows(2)
+        .all(|pair| { pair[0].path.as_bytes() < pair[1].path.as_bytes() }));
+    assert!(delta
+        .entries
+        .iter()
+        .all(|entry| entry.current_target().is_some()));
+
+    fs::remove_dir_all(root).expect("large delta fixture cleanup");
+}
+
+#[cfg(unix)]
+#[test]
+fn accepted_snapshot_delta_never_invents_a_target_for_a_quarantined_alias() {
+    use std::os::unix::fs::symlink;
+
+    let root = delta_fixture("quarantined-alias");
+    let outside = delta_fixture("quarantined-alias-outside");
+    fs::write(root.join("Alias.dat"), b"accepted before").expect("prior accepted file");
+    fs::write(outside.join("outside.dat"), b"outside").expect("outside alias target");
+    let prior = load_feedback_project(root.clone(), |_| {}).expect("prior accepted snapshot");
+
+    fs::remove_file(root.join("Alias.dat")).expect("replace prior file with alias");
+    symlink(outside.join("outside.dat"), root.join("Alias.dat")).expect("unsafe alias fixture");
+    let current = load_feedback_project(root.clone(), |_| {}).expect("current accepted snapshot");
+    assert!(current.unavailable >= 1);
+    let delta = FeedbackAcceptedSnapshotDelta::between_same_root(&prior, &current)
+        .expect("same-root alias comparison");
+
+    assert_eq!(delta.entries.len(), 1);
+    assert_eq!(
+        delta.entries[0].kind,
+        FeedbackAcceptedFileDeltaKind::NoLongerAccepted
+    );
+    assert_eq!(delta.entries[0].path, "Data/Alias.dat");
+    assert!(delta.entries[0].current_target().is_none());
+
+    fs::remove_dir_all(root).expect("alias fixture cleanup");
+    fs::remove_dir_all(outside).expect("outside fixture cleanup");
 }

@@ -3,10 +3,11 @@ use eframe::egui::{
     RichText, ScrollArea, Sense, Stroke, TextEdit, TextWrapMode, Vec2,
 };
 use rcce_editor_core::{
-    load_feedback_project, FeedbackActor, FeedbackActorCount, FeedbackEntry, FeedbackEvidence,
-    FeedbackFindResult, FeedbackFindTarget, FeedbackFocusTarget, FeedbackLoadProgress,
-    FeedbackMediaStatus, FeedbackObservation, FeedbackObservationEvidence, FeedbackProject,
-    FeedbackReturnTrail, FeedbackScript, FeedbackScriptFamily, FeedbackVaultEntry,
+    load_feedback_project, FeedbackAcceptedFileDelta, FeedbackAcceptedFileDeltaKind,
+    FeedbackAcceptedSnapshotDelta, FeedbackActor, FeedbackActorCount, FeedbackEntry,
+    FeedbackEvidence, FeedbackFindResult, FeedbackFindTarget, FeedbackFocusTarget,
+    FeedbackLoadProgress, FeedbackMediaStatus, FeedbackObservation, FeedbackObservationEvidence,
+    FeedbackProject, FeedbackReturnTrail, FeedbackScript, FeedbackScriptFamily, FeedbackVaultEntry,
     FeedbackVaultFacet, FeedbackZone, FeedbackZoneStatus, Lens,
 };
 use std::{
@@ -35,6 +36,8 @@ const PALETTE_VIEW_HEIGHT: f32 = 420.0;
 const OBSERVATION_ROW_HEIGHT: f32 = 64.0;
 const OBSERVATION_VIEW_HEIGHT: f32 = 360.0;
 const VAULT_ROW_HEIGHT: f32 = 58.0;
+const RELOAD_DELTA_ROW_HEIGHT: f32 = 64.0;
+const RAIL_LENS_ITEM_SPACING_Y: f32 = 4.0;
 
 fn main() -> ExitCode {
     let data_root = parse_project_arg().unwrap_or_else(default_data_root);
@@ -362,6 +365,34 @@ fn atlas_header_rows(ui: &mut egui::Ui, title: impl FnOnce(&mut egui::Ui)) -> eg
     title_rect
 }
 
+fn reload_delta_action(
+    ui: &mut egui::Ui,
+    delta: Option<&FeedbackAcceptedSnapshotDelta>,
+) -> egui::Response {
+    let (label, color) = match delta {
+        None => ("LAST RELOAD DELTA\nnot compared".to_owned(), MUTED),
+        Some(delta) if delta.entries.is_empty() => (
+            "LAST RELOAD DELTA\n0 accepted differences".to_owned(),
+            GREEN,
+        ),
+        Some(delta) => (
+            format!(
+                "LAST RELOAD DELTA\n{} accepted differences",
+                delta.entries.len()
+            ),
+            BRASS,
+        ),
+    };
+    ui.add_enabled(
+        delta.is_some(),
+        egui::Button::new(RichText::new(label).size(12.0).color(color))
+            .min_size(Vec2::new(177.0, 50.0)),
+    )
+    .on_hover_text(
+        "Compare the last two successfully accepted same-root Reload snapshots; this is not project history or a filesystem change claim",
+    )
+}
+
 #[derive(Default)]
 struct LoadGate {
     active: bool,
@@ -506,6 +537,9 @@ struct LedgerApp {
     palette_request_focus: bool,
     palette_scroll_to_highlight: bool,
     observations_open: bool,
+    last_reload_delta: Option<FeedbackAcceptedSnapshotDelta>,
+    reload_delta_open: bool,
+    reload_delta_kind: Option<FeedbackAcceptedFileDeltaKind>,
     return_trail: FeedbackReturnTrail,
     status: String,
     activity: Vec<String>,
@@ -540,6 +574,9 @@ impl LedgerApp {
             palette_request_focus: false,
             palette_scroll_to_highlight: false,
             observations_open: false,
+            last_reload_delta: None,
+            reload_delta_open: false,
+            reload_delta_kind: None,
             return_trail: FeedbackReturnTrail::default(),
             status: "Preparing project inventory…".to_owned(),
             activity: vec!["Feedback MVP started in read-only mode".to_owned()],
@@ -614,13 +651,26 @@ impl LedgerApp {
     }
 
     fn finish_ready(&mut self, project: Box<FeedbackProject>) {
-        let purpose = self
-            .pending_load
-            .take()
-            .map_or(LoadPurpose::Initial, |pending| {
-                self.data_root = pending.root;
-                pending.purpose
-            });
+        let pending = self.pending_load.take();
+        let purpose = pending
+            .as_ref()
+            .map_or(LoadPurpose::Initial, |pending| pending.purpose);
+        let replacement_delta = if purpose == LoadPurpose::Reload {
+            self.project.as_ref().and_then(|prior| {
+                pending
+                    .as_ref()
+                    .is_some_and(|pending| {
+                        pending.root == prior.data_root && pending.root == project.data_root
+                    })
+                    .then(|| FeedbackAcceptedSnapshotDelta::between_same_root(prior, &project))
+                    .flatten()
+            })
+        } else {
+            None
+        };
+        if let Some(pending) = pending {
+            self.data_root = pending.root;
+        }
         let actor_count = actor_count_label(project.actor_catalog().count);
         let actor_base_mesh_count = project.asset_catalog().meshes.len();
         let zone_count = project.zone_catalog().zones.len();
@@ -696,10 +746,42 @@ impl LedgerApp {
                         ),
                     );
                 }
+                self.last_reload_delta = replacement_delta;
+                if self.last_reload_delta.is_none() {
+                    self.reload_delta_open = false;
+                }
+                self.reload_delta_kind = None;
             }
-            LoadPurpose::Initial => self.return_trail.clear(),
+            LoadPurpose::Initial => {
+                self.return_trail.clear();
+                self.last_reload_delta = None;
+                self.reload_delta_open = false;
+                self.reload_delta_kind = None;
+            }
             #[cfg(any(windows, test))]
-            LoadPurpose::Open => self.return_trail.clear(),
+            LoadPurpose::Open => {
+                self.return_trail.clear();
+                self.last_reload_delta = None;
+                self.reload_delta_open = false;
+                self.reload_delta_kind = None;
+            }
+        }
+        if purpose == LoadPurpose::Reload {
+            self.activity.insert(
+                0,
+                self.last_reload_delta.as_ref().map_or_else(
+                    || {
+                        "Last reload delta unavailable because the accepted roots did not match"
+                            .to_owned()
+                    },
+                    |delta| {
+                        format!(
+                            "Last reload delta: {} accepted path/fingerprint differences",
+                            delta.entries.len()
+                        )
+                    },
+                ),
+            );
         }
         self.project = Some(*project);
         self.palette_highlight = 0;
@@ -792,6 +874,7 @@ impl LedgerApp {
         self.palette_request_focus = true;
         self.palette_scroll_to_highlight = true;
         self.observations_open = false;
+        self.reload_delta_open = false;
     }
 
     fn open_observations(&mut self) {
@@ -799,6 +882,18 @@ impl LedgerApp {
             return;
         }
         self.observations_open = true;
+        self.palette_open = false;
+        self.palette_request_focus = false;
+        self.palette_scroll_to_highlight = false;
+        self.reload_delta_open = false;
+    }
+
+    fn open_reload_delta(&mut self) {
+        if self.last_reload_delta.is_none() {
+            return;
+        }
+        self.reload_delta_open = true;
+        self.observations_open = false;
         self.palette_open = false;
         self.palette_request_focus = false;
         self.palette_scroll_to_highlight = false;
@@ -967,7 +1062,12 @@ impl LedgerApp {
     fn return_shortcut(&mut self, context: &egui::Context) {
         let palette_opening =
             context.input(|input| input.modifiers.ctrl && input.key_pressed(Key::K));
-        if self.palette_open || self.observations_open || palette_opening || !self.can_return() {
+        if self.palette_open
+            || self.observations_open
+            || self.reload_delta_open
+            || palette_opening
+            || !self.can_return()
+        {
             return;
         }
         if context.input_mut(|input| input.consume_key(Modifiers::ALT, Key::ArrowLeft)) {
@@ -1013,6 +1113,28 @@ impl LedgerApp {
             ),
         );
         self.observations_open = false;
+        true
+    }
+
+    fn activate_reload_delta_target(&mut self, target: FeedbackFocusTarget) -> bool {
+        if !self.navigate_with_return(target.clone()) {
+            self.activity.insert(
+                0,
+                format!(
+                    "Reload-delta target {} is no longer available in the accepted snapshot",
+                    find_target_identity_label(&target)
+                ),
+            );
+            return false;
+        }
+        self.activity.insert(
+            0,
+            format!(
+                "Last reload delta opened {}",
+                find_target_identity_label(&target)
+            ),
+        );
+        self.reload_delta_open = false;
         true
     }
 
@@ -1066,6 +1188,7 @@ impl LedgerApp {
         self.palette_request_focus = false;
         self.palette_scroll_to_highlight = false;
         self.observations_open = false;
+        self.reload_delta_open = false;
     }
 
     fn selected_entry(&self) -> Option<&FeedbackEntry> {
@@ -1142,7 +1265,10 @@ impl LedgerApp {
                         }
                         if ui
                             .add_enabled(
-                                !self.palette_open && self.can_return(),
+                                !self.palette_open
+                                    && !self.observations_open
+                                    && !self.reload_delta_open
+                                    && self.can_return(),
                                 egui::Button::new(
                                     RichText::new("RETURN  ALT+LEFT").color(BRASS),
                                 ),
@@ -1209,6 +1335,8 @@ impl LedgerApp {
                         .strong(),
                 );
                 ui.add_space(5.0);
+                let rail_item_spacing_y = ui.spacing().item_spacing.y;
+                ui.spacing_mut().item_spacing.y = RAIL_LENS_ITEM_SPACING_Y;
                 for lens in Lens::ALL {
                     let count = self
                         .project
@@ -1233,6 +1361,7 @@ impl LedgerApp {
                         self.selected_script = None;
                     }
                 }
+                ui.spacing_mut().item_spacing.y = rail_item_spacing_y;
                 ui.add_space(10.0);
                 ui.separator();
                 let observation_count = self.project.as_ref().map_or(0, |project| {
@@ -1257,9 +1386,13 @@ impl LedgerApp {
                 {
                     self.open_observations();
                 }
+                ui.add_space(6.0);
+                if reload_delta_action(ui, self.last_reload_delta.as_ref()).clicked() {
+                    self.open_reload_delta();
+                }
                 ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
                     ui.label(
-                        RichText::new("Feedback build 0.10\nNo save or mutation commands exist")
+                        RichText::new("Feedback build 0.12\nNo save or mutation commands exist")
                             .size(11.0)
                             .color(MUTED),
                     );
@@ -1992,6 +2125,166 @@ impl LedgerApp {
         }
         if let Some(target) = pending_activation {
             self.activate_observation_target(target);
+        }
+    }
+
+    fn reload_delta_panel(&mut self, context: &egui::Context) {
+        if !self.reload_delta_open {
+            return;
+        }
+        if context.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Escape)) {
+            self.reload_delta_open = false;
+            return;
+        }
+        let Some(delta) = self.last_reload_delta.as_ref() else {
+            self.reload_delta_open = false;
+            return;
+        };
+
+        let mut window_open = true;
+        let mut requested_kind = None;
+        let mut pending_activation = None;
+        let selected_kind = self.reload_delta_kind;
+        egui::Window::new("Last successful same-root Reload")
+            .id(egui::Id::new("reload_delta_panel"))
+            .anchor(Align2::CENTER_CENTER, Vec2::ZERO)
+            .fixed_size(Vec2::new(840.0, 590.0))
+            .min_size(Vec2::new(840.0, 590.0))
+            .max_size(Vec2::new(840.0, 590.0))
+            .collapsible(false)
+            .resizable(false)
+            .frame(
+                Frame::window(&context.style())
+                    .fill(PANEL)
+                    .stroke(Stroke::new(1.0, BRASS_SOFT))
+                    .inner_margin(Margin::same(16.0)),
+            )
+            .open(&mut window_open)
+            .show(context, |ui| {
+                ui.label(
+                    RichText::new("LAST SUCCESSFUL SAME-ROOT RELOAD")
+                        .size(11.0)
+                        .color(BRASS)
+                        .strong()
+                        .extra_letter_spacing(1.5),
+                );
+                ui.label(
+                    RichText::new(
+                        "Accepted-path and content-fingerprint evidence only · current snapshot versus the immediately prior accepted snapshot",
+                    )
+                    .size(16.0)
+                    .color(INK)
+                    .strong(),
+                );
+                ui.label(
+                    RichText::new(
+                        "Newly accepted does not mean created; no longer accepted does not mean deleted; paired rows never assert rename. Unavailable paths are outside this accepted-path comparison.",
+                    )
+                    .size(11.0)
+                    .color(MUTED),
+                );
+                ui.add_space(8.0);
+                Frame::none()
+                    .fill(PANEL_RAISED)
+                    .stroke(Stroke::new(1.0, Color32::from_rgb(48, 53, 51)))
+                    .inner_margin(Margin::symmetric(12.0, 9.0))
+                    .show(ui, |ui| {
+                        ui.label(
+                            RichText::new(format!(
+                                "{} prior accepted files  →  {} current accepted files",
+                                delta.prior_files, delta.current_files
+                            ))
+                            .color(INK),
+                        );
+                        ui.horizontal_wrapped(|ui| {
+                            if ui
+                                .selectable_label(
+                                    selected_kind.is_none(),
+                                    format!("ALL  {}", delta.entries.len()),
+                                )
+                                .clicked()
+                            {
+                                requested_kind = Some(None);
+                            }
+                            for kind in FeedbackAcceptedFileDeltaKind::ALL {
+                                if ui
+                                    .selectable_label(
+                                        selected_kind == Some(kind),
+                                        format!("{}  {}", kind.label(), delta.count(kind)),
+                                    )
+                                    .clicked()
+                                {
+                                    requested_kind = Some(Some(kind));
+                                }
+                            }
+                        });
+                    });
+                ui.add_space(8.0);
+
+                let visible = delta.range(selected_kind);
+                if visible.is_empty() {
+                    ui.add_space(58.0);
+                    ui.vertical_centered(|ui| {
+                        ui.label(
+                            RichText::new(if selected_kind.is_none() {
+                                "No accepted path or content fingerprint differences on the last successful Reload"
+                            } else {
+                                "No rows in this accepted evidence category"
+                            })
+                            .size(17.0)
+                            .color(INK),
+                        );
+                        ui.label(
+                            RichText::new(
+                                "This does not prove the filesystem or project was unchanged, healthy, valid, synchronized, or free of unavailable paths.",
+                            )
+                            .color(MUTED),
+                        );
+                    });
+                } else {
+                    Frame::none()
+                        .fill(PANEL_RAISED)
+                        .stroke(Stroke::new(1.0, Color32::from_rgb(48, 53, 51)))
+                        .inner_margin(Margin::same(1.0))
+                        .show(ui, |ui| {
+                            ScrollArea::vertical()
+                                .id_salt("reload_delta_rows")
+                                .max_height(360.0)
+                                .auto_shrink([false, false])
+                                .show_rows(
+                                    ui,
+                                    RELOAD_DELTA_ROW_HEIGHT,
+                                    visible.len(),
+                                    |ui, visible_rows| {
+                                        for index in visible_rows {
+                                            let entry = &delta.entries[visible.start + index];
+                                            let response = reload_delta_row(ui, entry);
+                                            if response.clicked() {
+                                                pending_activation = entry.current_target();
+                                            }
+                                        }
+                                    },
+                                );
+                        });
+                }
+                ui.add_space(6.0);
+                ui.label(
+                    RichText::new(
+                        "Exhaustive within the two accepted snapshots and existing loader ceilings · session-only · no watcher, history, semantic diff, repair, or write path",
+                    )
+                    .size(10.0)
+                    .color(MUTED),
+                );
+            });
+
+        if !window_open {
+            self.reload_delta_open = false;
+        }
+        if let Some(kind) = requested_kind {
+            self.reload_delta_kind = kind;
+        }
+        if let Some(target) = pending_activation {
+            self.activate_reload_delta_target(target);
         }
     }
 
@@ -3120,6 +3413,7 @@ impl eframe::App for LedgerApp {
         self.lens_rail(context);
         self.inspector(context);
         self.atlas(context);
+        self.reload_delta_panel(context);
         self.observations_panel(context);
         self.find_palette(context);
         if self.receiver.is_some() {
@@ -3206,6 +3500,81 @@ fn vault_boundary_row(
         Sense::click(),
     )
     .on_hover_text(format!("{}\n{facets}", entry.path))
+}
+
+fn reload_delta_row(ui: &mut egui::Ui, entry: &FeedbackAcceptedFileDelta) -> egui::Response {
+    let current_route = entry.current_lens.is_some();
+    let prior_evidence = match (&entry.prior_source_sha256, entry.prior_size) {
+        (Some(fingerprint), Some(size)) => {
+            format!(
+                "prior accepted: {} · SHA-256 {fingerprint}",
+                format_bytes(size)
+            )
+        }
+        _ => "prior accepted: not present in the accepted path set".to_owned(),
+    };
+    let current_evidence = match (&entry.current_source_sha256, entry.current_size) {
+        (Some(fingerprint), Some(size)) => format!(
+            "current accepted: {} · SHA-256 {fingerprint}",
+            format_bytes(size)
+        ),
+        _ => "current accepted: not present in the accepted path set".to_owned(),
+    };
+    let full_text = format!(
+        "{}\n{}\n{}\n{}",
+        entry.kind.label(),
+        entry.path,
+        prior_evidence,
+        current_evidence
+    );
+    let row = Frame::none()
+        .fill(match entry.kind {
+            FeedbackAcceptedFileDeltaKind::NewlyAccepted => Color32::from_rgb(25, 42, 34),
+            FeedbackAcceptedFileDeltaKind::NoLongerAccepted => Color32::from_rgb(42, 29, 25),
+            FeedbackAcceptedFileDeltaKind::ContentFingerprintChanged => {
+                Color32::from_rgb(44, 37, 24)
+            }
+        })
+        .stroke(Stroke::new(1.0, Color32::from_rgb(74, 69, 53)))
+        .inner_margin(Margin::same(10.0))
+        .show(ui, |ui| {
+            ui.set_min_width(ui.available_width());
+            ui.set_min_height(RELOAD_DELTA_ROW_HEIGHT - 20.0);
+            ui.style_mut().wrap_mode = Some(TextWrapMode::Truncate);
+            ui.label(
+                RichText::new(entry.kind.label())
+                    .size(10.0)
+                    .color(if current_route { GREEN } else { ISSUE })
+                    .strong(),
+            );
+            ui.label(
+                RichText::new(format!(
+                    "{}  ·  {}",
+                    entry.path,
+                    if current_route {
+                        "open current exact file"
+                    } else {
+                        "prior accepted evidence only"
+                    }
+                ))
+                .size(12.0)
+                .color(INK),
+            );
+        });
+    let response = ui.interact(
+        row.response.rect,
+        ui.make_persistent_id(("reload-delta", entry.kind.label(), &entry.path)),
+        if current_route {
+            Sense::click()
+        } else {
+            Sense::hover()
+        },
+    );
+    if response.hovered() && current_route {
+        ui.painter()
+            .rect_stroke(response.rect, 0.0, Stroke::new(1.0, BRASS));
+    }
+    response.on_hover_text(full_text)
 }
 
 fn observation_row(ui: &mut egui::Ui, observation: &FeedbackObservation) -> egui::Response {
@@ -3477,18 +3846,19 @@ mod tests {
     use super::reload_test_support::ReloadFixture;
     use super::{
         actor_mesh_target, actor_thread_targets, asset_evidence_copy, atlas_header_rows,
-        navigate_relationship, retain_vault_facet_selection, script_family_observation,
-        transition_assets_view, transition_records_view, transition_scripts_view,
-        transition_vault_view, transition_world_view, AssetsView, FeedbackEvidence,
-        FeedbackMediaStatus, FeedbackScriptFamily, LedgerApp, Lens, LoadGate, LoadPurpose,
-        PendingLoad, RecordsView, RelationshipTarget, ScriptsView, VaultView, WorldView, INK,
-        MUTED,
+        navigate_relationship, reload_delta_action, retain_vault_facet_selection,
+        script_family_observation, transition_assets_view, transition_records_view,
+        transition_scripts_view, transition_vault_view, transition_world_view, AssetsView,
+        FeedbackEvidence, FeedbackMediaStatus, FeedbackScriptFamily, LedgerApp, Lens, LoadGate,
+        LoadPurpose, PendingLoad, RecordsView, RelationshipTarget, ScriptsView, VaultView,
+        WorldView, INK, MUTED,
     };
     use eframe::egui::{
-        Align, CentralPanel, Context, Event, Frame, Key, Layout, Margin, Modifiers, Pos2, RawInput,
-        Rect, RichText, TextEdit, Vec2,
+        Align, Button, CentralPanel, Context, Event, Frame, Key, Layout, Margin, Modifiers, Pos2,
+        RawInput, Rect, RichText, SelectableLabel, TextEdit, Vec2,
     };
     use rcce_editor_core::{
+        FeedbackAcceptedFileDelta, FeedbackAcceptedFileDeltaKind, FeedbackAcceptedSnapshotDelta,
         FeedbackFindResult, FeedbackFindTarget, FeedbackFocusTarget, FeedbackObservation,
         FeedbackObservationEvidence, FeedbackReturnTrail, FeedbackVaultEntry, FeedbackVaultFacet,
     };
@@ -4569,6 +4939,338 @@ mod tests {
         });
 
         assert_eq!(actual_height, super::OBSERVATION_ROW_HEIGHT);
+    }
+
+    #[test]
+    fn successful_reload_atomically_publishes_and_replaces_the_last_delta() {
+        let fixture = ReloadFixture::new("reload-delta-lifecycle");
+        let root = fixture.root().to_path_buf();
+        let mut app = LedgerApp::shell(root.clone());
+        app.project = Some(fixture.project());
+        assert!(app.last_reload_delta.is_none());
+
+        fixture.write_external_file("Meshes/New.b3d", b"new");
+        assert!(app.load_gate.try_begin());
+        app.pending_load = Some(PendingLoad {
+            root: root.clone(),
+            purpose: LoadPurpose::Reload,
+        });
+        app.finish_ready(Box::new(fixture.project()));
+        let first = app.last_reload_delta.as_ref().expect("first reload delta");
+        assert_eq!(first.entries.len(), 1);
+        assert_eq!(
+            first.entries[0].kind,
+            FeedbackAcceptedFileDeltaKind::NewlyAccepted
+        );
+
+        let preserved = app.last_reload_delta.clone();
+        app.open_reload_delta();
+        assert!(app.load_gate.try_begin());
+        app.pending_load = Some(PendingLoad {
+            root: root.clone(),
+            purpose: LoadPurpose::Reload,
+        });
+        app.finish_failed("replacement rejected".to_owned());
+        assert_eq!(app.last_reload_delta, preserved);
+        assert!(app.reload_delta_open);
+
+        fixture.remove_external_file("Meshes/New.b3d");
+        assert!(app.load_gate.try_begin());
+        app.pending_load = Some(PendingLoad {
+            root: root.clone(),
+            purpose: LoadPurpose::Reload,
+        });
+        app.finish_ready(Box::new(fixture.project()));
+        let second = app.last_reload_delta.as_ref().expect("second reload delta");
+        assert_eq!(second.entries.len(), 1);
+        assert_eq!(
+            second.entries[0].kind,
+            FeedbackAcceptedFileDeltaKind::NoLongerAccepted
+        );
+        assert!(app.reload_delta_open);
+
+        assert!(app.load_gate.try_begin());
+        app.pending_load = Some(PendingLoad {
+            root,
+            purpose: LoadPurpose::Reload,
+        });
+        app.finish_ready(Box::new(fixture.project()));
+        assert!(app
+            .last_reload_delta
+            .as_ref()
+            .expect("available empty reload delta")
+            .entries
+            .is_empty());
+        assert!(app.reload_delta_open);
+    }
+
+    #[test]
+    fn successful_open_clears_reload_delta_even_when_raw_paths_collide() {
+        let accepted = ReloadFixture::new("reload-delta-open-accepted");
+        let replacement = ReloadFixture::new("reload-delta-open-replacement");
+        let accepted_root = accepted.root().to_path_buf();
+        let mut app = LedgerApp::shell(accepted_root.clone());
+        let original = accepted.project();
+        app.last_reload_delta =
+            FeedbackAcceptedSnapshotDelta::between_same_root(&original, &original);
+        app.reload_delta_open = true;
+        app.reload_delta_kind = Some(FeedbackAcceptedFileDeltaKind::NewlyAccepted);
+        app.project = Some(original);
+        app.reload_delta_open = true;
+        app.reload_delta_kind = Some(FeedbackAcceptedFileDeltaKind::NewlyAccepted);
+
+        let preserved = app.last_reload_delta.clone();
+        assert!(app.load_gate.try_begin());
+        app.pending_load = Some(PendingLoad {
+            root: replacement.root().to_path_buf(),
+            purpose: LoadPurpose::Open,
+        });
+        app.finish_disconnected();
+        assert_eq!(app.last_reload_delta, preserved);
+        assert!(app.reload_delta_open);
+        assert_eq!(
+            app.reload_delta_kind,
+            Some(FeedbackAcceptedFileDeltaKind::NewlyAccepted)
+        );
+
+        assert!(app.load_gate.try_begin());
+        app.pending_load = Some(PendingLoad {
+            root: replacement.root().to_path_buf(),
+            purpose: LoadPurpose::Open,
+        });
+        app.finish_ready(Box::new(replacement.project()));
+
+        assert!(app.last_reload_delta.is_none());
+        assert!(!app.reload_delta_open);
+        assert_eq!(app.reload_delta_kind, None);
+    }
+
+    #[test]
+    fn defensively_cross_root_reload_does_not_publish_a_delta() {
+        let accepted = ReloadFixture::new("reload-delta-cross-root-accepted");
+        let replacement = ReloadFixture::new("reload-delta-cross-root-replacement");
+        let mut app = LedgerApp::shell(accepted.root().to_path_buf());
+        let original = accepted.project();
+        app.last_reload_delta =
+            FeedbackAcceptedSnapshotDelta::between_same_root(&original, &original);
+        app.project = Some(original);
+
+        assert!(app.load_gate.try_begin());
+        app.pending_load = Some(PendingLoad {
+            root: replacement.root().to_path_buf(),
+            purpose: LoadPurpose::Reload,
+        });
+        app.finish_ready(Box::new(replacement.project()));
+
+        assert!(app.last_reload_delta.is_none());
+        assert!(!app.reload_delta_open);
+        assert_eq!(app.reload_delta_kind, None);
+        assert!(app
+            .activity
+            .first()
+            .expect("delta activity")
+            .contains("accepted roots did not match"));
+    }
+
+    #[test]
+    fn reload_delta_current_rows_route_exactly_and_stale_targets_are_no_ops() {
+        let fixture = ReloadFixture::new("reload-delta-route");
+        let root = fixture.root().to_path_buf();
+        let original = fixture.project();
+        let actor_id = original.actor_catalog().actors[0].actor_id;
+        let mut app = LedgerApp::shell(root.clone());
+        app.project = Some(original);
+        app.lens = Lens::Records;
+        app.records_view = RecordsView::Actors;
+        app.selected_actor = Some(actor_id);
+
+        fixture.write_external_file("Meshes/New.b3d", b"new");
+        assert!(app.load_gate.try_begin());
+        app.pending_load = Some(PendingLoad {
+            root,
+            purpose: LoadPurpose::Reload,
+        });
+        app.finish_ready(Box::new(fixture.project()));
+        let target = app
+            .last_reload_delta
+            .as_ref()
+            .expect("reload delta")
+            .entries[0]
+            .current_target()
+            .expect("current exact target");
+
+        app.open_reload_delta();
+        assert!(app.activate_reload_delta_target(target.clone()));
+        assert!(!app.reload_delta_open);
+        assert_eq!(app.current_focus_target(), Some(target));
+        assert_eq!(app.return_trail.len(), 1);
+
+        app.open_reload_delta();
+        let before_focus = app.current_focus_target();
+        let before_trail = app.return_trail.clone();
+        assert!(
+            !app.activate_reload_delta_target(FeedbackFocusTarget::File {
+                lens: Lens::Assets,
+                path: "Data/Meshes/stale.b3d".to_owned(),
+            })
+        );
+        assert!(app.reload_delta_open);
+        assert_eq!(app.current_focus_target(), before_focus);
+        assert_eq!(app.return_trail, before_trail);
+    }
+
+    #[test]
+    fn find_and_observations_preempt_reload_delta_and_alt_left_does_not_consume_return() {
+        let fixture = ReloadFixture::new("reload-delta-overlay-priority");
+        let project = fixture.project();
+        let actor_id = project.actor_catalog().actors[0].actor_id;
+        let mut app = LedgerApp::shell(fixture.root().to_path_buf());
+        app.last_reload_delta =
+            FeedbackAcceptedSnapshotDelta::between_same_root(&project, &project);
+        app.project = Some(project);
+        app.return_trail
+            .push(FeedbackFocusTarget::Actor { actor_id });
+
+        app.open_reload_delta();
+        assert!(app.reload_delta_open);
+        app.open_observations();
+        assert!(app.observations_open);
+        assert!(!app.reload_delta_open);
+
+        app.open_reload_delta();
+        app.open_find_palette();
+        assert!(app.palette_open);
+        assert!(!app.reload_delta_open);
+
+        app.palette_open = false;
+        app.open_reload_delta();
+        let before = app.return_trail.clone();
+        let context = Context::default();
+        let input = RawInput {
+            events: vec![Event::Key {
+                key: Key::ArrowLeft,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers: Modifiers::ALT,
+            }],
+            ..Default::default()
+        };
+        let _ = context.run(input, |context| app.return_shortcut(context));
+        assert_eq!(app.return_trail, before);
+        assert!(app.reload_delta_open);
+    }
+
+    #[test]
+    fn escape_closes_the_reload_delta_overlay() {
+        let fixture = ReloadFixture::new("reload-delta-escape");
+        let project = fixture.project();
+        let mut app = LedgerApp::shell(fixture.root().to_path_buf());
+        app.last_reload_delta =
+            FeedbackAcceptedSnapshotDelta::between_same_root(&project, &project);
+        app.project = Some(project);
+        app.open_reload_delta();
+
+        let context = Context::default();
+        let input = RawInput {
+            events: vec![Event::Key {
+                key: Key::Escape,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers: Modifiers::NONE,
+            }],
+            ..Default::default()
+        };
+        let _ = context.run(input, |context| app.reload_delta_panel(context));
+        assert!(!app.reload_delta_open);
+    }
+
+    #[test]
+    fn minimum_height_rail_keeps_reload_delta_action_above_the_disclosure() {
+        let delta = FeedbackAcceptedSnapshotDelta {
+            prior_files: 1_201,
+            current_files: 1_201,
+            newly_accepted: 0,
+            no_longer_accepted: 0,
+            content_fingerprint_changed: 0,
+            entries: Vec::new(),
+        };
+        let context = Context::default();
+        super::configure_style(&context);
+        let mut delta_rect = Rect::NOTHING;
+        let mut disclosure_rect = Rect::NOTHING;
+        let input = RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(205.0, 485.0))),
+            ..Default::default()
+        };
+        let _ = context.run(input, |context| {
+            CentralPanel::default()
+                .frame(Frame::none().inner_margin(Margin::same(14.0)))
+                .show(context, |ui| {
+                    ui.label(RichText::new("PROJECT LENSES").size(11.0));
+                    ui.add_space(5.0);
+                    let rail_item_spacing_y = ui.spacing().item_spacing.y;
+                    ui.spacing_mut().item_spacing.y = super::RAIL_LENS_ITEM_SPACING_Y;
+                    for lens in Lens::ALL {
+                        let _ = ui.add_sized(
+                            [177.0, 48.0],
+                            SelectableLabel::new(false, format!("{}\n1201 observed", lens.label())),
+                        );
+                    }
+                    ui.spacing_mut().item_spacing.y = rail_item_spacing_y;
+                    ui.add_space(10.0);
+                    ui.separator();
+                    let _ = ui.add_sized(
+                        [177.0, 50.0],
+                        Button::new("KNOWN OBSERVATIONS\n2 in current coverage"),
+                    );
+                    ui.add_space(6.0);
+                    delta_rect = reload_delta_action(ui, Some(&delta)).rect;
+                    ui.with_layout(Layout::bottom_up(Align::LEFT), |ui| {
+                        disclosure_rect = ui
+                            .label(
+                                RichText::new(
+                                    "Feedback build 0.12\nNo save or mutation commands exist",
+                                )
+                                .size(11.0)
+                                .color(MUTED),
+                            )
+                            .rect;
+                    });
+                });
+        });
+
+        assert!(
+            delta_rect.bottom() <= disclosure_rect.top(),
+            "reload delta action {delta_rect:?} overlaps disclosure {disclosure_rect:?}"
+        );
+        assert!(delta_rect.right() <= 191.0);
+    }
+
+    #[test]
+    fn maximum_reload_delta_copy_keeps_the_virtualized_row_at_its_exact_height() {
+        let entry = FeedbackAcceptedFileDelta {
+            kind: FeedbackAcceptedFileDeltaKind::ContentFingerprintChanged,
+            path: format!("Data/{}", "x".repeat(4091)),
+            prior_size: Some(1),
+            current_size: Some(2),
+            prior_source_sha256: Some("0".repeat(64)),
+            current_source_sha256: Some("f".repeat(64)),
+            current_lens: Some(Lens::Records),
+        };
+        let context = Context::default();
+        let mut actual_height = 0.0;
+        let input = RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(900.0, 600.0))),
+            ..Default::default()
+        };
+        let _ = context.run(input, |context| {
+            CentralPanel::default().show(context, |ui| {
+                actual_height = super::reload_delta_row(ui, &entry).rect.height();
+            });
+        });
+        assert_eq!(actual_height, super::RELOAD_DELTA_ROW_HEIGHT);
     }
 
     #[test]

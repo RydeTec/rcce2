@@ -107,6 +107,23 @@ the prior accepted session visible and reports the failed refresh. Reload is
 explicit rather than automatic: this surface does not watch the filesystem,
 merge concurrent changes, repair data, or provide live synchronization.
 
+After a successful same-root Reload, `LAST RELOAD DELTA` compares the current
+accepted snapshot with the immediately prior accepted snapshot. It emits three
+disjoint evidence groups in deterministic raw-byte path order: Newly Accepted,
+No Longer Accepted, and Content Fingerprint Changed. Newly accepted does not
+mean created; no longer accepted does not mean deleted or intentionally
+removed; an old/new path pair never asserts rename; and a fingerprint change
+means only that the accepted source SHA-256 differs at the same exact path.
+Current-side rows revalidate and open the exact lens Files view through the
+bounded Return trail, while prior-only rows remain noninteractive. The panel
+retains only the latest successful comparison, distinguishes no comparison
+from an available empty comparison, survives failed or in-flight loads, and
+clears after successful Open. It is exhaustive only within the two accepted
+snapshots and their existing loader ceilings. It is not a watcher, project or
+filesystem history, VCS diff, attribution/audit log, semantic parser, health
+or synchronization verdict, conflict detector, repair path, undo, or write
+surface.
+
 On Windows, launch the latest feedback build from the repository root:
 
 ```powershell
@@ -141,8 +158,8 @@ The observed toolchain was `rustc 1.85.0 (4d91de4e4 2025-02-17)` and
 
 | Crate | Reserved responsibility at later packets | Current behavior |
 |---|---|---|
-| `rcce-editor` | Desktop composition; the only production crate allowed to acquire a GUI framework | Replaceable feedback-MVP host with five read-only lenses, safe atomic snapshot reload, exact cross-lens routing, an evidence-labeled observations navigator, a provisional find-anywhere palette, and a bounded session-local return action |
-| `rcce-editor-core` | GUI-independent session, query, selection, and diagnostic orchestration | Real inventory and semantic projections plus immutable deterministic observation/search indexes and bounded raw-focus return-trail state, with no write authority |
+| `rcce-editor` | Desktop composition; the only production crate allowed to acquire a GUI framework | Replaceable feedback-MVP host with five read-only lenses, safe atomic snapshot reload, a one-generation accepted-snapshot delta, exact cross-lens routing, an evidence-labeled observations navigator, a provisional find-anywhere palette, and a bounded session-local return action |
+| `rcce-editor-core` | GUI-independent session, query, selection, and diagnostic orchestration | Real inventory and semantic projections plus immutable deterministic reload-delta/observation/search indexes and bounded raw-focus return-trail state, with no write authority |
 | `rcce-project` | Root-confined project model, inventory, identity, and legacy document interpretation | Explicit read-only `ProjectRoot`, validated `ProjectRelativePath`, bounded read/walk, and truthful assurance reporting |
 | `rcce-validation` | Pure diagnostics over project evidence | Empty library boundary |
 | `rcce-storage` | Format-agnostic command storage after write-capable milestones authorize it | Empty library boundary; no persistence API |

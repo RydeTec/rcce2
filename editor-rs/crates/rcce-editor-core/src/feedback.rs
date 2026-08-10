@@ -154,6 +154,156 @@ pub struct FeedbackEntry {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FeedbackAcceptedFileDeltaKind {
+    NewlyAccepted,
+    NoLongerAccepted,
+    ContentFingerprintChanged,
+}
+
+impl FeedbackAcceptedFileDeltaKind {
+    pub const ALL: [Self; 3] = [
+        Self::NewlyAccepted,
+        Self::NoLongerAccepted,
+        Self::ContentFingerprintChanged,
+    ];
+
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::NewlyAccepted => "NEWLY ACCEPTED",
+            Self::NoLongerAccepted => "NO LONGER ACCEPTED",
+            Self::ContentFingerprintChanged => "CONTENT FINGERPRINT CHANGED",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FeedbackAcceptedFileDelta {
+    pub kind: FeedbackAcceptedFileDeltaKind,
+    pub path: String,
+    pub prior_size: Option<u64>,
+    pub current_size: Option<u64>,
+    pub prior_source_sha256: Option<String>,
+    pub current_source_sha256: Option<String>,
+    pub current_lens: Option<Lens>,
+}
+
+impl FeedbackAcceptedFileDelta {
+    #[must_use]
+    pub fn current_target(&self) -> Option<FeedbackFindTarget> {
+        self.current_lens.map(|lens| FeedbackFindTarget::File {
+            lens,
+            path: self.path.clone(),
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FeedbackAcceptedSnapshotDelta {
+    pub prior_files: usize,
+    pub current_files: usize,
+    pub newly_accepted: usize,
+    pub no_longer_accepted: usize,
+    pub content_fingerprint_changed: usize,
+    pub entries: Vec<FeedbackAcceptedFileDelta>,
+}
+
+impl FeedbackAcceptedSnapshotDelta {
+    #[must_use]
+    pub fn between_same_root(prior: &FeedbackProject, current: &FeedbackProject) -> Option<Self> {
+        if prior.data_root != current.data_root {
+            return None;
+        }
+
+        let prior_by_path = accepted_entries_by_path(prior);
+        let current_by_path = accepted_entries_by_path(current);
+        let mut newly_accepted = Vec::new();
+        let mut no_longer_accepted = Vec::new();
+        let mut fingerprint_changed = Vec::new();
+
+        for (path, (lens, entry)) in &current_by_path {
+            match prior_by_path.get(path) {
+                None => newly_accepted.push(FeedbackAcceptedFileDelta {
+                    kind: FeedbackAcceptedFileDeltaKind::NewlyAccepted,
+                    path: (*path).to_owned(),
+                    prior_size: None,
+                    current_size: Some(entry.size),
+                    prior_source_sha256: None,
+                    current_source_sha256: Some(entry.source_sha256.clone()),
+                    current_lens: Some(*lens),
+                }),
+                Some((_, prior_entry)) if prior_entry.source_sha256 != entry.source_sha256 => {
+                    fingerprint_changed.push(FeedbackAcceptedFileDelta {
+                        kind: FeedbackAcceptedFileDeltaKind::ContentFingerprintChanged,
+                        path: (*path).to_owned(),
+                        prior_size: Some(prior_entry.size),
+                        current_size: Some(entry.size),
+                        prior_source_sha256: Some(prior_entry.source_sha256.clone()),
+                        current_source_sha256: Some(entry.source_sha256.clone()),
+                        current_lens: Some(*lens),
+                    });
+                }
+                Some(_) => {}
+            }
+        }
+
+        for (path, (_, entry)) in &prior_by_path {
+            if !current_by_path.contains_key(path) {
+                no_longer_accepted.push(FeedbackAcceptedFileDelta {
+                    kind: FeedbackAcceptedFileDeltaKind::NoLongerAccepted,
+                    path: (*path).to_owned(),
+                    prior_size: Some(entry.size),
+                    current_size: None,
+                    prior_source_sha256: Some(entry.source_sha256.clone()),
+                    current_source_sha256: None,
+                    current_lens: None,
+                });
+            }
+        }
+
+        let newly_accepted_count = newly_accepted.len();
+        let no_longer_accepted_count = no_longer_accepted.len();
+        let content_fingerprint_changed_count = fingerprint_changed.len();
+        let mut entries = newly_accepted;
+        entries.extend(no_longer_accepted);
+        entries.extend(fingerprint_changed);
+        Some(Self {
+            prior_files: prior.total_files(),
+            current_files: current.total_files(),
+            newly_accepted: newly_accepted_count,
+            no_longer_accepted: no_longer_accepted_count,
+            content_fingerprint_changed: content_fingerprint_changed_count,
+            entries,
+        })
+    }
+
+    #[must_use]
+    pub fn count(&self, kind: FeedbackAcceptedFileDeltaKind) -> usize {
+        match kind {
+            FeedbackAcceptedFileDeltaKind::NewlyAccepted => self.newly_accepted,
+            FeedbackAcceptedFileDeltaKind::NoLongerAccepted => self.no_longer_accepted,
+            FeedbackAcceptedFileDeltaKind::ContentFingerprintChanged => {
+                self.content_fingerprint_changed
+            }
+        }
+    }
+
+    #[must_use]
+    pub fn range(&self, kind: Option<FeedbackAcceptedFileDeltaKind>) -> std::ops::Range<usize> {
+        match kind {
+            None => 0..self.entries.len(),
+            Some(FeedbackAcceptedFileDeltaKind::NewlyAccepted) => 0..self.newly_accepted,
+            Some(FeedbackAcceptedFileDeltaKind::NoLongerAccepted) => {
+                self.newly_accepted..self.newly_accepted + self.no_longer_accepted
+            }
+            Some(FeedbackAcceptedFileDeltaKind::ContentFingerprintChanged) => {
+                self.newly_accepted + self.no_longer_accepted..self.entries.len()
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FeedbackVaultFacet {
     All,
     Secret,
@@ -1109,6 +1259,16 @@ impl FeedbackProject {
             .iter()
             .any(|candidate| candidate.result.target == *target)
     }
+}
+
+fn accepted_entries_by_path(project: &FeedbackProject) -> BTreeMap<&str, (Lens, &FeedbackEntry)> {
+    let mut by_path = BTreeMap::new();
+    for lens in Lens::ALL {
+        for entry in project.entries(lens) {
+            by_path.insert(entry.path.as_str(), (lens, entry));
+        }
+    }
+    by_path
 }
 
 fn search_find_candidates(

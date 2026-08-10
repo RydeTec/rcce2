@@ -67,6 +67,18 @@ impl ReloadFixture {
         )
         .expect("external fixture repair");
     }
+
+    pub(crate) fn write_external_file(&self, relative: &str, bytes: &[u8]) {
+        let path = self.root.join(relative);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).expect("external fixture parent");
+        }
+        fs::write(path, bytes).expect("external fixture write");
+    }
+
+    pub(crate) fn remove_external_file(&self, relative: &str) {
+        fs::remove_file(self.root.join(relative)).expect("external fixture removal");
+    }
 }
 
 impl Drop for ReloadFixture {
