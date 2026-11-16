@@ -224,7 +224,7 @@ A bundled copy of Freemake (in [`extras/`](extras)) bulk-converts audio files to
 <details>
 <summary><b>Custom executable icons</b></summary>
 
-Use [Resource Hacker](https://www.angusj.com/resourcehacker/) to swap the BlitzForge default icon on your shipped game executable.
+Use [Resource Hacker](https://www.angusj.com/resourcehacker/) or [Resource Cracker](https://www.pelock.com/products/resource-cracker) to swap the BlitzForge default icon on your shipped game executable.
 </details>
 
 ## Acknowledgments
